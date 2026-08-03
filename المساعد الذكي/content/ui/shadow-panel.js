@@ -13,16 +13,7 @@
   let isOpen = false;
   let isPortal = false;
 
-  function bg(action, extra = {}) {
-    return new Promise(resolve => {
-      try {
-        chrome.runtime.sendMessage({ action, ...extra }, (res) => {
-          if (chrome.runtime.lastError) { resolve(null); return; }
-          resolve(res);
-        });
-      } catch(e) { resolve(null); }
-    });
-  }
+  // bg() من shared/storage-proxy.js
 
   async function injectCartItems(items) {
     const res = await bg('injectCart', { items });

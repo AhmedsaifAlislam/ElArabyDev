@@ -1,17 +1,7 @@
 // dashboard.js — مساعد قطع الغيار العربي v2.1
 
 // ── Helpers ─────────────────────────────────────────────────
-
-function bg(action, extra = {}) {
-  return new Promise(resolve => {
-    try {
-      chrome.runtime.sendMessage({ action, ...extra }, (res) => {
-        if (chrome.runtime.lastError) { resolve(null); return; }
-        resolve(res);
-      });
-    } catch(e) { resolve(null); }
-  });
-}
+// bg() و logEvent() من shared/storage-proxy.js و shared/smart-log.js
 
 function showAlert(id, msg, type = 'info') {
   const el = document.getElementById(id);
@@ -746,10 +736,6 @@ function exportToExcel(rows, filename) {
 // ── Smart Log ─────────────────────────────────────────────────
 
 const LOG_ICONS = { search: '\uD83D\uDD0D', import: '\uD83D\uDCC2', scrape_inventory: '\uD83D\uDCE5', cart_add: '\uD83D\uDED2', cart_remove: '\uD83D\uDDD1\uFE0F', inject: '\uD83D\uDC89', clear_db: '\uD83D\uDDF1\uFE0F' };
-
-async function logEvent(action, details = {}) {
-  try { await chrome.runtime.sendMessage({ action: 'LOG_EVENT', actionType: action, details }); } catch (e) {}
-}
 
 async function loadLog() {
   const filter = document.getElementById('logFilter')?.value || '';

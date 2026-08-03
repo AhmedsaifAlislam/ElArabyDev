@@ -1,49 +1,72 @@
 /**
- * smart-log.js — سجل العمليات المشترك
+ * smart-log.js — سجل العمليات المشترك الموحد
  * Shared across all El Araby extensions
- * 
- * يسجل كل العمليات (بحث، استيراد، حقن، إلخ)
- * يعمل عبر background.js (Edge Tracking Prevention)
+ *
+ * يعمل في: content scripts، popup، dashboard، background (service worker)
+ * التخزين عبر storage-proxy (messages) إن وُجد، وإلا chrome.storage مباشرة (SW/صفحات الإضافة)
+ * يوفّر:
+ *   - واجهة عامة: logEvent, getLog, clearLog, exportLog
+ *   - SmartLog (addEntry, getEntries, clearAll) — لقطع الغيار
  */
 
-(async function() {
+(function(global) {
   'use strict';
 
   // منع التحميل المزدوج
-  if (window.__elarabySmartLogLoaded) return;
-  window.__elarabySmartLogLoaded = true;
+  if (global.__elarabySmartLogLoaded) return;
+  global.__elarabySmartLogLoaded = true;
 
   const MAX_LOG_ENTRIES = 500;
 
-  /**
-   * تسجيل عملية في السجل
-   * @param {string} type - نوع العملية (search, import, inject, cart_add, cart_remove, clear)
-   * @param {Object} details - تفاصيل العملية
-   */
-  window.logEvent = async function(type, details = {}) {
-    const entry = {
+  // ── طبقة التخزين: storage-proxy (content) أو chrome.storage مباشرة (SW/صفحات) ──
+  async function readLog() {
+    if (typeof global.storageGet === 'function') {
+      const data = await global.storageGet(['smartLog']);
+      return data.smartLog || [];
+    }
+    if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
+      return await new Promise((resolve) => {
+        chrome.storage.local.get({ smartLog: [] }, (data) => resolve(data.smartLog || []));
+      });
+    }
+    return [];
+  }
+
+  async function writeLog(log) {
+    if (typeof global.storageSet === 'function') {
+      await global.storageSet({ smartLog: log });
+      return;
+    }
+    if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
+      await new Promise((resolve) => chrome.storage.local.set({ smartLog: log }, resolve));
+    }
+  }
+
+  function makeEntry(type, details) {
+    return {
       type,
+      action: type,
       details,
       timestamp: new Date().toISOString(),
-      url: window.location.href
+      url: (typeof location !== 'undefined' && location.href) ? location.href : ''
     };
+  }
+
+  /**
+   * تسجيل عملية في السجل
+   * @param {string} type - نوع العملية (search, import, inject, cart_add, cart_remove, clear, ...)
+   * @param {Object} details - تفاصيل العملية
+   */
+  global.logEvent = async function(type, details = {}) {
+    const entry = makeEntry(type, details);
 
     try {
-      // استرجاع السجل الحالي
-      const data = await storageGet(['smartLog']);
-      const log = data.smartLog || [];
-      
-      // إضافة العملية الجديدة
+      const log = await readLog();
       log.unshift(entry);
-      
-      // الحد الأقصى للسجلات
       if (log.length > MAX_LOG_ENTRIES) {
         log.length = MAX_LOG_ENTRIES;
       }
-      
-      // حفظ السجل
-      await storageSet({ smartLog: log });
-      
+      await writeLog(log);
       console.log(`[SmartLog] ${type}:`, details);
     } catch (error) {
       console.warn('[SmartLog] Error logging event:', error);
@@ -57,18 +80,17 @@
    * @param {string} options.search - نص البحث
    * @returns {Promise<Array>} السجلات
    */
-  window.getLog = async function(options = {}) {
+  global.getLog = async function(options = {}) {
     const { filter = 'all', search = '' } = options;
-    
+
     try {
-      const data = await storageGet(['smartLog']);
-      let log = data.smartLog || [];
-      
+      let log = await readLog();
+
       // التصفية حسب النوع
       if (filter !== 'all') {
         log = log.filter(entry => entry.type === filter);
       }
-      
+
       // التصفية حسب النص
       if (search) {
         const searchLower = search.toLowerCase();
@@ -77,7 +99,7 @@
           return detailsStr.includes(searchLower);
         });
       }
-      
+
       return log;
     } catch (error) {
       console.warn('[SmartLog] Error getting log:', error);
@@ -88,9 +110,9 @@
   /**
    * مسح السجل بالكامل
    */
-  window.clearLog = async function() {
+  global.clearLog = async function() {
     try {
-      await storageSet({ smartLog: [] });
+      await writeLog([]);
       console.log('[SmartLog] Log cleared');
     } catch (error) {
       console.warn('[SmartLog] Error clearing log:', error);
@@ -98,11 +120,12 @@
   };
 
   /**
-   * تصدير السجل كملف JSON
+   * تصدير السجل كملف JSON (صفحات فقط)
    */
-  window.exportLog = async function() {
+  global.exportLog = async function() {
     try {
-      const log = await window.getLog({ filter: 'all' });
+      const log = await global.getLog({ filter: 'all' });
+      if (typeof document === 'undefined') return;
       const blob = new Blob([JSON.stringify(log, null, 2)], { type: 'application/json' });
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
@@ -115,6 +138,20 @@
     }
   };
 
-  console.log('[SmartLog] ✅ تم تحميل السجل بنجاح');
+  // ── SmartLog — واجهة قطع الغيار (background + dashboard) ──
+  global.SmartLog = {
+    addEntry: async function(actionType, details = {}) {
+      await global.logEvent(actionType, details);
+    },
+    getEntries: async function(limit = 500) {
+      const log = await global.getLog({ filter: 'all' });
+      return log.slice(0, limit);
+    },
+    clearAll: async function() {
+      await global.clearLog();
+    }
+  };
 
-})();
+  console.log('[SmartLog] تم تحميل السجل بنجاح');
+
+})(typeof globalThis !== 'undefined' ? globalThis : window);

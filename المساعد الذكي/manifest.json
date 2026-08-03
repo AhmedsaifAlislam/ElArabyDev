@@ -28,6 +28,9 @@
     {
       "matches": ["https://elarabyportalpfs.powerappsportals.com/*"],
       "js": [
+        "shared/storage-proxy.js",
+        "shared/smart-log.js",
+        "shared/portal-selectors.js",
         "shared/arabic-utils.js",
         "shared/data-mapper.js",
         "content/scanner.js",
@@ -42,7 +45,7 @@
       "exclude_matches": [
         "https://elarabyportalpfs.powerappsportals.com/*"
       ],
-      "js": ["content/ui/shadow-panel.js"],
+      "js": ["shared/storage-proxy.js", "shared/smart-log.js", "content/ui/shadow-panel.js"],
       "run_at": "document_idle"
     }
   ],

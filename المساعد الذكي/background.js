@@ -556,6 +556,21 @@ async function scrapeInventoryFromPortal() {
 
 chrome.runtime.onMessage.addListener((msg, sender, respond) => {
   const handle = async () => {
+
+    // Storage proxy — Edge Tracking Prevention blocks chrome.storage.local from content scripts
+    if (msg.type === 'STORAGE_GET') {
+      const data = await chrome.storage.local.get(msg.keys || {});
+      return { ok: true, data };
+    }
+    if (msg.type === 'STORAGE_SET') {
+      await chrome.storage.local.set(msg.data || {});
+      return { ok: true };
+    }
+    if (msg.type === 'STORAGE_REMOVE') {
+      await chrome.storage.local.remove(msg.keys || []);
+      return { ok: true };
+    }
+
     switch (msg.action) {
 
       case 'openDashboard':
