@@ -40,14 +40,11 @@
   let scriptsRegistry = { ...BUILTIN_SCRIPTS };
   let customScripts = [];
 
-  // ── Storage ──
+  // ── Storage (via shared/storage-proxy.js → background) ──
   async function loadRegistry() {
     try {
-      const stored = await chrome.storage.local.get({
-        tampermonkeyScripts: {},
-        tampermonkeyCustomScripts: [],
-      });
-      scriptsRegistry = { ...BUILTIN_SCRIPTS, ...stored.tampermonkeyScripts };
+      const stored = await storageGet(['tampermonkeyScripts', 'tampermonkeyCustomScripts']);
+      scriptsRegistry = { ...BUILTIN_SCRIPTS, ...(stored.tampermonkeyScripts || {}) };
       customScripts = stored.tampermonkeyCustomScripts || [];
     } catch (e) {
       scriptsRegistry = { ...BUILTIN_SCRIPTS };
@@ -57,7 +54,7 @@
 
   async function saveRegistry() {
     try {
-      await chrome.storage.local.set({
+      await storageSet({
         tampermonkeyScripts: scriptsRegistry,
         tampermonkeyCustomScripts: customScripts,
       });

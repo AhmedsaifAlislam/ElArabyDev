@@ -55,24 +55,7 @@
   let reportFetchQueue = [];
   let reportFetchResults = [];
 
-  // ── Storage (routed through background.js to bypass Edge Tracking Prevention) ──
-  async function storageGet(keys) {
-    try {
-      const resp = await chrome.runtime.sendMessage({ type: 'STORAGE_GET', keys });
-      return resp?.ok ? resp.data : {};
-    } catch (e) {
-      console.warn('[OrderExtractor] Storage GET failed:', e.message);
-      return {};
-    }
-  }
-
-  async function storageSet(data) {
-    try {
-      await chrome.runtime.sendMessage({ type: 'STORAGE_SET', data });
-    } catch (e) {
-      console.warn('[OrderExtractor] Storage SET failed:', e.message);
-    }
-  }
+  // ── Storage (shared/storage-proxy.js provides window.storageGet/Set) ──
 
   // ── Customer Area API ──
   let customerAreaCache = new Map();

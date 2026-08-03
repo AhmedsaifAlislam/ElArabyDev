@@ -8,23 +8,7 @@ const LOG_PREFIX = '[AutoFiller v3.0]';
 const PORTAL_BASE = 'https://elarabyportalpfs.powerappsportals.com';
 const ORDERS_URL  = PORTAL_BASE + '/en-US/Orders/';
 
-// ── Storage proxy (Edge Tracking Prevention bypass) ──
-async function storageGet(keys) {
-  try {
-    const resp = await chrome.runtime.sendMessage({ type: 'STORAGE_GET', keys });
-    return resp?.data || {};
-  } catch(e) { return {}; }
-}
-async function storageSet(data) {
-  try {
-    await chrome.runtime.sendMessage({ type: 'STORAGE_SET', data });
-  } catch(e) {}
-}
-async function storageRemove(keys) {
-  try {
-    await chrome.runtime.sendMessage({ type: 'STORAGE_REMOVE', keys });
-  } catch(e) {}
-}
+// ── Storage (shared/storage-proxy.js provides window.storageGet/Set/Remove) ──
 
 function sendSmartLog(eventType, details) {
   chrome.runtime.sendMessage({ type: 'SMART_LOG_EVENT', event: { pageVisitId: null, url: location.href, pageType: getPageType(), timestamp: Date.now(), eventType, isAutomated: document.body?.dataset?.isAutofilling === 'true', ...details } }).catch(()=>{});
@@ -91,11 +75,18 @@ let CFG = null;
 let _routerRunning = false; // Mutex: prevents parallel execution
 async function loadSelectors() {
   if (CFG) return CFG;
+  // Base from shared library (master-portal/shared/portal-selectors.js)
+  const sharedBase = (typeof window.PORTAL_SELECTORS?.POWERAPPS?.fields === 'object')
+    ? { ...window.PORTAL_SELECTORS.POWERAPPS.fields }
+    : {};
   try {
     const lsVal = localStorage.getItem('autofiller_selectors');
-    if (lsVal) { CFG = JSON.parse(lsVal); return CFG; }
+    if (lsVal) { CFG = { ...sharedBase, ...JSON.parse(lsVal) }; return CFG; }
   } catch (_) {}
-  try { CFG = await (await fetch(chrome.runtime.getURL('selectors.json'))).json(); } catch(e) { CFG = getHardcodedDefaults(); }
+  try {
+    const fetched = await (await fetch(chrome.runtime.getURL('selectors.json'))).json();
+    CFG = { ...sharedBase, ...fetched };
+  } catch(e) { CFG = { ...sharedBase, ...getHardcodedDefaults() }; }
   return CFG;
 }
 

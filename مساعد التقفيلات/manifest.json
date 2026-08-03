@@ -61,7 +61,14 @@
     },
     {
       "matches": ["https://elarabyportalpfs.powerappsportals.com/*"],
-      "js": ["content-script.js"],
+      "js": [
+        "shared/storage-proxy.js",
+        "shared/smart-log.js",
+        "shared/arabic-utils.js",
+        "shared/data-mapper.js",
+        "shared/portal-selectors.js",
+        "content-script.js"
+      ],
       "run_at": "document_idle"
     },
     {
@@ -85,7 +92,7 @@
         "https://*.facebook.com/*",
         "https://*.messenger.com/*"
       ],
-      "js": ["tampermonkey-runner.js"],
+      "js": ["shared/storage-proxy.js", "tampermonkey-runner.js"],
       "run_at": "document_idle"
     }
   ],
