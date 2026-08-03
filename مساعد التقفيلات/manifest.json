@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
-  "name": "Portal AutoFiller — مساعد التقفيلات",
-  "version": "1.0.0",
+  "name": "Portal AutoFiller — مساعد التقفيلات (Dev)",
+  "version": "1.1.0",
   "description": "ملء تلقائي لحقول Work Order Review في بوابة El Araby Partner Portal مع دعم Batch وتقارير مخزنة",
   "permissions": ["activeTab", "scripting", "storage", "notifications", "tabs", "clipboardRead"],
   "host_permissions": [
