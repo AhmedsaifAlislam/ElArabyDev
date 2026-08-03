@@ -259,6 +259,7 @@
     bg('LOG_EVENT', { actionType: 'cart_remove', details: { count, action: 'clear_all' } }).catch(() => {});
   }
   function cartRender() {
+    if (!shadowRoot) return;
     const section = shadowRoot.getElementById('cartSection');
     const itemsEl = shadowRoot.getElementById('cartItems');
     const statusEl = shadowRoot.getElementById('cartStatus');
