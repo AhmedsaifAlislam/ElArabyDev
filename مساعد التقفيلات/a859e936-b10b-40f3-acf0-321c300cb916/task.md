@@ -1,0 +1,7 @@
+- [x] Create secondVisitProfiles.json
+- [x] Add tab to popup.html for Second Visit Mode
+- [x] Implement Second Visit queue in popup.js
+- [x] Add START_SECOND_VISIT_QUEUE in content-script.js
+- [x] Update routing logic to inject fake data on Page 1
+- [x] Force Page 2 transition even if Page 1 is filled
+- [x] Support subFault matching for Page 3

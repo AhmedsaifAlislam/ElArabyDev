@@ -1,0 +1,61 @@
+# Video Analysis Report - Work Order Process
+
+## General Context
+- **Page Title:** متابعة أمر الشغل (Work Order Follow-up)
+- **Language:** Arabic
+
+## Page 2: Problems and Technicians
+### 1. Adding Actual Problems
+- **Button:** `اضافة المشاكل الفعلية المستخدمة`
+- **Modal Title:** `إضافة المشاكل الفعلية المستخدمة`
+- **Fields:**
+    - `نوع المنتج *`: Dropdown.
+    - `المشاكل الفعلية المستخدمة *`: Lookup field with a magnifying glass icon.
+- **Lookup Sub-modal ("اختر قيمة"):**
+    - Contains a search input field.
+    - Results table headers: `Select`, `Problem`.
+    - Example values: `A031 - (تزييت خفيف)`, `A032 - (تزييت ثقيل)`.
+- **Modal Buttons:** `حفظ` (Save), `إلغاء` (Cancel).
+
+### 2. Adding Technician
+- **Button:** `اضافة فنى`
+- **Modal Title:** `إضافة فنى`
+- **Fields:**
+    - `فنى *`: Lookup field with a magnifying glass icon.
+- **Lookup Sub-modal ("اختر قيمة"):**
+    - Results table headers: `Select`, `Full Name`, `ID Number`, `Mobile Phone`.
+- **Modal Buttons:** `حفظ`, `إلغاء`.
+
+### 3. Other Page 2 Details
+- **Dropdown:** `حالة قطع الغيار *`
+    - Options: `مستعمل`, `منتظر`, `بدون قطع غيار`, `سحب`, `استبدال`.
+- **Checkbox:** `احصل على الموقع`
+- **Navigation:** `التالي` (Next) button at the bottom.
+
+## Page 3: Fault Codes (Drain Cleaning Flow)
+### 1. Adding Fault Code
+- **Button:** `اضافة كود عطل`
+- **Modal Title:** `إضافة كود عطل`
+- **Fields:**
+    - `الموديل الفعلي *`: Dropdown.
+    - `كود العطل الرئيسي *`: Lookup field.
+    - `كود العطل *`: Lookup field.
+- **Lookup Sub-modal for "كود العطل الرئيسي":**
+    - Example: `H0100 - (التبريد والحرارة ضعيفين)`.
+- **Lookup Sub-modal for "كود العطل":**
+    - Example: `308A - (تنبيه نظافة الفلتر)`.
+- **Modal Buttons:** `حفظ`, `إلغاء`.
+
+### 2. Fault Codes Grid
+- **Column Headers:** `كود العطل الرئيسي`, `كود العطل`, `وصف كود العطل`.
+
+### 3. Final Navigation
+- **Buttons:**
+    - `السابق` (Previous)
+    - `حفظ والإنهاء` (Save and Finish)
+
+## Observations
+- **Modal Load Time:** 1-2 seconds.
+- **Lookup Load Time:** 1-3 seconds.
+- **UI State:** Blue overlay and loading indicators ("جارى التحميل") appear during transitions.
+- **Portal Issue:** Encountered "Processing..." hang after clicking "التالي" on Page 1. This might be due to missing required fields or script errors.

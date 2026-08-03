@@ -1,0 +1,5 @@
+{
+  "name": "El Araby Spare Parts Management",
+  "description": "An integrated system for managing spare parts for El Araby Company. It allows for decentralized inventory management, advanced part search, inventory pricing, and Excel-based stock updates for different service centers and technicians.",
+  "requestFramePermissions": []
+}

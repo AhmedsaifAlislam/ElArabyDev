@@ -1,0 +1,192 @@
+# 🔍 مراجعة شاملة — مساعد التقفيلات v3.0 (مايو 2026)
+
+> [!IMPORTANT]
+> **قاعدة العمل الأساسية:** لا تعديل على الهيكل الأساسي. كل إصلاح هو تعديل جراحي دقيق في أسطر محددة فقط.
+
+---
+
+## ✅ أولاً: ما يجب الإبقاء عليه كما هو
+
+هذه القرارات المعمارية ممتازة ولا يجوز المساس بها:
+
+| المكوّن | السبب |
+|---|---|
+| **Mutex `_routerRunning`** | يمنع التنفيذ المزدوج بين processQueueOnLoad وRUN_SINGLE |
+| **نظام الطابور في `chrome.storage.local`** | مقاوم لإعادة تحميل الصفحة ولا يضيع مهام |
+| **خوارزمية المطابقة 3-مراحل** | Exact → Starts-with → Code-includes (الأفضل في سياق PowerApps) |
+| **`fillAndVerify` مع Retry** | يضمن عدم المتابعة إذا فشل حقل |
+| **`selectors.json` الخارجي** | مرونة عالية لتغييرات واجهة البوابة |
+| **`priorityPattern` + `excludePattern`** | ذكاء في اختيار أكواد المشاكل |
+
+---
+
+## ⚠️ ثانياً: النقاط الحرجة المكتشفة (8 مشاكل)
+
+### 🔴 [M1] الـ catch الصامت في processQueueOnLoad يقتل الـ Batch
+**الملف:** `content-script.js` السطر 1129
+
+```javascript
+// الكود الحالي — خطر!
+} catch (e) { err(e); }
+// لو حدث استثناء هنا، الطابور يتوقف للأبد بدون أي إشعار للمستخدم
+```
+
+**الخطر:** لو حدث خطأ برمجي غير متوقع في أي بلاغ، **الـ Batch يتجمد تماماً** بدون إشعار — المستخدم يظن أن الإضافة تعمل لكن لا شيء يحدث.
+
+---
+
+### 🔴 [M2] مشكلة Stale iframeDoc
+**الملف:** `content-script.js` السطر 416
+
+```javascript
+iframeDoc = iframe.contentDocument; // يُحفظ مرة واحدة
+// ثم ننتظر 3 ثوانٍ — وفي هذه الأثناء PowerApps قد يعيد تحميل الـ iframe
+await sleep(3000);
+// الكود يستخدم iframeDoc القديم ← كل القرارات بعدها تفشل بصمت
+```
+
+**الخطر:** يسبب فشل modal الفني أو المشكلة أحياناً بدون أي سبب واضح.
+
+---
+
+### 🔴 [M3] `getActivePageFeature` لا يتعرف على اضافة فنى بشكل صحيح
+**الملف:** `content-script.js` السطر 863
+
+```javascript
+el.innerText.trim() === 'اضافة فنى'  // مطابقة حرفية صارمة
+```
+
+**الخطر:** لو نص الزر كان `اضافة فني` (بياء) بدلاً من `اضافة فنى` (بألف مقصورة) — الصفحة 2 لا تُكتشف ويقفز المنطق للصفحة 1 مرة أخرى. هذا النفس الأمر سبّب مشاكل سابقة مع زر الفنيين.
+
+---
+
+### 🟡 [M4] `showOverlay` يحجب النقر اليدوي
+**الملف:** `content-script.js` دالة showOverlay
+
+الـ div العائم يبقى 7 ثوانٍ بدون `pointer-events: none` — يمنع المستخدم من الضغط على أزرار البوابة أسفله أثناء المراجعة اليدوية.
+
+---
+
+### 🟡 [M5] `extractOrderId` في popup.js تشترط البداية بـ CAS
+**الملف:** `popup.js` السطر 66
+
+```javascript
+const m = line.match(/^(CAS\d{10,}|WO-?\d+)/i);
+// رمز ^ يلغي التعرف إذا كان رقم البلاغ ليس في أول السطر
+```
+
+**الخطر:** لو سطر البيانات يبدأ بمسافة أو تاريخ، البلاغ يُتجاهل تماماً بصمت.
+
+---
+
+### 🟡 [M6] Sub-fault في Page 3 يبحث فقط عن `AC0`
+**الملف:** `content-script.js` السطر 810
+
+```javascript
+subRows = Array.from(...).filter(r => r.innerText.includes('AC0'));
+// لو كان كود العطل الفرعي ليس AC0XX (مثلاً GR01 أو WM05) — لا يجد شيئاً
+```
+
+**الخطر:** كل أجهزة الثلاجات والغسالات والبوتوجاز لا تحصل على كود العطل الفرعي أبداً.
+
+---
+
+### 🟢 [M7] تحسين: `isInstallationReport` تبحث في DOM أطول من اللازم
+**الملف:** `content-script.js` السطر 329
+
+الدالة تتكرر في `querySelectorAll('label, .field-label, th')` بشكل مزدوج مرتين في كل استدعاء. يمكن تخزين النتيجة في Cache مرة واحدة للـ Session.
+
+---
+
+### 🟢 [M8] `popup.js` يستخدم polling كل 800ms
+**الملف:** `popup.js` (setInterval)
+
+بدلاً من `chrome.storage.onChanged` — استهلاك غير ضروري. لكن **لا نعدله الآن** (تغيير كبير يمكن تأجيله).
+
+---
+
+## 🛠️ ثالثاً: خطة الإصلاحات الجراحية الآمنة
+
+### الأولوية العالية — يجب تنفيذها (M1, M2, M3)
+
+---
+
+#### [FIX-1] M1 — إنقاذ الـ Batch من الموت الصامت
+**السطر:** 1129 في `content-script.js`
+
+```diff
+-} catch (e) { err(e); }
++} catch (e) {
++  err('💥 Unexpected error in router: ' + e);
++  notifyStatus(currentTask?.taskId, 'error', '❌ خطأ غير متوقع — تخطي للتالي');
++  await clearCurrentTask();
++  const { taskQueue: qErr } = await chrome.storage.local.get({ taskQueue: [] });
++  if (qErr.length > 0) { await sleep(800); await startNextTask(qErr); }
++}
+```
+
+---
+
+#### [FIX-2] M2 — تحديث iframeDoc بعد الانتظار
+**السطر:** 427-429 في `handleSubgridIframeModal`
+
+```diff
+ if (lookupBtn && lookupBtn.offsetParent !== null) {
+   log('Waiting 3s for iframe events to bind...');
+   await sleep(3000);
++  // Re-read iframeDoc in case PowerApps reloaded the iframe during sleep
++  if (targetIframe && targetIframe.contentDocument) {
++    iframeDoc = targetIframe.contentDocument;
++    lookupBtn = iframeDoc.querySelector('button.launchentitylookup');
++  }
+```
+
+---
+
+#### [FIX-3] M3 — Regex بدلاً من مطابقة حرفية في getActivePageFeature
+**السطر:** 862-867 في `content-script.js`
+
+```diff
+-const hasTechBtn = Array.from(...).some(el => el.innerText.trim() === 'اضافة فنى' ...);
+-const hasProbBtn = Array.from(...).some(el => el.innerText.trim() === 'اضافة المشاكل الفعلية المستخدمة' ...);
++const hasTechBtn = Array.from(...).some(el => /اضاف[ةه]\s*فن/i.test(el.innerText.trim()) ...);
++const hasProbBtn = Array.from(...).some(el => /اضاف[ةه]\s*المشاكل\s*الفعلي[ةه]/i.test(el.innerText.trim()) ...);
+```
+
+---
+
+### الأولوية المتوسطة — مهمة (M4, M5, M6)
+
+---
+
+#### [FIX-4] M4 — إصلاح overlay
+تعديل سطر واحد في دالة `showOverlay` لإضافة `pointer-events: none`.
+
+#### [FIX-5] M5 — إصلاح extractOrderId
+إزالة رمز `^` من الـ Regex في `popup.js`.
+
+#### [FIX-6] M6 — تعميم فلتر Sub-fault
+استبدال `.includes('AC0')` بـ `.includes(cleanCode)` ليناسب كل أنواع الأجهزة.
+
+---
+
+## 📋 ملخص الخطة
+
+| الإصلاح | الملف | الخطورة | الأسطر المتأثرة |
+|---|---|---|---|
+| FIX-1: Batch لا يتجمد عند خطأ | content-script.js | 🔴 عالية | 1129 |
+| FIX-2: تحديث iframeDoc بعد sleep | content-script.js | 🔴 عالية | 427-430 |
+| FIX-3: Regex لاكتشاف Page 2 | content-script.js | 🔴 عالية | 862-867 |
+| FIX-4: pointer-events للـ overlay | content-script.js | 🟡 متوسطة | showOverlay |
+| FIX-5: extractOrderId بدون `^` | popup.js | 🟡 متوسطة | 66 |
+| FIX-6: sub-fault لكل الأجهزة | content-script.js | 🟡 متوسطة | 810 |
+
+> [!NOTE]
+> إصلاحات M7 وM8 مؤجلة — لا تأثير على الاستقرار الحالي وتعديلها كبير نسبياً.
+
+---
+
+> [!WARNING]
+> **تعليمات التنفيذ:** كل إصلاح يُطبق على حدة بـ `replace_file_content` صغير. لا دمج إصلاحين في استدعاء واحد لتجنب تكرار أخطاء التعديل السابقة.
+
+هل توافق على تنفيذ الإصلاحات الستة؟

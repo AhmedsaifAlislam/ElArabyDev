@@ -1,0 +1,11 @@
+# Task: Portal AutoFiller Extension
+
+- [x] manifest.json (MV3)
+- [ ] styles/popup.css (dark mode RTL)
+- [ ] popup.html
+- [ ] popup.js (single + batch + stop + reports)
+- [ ] content-script.js (parse, fill, lookup, dropdown, next, report)
+- [ ] background.js (storage service worker)
+- [ ] selectors.json
+- [ ] icons/icon16.png, icon48.png, icon128.png
+- [ ] README.md

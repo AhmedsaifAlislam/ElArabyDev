@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>العربي CRM - داشبورد الحسابات</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="header">
+    <div class="header-title">📊 داشبورد الحسابات</div>
+    <div class="header-sub">العربي للصناعات والتوريدات</div>
+  </div>
+
+  <div class="tabs">
+    <button class="tab active" data-tab="overview">نظرة عامة</button>
+    <button class="tab" data-tab="analysis">التحليل</button>
+    <button class="tab" data-tab="transfers">التحويلات</button>
+    <button class="tab" data-tab="damaged">التالف</button>
+    <button class="tab" data-tab="parts">القطع</button>
+    <button class="tab" data-tab="alerts">تنبيهات</button>
+  </div>
+
+  <div class="tab-content active" id="tab-overview">
+    <div id="connection-status" class="status-loading">
+      <span class="spinner"></span> جاري الاتصال...
+    </div>
+
+    <div class="section">
+      <h3>معلومات الصفحة</h3>
+      <div class="info-grid">
+        <div class="info-row"><span>النوع:</span><span id="info-page-type">-</span></div>
+        <div class="info-row"><span>الحساب:</span><span id="info-account">-</span></div>
+        <div class="info-row"><span>الاسم:</span><span id="info-name">-</span></div>
+        <div class="info-row"><span>الجدول:</span><span id="info-tables">-</span></div>
+      </div>
+    </div>
+
+    <div class="section">
+      <h3>إجراءات</h3>
+      <button class="btn btn-primary" id="btn-refresh">🔄 تحديث البيانات</button>
+      <button class="btn btn-ai" id="btn-analyze">🔍 تحليل البيانات</button>
+    </div>
+  </div>
+
+  <div class="tab-content" id="tab-analysis">
+    <div class="section">
+      <h3>📊 ملخص الحساب</h3>
+      <div id="summary-cards"></div>
+    </div>
+
+    <div class="section">
+      <h3>📅 الحركة الشهرية</h3>
+      <div id="monthly-trend-content"></div>
+    </div>
+
+    <div class="section actions-bar">
+      <button class="btn btn-secondary" id="btn-copy-report">📋 نسخ التقرير</button>
+      <button class="btn btn-secondary" id="btn-export-csv">📥 تصدير CSV</button>
+      <button class="btn btn-secondary" id="btn-export-json">📥 تصدير JSON</button>
+    </div>
+  </div>
+
+  <div class="tab-content" id="tab-transfers">
+    <div class="section">
+      <h3>🏦 التحويلات البنكية</h3>
+      <div id="bank-transfers-content">
+        <div class="empty-state">اضغط تحليل أولاً</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="tab-content" id="tab-damaged">
+    <div class="section">
+      <h3>⚠️ فواتير التالف (لم تُسلم)</h3>
+      <div id="damaged-parts-content">
+        <div class="empty-state">اضغط تحليل أولاً</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="tab-content" id="tab-parts">
+    <div class="section">
+      <h3>🔧 تحليل القطع</h3>
+      <div id="parts-analysis-content">
+        <div class="empty-state">اضغط تحليل أولاً</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="tab-content" id="tab-alerts">
+    <div class="section">
+      <h3>🚨 التنبيهات الذكية</h3>
+      <div id="alerts-content">
+        <div class="empty-state">اضغط تحليل أولاً</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="footer">العربي CRM v3.0 - تحليل محاسبي متخصص</div>
+
+  <script src="local-analyzer.js"></script>
+  <script src="popup.js"></script>
+</body>
+</html>

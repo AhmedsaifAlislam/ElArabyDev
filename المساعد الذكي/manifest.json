@@ -1,0 +1,67 @@
+{
+  "manifest_version": 3,
+  "name": "مساعد قطع الغيار العربي",
+  "version": "1.0.0",
+  "description": "بحث ذكي + حقن تلقائي + إدارة عهدة + مزامنة — نظام متكامل لإدارة قطع غيار العربي",
+  "icons": {
+    "16": "icons/icon16.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  },
+  "permissions": [
+    "storage",
+    "unlimitedStorage",
+    "activeTab",
+    "scripting",
+    "tabs",
+    "alarms"
+  ],
+  "host_permissions": [
+    "https://elarabyportalpfs.powerappsportals.com/*",
+    "https://drive.usercontent.google.com/*",
+    "https://drive.google.com/*"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": ["https://elarabyportalpfs.powerappsportals.com/*"],
+      "js": [
+        "shared/arabic-utils.js",
+        "shared/data-mapper.js",
+        "content/scanner.js",
+        "content/auto-filler.js",
+        "content/ui/shadow-panel.js"
+      ],
+      "css": ["content/ui/styles.css"],
+      "run_at": "document_idle"
+    },
+    {
+      "matches": ["<all_urls>"],
+      "exclude_matches": [
+        "https://elarabyportalpfs.powerappsportals.com/*"
+      ],
+      "js": ["content/ui/shadow-panel.js"],
+      "run_at": "document_idle"
+    }
+  ],
+  "action": {
+    "default_title": "مساعد قطع الغيار العربي",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "48": "icons/icon48.png",
+      "128": "icons/icon128.png"
+    }
+  },
+  "web_accessible_resources": [
+    {
+      "resources": [
+        "dashboard/dashboard.html",
+        "lib/papaparse.min.js",
+        "lib/xlsx.full.min.js"
+      ],
+      "matches": ["<all_urls>"]
+    }
+  ]
+}

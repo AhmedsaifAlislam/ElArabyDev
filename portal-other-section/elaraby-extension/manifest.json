@@ -1,0 +1,28 @@
+{
+  "manifest_version": 3,
+  "name": "العربي CRM - لوحة الحسابات",
+  "version": "3.0",
+  "description": "داشبورد محاسبي متخصص لمراكز خدمة صيانة الأجهزة المنزلية والتكييف",
+  "permissions": [
+    "activeTab",
+    "scripting",
+    "clipboard-write",
+    "storage"
+  ],
+  "host_permissions": [
+    "https://generativelanguage.googleapis.com/*",
+    "*://elarabyiscrm2.azurewebsites.net/*",
+    "*://elarabyportalpfs.powerappsportals.com/*"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "action": {
+    "default_popup": "popup.html",
+    "default_icon": "icon.png"
+  },
+  "icons": {
+    "48": "icon.png",
+    "128": "icon.png"
+  }
+}
