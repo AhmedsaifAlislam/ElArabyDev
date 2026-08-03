@@ -102,7 +102,7 @@
    */
   window.exportLog = async function() {
     try {
-      const log = await getWindow().getLog({ filter: 'all' });
+      const log = await window.getLog({ filter: 'all' });
       const blob = new Blob([JSON.stringify(log, null, 2)], { type: 'application/json' });
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');

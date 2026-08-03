@@ -1,65 +1,120 @@
-// shared/smart-log.js — Session-based activity logger
-// Uses chrome.storage.local via background proxy
+/**
+ * smart-log.js — سجل العمليات المشترك
+ * Shared across all El Araby extensions
+ * 
+ * يسجل كل العمليات (بحث، استيراد، حقن، إلخ)
+ * يعمل عبر background.js (Edge Tracking Prevention)
+ */
 
-const SmartLog = (() => {
-  const STORAGE_KEY = 'smartLog';
-  const MAX_ENTRIES = 10000;
+(async function() {
+  'use strict';
 
-  const ICONS = {
-    search: '\uD83D\uDD0D',
-    import: '\uD83D\uDCC2',
-    scrape_inventory: '\uD83D\uDCE5',
-    cart_add: '\uD83D\uDED2',
-    cart_remove: '\uD83D\uDDD1\uFE0F',
-    inject: '\uD83D\uDC89',
-    clear_db: '\uD83D\uDDF1\uFE0F',
-  };
+  // منع التحميل المزدوج
+  if (window.__elarabySmartLogLoaded) return;
+  window.__elarabySmartLogLoaded = true;
 
-  const LABELS = {
-    search: '\u0628\u062D\u062B',
-    import: '\u0627\u0633\u062A\u064A\u0631\u0627\u062F \u0628\u064A\u0627\u0646\u0627\u062A',
-    scrape_inventory: '\u0633\u062D\u0628 \u0639\u0647\u062F\u0629',
-    cart_add: '\u0625\u0636\u0627\u0641\u0629 \u0644\u0644\u0633\u0644\u0629',
-    cart_remove: '\u0625\u0632\u0627\u0644\u0629 \u0645\u0646 \u0627\u0644\u0633\u0644\u0629',
-    inject: '\u062D\u0642\u0646 \u0641\u064A \u0627\u0644\u0628\u0648\u0631\u062A\u0627\u0644',
-    clear_db: '\u0645\u0633\u062D \u0642\u0627\u0639\u062F\u0629 \u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A',
-  };
+  const MAX_LOG_ENTRIES = 500;
 
-  async function getStore() {
-    const data = await chrome.storage.local.get(STORAGE_KEY);
-    return data[STORAGE_KEY] || { version: 1, entries: [] };
-  }
-
-  async function saveStore(store) {
-    await chrome.storage.local.set({ [STORAGE_KEY]: store });
-  }
-
-  async function addEntry(action, details = {}) {
-    const store = await getStore();
-    store.entries.push({
-      id: `log-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+  /**
+   * تسجيل عملية في السجل
+   * @param {string} type - نوع العملية (search, import, inject, cart_add, cart_remove, clear)
+   * @param {Object} details - تفاصيل العملية
+   */
+  window.logEvent = async function(type, details = {}) {
+    const entry = {
+      type,
+      details,
       timestamp: new Date().toISOString(),
-      action,
-      details: { ...details }
-    });
-    if (store.entries.length > MAX_ENTRIES) {
-      store.entries = store.entries.slice(-MAX_ENTRIES);
+      url: window.location.href
+    };
+
+    try {
+      // استرجاع السجل الحالي
+      const data = await storageGet(['smartLog']);
+      const log = data.smartLog || [];
+      
+      // إضافة العملية الجديدة
+      log.unshift(entry);
+      
+      // الحد الأقصى للسجلات
+      if (log.length > MAX_LOG_ENTRIES) {
+        log.length = MAX_LOG_ENTRIES;
+      }
+      
+      // حفظ السجل
+      await storageSet({ smartLog: log });
+      
+      console.log(`[SmartLog] ${type}:`, details);
+    } catch (error) {
+      console.warn('[SmartLog] Error logging event:', error);
     }
-    await saveStore(store);
-    return true;
-  }
+  };
 
-  async function getEntries(limit = 500) {
-    const store = await getStore();
-    return store.entries.slice(-limit).reverse();
-  }
+  /**
+   * استرجاع السجل
+   * @param {Object} options - خيارات التصفية
+   * @param {string} options.filter - نوع التصفية (all, search, import, inject)
+   * @param {string} options.search - نص البحث
+   * @returns {Promise<Array>} السجلات
+   */
+  window.getLog = async function(options = {}) {
+    const { filter = 'all', search = '' } = options;
+    
+    try {
+      const data = await storageGet(['smartLog']);
+      let log = data.smartLog || [];
+      
+      // التصفية حسب النوع
+      if (filter !== 'all') {
+        log = log.filter(entry => entry.type === filter);
+      }
+      
+      // التصفية حسب النص
+      if (search) {
+        const searchLower = search.toLowerCase();
+        log = log.filter(entry => {
+          const detailsStr = JSON.stringify(entry.details).toLowerCase();
+          return detailsStr.includes(searchLower);
+        });
+      }
+      
+      return log;
+    } catch (error) {
+      console.warn('[SmartLog] Error getting log:', error);
+      return [];
+    }
+  };
 
-  async function clearAll() {
-    await chrome.storage.local.remove(STORAGE_KEY);
-    return true;
-  }
+  /**
+   * مسح السجل بالكامل
+   */
+  window.clearLog = async function() {
+    try {
+      await storageSet({ smartLog: [] });
+      console.log('[SmartLog] Log cleared');
+    } catch (error) {
+      console.warn('[SmartLog] Error clearing log:', error);
+    }
+  };
 
-  return { addEntry, getEntries, clearAll };
+  /**
+   * تصدير السجل كملف JSON
+   */
+  window.exportLog = async function() {
+    try {
+      const log = await window.getLog({ filter: 'all' });
+      const blob = new Blob([JSON.stringify(log, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `elaraby_log_${new Date().toISOString().split('T')[0]}.json`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (error) {
+      console.warn('[SmartLog] Error exporting log:', error);
+    }
+  };
+
+  console.log('[SmartLog] ✅ تم تحميل السجل بنجاح');
+
 })();
-
-if (typeof globalThis !== 'undefined') globalThis.SmartLog = SmartLog;
