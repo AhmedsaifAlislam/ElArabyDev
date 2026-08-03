@@ -1,7 +1,7 @@
 # بطاقة تعريف الأداة — المساعد الذكي
 # Tool Profile — Smart Parts Assistant
 
-> **آخر تحديث:** 2026-07-11
+> **آخر تحديث:** 2026-08-03
 
 ---
 
@@ -51,11 +51,13 @@
 │   ├── dashboard.js           ← منطق لوحة التحكم
 │   └── styles.css             ← أنماط لوحة التحكم
 │
-├── shared/                    ← كود مشترك
-│   ├── db.js                  ← IndexedDB — كل عمليات قاعدة البيانات
-│   ├── arabic-utils.js        ← أدوات النص العربي
-│   ├── data-mapper.js         ← تعيين الأعمدة (عرب-إنجليزي)
-│   └── smart-log.js           ← سجل العمليات
+├── shared/                    ← كود مشترك (مزامنة من master-portal — لا تعدل هنا مباشرة)
+│   ├── db.js                  ← IndexedDB — كل عمليات قاعدة البيانات (خاص بالمساعد الذكي)
+│   ├── arabic-utils.js        ← أدوات النص العربي (+ ArabicUtils) — SW-safe
+│   ├── data-mapper.js         ← تعيين الأعمدة (+ DataMapper) — SW-safe
+│   ├── smart-log.js           ← سجل العمليات (logEvent + SmartLog) — SW-safe
+│   ├── storage-proxy.js       ← وسيط التخزين (storageGet/Set/Remove/bg)
+│   └── portal-selectors.js    ← محددات DOM للبورتال
 │
 ├── lib/                       ← مكتبات مساعدة
 │   ├── papaparse.min.js       ← PapaParse لقراءة CSV

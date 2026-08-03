@@ -6,7 +6,41 @@
 
 ---
 
-## [2026-07-14] — مراجعة مساعد التقفيلات واكتشافات جديدة
+## [2026-08-03] — توحيد المكتبات المشتركة (ElArabyDev Phase 1–3)
+
+> تم في نسخة التطوير `ElArabyDev` (الأصل `العربي سيستم` يبقى ثابتًا). التفاصيل الكاملة في `DEV_COPY.md`.
+
+### البنية الجديدة
+- **مصدر الحقيقة:** `master-portal\shared\` — 5 مكتبات مشتركة موحدة
+- **سكريبت مزامنة:** `sync-shared.ps1` — ينسخ المكتبات إلى `مساعد التقفيلات\shared\` + `المساعد الذكي\shared\`
+
+### المكتبات المشتركة (أصبحت تعمل في كل البيئات)
+- **storage-proxy.js** — `window.storageGet/Set/Remove/bg` عبر رسائل background
+- **smart-log.js** — `window.logEvent/getLog/clearLog/exportLog` + `SmartLog (addEntry/getEntries/clearAll)` — أصبح SW-safe (globalThis بدل window) ويخزن تلقائيًا عبر storage-proxy أو chrome.storage مباشرة
+- **arabic-utils.js** — واجهة عامة + `ArabicUtils (normalizeArabicText/SYNONYMS_MAP/expandSearchTerms)` — مدمج من نسختي الأداتين
+- **data-mapper.js** — واجهة عامة (mapColumn/COLUMN_MAP...) + `DataMapper (findColumnValue/HEADERS/parseField/mapRawToMasterData)` — مدمج
+- **portal-selectors.js** — أضيفت `POWERAPPS.fields` (20 محددات من selectors.json)
+
+### مساعد التقفيلات (Portal AutoFiller)
+- المكتبات الخمس مضافة لـ content_scripts قبل content-script.js
+- popup.html يحمّل storage-proxy + smart-log
+- حُذفت تعريفات storageGet/Set/Remove المحلية المكررة من content-script.js و order-extractor.js
+- loadSelectors() يبني CFG من `PORTAL_SELECTORS.POWERAPPS.fields` كأساس (selectors.json يبقى override + fallback)
+- tampermonkey-runner.js يخزن عبر storage-proxy (يعمل على Facebook/Messenger)
+
+### المساعد الذكي (Smart Parts Assistant)
+- **إصلاح حرج:** background كان يستورد مكتبات بها `window` (تنهار في service worker) — المكتبات الموحدة أصبحت SW-safe
+- `globalThis.DataMapper` و `SmartLog` أصبحا معرّفين فعليًا (كانا يفشلان صامتًا)
+- background.js أضيفت معالجات STORAGE_GET/SET/REMOVE
+- manifest: المكتبات المشتركة في content_scripts (البورتال + كل المواقع)
+- dashboard.html: تحميل storage-proxy + smart-log قبل dashboard.js
+- حُذفت bg() المكررة من dashboard.js و shadow-panel.js، وحُذف logEvent المحلي من dashboard.js
+
+### الفحوصات
+- `node --check` لجميع الملفات المعدلة + JSON صالح
+- اختبار محاكاة بيئتين: service worker (بدون window) + صفحة (window + proxy) — كل الـ APIs تعمل
+
+---
 
 ### مساعد التقفيلات / Portal AutoFiller
 - **إصدار v1.1.0** — تحديث بناءً على مراجعة الكود

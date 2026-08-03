@@ -1,7 +1,7 @@
 # بطاقة تعريف الأداة — مساعد التقفيلات
 # Tool Profile — Portal AutoFiller
 
-> **آخر تحديث:** 2026-07-14
+> **آخر تحديث:** 2026-08-03
 
 ---
 
@@ -49,6 +49,13 @@
 ├── AGENTS.md                  ← تعليمات للذكاء الاصطناعي
 ├── README.md                  ← دليل الاستخدام
 ├── README_Dev.md              ← دليل المطور
+│
+├── shared/                    ← مكتبات مشتركة (مزامنة من master-portal — لا تعدل هنا مباشرة)
+│   ├── storage-proxy.js       ← وسيط التخزين (storageGet/Set/Remove/bg)
+│   ├── smart-log.js           ← سجل العمليات الموحد (logEvent/getLog/SmartLog)
+│   ├── arabic-utils.js        ← أدوات النص العربي (+ ArabicUtils)
+│   ├── data-mapper.js         ← تعيين الأعمدة (+ DataMapper)
+│   └── portal-selectors.js    ← محددات DOM (POWERAPPS.fields — 20 حقلاً)
 │
 ├── lib/                       ← مكتبات
 │   ├── xlsx.full.min.js       ← SheetJS

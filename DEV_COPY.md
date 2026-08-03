@@ -52,11 +52,13 @@
 > **قاعدة ذهبية:** `ElArabyDev\master-portal\shared\` هو **المصدر الوحيد** للمكتبات المشتركة الخمس.
 
 ### المكتبات المشتركة (5 ملفات):
-1. `storage-proxy.js` — وسيط التخزين (content ↔ background)
-2. `smart-log.js` — سجل العمليات الموحد
-3. `arabic-utils.js` — أدوات النص العربي
-4. `data-mapper.js` — تعيين الأعمدة (عربي ↔ إنجليزي)
-5. `portal-selectors.js` — محددات DOM للبورتال
+1. `storage-proxy.js` — وسيط التخزين (content ↔ background): `window.storageGet/Set/Remove/bg`
+2. `smart-log.js` — سجل العمليات الموحد: `window.logEvent/getLog/clearLog/exportLog` + `SmartLog` (SW-safe)
+3. `arabic-utils.js` — أدوات النص العربي: واجهة عامة + `ArabicUtils` (normalize/مرادفات)
+4. `data-mapper.js` — تعيين الأعمدة: واجهة عامة (COLUMN_MAP) + `DataMapper` (HEADERS/findColumnValue)
+5. `portal-selectors.js` — محددات DOM للبورتال (تشمل `POWERAPPS.fields` من selectors.json)
+
+> **ملاحظة بيئات:** المكتبات الثلاث (smart-log, arabic-utils, data-mapper) تعمل في content scripts وصفحات الإضافة **و** background (service worker) — بلا أي مرجع `window`. storage-proxy و portal-selectors للصفحات فقط.
 
 ### سكريبت المزامنة:
 ```
@@ -93,11 +95,11 @@ ElArabyDev\sync-shared.ps1
 
 | التاريخ | المرحلة | وصف | Commit |
 |--------|---------|-----|--------|
-| 2026-08-03 | Phase 0 | إنشاء نسخة ElArabyDev (robocopy مع استثناءات) | (initial) |
-| — | Phase 1 | إصلاح smart-log bug + سكريبت المزامنة | — |
-| — | Phase 2 | توحيد مساعد التقفيلات (manifest, popup, content, selectors) | — |
-| — | Phase 3 | توحيد المساعد الذكي (smart-log عبر background، bg موحد) | — |
-| — | Phase 4 | توثيق + تبديل + قرار المرحلة التالية | — |
+| 2026-08-03 | Phase 0 | إنشاء نسخة ElArabyDev (robocopy مع استثناءات) + DEV_COPY.md + git init | `5ac3625` |
+| 2026-08-03 | Phase 1 | إصلاح smart-log bug (`getWindow()` → `window`) + إنشاء `sync-shared.ps1` + أول مزامنة | `413dee3` |
+| 2026-08-03 | Phase 2 | توحيد مساعد التقفيلات: المكتبات في manifest/popup، حذف storage المكرر، PORTAL_SELECTORS أساس للمحددات، tampermonkey عبر proxy | `91e4e51` |
+| 2026-08-03 | Phase 3 | توحيد المساعد الذكي: مكتبات SW-safe (globalThis)، دمج ArabicUtils/DataMapper/SmartLog APIs، معالجات STORAGE_* في background، حذف bg()/logEvent المكررة | `53f76cf` |
+| — | Phase 4 | توثيق + تبديل المتصفح + قرار المرحلة التالية | — |
 
 ---
 
@@ -114,11 +116,11 @@ ElArabyDev\sync-shared.ps1
 ## 🎯 الهدف النهائي للمرحلة الحالية
 
 بعد إكمال Phase 1–4:
-- ✅ المكتبات المشتركة موحدة ومستمدة من master-portal
-- ✅ مساعد التقفيلات: storage-proxy + smart-log + arabic-utils + data-mapper + portal-selectors مدمجة، control-panel و smart-log مفعلة في UI
-- ✅ المساعد الذكي: smart-log مُصلح (عبر background)، bg() موحدة، النسخ المكررة محذوفة
+- ✅ المكتبات المشتركة موحدة ومستمدة من master-portal (تم — Phases 1–3)
+- ✅ مساعد التقفيلات: storage-proxy + smart-log + arabic-utils + data-mapper + portal-selectors مدمجة (تم — Phase 2)
+- ✅ المساعد الذكي: smart-log عبر background، bg() موحدة، النسخ المكررة محذوفة، إصلاح SW crash (تم — Phase 3)
 - ✅ التوثيق محدث (CHANGELOG, TOOL_PROFILE, PROJECT_STATUS, SHARED_KNOWLEDGE)
-- ✅ الإضافة الجديدة تشتغل على البورتال بدون أخطاء console
+- ⏳ الإضافة الجديدة تشتغل على البورتال بدون أخطاء console (يحتاج اختبار يدوي بعد التبديل في المتصفح)
 
 ---
 

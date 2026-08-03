@@ -55,29 +55,23 @@ const sameframeLinks = document.querySelectorAll('a.sameframe');
 
 ### Edge Tracking Prevention
 
+> **بعد التوحيد (2026-08-03):** استخدم مكتبة `shared/storage-proxy.js` (مصدرها `master-portal\shared\`) بدل تعريف الدوال يدويًا.
+> توفّر: `window.storageGet(keys)` / `window.storageSet(data)` / `window.storageRemove(keys)` / `window.bg(action, extra)`.
+
 ```javascript
-// ⚠️ Edge يمنع chrome.storage.local من content scripts على صفحات البورتال
-// الحل: وجّه كل عمليات التخزين عبر background.js
+// من content script → background (عبر storage-proxy):
+const data = await window.storageGet(['smartLog']);
+await window.storageSet({ smartLog: [...] });
+await window.storageRemove(['key']);
 
-// من content script → background (Storage Proxy)
-async function storageGet(keys) {
-  const resp = await chrome.runtime.sendMessage({ type: 'STORAGE_GET', keys });
-  return resp?.data || {};
-}
-
-async function storageSet(data) {
-  await chrome.runtime.sendMessage({ type: 'STORAGE_SET', data });
-}
-
-async function storageRemove(keys) {
-  await chrome.runtime.sendMessage({ type: 'STORAGE_REMOVE', keys });
-}
-
-// من popup → content script
-chrome.tabs.sendMessage(tabId, { action: 'ACTION_NAME', ... });
+// إرسال رسالة عامة:
+const res = await window.bg('searchDB', { query: 'test' });
 ```
 
-### نموذج الاتصال بـ background.js
+> **الشرط:** background يجب أن يعالج رسائل `STORAGE_GET` / `STORAGE_SET` / `STORAGE_REMOVE`
+> (متوفرة في background.js الخاص بمساعد التقفيلات والمساعد الذكي بعد Phase 2/3).
+
+### نموذج الاتصال بـ background.js (يدوي — بدون storage-proxy)
 
 ```javascript
 function bg(action, extra = {}) {
@@ -91,7 +85,6 @@ function bg(action, extra = {}) {
 
 // الاستخدام:
 const data = await bg('searchDB', { query: 'test' });
-await bg('LOG_EVENT', { type: 'search', details: { query: 'test' } });
 ```
 
 ---
@@ -375,26 +368,36 @@ new Function(code)();
 
 ## الثالث عشر: أنماط السجل (Smart Log)
 
+> **بعد التوحيد (2026-08-03):** مكتبة `shared/smart-log.js` موحدة تعمل في كل البيئات (content scripts، popup، dashboard، background).
+> المصدر: `master-portal\shared\smart-log.js` — ينسخ عبر `sync-shared.ps1`.
+
 ```javascript
-// تسجيل عمليات البحث
-bg('LOG_EVENT', {
-  type: 'search',
-  details: { query: 'test', resultsCount: 5 }
-});
+// في الصفحات (content scripts / popup / dashboard):
+await window.logEvent('search', { query: 'test', resultsCount: 5 });
+const entries = await window.getLog({ filter: 'all', search: '' });
+await window.clearLog();
 
-// استرجاع السجل
-const entries = await bg('GET_LOG', { filter: 'all', search: '' });
+// في background (وكل البيئات عبر globalThis):
+await SmartLog.addEntry('inject', { count: 1 });
+const entries = await SmartLog.getEntries(500);
+await SmartLog.clearAll();
 
-// مسح السجل
-await bg('CLEAR_LOG');
+// التخزين تلقائي:
+//   - يوجد storageGet/Set (content scripts): عبر رسائل STORAGE_GET/SET إلى background
+//   - وإلا (SW / صفحات الإضافة): chrome.storage.local مباشرة
+// المفتاح: 'smartLog' — أقصى 500 سجل (الأحدث أولاً)
 
 // هيكل السجل:
 {
-  type: 'search' | 'import' | 'clear' | 'inject' | 'cart_add' | 'cart_remove',
+  type: 'search' | 'import' | 'clear' | 'inject' | 'cart_add' | 'cart_remove' | 'scrape_inventory' | 'clear_db',
+  action: 'search',   // نفس type (لتوافق dashboard القديم)
   details: { query, resultsCount, fileName, partCode, quantity },
-  timestamp: '2026-07-11T10:30:00.000Z'
+  timestamp: '2026-07-11T10:30:00.000Z',
+  url: 'https://...'
 }
 ```
+
+> **الخلفية:** في المساعد الذكي كان background يستورد smart-log عبر importScripts ويفشل (مرجع `window` في service worker) — المكتبة الموحدة تستخدم `globalThis`. معالجات الرسائل: `LOG_EVENT` / `GET_LOG` / `CLEAR_LOG` (ذكي) + `STORAGE_GET/SET/REMOVE` (تقفيلات وذكي).
 
 ---
 
