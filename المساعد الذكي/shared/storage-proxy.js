@@ -15,11 +15,11 @@
 
   /**
    * استرجاع بيانات من chrome.storage.local عبر background.js
-   * @param {string|string[]} keys - المفاتيح المطلوبة
+   * @param {string|string[]|Object} keys - المفاتيح المطلوبة (string, array of strings, أو object)
    * @returns {Promise<Object>} البيانات المسترجعة
    */
   window.storageGet = async function(keys) {
-    const keyArray = Array.isArray(keys) ? keys : [keys];
+    const keyArray = Array.isArray(keys) ? keys : (typeof keys === 'object' && keys !== null ? keys : [keys]);
     return new Promise((resolve) => {
       chrome.runtime.sendMessage({ type: 'STORAGE_GET', keys: keyArray }, (res) => {
         if (chrome.runtime.lastError) {
