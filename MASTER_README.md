@@ -25,7 +25,8 @@ A comprehensive suite of tools and extensions designed for managing and servicin
 | 4 | portal-other-section | Financial Analytics | Chrome Extension + Scripts | CRM Portal (Azure) | v3.0 |
 | 5 | حجز البلاغات المستقبلة | Date Filter Unlocker | Tampermonkey Script | PowerApps Portal | v1.0 |
 | 6 | Rescheduling Portal | Smart Scheduler | Tampermonkey Script | PowerApps Portal | v1.1 |
-| 7 | excel_autofix | Excel Auto Formatter | Python Desktop App | — | — |
+| 7 | excel_autofix | Excel Auto Formatter | Python Desktop App + Local HTTP Service | — | v1.1 |
+| 8 | El Araby Unified System | النظام العربي الموحد | Chrome Extension (MV3) — موحّدة لكل الميزات | PowerApps + CRM | v4.0 |
 
 ---
 
@@ -50,63 +51,48 @@ A comprehensive suite of tools and extensions designed for managing and servicin
 ## هيكل المجلدات / Directory Structure
 
 ```
-العربي سيستم/
+ElArabyDev/                           ← نسخة العمل (العربي سيستم = مرجع للقراءة فقط)
 ├── MASTER_README.md              ← هذا الملف
 ├── PORTAL_MAP.md                 ← خريطة البورتال الكاملة
 ├── SHARED_KNOWLEDGE.md           ← المعرفة المشتركة بين الأدوات
+├── MASTER_ROADMAP.md             ← خطة المهام الكبرى (Agent Team)
+├── PHASE3_UNIFIED_INTEGRATION_PLAN.md ← خطة الدمج الموحد
+├── IDEAS_BACKLOG.md              ← الأفكار غير المنفذة (Roadmap)
+├── E2E_CHECKLIST.md              ← قائمة الاختبارات اليدوية الشاملة
+├── PROMPT_MASTER.md              ← البروبت الكامل لمراحل التشغيل
 ├── CHANGELOG.md                  ← سجل التغييرات
 ├── KNOWN_ISSUES.md               ← المشاكل المعروفة
+├── DEV_COPY.md                   ← دليل نسخة التطوير + النشر
 │
-├── المساعد الذكي/                ← إضافة إدارة قطع الغيار
-│   ├── TOOL_PROFILE.md
-│   ├── PROJECT_STATUS.md
-│   ├── AGENTS.md
-│   └── README.md
+├── src/                          ← ★ المصدر (كل التطوير هنا)
+│   ├── unified-extension/        ← الإضافة الموحدة MV3 (جميع الميزات)
+│   │   ├── manifest.json / background.js / content-script.js
+│   │   ├── content/              ← content scripts (booking, crm, financial, rescheduling)
+│   │   ├── shared/               ← 13 مكتبة مشتركة (مصدر الحقيقة)
+│   │   ├── Tempermonky/          ← سكريبتات Tampermonkey المدمجة + DateFilter
+│   │   ├── popup.html/js         ← البوبأب الموحد (4 تبويبات)
+│   │   └── styles/ lib/ dashboard/
+│   ├── dashboard/                ← لوحة التحكم (Vite)
+│   ├── crm-content/              ← سكريبت CRM (TypeScript)
+│   ├── design-system/            ← نظام التصميم الموحد (tokens.css)
+│   ├── ui-components/ templates/ portal-config/
+│   └── docs/                     ← PORTAL_REFERENCE.md, SHARED_API.md
 │
-├── مساعد التقفيلات/              ← إضافة تعبئة أوامر العمل
-│   ├── TOOL_PROFILE.md
-│   ├── PROJECT_STATUS.md
-│   ├── AGENTS.md
-│   └── README.md
+├── deploy/                       ← ★ المجلد المحمَّل في المتصفح (نظيف من src/ عبر deploy.ps1)
+├── tools/                        ← أدوات التشغيل
+│   ├── deploy.ps1                ← نشر: src/unified-extension → deploy
+│   ├── sync-shared.ps1           ← مزامنة المكتبات المشتركة
+│   └── excel_autofix/            ← أداة تنسيق Excel (له AGENTS.md خاص)
 │
-├── البحث عن بلاغ/                ← إضافة استخراج التقارير
-│   ├── TOOL_PROFILE.md
-│   ├── PROJECT_STATUS.md
-│   ├── AGENTS.md
-│   └── README.md
+├── legacy/                       ← النسخ المنفصلة القديمة (أرشيف/مرجع)
+│   ├── مساعد التقفيلات (نشر قديم)/
+│   ├── المساعد الذكي/ البحث عن بلاغ/ حجز البلاغات المستقبلة/
+│   ├── portal-other-section/     ← التحليلات المالية القديمة
+│   ├── Rescheduling Portal Requests Optimization/
+│   └── اكواد/                    ← صفحات HTML محفوظة من البورتال
 │
-├── portal-other-section/         ← أدوات الصفحات المالية
-│   ├── TOOL_PROFILE.md
-│   ├── PROJECT_STATUS.md
-│   ├── AGENTS.md
-│   └── README.md
-│
-├── حجز البلاغات المستقبلة/       ← سكريبت فتح فلتر التاريخ
-│   ├── TOOL_PROFILE.md
-│   ├── PROJECT_STATUS.md
-│   ├── AGENTS.md
-│   └── README.md
-│
-├── Rescheduling Portal Requests Optimization/  ← سكريبت الجدولة الذكية
-│   ├── TOOL_PROFILE.md
-│   ├── PROJECT_STATUS.md
-│   ├── AGENTS.md
-│   └── README.md
-│
-├── excel_autofix/                ← أداة تنسيق Excel
-│   ├── TOOL_PROFILE.md
-│   ├── PROJECT_STATUS.md
-│   ├── AGENTS.md
-│   └── README.md
-│
-└── اكواد/                       ← صفحات HTML محفوظة من البورتال
-    ├── اوامر الشغل · Partner Portal_files/
-    ├── متابعة امر الشغل · Partner Portal صفحة 1.html
-    ├── متابعة امر الشغل · Partner Portal صفحة 2.html
-    ├── متابعة امر الشغل · Partner Portal صفحة 3.html
-    ├── العهد المتاحة · Partner Portal.html
-    ├── تغير كلمة المرور · Partner Portal.html
-    └── ...
+├── backups/                      ← كل النسخ الاحتياطية (لا تلمس)
+└── .git/                         ← تاريخ التوحيد (يتتبع ElArabyDev فقط)
 ```
 
 ---
@@ -131,6 +117,14 @@ cd excel_autofix
 pip install customtkinter openpyxl
 python excel_app.py
 ```
+
+**الخدمة المحلية (للإضافة الموحدة):** شغّل `service.bat` → تبدأ على `http://127.0.0.1:8765`،
+ثم من الإضافة: **الأدوات ← 📊 Excel Autofix** (رفع الملف + معالجة + تنزيل).
+
+### لربط n8n (أتمتة خارجية):
+1. في n8n: أنشئ **Webhook node** (POST) وانسخ الـ URL
+2. من الإضافة: **الأدوات ← 🔗 n8n** ← الصق الـ URL + احفظ ← "إرسال اختبار"
+3. الأحداث: `excel_export` (تلقائي عند تفعيل "بعد كل تصدير")، `session_log`، `telemetry_summary`، `test`
 
 ---
 
@@ -175,8 +169,14 @@ python excel_app.py
 |-------|-------|
 | `PORTAL_MAP.md` | خريطة كل صفحات البورتال مع روابطها وعلاقاتها |
 | `SHARED_KNOWLEDGE.md` | أنماط الاستهداف، كلمات السر، POSTBack، أنواع المنتجات |
+| `MASTER_ROADMAP.md` | خطة المهام الكبرى + تتبع تنفيذها (47+ مهمة، Agent Team) |
+| `PHASE3_UNIFIED_INTEGRATION_PLAN.md` | خطة الدمج الموحد (Unified Integration) + AI End-to-End |
+| `IDEAS_BACKLOG.md` | الأفكار المقترحة وغير المنفذة مع الأولويات |
+| `E2E_CHECKLIST.md` | قائمة الاختبار اليدوي الشامل على البورتال الحي |
+| `PROMPT_MASTER.md` | البروبت الكامل لمراحل التشغيل الموحدة |
 | `CHANGELOG.md` | سجل التغييرات لكل الأدوات |
 | `KNOWN_ISSUES.md` | المشاكل المعروفة والحلول المقترحة |
+| `docs/AI_N8N_FOUNDATION.md` | أساس الذكاء الاصطناعي + ناقل أحداث n8n (Outbox/Retry/Registry) |
 
 ---
 

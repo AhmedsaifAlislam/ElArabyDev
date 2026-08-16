@@ -1,0 +1,240 @@
+/* ============================================================
+   design-tokens.css — El Araby Unified Design System v1.0
+   Single Source of Truth for ALL El Araby tools.
+   Data Source: master-portal/ (design system anchors)
+   Apply tokens in every new/changed UI — never hardcode colors.
+   ============================================================ */
+
+:root,
+[data-theme="dark"] {
+  /* ── Color: Brand (Accent) ── */
+  --ea-brand:            #1f8feb;
+  --ea-brand-dark:       #1472cc;
+  --ea-brand-glow:       rgba(31,143,235,0.25);
+  --ea-brand-bg:         rgba(31,143,235,0.08);
+  --ea-indigo:           #7c3aed;
+  --ea-indigo-glow:      rgba(124,58,237,0.25);
+
+  /* Header / gradients (surface-tinted, theme-aware) */
+  --ea-header-grad-a:    #0f1e35;
+  --ea-header-grad-b:    #0d2040;
+  --ea-icon-grad-a:      #1f8feb;
+  --ea-icon-grad-b:      #7c3aed;
+  --ea-progress-end:     #34d399;
+  --ea-indigo-text:      #a5b4fc;
+  --ea-indigo-bg:        rgba(99,102,241,0.15);
+  --ea-indigo-border:    rgba(99,102,241,0.4);
+  --ea-tab-active-grad:  linear-gradient(180deg, rgba(31,143,235,0.18), transparent);
+
+  /* ── Color: Surfaces ── */
+  --ea-bg:               #0b1220;
+  --ea-surface:          #101c2e;
+  --ea-surface-2:        #152236;
+  --ea-surface-3:        #1a2a44;
+  --ea-border:           #1e3450;
+  --ea-border-strong:    #2a4a70;
+
+  /* ── Color: Semantic / Status ── */
+  --ea-success:          #22c55e;
+  --ea-success-bg:       rgba(34,197,94,0.12);
+  --ea-error:            #ef4444;
+  --ea-error-bg:         rgba(239,68,68,0.12);
+  --ea-warn:             #f59e0b;
+  --ea-warn-bg:          rgba(245,158,11,0.12);
+  --ea-info:             #0ea5e9;
+  --ea-info-bg:          rgba(31,143,235,0.08);
+
+  /* ── Color: Text ── */
+  --ea-text:             #e2eaf5;
+  --ea-text-strong:      #ffffff;
+  --ea-muted:            #6b84a3;
+  --ea-muted-2:          #4a6080;
+
+  /* ── Color: Status borders & fills (light-safe) ── */
+  --ea-success-border:   rgba(34,197,94,0.25);
+  --ea-success-strong:   rgba(34,197,94,0.35);
+  --ea-error-border:     rgba(239,68,68,0.25);
+  --ea-error-strong:     rgba(239,68,68,0.3);
+  --ea-warn-border:      rgba(245,158,11,0.25);
+  --ea-warn-strong:      rgba(245,158,11,0.35);
+  --ea-info-border:      rgba(31,143,235,0.25);
+  --ea-info-strong:      rgba(31,143,235,0.4);
+  --ea-on-brand:         #ffffff;
+  --ea-code-bg:          rgba(0,0,0,0.15);
+  --ea-code-text:        #a0c4ff;
+  --ea-link-text:        #a0c4ff;
+
+  /* ── Typography ── */
+  --ea-font-family: 'Cairo', 'Segoe UI', Tahoma, Arial, sans-serif;
+  --ea-fs-xs:   10.5px;
+  --ea-fs-sm:   11px;
+  --ea-fs-md:   13px;
+  --ea-fs-lg:   15px;
+  --ea-fs-xl:   16px;
+  --ea-fw-400:  400;
+  --ea-fw-600:  600;
+  --ea-fw-700:  700;
+
+  /* ── Spacing scale (4px grid) ── */
+  --ea-space-1:   4px;
+  --ea-space-2:   8px;
+  --ea-space-3:   12px;
+  --ea-space-4:   16px;
+  --ea-space-5:   20px;
+  --ea-space-6:   24px;
+
+  /* ── Radius ── */
+  --ea-radius:    10px;
+  --ea-radius-sm: 6px;
+  --ea-radius-md: 8px;
+  --ea-radius-full: 20px;
+
+  /* ── Elevation / Focus ── */
+  --ea-shadow-1:        0 2px 8px rgba(0,0,0,0.35);
+  --ea-shadow-2:        0 4px 16px rgba(0,0,0,0.45);
+  --ea-focus-ring:      0 0 0 3px var(--ea-brand-glow);
+  --ea-transition:      all 0.18s ease;
+
+  /* ── Neutral / Input / Component surfaces (dark) ── */
+  --ea-neutral:            #94a3b8;
+  --ea-neutral-2:          #cbd5e1;
+  --ea-faint:              rgba(255,255,255,0.05);
+  --ea-faint-2:            rgba(255,255,255,0.1);
+  --ea-input-disabled:     rgba(255,255,255,0.07);
+  --ea-input-disabled-text:#5b7394;
+  --ea-icon-fill:          #6b84a3;
+  --ea-track:              rgba(255,255,255,0.12);
+  --ea-stripe:             rgba(255,255,255,0.15);
+  --ea-modal:              rgba(11,18,32,0.7);
+  --ea-row-selected:       rgba(31,143,235,0.2);
+
+  /* ── Scrollbar (dark) ── */
+  --ea-scroll-track:       #0b1220;
+  --ea-scroll-thumb:       #2a4a70;
+  --ea-scroll-thumb-hover: #3b5f8f;
+
+  /* ── Badge variants (dark) ── */
+  --ea-badge-default-bg:   rgba(255,255,255,0.12);
+  --ea-badge-default-text: #cbd5e1;
+  --ea-badge-primary-bg:   rgba(31,143,235,0.2);
+  --ea-badge-primary-text: #7dc0ff;
+  --ea-badge-success-bg:   rgba(34,197,94,0.2);
+  --ea-badge-success-text: #6ee7a0;
+  --ea-badge-warn-bg:      rgba(245,158,11,0.2);
+  --ea-badge-warn-text:    #fcd08a;
+  --ea-badge-danger-bg:    rgba(239,68,68,0.22);
+  --ea-badge-danger-text:  #fca5a5;
+  --ea-badge-info-bg:      rgba(14,165,233,0.22);
+  --ea-badge-info-text:    #7dd3fc;
+
+  /* ── Component aliases (deprecated names kept for grace) ── */
+  --bg: var(--ea-bg);
+  --surface: var(--ea-surface);
+  --surface-2: var(--ea-surface-2);
+  --border: var(--ea-border);
+  --accent: var(--ea-brand);
+  --accent-dark: var(--ea-brand-dark);
+  --accent-glow: var(--ea-brand-glow);
+  --success: var(--ea-success);
+  --success-bg: var(--ea-success-bg);
+  --error: var(--ea-error);
+  --error-bg: var(--ea-error-bg);
+  --warn: var(--ea-warn);
+  --warn-bg: var(--ea-warn-bg);
+  --info-bg: var(--ea-info-bg);
+  --text: var(--ea-text);
+  --muted: var(--ea-muted);
+  --muted2: var(--ea-muted-2);
+  --text-strong: var(--ea-text-strong);
+  --success-border: var(--ea-success-border);
+  --success-strong: var(--ea-success-strong);
+  --error-border: var(--ea-error-border);
+  --error-strong: var(--ea-error-strong);
+  --warn-border: var(--ea-warn-border);
+  --warn-strong: var(--ea-warn-strong);
+  --info-border: var(--ea-info-border);
+  --info-strong: var(--ea-info-strong);
+  --on-brand: var(--ea-on-brand);
+  --code-bg: var(--ea-code-bg);
+  --code-text: var(--ea-code-text);
+  --link-text: var(--ea-link-text);
+  --header-grad-a: var(--ea-header-grad-a);
+  --header-grad-b: var(--ea-header-grad-b);
+  --icon-grad-a: var(--ea-icon-grad-a);
+  --icon-grad-b: var(--ea-icon-grad-b);
+  --progress-end: var(--ea-progress-end);
+  --indigo-text: var(--ea-indigo-text);
+  --indigo-bg: var(--ea-indigo-bg);
+  --indigo-border: var(--ea-indigo-border);
+  --tab-active-grad: var(--ea-tab-active-grad);
+  --radius: var(--ea-radius);
+  --radius-sm: var(--ea-radius-sm);
+}
+
+[data-theme="light"] {
+  --ea-bg:             #f4f7fb;
+  --ea-surface:        #ffffff;
+  --ea-surface-2:      #eef3f9;
+  --ea-surface-3:      #e2eaf5;
+  --ea-border:         #d5e0ee;
+  --ea-border-strong:  #b6c8dd;
+  --ea-text:           #1a2a44;
+  --ea-text-strong:    #0b1220;
+  --ea-muted:          #5b7394;
+  --ea-muted-2:        #8299b8;
+  --ea-header-grad-a:  #eaf1fa;
+  --ea-header-grad-b:  #dfebf8;
+  --ea-indigo-text:    #4b4fc9;
+
+  /* Light-safe status borders & fills */
+  --ea-success-border: rgba(34,197,94,0.4);
+  --ea-success-strong: rgba(34,197,94,0.6);
+  --ea-error-border:   rgba(239,68,68,0.4);
+  --ea-error-strong:   rgba(239,68,68,0.6);
+  --ea-warn-border:    rgba(245,158,11,0.4);
+  --ea-warn-strong:    rgba(245,158,11,0.6);
+  --ea-info:           #0284c7;
+  --ea-info-border:    rgba(31,143,235,0.35);
+  --ea-info-strong:    rgba(31,143,235,0.5);
+  --ea-on-brand:       #ffffff;
+  --ea-code-bg:        rgba(11,18,32,0.06);
+  --ea-code-text:      #1a56a0;
+  --ea-link-text:      #1472cc;
+
+  /* ── Neutral / Input / Component surfaces (light) ── */
+  --ea-neutral:            #64748b;
+  --ea-neutral-2:          #475569;
+  --ea-faint:              #f8fafc;
+  --ea-faint-2:            #f1f5f9;
+  --ea-input-disabled:     #f1f5f9;
+  --ea-input-disabled-text:#94a3b8;
+  --ea-icon-fill:          #94a3b8;
+  --ea-track:              #e2e8f0;
+  --ea-stripe:             rgba(255,255,255,0.7);
+  --ea-modal:              rgba(15,23,42,0.55);
+  --ea-row-selected:       #eff6ff;
+
+  /* ── Scrollbar (light) ── */
+  --ea-scroll-track:       #f1f5f9;
+  --ea-scroll-thumb:       #cbd5e1;
+  --ea-scroll-thumb-hover: #94a3b8;
+
+  /* ── Badge variants (light) ── */
+  --ea-badge-default-bg:   #e2e8f0;
+  --ea-badge-default-text: #475569;
+  --ea-badge-primary-bg:   #dbeafe;
+  --ea-badge-primary-text: #1e40af;
+  --ea-badge-success-bg:   #dcfce7;
+  --ea-badge-success-text: #166534;
+  --ea-badge-warn-bg:      #fef3c7;
+  --ea-badge-warn-text:    #92400e;
+  --ea-badge-danger-bg:    #fee2e2;
+  --ea-badge-danger-text:  #991b1b;
+  --ea-badge-info-bg:      #e0f2fe;
+  --ea-badge-info-text:    #0369a1;
+}
+
+/* Smooth theme transitions */
+body, .main-panel, .main-tabs, .sub-tabs, .main-tab-btn, .sub-tab-btn {
+  transition: background-color 0.2s ease, color 0.2s ease, border-color 0.2s ease;
+}

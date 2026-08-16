@@ -1,7 +1,35 @@
 # المعرفة المشتركة — Shared Knowledge
 # El Araby System — Common Patterns & Reference
 
-> **آخر تحديث:** 2026-07-14
+> **آخر تحديث:** 2026-08-16
+
+---
+
+## صفرًا: الأنظمة الأساسية للإضافات / Core Extension Stack
+
+كل عمل على إضافات Chrome في هذا المشروع يلتزم بالأنماط الاحترافية في
+مهارة المشروع **`chrome-extension-mv3`** (`.opencode/skills/chrome-extension-mv3/`):
+
+| النظام | الإلزام |
+|--------|---------|
+| **Manifest V3** | `service_worker` وليس `scripts`؛ لا `eval`/سكربتات ديناميكية (CSP)؛ الـ background بلا حالة دائمة |
+| **Plain JS Modules** | `importScripts` في الـ background، `globalThis`/`window` للتسجيل — لا ES modules في هذه المشاريع |
+| **HTML/CSS مباشرة** | `popup.html` + `styles/popup.css` — لا JSX، لا build step، RTL، tokens من `master-portal/design-system` |
+| **Chrome APIs** | `runtime` (رسائل `bg()` موحدة + `return true` للقنوات غير المتزامنة)، `storage` (عبر proxy في content scripts)، `tabs`، `scripting` (world: MAIN)، `commands`، `notifications` |
+
+القواعد التفصيلية والكود الجاهز في المهارة — لا تُكرَّر هنا.
+
+---
+
+## قاعدة صارمة: سيريال 2 / موديل 2 (Work Order Review)
+
+> **مصدر القاعدة:** بلاغ حي 2026-08-16 — ثلاجة (SHARP) رُفضت: "المنتج الذي قمت بأدخاله غير متطابق مع الرقم المسلسل" لأن `ldv_serialnumber1` كان فيه "0".
+
+- **سيريال 2 (`ldv_serialnumber1`) و موديل 2 (`ldv_actualmodel2`) مسموح بهما فقط لمنتجات مجموعة AC:**
+  `تكييف`، `تكييف كونسيلد`، `PUMP CLEAN`، `مبرد هواء`، `منقى هواء`، `صيانة دورية تكييف`
+- **كل المنتجات الأخرى** (ثلاجات، ديب فريزر، غسالات، بوتوجازات، سخانات، شاشات، SHA/AV/OE/PCP/TB/Watches/LIGHTING...) → **فاضي إلزاماً** مهما كانت بيانات الدخل.
+- **Sharp علامة تجارية وليست نوع منتج** — لا تعامل منتجات شارب كلها كتكييف.
+- التنفيذ في `content-script.js`: `isACProductType()` + `clearModel2Serial2Fields()` داخل `executePage1_Review`.
 
 ---
 

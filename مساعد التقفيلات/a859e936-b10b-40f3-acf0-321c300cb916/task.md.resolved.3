@@ -1,9 +1,0 @@
-# تنفيذ الإصلاحات
-
-- `[x]` 1. إضافة Mutex لمنع التنفيذ المتوازي — `_routerRunning` guard
-- `[x]` 2. إيقاف fallback لـ items[0] — يرجع `{ ok: false }` عند عدم وجود تطابق
-- `[x]` 3. إصلاح منطق المطابقة — تركيب وتشغيل فقط عند `/تركيب/` في cleanTarget
-- `[x]` 4. تفعيل `*` wildcard لكل أكواد المشاكل — AC02→*AC02 etc.
-- `[x]` 5. إضافة انتظار 2s بعد modal المشاكل + retry للفني بعد 3s
-- `[x]` 6. تتبع forceDrainCleaning + needsPage3 بـ logging مفصل
-- `[x]` 7. إزالة auto-save من Page 3 — دائماً manual stop

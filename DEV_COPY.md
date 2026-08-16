@@ -1,28 +1,49 @@
 # ElArabyDev — نسخة التطوير
 
 > **تاريخ الإنشاء:** 2026-08-03  
+> **آخر تحديث هيكلة:** 2026-08-11 (إعادة تنظيم: src/ + deploy/ + legacy/)
 > **المصدر:** `E:\My First Lap\MY WORKE\Apps\العربي سيستم`  
 > **الغرض:** نسخة عمل للتوحيد والتطوير، الأصل يبقى ثابتًا (مربوط بالإضافات)
 
 ---
 
-## 📁 خريطة المجلدات
+## 🏗️ البنية الحديثة (من 2026-08-11)
 
-| المسار في ElArabyDev | المصدر الأصلي | ملاحظات |
-|----------------------|--------------|---------|
-| `ElArabyDev\excel_autofix` | `العربي سيستم\excel_autofix | مطابقة كاملة |
-| `ElArabyDev\master-portal` | `العربي سيستم\master-portal` | **مصدر الحقيقة للمكتبات المشتركة** |
-| `ElArabyDev\portal-other-section` | `العربي سيستم\portal-other-section` | مطابقة كاملة |
-| `ElArabyDev\Rescheduling Portal Requests Optimization` | `العربي سيستم\Rescheduling Portal Requests Optimization` | مطابقة كاملة |
-| `ElArabyDev\البحث عن بلاغ` | `العربي سيستم\البحث عن بلاغ` | مطابقة كاملة |
-| `ElArabyDev\حجز البلاغات المستقبلة` | `العربي سيستم\حجز البلاغات المستقبلة` | مطابقة كاملة |
-| `ElArabyDev\المساعد الذكي` | `العربي سيستم\المساعد الذكي` | **مستبعد:** ملفات البيانات الضخمة |
-| `ElArabyDev\مساعد التقفيلات` | `العربي سيستم\مساعد التقفيلات` | **مستبعد:** فيديوهات، ملفات سجل، ملفات zip |
-| `ElArabyDev\CHANGELOG.md` | `العربي سيستم\CHANGELOG.md` | سيتم تحديثه بالتغييرات الجديدة |
-| `ElArabyDev\PORTAL_MAP.md` | `العربي سيستم\PORTAL_MAP.md` | سيتم تحديثه |
-| `ElArabyDev\SHARED_KNOWLEDGE.md` | `العربي سيستم\SHARED_KNOWLEDGE.md` | سيتم تحديثه |
-| `ElArabyDev\KNOWN_ISSUES.md` | `العربي سيستم\KNOWN_ISSUES.md` | سيتم تحديثه |
-| `ElArabyDev\MASTER_README.md` | `العربي سيستم\MASTER_README.md` | نسخة ثابتة |
+```
+ElArabyDev/
+├── src/                          ← المصدر (Souces)
+│   ├── unified-extension/        ← ★ المصدر الحقيقي الوحيد للإضافة الموحدة (MV3)
+│   ├── dashboard/                ← لوحة التحكم (Vite + node_modules)
+│   ├── crm-content/              ← سكريبت CRM (TypeScript)
+│   ├── design-system/            ← نظام التصميم الموحد
+│   ├── ui-components/            ← مكونات UI
+│   ├── templates/ portal-config/ libraries/
+│   ├── docs/                     ← PORTAL_REFERENCE.md + SHARED_API.md
+│   └── shared/                   ← نسخة قديمة من المكتبات (مرجعية)
+│
+├── deploy/                       ← ★ المجلد الذي يُحمَّل في المتصفح (Load unpacked)
+│   └── (نسخة نظيفة من unified-extension — بلا توثيق، 100% كود)
+│
+├── tools/                        ← أدوات التشغيل
+│   ├── deploy.ps1                ← ★ نشر: src/unified-extension → deploy (مع نسخة احتياطية)
+│   ├── sync-shared.ps1           ← مزامنة المكتبات المشتركة
+│   └── excel_autofix/            ← أداة Python للتنسيق (إصدار العمل)
+│
+├── legacy/                       ← النسخ المنفصلة القديمة (مرجع/أرشيف، لا تُستخدم للتطوير)
+│   ├── مساعد التقفيلات (نشر قديم)/  ← النشر السابق كاملاً قبل الهيكلة
+│   ├── المساعد الذكي/  البحث عن بلاغ/  حجز البلاغات المستقبلة/
+│   ├── portal-other-section/     ← التحليلات المالية (منفصلة قديمة)
+│   ├── Rescheduling Portal Requests Optimization/
+│   └── اكواد/                    ← صفحات HTML محفوظة من البورتال
+│
+├── backups/                      ← كل النسخ الاحتياطية
+│   ├── backup-pre-unified-v4/
+│   └── deploy_backup_*/          ← + يضيف deploy.ps1 نسخة عند كل نشر
+│
+└── *.md                          ← التوثيق المركزي (AGENTS, MASTER_README, PORTAL_MAP...)
+```
+
+> **القاعدة الأساسية (من AGENTS.md):** `العربي سيستم` = مرجع للقراءة فقط. كل التعديلات في `ElArabyDev` فقط.
 
 ---
 
@@ -47,28 +68,44 @@
 
 ---
 
-## 🔧 آلية المزامنة (Source of Truth)
+## 🔧 آلية المزامنة والنشر (Source of Truth)
 
-> **قاعدة ذهبية:** `ElArabyDev\master-portal\shared\` هو **المصدر الوحيد** للمكتبات المشتركة الخمس.
+> **قاعدة ذهبية:** `ElArabyDev\src\unified-extension\shared\` هو **المصدر الوحيد** للمكتبات المشتركة،
+> و`ElArabyDev\src\unified-extension\` هو **مصدر الإضافة الوحيد**.
 
-### المكتبات المشتركة (5 ملفات):
+### المكتبات المشتركة (13 ملف):
 1. `storage-proxy.js` — وسيط التخزين (content ↔ background): `window.storageGet/Set/Remove/bg`
 2. `smart-log.js` — سجل العمليات الموحد: `window.logEvent/getLog/clearLog/exportLog` + `SmartLog` (SW-safe)
 3. `arabic-utils.js` — أدوات النص العربي: واجهة عامة + `ArabicUtils` (normalize/مرادفات)
 4. `data-mapper.js` — تعيين الأعمدة: واجهة عامة (COLUMN_MAP) + `DataMapper` (HEADERS/findColumnValue)
 5. `portal-selectors.js` — محددات DOM للبورتال (تشمل `POWERAPPS.fields` من selectors.json)
+6. `portal-config.js` — PAGES/DOMAINS/SAP_KEYWORDS مركزية + isPortal/isCRM/getPageInfo
+7. `message-bus.js` — ناقل رسائل موحد بين المكونات
+8. `ai-client.js` — عميل AI موحد (ZEN) + MODEL_MAP + Tool Registry
+9. `frame-walker.js` — مشي في الإطارات (walkFrames/findInFrames/FrameWalker)
+10. `table-scraper.js` — اكتشاف واستخراج الجداول عبر iframes
+11. `excel-exporter.js` — تصدير Excel موحد (ExcelJS + fallback CSV)
+12. `n8n-client.js` — عميل n8n (webhook) 
+13. `db.js` — قاعدة بيانات محلية (IndexedDB) لحجز البلاغات
 
-> **ملاحظة بيئات:** المكتبات الثلاث (smart-log, arabic-utils, data-mapper) تعمل في content scripts وصفحات الإضافة **و** background (service worker) — بلا أي مرجع `window`. storage-proxy و portal-selectors للصفحات فقط.
-
-### سكريبت المزامنة:
+### سكربت النشر (الأهم — يجيب على "ليه محدّث من مساعد التقفيلات؟"):
 ```
-ElArabyDev\sync-shared.ps1
+ElArabyDev\tools\deploy.ps1
 ```
-**الوظيفة:** ينسخ الـ5 ملفات من `master-portal\shared\` إلى:
-- `ElArabyDev\مساعد التقفيلات\shared\`
-- `ElArabyDev\المساعد الذكي\shared\`
+**الوظيفة:** src\unified-extension → deploy\ (مع نسخة احتياطية تلقائية في backups\deploy_backup_*).
+**متى يُشغل:** بعد أي تعديل في `src\unified-extension\` + لتحميل النسخة الجديدة في المتصفح.
+**خطوات التحديث الكاملة:**
+1. عدّل في `src\unified-extension\` (أو أي مجلد مصدر)
+2. شغّل `tools\deploy.ps1`
+3. افتح `edge://extensions` ← زر 🔄 Refresh على الإضافة
 
-**متى يُشغل:** بعد أي تعديل في `master-portal\shared\` + قبل أي اختبار.
+### سكريبت مزامنة المكتبات (فرعي):
+```
+ElArabyDev\tools\sync-shared.ps1
+```
+**الوظيفة:** ينسخ المكتبات من `src\unified-extension\shared\` إلى نسخ legacy المرجعية.
+
+> **مجلد النشر في المتصفح = `ElArabyDev\deploy\`** — نظيف 100% (كود فقط، بلا توثيق/أرشيف).
 
 ---
 
@@ -81,8 +118,7 @@ ElArabyDev\sync-shared.ps1
 # 1. افتح Edge على: edge://extensions
 # 2. فعّل "Developer mode" (أعلى يمين)
 # 3. اضغط "Load unpacked"
-# 4. اختر المجلد: E:\My First Lap\MY WORKE\Apps\ElArabyDev\مساعد التقفيلات
-#    (أو ElArabyDev\المساعد الذكي)
+# 4. اختر المجلد: E:\My First Lap\MY WORKE\Apps\ElArabyDev\deploy
 # 5. ستظهران معًا: الأصل باسمه العادي + الجديدة بـ "(Dev)"
 ```
 
@@ -95,6 +131,9 @@ ElArabyDev\sync-shared.ps1
 **ملاحظة التخزين:** التخزين (`chrome.storage`) مرتبط بـ ID الإضافة — نسخة Dev لها تخزين مستقل
 (بيانات نظيفة للاختبار، ولا تلمس بيانات الأصل).
 
+> **بعد الهيكلة (2026-08-11):** مجلد النشر الجديد = `ElArabyDev\deploy\` — عند أي تحديث
+> شغّل `tools\deploy.ps1` ثم اضغط 🔄 Refresh في edge://extensions (لا حاجة لإعادة Load unpacked).
+
 ---
 
 ## 📝 سجل التغييرات في ElArabyDev
@@ -106,26 +145,26 @@ ElArabyDev\sync-shared.ps1
 | 2026-08-03 | Phase 2 | توحيد مساعد التقفيلات: المكتبات في manifest/popup، حذف storage المكرر، PORTAL_SELECTORS أساس للمحددات، tampermonkey عبر proxy | `91e4e51` |
 | 2026-08-03 | Phase 3 | توحيد المساعد الذكي: مكتبات SW-safe (globalThis)، دمج ArabicUtils/DataMapper/SmartLog APIs، معالجات STORAGE_* في background، حذف bg()/logEvent المكررة | `53f76cf` |
 | — | Phase 4 | توثيق + تبديل المتصفح + قرار المرحلة التالية | — |
+| 2026-08-11 | **Restructure** | إعادة هيكلة الجذر: `master-portal/` → `src/`، `مساعد التقفيلات/` → `deploy/` (نظيف) + `legacy/` (أرشيف)، `excel_autofix/` → `tools/`، النسخ الاحتياطية → `backups/`، إنشاء `tools/deploy.ps1` (نشر من src → deploy بضغطة واحدة) | — |
 
 ---
 
 ## ⚠️ تنبيهات هامة
 
 1. **لا تعدل في `العربي سيستم\` الأصلي** — هو baseline مستقر مربوط بالإضافات الحالية.
-2. **كل تطوير في `ElArabyDev\` فقط** — النسخ، التوحيد، الاختبارات.
-3. **master-portal\shared = مصدر واحد** — لا تحرر نسخ `shared/` داخل الأدوات مباشرة، عدل المصدر وشغل `sync-shared.ps1`.
-4. **Git يعمل داخل ElArabyDev فقط** — تاريخ التوحيد هنا، الأصل يبقى بلا Git.
-5. **الملفات المستثناة متاحة في الأصل** — لو احتجت ملف بيانات للاختبار، انسخه يدويًا من الأصل.
+2. **كل تطوير في `ElArabyDev\src\` فقط** — المصدر الوحيد هو `src\unified-extension\`.
+3. **`src\unified-extension\shared = مصدر واحد للمكتبات`** — لا تحرر نسخ `shared/` داخل الأدوات مباشرة.
+4. **النشر عبر `tools\deploy.ps1`** — لا تعدّل `deploy\` يدوياً؛ أي تعديل هناك يضيع عند النشر التالي.
+5. **`legacy/` و `backups/` للقراءة فقط** — لا تطوّر منها، فقط استنسخ عند الحاجة.
 
 ---
 
 ## 🎯 الهدف النهائي للمرحلة الحالية
 
-بعد إكمال Phase 1–4:
-- ✅ المكتبات المشتركة موحدة ومستمدة من master-portal (تم — Phases 1–3)
-- ✅ مساعد التقفيلات: storage-proxy + smart-log + arabic-utils + data-mapper + portal-selectors مدمجة (تم — Phase 2)
-- ✅ المساعد الذكي: smart-log عبر background، bg() موحدة، النسخ المكررة محذوفة، إصلاح SW crash (تم — Phase 3)
-- ✅ التوثيق محدث (CHANGELOG, TOOL_PROFILE, PROJECT_STATUS, SHARED_KNOWLEDGE)
+- ✅ المصدر الموحد في `src\unified-extension\` (كل الميزات MV3)
+- ✅ النشر النظيف في `deploy\` عبر `tools\deploy.ps1` (مع نسخ احتياطية تلقائية)
+- ✅ المكتبات المشتركة موحدة (13 ملف) ومصدرها `src\unified-extension\shared\`
+- ✅ التوثيق المركزي في الجذر + `docs/` مرجعي
 - ⏳ الإضافة الجديدة تشتغل على البورتال بدون أخطاء console (يحتاج اختبار يدوي بعد التبديل في المتصفح)
 
 ---

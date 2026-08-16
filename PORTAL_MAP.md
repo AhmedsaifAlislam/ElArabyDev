@@ -1,7 +1,7 @@
 # خريطة البورتال — Portal Map
 # El Araby Portal Complete Reference
 
-> **آخر تحديث:** 2026-07-14
+> **آخر تحديث:** 2026-08-16
 
 ---
 
@@ -44,6 +44,16 @@
 | رقم الطلب | `input[name*="ticketnumber"]` | CAS... |
 | ملاحظات الفني | `textarea[name*="techniciannotes"]` | تم الإصلاح |
 | حالة الاستبدال | `select[name*="replacement"]` | مطلوب / غير مطلوب |
+
+### قاعدة صارمة: الرقم المسلسل 2 (Serial 2)
+
+| القاعدة | التفاصيل |
+|---------|----------|
+| **مسموح فقط** | منتجات مجموعة AC: تكييف، تكييف كونسيلد، PUMP CLEAN، مبرد هواء، منقى هواء، صيانة دورية تكييف |
+| **فاضي إلزاماً** | كل المنتجات الأخرى (ثلاجات، غسالات، بوتوجازات، شاشات، SHA/AV/OE/PCP/TB/Watches/LIGHTING...) — `ldv_serialnumber1` و `ldv_actualmodel2` بلا بيانات |
+| **سبب الرفض** | البوابة ترفض البلاغ: "المنتج الذي قمت بأدخاله غير متطابق مع الرقم المسلسل" لو serial2 متعبأ لمنتج غير AC |
+| **Sharp** | علامة تجارية (فيها تكييف + ثلاجات + غسالات) وليست نوع منتج — لا تُملأ serial2 لثَلاجات شارب |
+| **التنفيذ** | `content-script.js` → `isACProductType()` + `clearModel2Serial2Fields()` |
 
 ### إعدادات window.crmAccount
 
@@ -277,7 +287,7 @@ Call-Center خارج الضمان:
 | accountMovementSAP.aspx | `ContentPlaceHolder1_TextBox1` | "كلمة المرور" |
 | billingneeded.aspx | `ContentPlaceHolder1_TextBox3` | "الرقم السرى" |
 
-> **ملاحظة:** كلمة السر في `portal_automation.js`: `CONFIG.PASSWORD = '4000086735'`
+> **ملاحظة:** كلمة السر في `portal_automation.js` تُدخل يدوياً عبر `CONFIG.PASSWORD` عند التشغيل — لا تُخزّن في الملفات.
 
 ### كيفية عمل POSTBack
 

@@ -1,0 +1,452 @@
+{
+  "_comment": "عدّل الـ selectors حسب الـ DOM الحقيقي. أولوية الـ selectors من الأعلى للأدنى.",
+  "_mergeNote": "Phase 4.4: دمج selectors من V1 (مساعد التقفيلات) و V2 (مساعد التقفيلات V2) — أُضيفت مفاتيح جديدة ومُدّدت قوائم موجودة فقط، بدون حذف أي مفتاح أو قيمة قائمة.",
+
+  "serial": [
+    "#ldv_serialnumber",
+    "#ldv_technicalserialnumber",
+    "[aria-label*='الرقم المسلسل']",
+    "[aria-label*='مسلسل']",
+    "[name*='serial']",
+    "input[id*='serial']"
+  ],
+
+  "serial2": [
+    "#ldv_serialnumber1",
+    "[aria-label*='الرقم المسلسل 2']",
+    "[aria-label*='مسلسل 2']",
+    "[name*='serialnumber1']"
+  ],
+
+  "brandInput": [
+    "#ats_producttypebrand_name",
+    "input[aria-label='العلامة التجاريه']",
+    "input[aria-label*='العلامة التجاريه']",
+    "input[aria-label*='العلامة التجارية']",
+    "input[aria-label*='العلامة']",
+    "input[id*='brand']",
+    "input[name*='brand']",
+    "input[id*='Brand']"
+  ],
+
+  "brandBtn": [
+    "button[aria-label*='العلامة التجاريه Launch lookup modal']",
+    "button[aria-label*='العلامة التجارية Launch lookup modal']",
+    ".launchentitylookup",
+    "button[aria-label*='Brand']",
+    ".lookup-brand button"
+  ],
+
+  "modelBtn": [
+    "button[aria-label*='الموديل الفعلي Launch lookup modal']",
+    "button[aria-label*='الموديل الفعلي 1 Launch lookup modal']",
+    ".launchentitylookup",
+    "button[aria-label*='Model']",
+    ".lookup-model button"
+  ],
+
+  "modelInput": [
+    "#ldv_actualmodel_name",
+    "input[aria-label='الموديل الفعلي 1']",
+    "input[aria-label*='الموديل الفعلي']",
+    "input[name*='actualmodel']",
+    "input[name*='model']",
+    "input[id*='actualModel']"
+  ],
+
+  "modelInput2": [
+    "#ldv_actualmodel2_name",
+    "input[aria-label='الموديل الفعلي 2']",
+    "input[aria-label*='الموديل الفعلي 2']"
+  ],
+
+  "statusSelect": [
+    "#ldv_warrantystatus",
+    "select[name*='warranty']",
+    "select[aria-label*='Warranty']",
+    "select[id*='warranty']",
+    "select[aria-label*='Warranty Status']",
+    "select[aria-label*='حالة الضمان']",
+    "select[name*='status']"
+  ],
+
+  "dateInput": [
+    "#ldv_warrantydate_datepicker_description",
+    "input[aria-label*='Warranty Date']",
+    "input[aria-label*='تاريخ الضمان']",
+    "input[name*='warrantyDate']",
+    "input[id*='warrantyDate']",
+    "input[id*='warrantydate']",
+    "input[type='date']"
+  ],
+
+  "notes": [
+    "textarea[aria-label*='Notes']",
+    "textarea[name*='notes']",
+    "textarea[id*='notes']",
+    "textarea[aria-label*='ملاحظات']",
+    "textarea[name*='notes_support']",
+    "input[name*='notes_support']"
+  ],
+
+  "nextBtn": [
+    "#NextButton",
+    "input[type='button'][value='Next']",
+    "input[type='button'][value='التالي']",
+    "button[aria-label='Next']",
+    "button[aria-label='التالي']",
+    "button[type='submit']",
+    "button#nextButton",
+    "input[type='submit'][value='Next']"
+  ],
+
+  "lookupBtn": [
+    "button.launchentitylookup",
+    ".lookup-btn",
+    "button[aria-label*='Launch lookup modal']",
+    ".lookup-brand button",
+    ".lookup-model button",
+    ".lookup-technician button"
+  ],
+
+  "lookupNameInput": [
+    "input[id$='_name']",
+    "#ats_modeldefectmajor_name",
+    "#ats_defectcodedefectmajor_name",
+    "#ats_modeldefectspid_name"
+  ],
+
+  "lookupClearBtn": [
+    "button[aria-label*='Clear']",
+    "button[aria-label*='مسح']",
+    ".clear-button",
+    "[data-action='clear']"
+  ],
+
+  "lookupModalItem": [
+    "[role='dialog'] li",
+    "[role='listbox'] [role='option']",
+    ".lookup-modal .result-item",
+    ".modal .result-item",
+    ".entitylist-items li",
+    ".lookup-results li",
+    "table tbody tr",
+    ".modal table tbody tr"
+  ],
+
+  "lookupSearchInput": [
+    "[role='dialog'] input[type='search']",
+    "[role='dialog'] input[type='text']",
+    ".lookup-modal input",
+    ".modal input[type='search']",
+    ".modal input[type='text']",
+    ".modal input.query",
+    "input[placeholder*='Search']"
+  ],
+
+  "lookupModalSelectBtn": [
+    ".modal button.primary",
+    ".modal button[aria-label*='Select']",
+    ".modal button[aria-label*='تحديد']",
+    ".modal button[aria-label*='اختر']",
+    "button.btn-primary",
+    "input[value='اختر']",
+    "input[value='Select']"
+  ],
+
+  "lookupModalSearchBtn": [
+    ".modal button[aria-label*='Search']",
+    ".modal button[aria-label*='بحث']"
+  ],
+
+  "lookupModalCloseBtn": [
+    ".modal.show [data-dismiss='modal']",
+    ".modal.show button.close",
+    "[data-dismiss='modal']"
+  ],
+
+  "successIndicator": [
+    ".save-success",
+    ".alert-success",
+    ".notification-success",
+    "[class*='success']",
+    ".toast-success",
+    ".notification.toast-success",
+    ".ms-MessageBar--success",
+    "[data-testid='save-success']"
+  ],
+
+  "errorIndicator": [
+    ".alert-danger",
+    ".validation-summary-errors"
+  ],
+
+  "busyIndicator": [
+    ".blockUI",
+    ".blockOverlay",
+    ".loading-spinner"
+  ],
+
+  "saveBtn": [
+    "#InsertButton",
+    "#SubmitButton",
+    "input[type='submit']",
+    "button.btn-primary"
+  ],
+
+  "customer": [
+    ".customer-name",
+    "[class*='customer-name']",
+    "[data-id*='customer']"
+  ],
+
+  "orderNumber": [
+    ".order-number",
+    "[class*='order-id']",
+    "[class*='workorder-id']",
+    "[class*='workorder-number']",
+    "[aria-label*='رقم أمر الشغل']",
+    "[aria-label*='Work Order']"
+  ],
+
+  "phone": [
+    "input[type='tel']",
+    "input[aria-label*='هاتف']",
+    "input[aria-label*='تليفون']",
+    "input[aria-label*='موبايل']",
+    "input[aria-label*='Phone']",
+    "input[name*='phone']",
+    "input[id*='phone']"
+  ],
+
+  "address": [
+    "textarea[aria-label*='عنوان']",
+    "input[aria-label*='عنوان']",
+    "textarea[aria-label*='Address']",
+    "input[aria-label*='Address']",
+    "input[name*='address']",
+    "input[id*='address']",
+    "textarea[name*='address']"
+  ],
+
+  "deviceType": [
+    "#ats_producttype_name",
+    "input[aria-label*='نوع الجهاز']",
+    "input[aria-label*='نوع المنتج']",
+    "input[aria-label*='Device Type']",
+    "input[aria-label*='Product Type']",
+    "select[aria-label*='نوع الجهاز']",
+    "select[aria-label*='نوع المنتج']"
+  ],
+
+  "complaintCode": [
+    "input[aria-label*='كود الشكوى']",
+    "input[aria-label*='شكوى العميل']",
+    "input[aria-label*='Complaint Code']",
+    "input[aria-label*='Customer Complaint']",
+    "input[aria-label*='كود المشكلة']",
+    "input[aria-label*='المشكلة']",
+    "input[id*='complaint']"
+  ],
+
+  "complaintText": [
+    ".initial-complaint",
+    ".complaint-text",
+    ".description"
+  ],
+
+  "complaintCodeLabels": [
+    "Customer Complaint",
+    "Complaint Code",
+    "Complaint",
+    "كود الشكوى",
+    "شكوى العميل",
+    "شكوى",
+    "كود المشكلة",
+    "المشكلة"
+  ],
+
+  "_ORDERS_PAGE_SELECTORS_NOTE": "الـ selectors التالية خاصة بصفحة /Orders — عدّلها أولاً",
+
+  "ordersSearchInput": [
+    "input[aria-label*='Search']",
+    "input[placeholder*='Search']",
+    "input[placeholder*='بحث']",
+    "#searchOrders",
+    "input[type='search']",
+    ".search-input input",
+    "input[name*='search']"
+  ],
+
+  "ordersSearchBtn": [
+    "button[type='submit']",
+    "button[aria-label*='Search']",
+    "button[aria-label*='بحث']",
+    ".search-btn",
+    "button[class*='search']",
+    "button[type='submit'][aria-label*='Search']"
+  ],
+
+  "ordersTableRow": [
+    "table tbody tr",
+    "[role='row']",
+    ".entitylist-items > li",
+    ".order-row",
+    ".grid-row",
+    ".list-item"
+  ],
+
+  "ordersViewLink": [
+    "a[href*='workorderreview']",
+    "a[href*='followup']",
+    "a[href*='review']",
+    "button[aria-label*='View']",
+    "button[aria-label*='Open']",
+    "button[aria-label*='متابعة']",
+    "a[aria-label*='View']",
+    "td:last-child a",
+    ".view-btn"
+  ],
+
+  "subgrid": [
+    ".subgrid",
+    ".entity-grid"
+  ],
+
+  "subgridTitle": [
+    ".subgrid-title",
+    ".entity-grid-title",
+    "h3",
+    "h4",
+    "label"
+  ],
+
+  "subgridRow": [
+    "tbody tr",
+    "[role='row']",
+    "table tbody tr",
+    "div[role='grid'] tr",
+    "table tr:not(:first-child)",
+    ".subgrid tbody tr",
+    ".entity-grid tbody tr"
+  ],
+
+  "technicianSelect": [
+    "#ats_technician_name",
+    "select[aria-label*='Technician']",
+    "select[aria-label*='فني']",
+    "select[name*='technician']",
+    "select[id*='technician']"
+  ],
+
+  "sparePartsStatus": [
+    "#ats_sparepartsstatus",
+    "select[aria-label*='Spare Parts']",
+    "select[aria-label*='قطع الغيار']",
+    "select[aria-label*='حالة قطع الغيار']"
+  ],
+
+  "sparePartsNoneText": "بدون قطع غيار",
+
+  "workOrderType": [
+    "#ats_workordertype_name",
+    "[data-logical-name='ats_workordertype'] input[type='text']",
+    "[data-logical-name='ats_workordertype'] [role='textbox']",
+    "#ldv_workordertype",
+    "#ldv_workordertype_Value"
+  ],
+
+  "serviceType": [
+    "#ats_servicetype_name",
+    "[data-logical-name='ats_servicetype'] input[type='text']",
+    "[data-logical-name='ats_servicetype'] [role='textbox']",
+    "input[aria-label*='نوع الخدمة']",
+    "input[aria-label*='Service Type']"
+  ],
+
+  "serviceLabels": [
+    "Service Type",
+    "Report Type",
+    "نوع الخدمة",
+    "نوع البلاغ",
+    "Service"
+  ],
+
+  "notesLabels": [
+    "Notes",
+    "ملاحظات",
+    "notes_support",
+    "notes"
+  ],
+
+  "installationKeywords": [
+    "تركيب",
+    "installation",
+    "تركيب وتشغيل",
+    "Installation and Commissioning"
+  ],
+
+  "_subgridAddPatterns": {
+    "problems": ["اضاف[ةه]\\s*المشاكل\\s*الفعلي[ةه]", "Add.*Problem"],
+    "technician": ["اضاف[ةه]\\s*فن", "Add.*Tech"]
+  },
+
+  "_excludeProblemPatterns": ["ترصيد", "ارضي", "أرضي", "بلاغ"],
+
+  "_priorityProblemPatterns": ["Premium\\s*care", "بريميم.?كير", "تركيب وتشغيل"],
+
+  "_lookupBtnExcludePattern": "clear|مسح|remove|delete",
+
+  "_batchDelay": 1200,
+  "_nextWaitTimeout": 10000,
+  "_lookupTimeout": 6000,
+  "_ordersSearchWait": 2000,
+  "_retryCount": 3,
+  "saveTimeoutMs": 15000,
+  "retryIntervalMs": 1000,
+
+  "_PROBLEM_CODES_NOTE": "خريطة أكواد المشاكل — عدّل الـ pattern (regex) أو الـ codes حسب الحاجة",
+  "problemCodes": [
+    { "pattern": "تكييف|ac|air.?cond|split|شباك|inverter", "codes": ["*AC02", "*AC03"] },
+    { "pattern": "بوتوجاز|طباخ|cooker",                    "codes": ["*GS04"] },
+    { "pattern": "غسال(?!.*(اطباق|أطباق))",                "codes": ["*WM05"] },
+    { "pattern": "ثلاج|مبرد|fridge",                        "codes": ["*GR01", "*GR02", "*GR03"] },
+    { "pattern": "اطباق|أطباق|dish",                        "codes": ["*DW06"] },
+    { "pattern": "سخان|heater",                             "codes": ["*HT01"] }
+  ],
+
+  "fieldLabels": {
+    "serial": "الرقم التسلسلي",
+    "brand": "البراند",
+    "model": "الموديل",
+    "status": "حالة الضمان",
+    "date": "التاريخ",
+    "notes": "الملاحظات"
+  },
+
+  "fieldDefinitions": {
+    "productType": ["نوع المنتج", "product type", "producttype", "نوعالمنتج"],
+    "brand": ["علامة تجارية", "علامه تجاريه", "brand", "العلامة التجارية", "العلامه التجاريه"],
+    "model": ["الموديل", "الموديل *", "model", "موديل"],
+    "defect": ["أكواد الأعطال", "اكواد الاعطال", "كود العطل", "defect", "العطل"],
+    "sparePart": ["قطع غيار", "قطعه غيار", "قطع الغيار", "كود القطعة", "كود قطعه الغيار", "spare part", "sparepart"],
+    "quantity": ["الكمية", "الكميه", "quantity", "العدد"]
+  },
+
+  "portalFieldIds": {
+    "defectMajor": "ats_modeldefectmajor",
+    "defectCode": "ats_defectcodedefectmajor",
+    "sparePart": "ats_modeldefectspid"
+  },
+
+  "_WORKFLOWS_NOTE": "خط سير الإضافة — المحرك سيقرأ هذه الخطوات تباعاً. action: نوع الإجراء, target: مفتاح من المحددات أو CSS مباشر",
+  "workflows": {
+    "page1_search": [
+      { "action": "wait", "target": "ordersSearchInput", "timeout": 10000 },
+      { "action": "type", "target": "ordersSearchInput", "value": "{{orderId}}" },
+      { "action": "click", "target": "ordersSearchBtn" },
+      { "action": "wait", "target": "ordersTableRow", "timeout": 12000 },
+      { "action": "click_row", "target": "ordersViewLink", "matchText": "{{orderId}}" }
+    ]
+  }
+}

@@ -226,6 +226,69 @@ Entity 'account' With Id = 00000000-0000-0000-0000-000000000000 Does Not Exist
 | 9 | عدم توحيد كلمات السر | منخفضة | مفتوحة | portal-other-section |
 | 10 | حد أقصى 50 صفحة في الاستخراج | متوسطة | مفتوحة | مساعد التقفيلات |
 | 11 | لا يوجد retry للصفحات الفاشلة | متوسطة | مفتوحة | مساعد التقفيلات |
+| 12 | تعارض مستمعي onMessage بين content-script و order-extractor | حرجة | محلولة (Message Bus) | مساعد التقفيلات |
+
+---
+
+## محلول مؤخراً — تعارض مستمعي onMessage (Message Bus موحّد)
+
+**الأثر (قبل الحل):** أوامر الموجودات كانت تصل أحياناً لمستمع خاطئ
+(EXTRACT_DEVICE_DATA، PARTS_SEARCH، REPORT_DETAIL/BATCH، START_SECOND_VISIT_QUEUE)
+لأن `content-script.js` و `order-extractor.js` كلاهما محقونان على نفس الدومين
+وكلاهما يضيف `chrome.runtime.onMessage.addListener`؛ أول من يردّ يكسب في Chrome.
+
+**الحل المطبّق (المرحلة A+B):**
+- إنشاؤ نسخة `message-bus.js` plain-JS في
+  `master-portal/shared/message-bus.js` (وحُرّك template في
+  `unified-extension/shared/message-bus.js`)، بموزّع أحاد يملك action لكل handler.
+- تسجيل أفعال content-script (9 أفعال) و order-extractor (7 أفعال) عبر
+  `messageBus.on(...)` بدلاً من المستمع الخام؛ إزالة قوائم `OWN_ACTIONS` اليدوية.
+- إصلاح `EXTRACT_DEVICE_DATA`: الرد يُرسل قبل بدء التنقل من Reportdetail
+  (قاعدة "Respond BEFORE navigation") لتفادي ضياع الرد في تمزق السياق.
+- إزالة كتل fallback الميتة.
+- `manifest.json`: استيراد `shared/message-bus.js` قبل content-script و
+  مع order-extractor.
+- مراجعة كود (موامين) + متابعة خطة (عزازي): 9/9 بنود PASS، node --check سليم،
+  النشر في مجلد مساعد التقفيلات مؤكد.
+
+**ملاحظة للمراحل التالية (خارج نطاق A+B):** مستمعات خام ما زالت في
+background.js / popup.js / tampermonkey-runner.js / smart-log.js —
+ستُحوَّل إلى الموزّع الموحّد في مراحل لاحقة.
+
+---
+
+## محلول مؤخراً — CRM Extractor (tokens + Message Bus)
+
+**الأثر (قبل الحل):** ألوان مبعثرة ثابتة في `crm-content` و `ui-components`،
+و`crm-content.js` كان يضيف مستمع `chrome.runtime.onMessage` خام فيتعارض مع
+الموزّع الموحّد.
+
+**الحل المطبّق:**
+- توكنايز كامل لـ `master-portal/crm-content/src` (FileUploader / ProgressPanel /
+  ResultsTable / styles/main.css) و `master-portal/ui-components` (9 ملفات) عبر
+  `var(--ea-*)` فقط؛ صفر ألوان خام في الـ src (الوحيد الباقي المقصود: hover
+  `rgba(0,0,0,0.1)` في Badge و SVG chevron في Select).
+- توسيع `design-system/tokens.css` (المصدر الموحّد) بأقسام dark + light:
+  `--ea-neutral(-2)` / `--ea-faint(-2)` / `--ea-input-disabled(+text)` /
+  `--ea-icon-fill` / `--ea-track` / `--ea-stripe` / `--ea-modal` /
+  `--ea-row-selected` / `--ea-scroll-*` / `--ea-badge-*-bg|text` + `--ea-info`.
+- `crm-content/src/index.ts`: استبدال المستمع الخام بـ `onCRMMessage(...)` عبر
+  الموزّع الموحّد (START/STOP/GET_STATUS/EXPORT_RESULTS) + `data-theme="light"`
+  على جذر الواجهة.
+- `manifest.json` (unified + النشر): إضافة `"css": ["styles/tokens.css"]`
+  لإدخال CRM ليصل Theme للألوان.
+- إعادة بناء prod وإعادة مزامنة 3 نسخ من `crm-content.js` (dist /
+  unified-extension / مجلد النشر) بنفس SHA256
+  `A25FA11220AA94DECFA5C3BE89728E7DA5BFED91571C1470124A4F2DDA2A43FB`؛
+  و 3 نسخ من `tokens.css` بنفس SHA256
+  `E2C16A5FF5917D3ECD31CDBB948367E56B53345DC1CE363305A3AE8218E58C58`.
+- إضافة سكربت `build:deploy` في `crm-content/package.json` يعيد البناء و ينقل
+  الناتج إلى `unified-extension/content/crm/`.
+- مراجعة كود (سلطane) + تتبع (عزازي): كل الرموز المستخدمة معرّفة، node --check
+  سليم على النسخ الثلاث، JSON صالح والعربية سليمة.
+
+**ملاحظة:** `master-portal/crm-content/src/styles/main.css` غير مُستورد
+(dead) — توكنايزه احتياطي؛ الألوان الفعلية تأتي من `tokens.css` عبر الوراثة.
 
 ---
 

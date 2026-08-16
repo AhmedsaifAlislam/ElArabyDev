@@ -3,44 +3,327 @@
 
 > **تنسيق:** [Keep a Changelog](https://keepachangelog.com/)
 > **الإصدار:** يتبع [Semantic Versioning](https://semver.org/)
+---
+
+## [2026-08-16] — قاعدة صارمة: سيريال 2/موديل 2 للتكييف فقط
+
+### المشكلة (بلاغ حي)
+- بلاغ ثلاجة (SHARP) في `workorderreview` كان حقل `الرقم المسلسل 2` (`ldv_serialnumber1`) محتوي "0" — البوابة رفضت البلاغ: "المنتج الذي قمت بأدخاله غير متطابق مع الرقم المسلسل"
+
+### الجذر
+- `executePage1_Review` في content-script.js كان عندها "General fallback" ينسخ `model/serial` إلى `model2/serial2` لأي جهاز بحقل 2 في الـ DOM (حتى المخفي)
+- منطق AC Fallback كان يعتمد على الـ brand (`isSharp = /sharp/i.test(data.brand)`) — خطأ: Sharp علامة تجارية فيها تكييف + ثلاجات + غسالات، وليس كلها تكييف
+
+### القاعدة الصارمة الجديدة
+- **سيريال 2 / موديل 2 مسموح فقط لمنتجات مجموعة AC**: تكييف، تكييف كونسيلد، PUMP CLEAN، مبرد هواء، منقى هواء، صيانة دورية تكييف
+- **كل المنتجات الأخرى** (ثلاجات، ديب فريزر، غسالات، بوتوجازات، سخانات، شاشات، SHA/AV/OE/PCP/TB/Watches/LIGHTING...) → `serial2` و `model2` **فاضي إلزاماً** مهما كانت البيانات
+- جديد `isACProductType(productType)` — كشف دقيق من نوع المنتج (الداتا أو الصفحة `readDeviceTypeFromPage`)
+- جديد `clearModel2Serial2Fields()` — لغير التكييف: يمسح الحقل النصي + حقول lookup المخفية + الحقل المرئي + زر Clear lookup إن وُجد (لأن `fillAndVerifyProtected` لا يمسح الحقول بقيمة فارغة)
+- إزالة `isSharp` نهائياً
+
+### التحقق
+- `node --check` نظيف ✅
+- اختبار وحدة `isACProductType` ضد 31 نوع منتج من البورتال (6 AC → true، 25 غير AC → false) ✅
+- deploy SHA256 MATCH ✅
 
 ---
 
-## [2026-08-03] — توحيد المكتبات المشتركة (ElArabyDev Phase 1–3)
+## [2026-08-15] — AI + n8n Foundation (أساس الذكاء الاصطناعي وناقل الأحداث)
 
-> تم في نسخة التطوير `ElArabyDev` (الأصل `العربي سيستم` يبقى ثابتًا). التفاصيل الكاملة في `DEV_COPY.md`.
+### n8n Event Bus — طابور موثوق بلا فقدان أحداث
+- **جديد `shared/n8n-event-bus.js`**: ناقل أحداث موحد يعمل في كل السياقات (content/popup/background)
+  - سجل أحداث محلي (`n8nEventLog` — آخر 200) يُسجَّل دائماً حتى بدون n8n
+  - طابور Outbox مستمر (`n8nOutbox` — آخر 100) مع `eventId` فريد للـ dedupe في n8n
+  - Retry حتى 5 محاولات للحدث الفاشل — لا تضيع الأحداث عند انقطاع الشبكة
+  - `n8nRegisterEvent` لتوسيع سجل الأحداث الرسمي (excel_export, ai_call, booking_done...)
+- **background.js**: `N8N_FLUSH` + `N8N_QUEUE_STATUS` handlers + تفريغ دوري عبر `chrome.alarms` (كل 5 دقائق، permission "alarms" جديد) + `AI_GET_USAGE`/`AI_RESET_USAGE`
+- **n8n-client.js**: `n8nEmit` (بث عبر الطابور) + `n8nFlushOutbox` + `n8nQueueStatus` — مع بقاء `n8nSend` للتوافق
+- **excel-exporter.js**: حدث `excel_export` أصبح عبر ناقل الأحداث (طابور بدل إرسال مباشر)
+- **n8n-tab (popup)**: مفاتيح جديدة (autoForward + telemetryAI) + حالة الطابور + زر "تفريغ الطابور الآن" + عرض آخر الأحداث
+- **إصلاح**: `n8n-client.js` لم يكن محمّلاً في popup أصلاً (زر الاختبار كان يفشل) — أُضيف إلى popup.html
+
+### AI Client v2 — Tool Registry بـ JSON Schema + جلسات دائمة
+- **shared/ai-client.js**: `aiRegisterTool(name, desc, run, parameters)` — الأدوات الآن تحمل JSON Schema حقيقياً يُمرَّر لـ native tool calling (دقة أعلى في اختيار النموذج للأداة)
+- ذاكرة جلسات **دائمة** (`aiSessions` في storage — آخر 10 جلسات × 40 رسالة) + `aiResetSession`
+- `aiGetUsage()` / `aiResetUsage()` — إحصائيات الاستخدام من background
+- **جديد `shared/ai-prompts.js`**: 8 قوالب system prompts مركزية (general, portal, scheduler, booking, financial, extraction, qa, summary) مع `get/build/register` — استُخدمت في popup و chat-panel
+- **smart-ai-tools.js**: كل الأدوات بأوصاف JSON Schema + أدوات جديدة: `read_event_log`, `emit_n8n_event` (البث لـ n8n من المحادثة), `get_usage_stats`, `list_ai_tools`
+- **scheduler-tools.js**: أدوات الجدولة الثلاث مع JSON Schema (date مطلوب، god_mode اختياري)
+- **ai-panel-tab (popup)**: لوحة إحصائيات الاستخدام (طلبات/توكنز/نجاح/فشل/حسب النموذج) + أزرار مسح الإحصائيات ومسح الجلسة
+- **manifest.json**: permission `alarms` + تحميل `ai-prompts.js` + `n8n-event-bus.js` + `n8n-client.js` في content scripts (PowerApps + CRM) و popup
+
+### توثيق
+- **جديد `docs/AI_N8N_FOUNDATION.md`**: معمارية الناقل + بروتوكول الرسائل + شكل payload + دليل اختبار يدوي
+- MASTER_README: إضافة المرجع الجديد في جدول الملفات
+
+### التحقق
+- `node --check` نظيف لكل الملفات المعدلة ✅
+- اختبارات وحدة Node: `node tools/tests/run-tests.js` ✅
+
+---
+
+## [2026-08-15] — DateFilter v1.8: حذف الفلتر مباشرة (مسار واحد نهائي)
+
+### تشخيص حي رابع (سبب عدم الانطلاق)
+- `v: v1.7` نشط + `span: true` (الفلاتر مرصودة) + `submitBtn: true` + `grid: true`
+- **لم تنطلق المرحلة** بسبب حاجزين: (1) `eau_auto_reload_done` محفوظ من محاولة v1.6 اليومية المبكرة، (2) المرحلة 2 كانت مشروطة بـ `dfApply=1` في الـ URL (غير موجود بعد تحديث v1.7)
+- ملاحظة فحص: اللوحة الفعلية id = `ea-date-unlocker-panel` (فحص `eau-filter-box` كان خاطئاً)
+
+### الإصلاح (v1.8)
+- **مسار واحد نهائي**: عند رصد نطاق ضيق + autoExpand مفعّل → **حذف فلتر التاريخ خالصاً فوراً** (مسح `bk_fld_CreateDateAfter/Before` → نقر زر التطبيق الرسمي/metafilter) — بلا أي إعادة تحميل
+- **مسار إعادة التحميل مع dtStart/dtEnd أُلغي نهائياً** (الخادم يتجاهله — مثبت مرتين)
+- مفتاح جديد `sessionStorage eau_clear_tried` (لا يتأثر بالمفاتيح القديمة) — محاولة واحدة يومياً
+- شبكة الأمان باقية (استعادة تلقائية إن عاد الجدول فارغاً بعد 6 ثوانٍ)
+- التحقق: `node --check` نظيف ✅ — deploy SHA256 MATCH ✅
+
+---
+
+## [2026-08-15] — DateFilter v1.7: حذف الفلتر خالص (آخر فرصة قبل التعطيل الكامل)
+
+### تصحيح مسار النشر (أهمية حرجة)
+- **DateFilter محقون من manifest.json** (content_scripts سطر 78) — **ليس سكربت Tampermonkey**
+- **التحديث = Refresh الإضافة فقط** — الإضافة تقرأ الملف تلقائياً (المستخدم محق؛ v1.6 وصل وتشغّل تلقائياً)
+
+### الإصلاح (v1.7)
+- **المرحلة 2**: بدل تطبيق نطاق موسّع → **تفريغ حقلي التاريخ خالصاً** (`bk_fld_CreateDateAfter/Before = ''`) ثم إطلاق فلتر البورتال الأصلي (زر التطبيق/metafilter) → **الجدول يعرض كل البلاغات بلا قيد تاريخ**
+- **الفرق عن فشل v1.3 التاريخي**: كنا نضع `"0"` (قيد صفر → جدول فارغ "لا توجد سجلات") — **الفراغ يزيل القيد كلياً**
+- شبكة الأمان باقية: إن عاد الجدول فارغاً بعد 6 ثوانٍ → استعادة فورية للنطاق الافتراضي
+- الحماية اليومية: `sessionStorage eau_metafilter_tried` — محاولة واحدة يومياً
+- التحقق: `node --check` نظيف ✅ — deploy SHA256 MATCH ✅
+
+---
+
+## [2026-08-15] — DateFilter v1.6.1: مرحلة metafilter الآمنة (الخادم تجاهل dtStart/dtEnd)
+
+### تشخيص حي ثانٍ (تأكيد)
+- v1.6 نفّذ إعادة التحميل بنجاح: `URL?dtStart=2026-08-08&dtEnd=2026-09-14&dfApply=1` ✅
+- **لكن الخادم تجاهل المعاملات**: الفلتر المعروض بقي `08/15 - 08/18` والجدول 20 صفاً
+- Grid Requests: لا يزال `none captured` — الجدول server-rendered مطلقاً
+
+### الإصلاح (v1.6.1)
+- **المرحلة 2** في `maybeAutoExpandReload`: بعد إعادة التحميل (dfApply=1 في URL) إن كان الفلتر ما زال ضيقاً → `applyFilterControlExpansionSafe()` — تطبيق فلتر البورتال الأصلي (زر التطبيق/metafilter) **مرة واحدة يومياً**
+- **تحسينات الأمان مقارنة بـ v1.3 الفاشل**: تحقق أن التواريخ الجديدة ظاهرة في الـ serialized (ليست أصفاراً)، نقر زر التطبيق الرسمي أولاً ثم metafilter احتياطياً
+- **شبكة أمان حاسمة**: بعد 6 ثوانٍ إن عاد الجدول فارغاً ("لا توجد سجلات"/view-empty) → استعادة فورية للنطاق الافتراضي (حذف dtStart/dtEnd/dfApply من الـ URL) — لا ضرر دائم ممكن
+- حماية الحلقة: `sessionStorage eau_metafilter_tried` = اليوم (محاولة يومية واحدة)
+- التحقق: `node --check` نظيف ✅ — deploy SHA256 MATCH ✅
+- **ملاحظة نشر**: تحديث نسخة Tampermonkey + مسح `sessionStorage` (أو يوم جديد) لتجربة المرحلة 2
+
+---
+
+## [2026-08-15] — توسيع تلقائي آمن v1.6 (جذر "بلاغات اليوم فقط")
+
+### التشخيص الحي (من لوحة التشخيص في متصفح المستخدم)
+- الفلتر المعروض: `08/15/2026 - 08/18/2026` (نطاق المنصة الافتراضي: اليوم → +3 أيام)
+- **Grid Requests (entity-grid-data): none captured** — الجدول يُملأ **Server-Side** (HTML أولي) بلا أي طلب AJAX
+- الاعتراض يعدّل طلبات الـ API فقط (مثال: annotations توسّع من 08/15 إلى 08/08 بنجاح ✅)
+- **النتيجة**: التوسيع لا يلمس الجدول الرئيسي لأنه لا يوجد طلب جدول يُعترض
+
+### الإصلاح (v1.6-safe-auto-expand-20260815)
+- **جديد `maybeAutoExpandReload()`**: عند رصد الفلتر الأول — إذا كان النطاق المعروض أضيق من المطلوب (autoExpand مفعّل) → إعادة تحميل آمنة **مرة واحدة يومياً** مع `dtStart/dtEnd/dfApply` (نفس آلية زر "تطبيق + إعادة تحميل" اليدوي)
+- **حماية ثلاثية من الحلقة اللانهائية**: (1) `sessionStorage (eau_auto_reload_done = تاريخ اليوم)` — محاولة يومية واحدة، (2) `dfApply=1` + dtStart موجودان في الـ URL → توقف، (3) `__desiredRange.fromUrl` (وصلنا بنطاق) أو `totalDays >= days` (النطاق يغطي المطلوب) → توقف
+- **لا تغيير في مبدأ v1.5**: لا metafilter ولا نقر زر — إعادة التحميل فقط مع params
+- التحقق: `node --check` نظيف ✅ — deploy SHA256 MATCH ✅
+- **ملاحظة نشر**: سكربت Tampermonkey — تحديث النسخة من Tampermonkey (وليس Refresh الإضافة)
+
+---
+
+## [2026-08-15] — ملاحظات سريعة (Quick Notes) في كشف الأرقام
+
+- **phone-reveal**: تبويب رابع "📝 ملاحظات" — إضافة ملاحظات سريعة (Enter) + حذف فردي + مسح الكل
+- حفظ محلي في `localStorage (erp_quick_notes)` — سقف 200 ملاحظة
+- تصدير: الملاحظات تُلحق في نهاية ملف **Excel** (صفوف وقت/ملاحظة) و**CSV** (قسم مستقل) — السجل/log يذكر العدد
+- توافق MV3 سطر 849 (قائمة `__ERP_HANDLERS__`) — الدوال الجديدة داخل النطاق المسموح
+- التحقق: `node --check` نظيف ✅ — deploy SHA256 MATCH ✅
+
+---
+
+## [2026-08-15] — إصلاح حد 50 صفحة + Retry للصفحات الفاشلة (order-extractor)
+
+### إصلاح مشكلتين موثقتين (من CHANGELOG 2026-07-14)
+- **order-extractor.js `extractAllPages`**: رفع الحد الأقصى من 50 إلى **200 صفحة** (`MAX_PAGES`)
+- **Retry mechanism**: فشل `scrapeCurrentPage` في الصفحات اللاحقة → محاولة إعادة قراءة واحدة (1.5 ثانية) قبل الإعلان عن الفشل؛ فشل تحميل الصفحة التالية (`waitForTable`) → حتى **3 محاولات** مع فاصل 1.5 ثانية بينها قبل التوقف
+- سلوك الإيقاف اليدوي والـ search-retry محفوظان كما هما
+- التحقق: `node --check` نظيف ✅ — deploy SHA256 MATCH ✅
+
+---
+
+## [2026-08-15] — توحيد iframes + أداء Batch + فحص messenger (v15.2)
+
+### PowerApps iframes handling — توحيد عبر frame-walker
+- **content-script.js**: `collectAllDocs` تستخدم الآن `getAccessibleDocs` من frame-walker (مع fallback آمن للتنفيذ اليدوي إن لم تُحمَّل المكتبة) — كل مستهلكيها الـ 19 موضعاً استفادوا تلقائياً
+- **waitForModalIframe**: البحث في الإطارات عبر `walkFrames` (مع fallback) — يغطي الإطارات المتداخلة بدل الحلقة اليدوية
+- السلوك محفوظ (timeouts، الأولويات، fallbacks) — توحيد فقط
+
+### أداء Batch (Layer 3)
+- **elaraby-phone-reveal.js**: `processLayer3` تحولت من دفعات متسلسلة (5×5 مع انتظار كامل) إلى **concurrency pool حقيقي** (4 طلبات متزامنة، عمال مستمرون بلا فجوات انتظار) — أسرع مع عدم إغراق الخادم
+- **fetchAllPages**: مهلة متغيرة jitter (350–600ms) بدل 400ms الثابتة
+
+### فحص messenger-sender (CSP Facebook)
+- **messenger-sender.js**: فحص كامل — لا `eval`/`new Function`/حقن `<script>` ديناميكي، لا `chrome.storage` مباشر (مشكلة Edge Tracking Prevention غير موجودة هنا — يعمل عبر DOM contentEditable + iframes آمن). **لا إصلاحات مطلوبة** — سليم كما هو
+
+### التحقق
+- `node --check` نظيف ×3 ✅ — deploy SHA256 MATCH ×3 ✅
+
+---
+
+## [2026-08-15] — Phone-Reveal UI/UX تحسين (v15.1) + تثبيت الأساس
+
+### Phone-Reveal UI/UX (من خطة Agent-UI — تنفيذ CSS المعلق)
+- **Tempermonky/elaraby-phone-reveal.js v15.1**: إضافة طبقة Design Tokens موحدة (متغيرات CSS: `--erp-primary/success/warning/danger/radius/space/shadow/font`) محقونة عبر `<style id="erp-design-tokens">`
+- **Component classes**: `.erp-btn` + `.erp-btn-primary/success/indigo/danger/warning` — الأزرار الرئيسية (Excel/CSV/رفع/كشف/تصفح تلقائي/جلب الكل) حوّلت من inline مبعثر إلى أصناف موحدة
+- **Accessible states**: `:focus-visible` outline لكل الأزرار، hover/active (brightness + scale 0.96)، `type="button"` + `aria-label` لكل الأزرار، `prefers-reduced-motion` يُعطّل الحركة، `::selection` و input focus ring
+- **RTL**: استمرار `direction:rtl` + logical properties عبر الـ tokens
+- النشر: SHA256 متطابق src ↔ deploy ✅ — `node --check` نظيف ✅
+
+---
+
+## [2026-08-14] — إصلاح جذري: الجدول الفارغ في صفحة التقفيلات (v1.5)
+
+### إصلاح حرج (حذف البيانات من الصفحة الأولى في التقفيلات) — ✅ تحقق حي من المستخدم
+- **Tempermonky/DateFilter/ElAraby_DateFilter_Unlocker.user.js v1.5-no-filter-apply-20260814-2030**: إزالة منطق "تطبيق الفلتر التلقائي" (`applyFilterControlExpansion` / metafilter / نقر زر التطبيق) من `watchFilter` نهائياً — كان يضبط حقول الفلتر ويطلق التطبيق تلقائياً عند ظهور عنصر الفلتر، فيمسح الجدول ويعيد `view-empty` "لا توجد سجلات"
+- **التشخيص بالدليل (ملفا الالتقاط):** الحالة السليمة (v1.2، اعتراض الطلبات فقط) → الفلتر المعروض `08/14-08/17` والبلاغات ظاهرة؛ الحالة المكسورة (v1.3/v1.4، تطبيق الفلتر تلقائياً) → نطاق معروض `08/07-09/13` (نطاق الإضافة) + حقول `name="4"/"5"` = `value="0"` + جدول `view-empty`
+- **الاستنتاج:** تطبيق الفلتر برمجياً (metafilter/نقر زر) جعل الخادم يرجع قائمة فارغة؛ `watchFilter` الآن يرصد ويحلل فقط دون أي تطبيق — الحل المعتمد
+- **الفروع المتبقية** (`applyFilterControlExpansion`, `applyNewDateRange`, `reloadWithNewRange`): تبقى لاستخدام الأزرار اليدوية في الواجهة فقط، لا استدعاء تلقائي
+- **فحص النشر:** SHA256 متطابق src ↔ deploy ✅ — `node --check` نظيف ✅
+
+---
+
+## [2026-08-13] — إصلاح عطل الفلترة + إعادة التنظيم حسب الميزات (v4.1)
+
+### إصلاحات عاجلة (عطل "البلاغات تظهر اليوم فقط")
+- **ai/scheduler-tools.js**: إصلاح `Uncaught TypeError: ai.aiListTools is not a function` — دالة `register` تدعم الآن `aiRegisterTool` و `registerTool` (SmartAI)، و`listTools` تُقرأ من `ai.listTools || global.aiListTools` — أدوات الجدولة لم تكن تُسجَّل أصلاً فتعطلت الفلترة
+- **Tempermonky/DateFilter/ElAraby_DateFilter_Unlocker.user.js**: إزالة `location.reload()` التلقائي من `setAutoExpand` (كان يسبب إعادة تحميل متكررة)، إضافة حماية `__lastAnalyzedRaw` ضد إعادة تحليل نفس النطاق عشرات المرات، إعادة هيكلة `startDateFilterObserver` ليراقب عنصر الفلتر نفسه بدل `documentElement` كله (`characterData` على المستند كان يطلق التحليل آلاف المرات)
+
+### إعادة التنظيم حسب الميزات (Feature-Based Structure)
+- **جديد `core/booking/`** ★ قلب المشروع: `auto-filler.js` + `scanner.js` + `shadow-panel.js` (الحجز/التقفيل)
+- **جديد `ai/`** ★ عقل المساعد الذكي منفصل: `chat-panel.js` + `voice-control.js` + `smart-ai-tools.js` (Tool Registry) + `smart-scheduler.js` + `scheduler-tools.js` — يتحكم ويرى بقية الميزات
+- **جديد `features/spare-parts/`** (قطع الغيار/البحث عن بلاغ): `dashboard/` (dashboard.html + dashboard.js)
+- **جديد `features/financial/`**: scraper + analyzer + financial-boot
+- **جديد `features/crm/`**: crm-content
+- **حذف `content/` و `dashboard/` القديمة** — كل المراجع حُدّثت (manifest.json + background.js + popup.js + مسارات dashboard.html النسبية) وتم النشر إلى `deploy/`
+
+---
+## [2026-08-12] - بنية الذكاء الاصطناعي القوية (AI Core v2)
+
+### بنية تحتية قوية للـ AI
+- **الـ TRANSPORT (background.js)**: handleAIChat v2 - Native Tool Calling (معامل tools + tool_choice)، Retry لمحاولتين (429/5xx/شبكة)، Timeout 90s، Rate-limit 500ms، ذاكرة محادثة (history حتى 20 رسالة)، تسجيل استهلاك كامل (aiUsageStats)
+- **Telemetry اختياري لـ n8n**: يرسم ai_call/ai_failed فقط عند تفعيل n8n.telemetryAI
+- **الـ CLIENT (shared/ai-client.js)**: Cache LRU (30 ثانية عبر cacheKey) + Dedupe + aiRemember/aiRecall لذاكرة الجلسات + chatWithTools v2 (Native أولاً ثم JSON)
+- **توحيد العميل**: aiService يعبر عبر aiChat الموحد مع fallback آمن
+- **كود العطل الذكي**: getSmartProblemCode يستخدم cache
+- **أدوات AI جديدة** (content/smart-ai-tools.js): 
+read_smart_log، 
+read_validation_patterns، get_page_state
+- **محادثة الصفحة**: ذاكرة محادثة (آخر 10 رسائل مع كل طلب)
+- **popup**: عداد استخدام الـ AI في تبويب المساعد الذكي
+- **manifest**: حقن ai-client في مجموعة الكنترول بانل + smart-ai-tools في مجموعة الجدولة
+
+### تحسينات البث المباشر (Streaming) + معدل التكرار + تبديل النماذج (2026-08-12 v2.1)
+- **background.js**: تحسين `aiFetchWithRetry` — `maxAttempts: 3`، `Retry-After` header، exponential backoff (2s, 4s, 6s) للـ 429/5xx، حماية timeout 90s + abort على disconnect
+- **ai-panel-tab.js (المساعد الذكي)**: قراءة النموذج المحفوظ من `aiConfig.model` بدلاً من hardcoded 'general'، تحديث المؤشر الديناميكي لعرض النموذج النشط
+- **popup.html**: إضافة قائمة منسدلة للتبديل بين النماذج (DeepSeek V4 Flash، Nemotron 3 Ultra، MiMo V2.5، LongCat 2.0، North Mini Code، Ling 3.0 Tiny) داخل تبويب "المساعد الذكي" مع حدث `change` يحفظ فوراً في `aiConfig`
+- **ai-chat-panel.js / ai-panel-tab.js**: مؤشر تحميل حي "⏳ جاري التفكير..." + بث تدريجي للنص (streaming) عبر onChunk callback
+- **popup.js**: `analyzeSmartLogWithAI` يستخدم `aiChatStream` مع fallback، عرض رسائل خطأ عربية واضحة بدلاً من "لا يوجد رد"، `renderManualAnalysis` يزيل شبكة الإحصائيات المكررة
+- **popup.html (Smart Log / Telemetry)**: بطاقة أخطاء `sl-stat-errors` / `tel-stat-errors` في شبكة 4 أعمدة، أزرار "🔍 تحليل AI" في كلا التبويبين
+- **ai-client.js**: `chatWithTools` يدعم `onChunk` للبث المباشر، `aiChatStream` fallback إلى `aiChat` عند عدم توفر Port
+
+---
+## [2026-08-11] — إعادة هيكلة الجذر (Restructure)
 
 ### البنية الجديدة
-- **مصدر الحقيقة:** `master-portal\shared\` — 5 مكتبات مشتركة موحدة
-- **سكريبت مزامنة:** `sync-shared.ps1` — ينسخ المكتبات إلى `مساعد التقفيلات\shared\` + `المساعد الذكي\shared\`
+- **`master-portal/` → `src/`**: المصدر الرئيسي أصبح `src/` — فيه `unified-extension/` (★ الإضافة الموحدة MV3) + `dashboard/` + `crm-content/` + `design-system/` + `ui-components/` + `docs/`
+- **`مساعد التقفيلات/` → `deploy/`** (نظيف): مجلد النشر أصبح كوداً فقط (25 عنصراً، بلا توثيق/أرشفة) — يُبنى تلقائياً من المصدر
+- **جديد: `tools/deploy.ps1`** — ★ إجابة سؤال "ليه محدّث من مساعد التقفيلات؟": الآن أي تعديل على `src/unified-extension` → تشغيل السكريبت → `deploy/` يتحدث + نسخة احتياطية تلقائية في `backups/`
+- **`excel_autofix/` → `tools/excel_autofix/`** — أداة Python نشطة
+- **`sync-shared.ps1` → `tools/`** + تحديث مساراته إلى `src/unified-extension/shared`
+- **النسخ المنفصلة القديمة → `legacy/`** (أرشيف/مرجع فقط لا تطوير منها): المساعد الذكي، البحث عن بلاغ، حجز البلاغات المستقبلة، portal-other-section، Rescheduling، اكواد، + النشر القديم كاملاً
+- **النسخ الاحتياطية → `backups/`**: `backup-pre-unified-v4/` + كل `deploy_backup_*/` (وأضيفت `20260811_155011` من أول نشر بسكربت جديد)
+- **جديد: `.gitignore`** — يستثني node_modules/dist/backups/legacy/التسجيلات
+- **التوثيق المحدّث**: `DEV_COPY.md` (بنية جديدة + شرح النشر)، `AGENTS.md` (المسارات)، `MASTER_README.md` (الهيكل)
 
-### المكتبات المشتركة (أصبحت تعمل في كل البيئات)
-- **storage-proxy.js** — `window.storageGet/Set/Remove/bg` عبر رسائل background
-- **smart-log.js** — `window.logEvent/getLog/clearLog/exportLog` + `SmartLog (addEntry/getEntries/clearAll)` — أصبح SW-safe (globalThis بدل window) ويخزن تلقائيًا عبر storage-proxy أو chrome.storage مباشرة
-- **arabic-utils.js** — واجهة عامة + `ArabicUtils (normalizeArabicText/SYNONYMS_MAP/expandSearchTerms)` — مدمج من نسختي الأداتين
-- **data-mapper.js** — واجهة عامة (mapColumn/COLUMN_MAP...) + `DataMapper (findColumnValue/HEADERS/parseField/mapRawToMasterData)` — مدمج
-- **portal-selectors.js** — أضيفت `POWERAPPS.fields` (20 محددات من selectors.json)
-
-### مساعد التقفيلات (Portal AutoFiller)
-- المكتبات الخمس مضافة لـ content_scripts قبل content-script.js
-- popup.html يحمّل storage-proxy + smart-log
-- حُذفت تعريفات storageGet/Set/Remove المحلية المكررة من content-script.js و order-extractor.js
-- loadSelectors() يبني CFG من `PORTAL_SELECTORS.POWERAPPS.fields` كأساس (selectors.json يبقى override + fallback)
-- tampermonkey-runner.js يخزن عبر storage-proxy (يعمل على Facebook/Messenger)
-
-### المساعد الذكي (Smart Parts Assistant)
-- **إصلاح حرج:** background كان يستورد مكتبات بها `window` (تنهار في service worker) — المكتبات الموحدة أصبحت SW-safe
-- `globalThis.DataMapper` و `SmartLog` أصبحا معرّفين فعليًا (كانا يفشلان صامتًا)
-- background.js أضيفت معالجات STORAGE_GET/SET/REMOVE
-- manifest: المكتبات المشتركة في content_scripts (البورتال + كل المواقع)
-- dashboard.html: تحميل storage-proxy + smart-log قبل dashboard.js
-- حُذفت bg() المكررة من dashboard.js و shadow-panel.js، وحُذف logEvent المحلي من dashboard.js
-
-### الفحوصات
-- `node --check` لجميع الملفات المعدلة + JSON صالح
-- اختبار محاكاة بيئتين: service worker (بدون window) + صفحة (window + proxy) — كل الـ APIs تعمل
+### النتيجة
+- جذر نظيف من 12 مجلداً مختلطاً إلى 6 أدوار واضحة: **src (تطوير) → deploy (نشر) ← tools (تشغيل) + backups (أمان) + legacy (أرشيف) + docs (مرجع)**
 
 ---
+
+## [2026-08-11] — إصلاح DateFilter Unlocker (واجهة + وظيفة أساسية)
+
+### ElAraby_DateFilter_Unlocker.user.js v1.1
+- **إصلاح جذري لخطأ `buildUI is not defined`**: كانت `buildUI` تعبير دالة (`buildUI = function`) — لا تُرفع hoisted → تُستدعى قبل التعريف في `initUnlocker` → انهيار كامل للواجهة (السكريبت كان لا يظهر FAB 🗓️ إطلاقاً). حُوّلت إلى **function declaration**.
+- **الوظيفة الأساسية (إظهار بلاغات أبعد من 3 أيام)** — كانت تعتمد فقط على `delete val.futureCases` الذي يكسر كود البورتال:
+  - `futureCases` تُرفع إلى `9999999` بدل الحذف (لا تكسر قراءات البورتال)
+  - **اعتراض وتعديل الطلبات الصادرة**: كل fetch/XHR يحوي `createdon` يُوسَّع نطاقه تلقائياً (Dataverse `datetime'...'` + ISO + معاملات URL) —
+    هذا يغيّر الفلتر الفعلي المرسل للخادم وليس فقط النص المعروض
+  - **وضع التوسيع التلقائي ⚡** (Auto-Expand): زر في الواجهة يفعّل توسيع كل الطلبات لـ +30 يوم (من اليوم-7) ويُحفظ عبر `GM_setValue` ويمكن تفعيله مرة واحدة ليبقى مفعلاً في كل الجلسات
+  - **زر "تطبيق + إعادة تحميل" 🔄**: fallback مضمون عبر `?dtStart&dtEnd&dfApply` في الـ URL؛ عند أي فشل في التحديث اللحظي تتم إعادة التحميل تلقائياً
+  - **استرجاع النطاق من الـ URL** بعد إعادة التحميل + تطبيق تلقائي عند ظهور الفلتر (يشمل الطلبات اللاحقة)
+- **الفحص**: `node --check` → SYNTAX OK — مُزامَن إلى `مساعد التقفيلات\Tempermonky\DateFilter\` + `حجز البلاغات المستقبلة\`
+
+---
+
+## [2026-08-11] — ترتيب الملفات والمراجع (Docs Reorganization)
+
+### التوثيق والاسترشاد
+- **مزامنة ملفات الاسترشاد والخطط من الأصل إلى ElArabyDev** (نسخة العمل):
+  - `AGENTS.md` — نسخة العمل + **القاعدة الأساسية الجديدة** (ElArabyDev = نسخة العمل الوحيدة، العربي سيستم = قراءة فقط)
+  - `MASTER_ROADMAP.md` — خطة المهام الكبرى (مفقود سابقاً)
+  - `PHASE3_UNIFIED_INTEGRATION_PLAN.md` — خطة الدمج الموحد (مفقود سابقاً)
+  - `PROMPT_MASTER.md`، `E2E_CHECKLIST.md`، `IDEAS_BACKLOG.md` — (مفقودة سابقاً)
+  - `MASTER_README.md` — محدّث: إضافة الإصدار الموحد v4.0 + Excel Autofix Bridge + n8n + المراجع الجديدة + هيكل ElArabyDev الفعلي
+  - `PORTAL_MAP.md` — أحدث نسخة (معقّمة من كلمة المرور)
+  - `CHANGELOG.md` — أحدث نسخة من الأصل
+- **تعقيم كلمة مرور CRM** في ElArabyDev (كانت ما زالت تسربت لدى النسخة):
+  - `portal-other-section/elaraby_crm_analysis.md` — `CONFIG.PASSWORD` كان يحوي القيمة الحرفية → `''` مع توجيه الإدخال اليدوي
+  - `portal-other-section/README.md` — إزالة القيمة الحرفية
+  - `CHANGELOG.md` — إزالة القيمة الحرفية من سطر التنبيه
+  - الفحص النهائي: **0 نتيجة** لأي كلمة مرور متبقية
+
+### البنية والمزامنة
+- `sync-shared.ps1` — تحديثه: المصدر الآن `master-portal\unified-extension\shared` (13 مكتبة بدل 5): أعاد نسخ `ai-client`, `db`, `excel-exporter`, `frame-walker`, `n8n-client`, `portal-config`, `table-scraper` إلى `مساعد التقفيلات\shared` و `المساعد الذكي\shared` (26 ملفاً)
+- `DEV_COPY.md` — تحديث خريطة المجلدات: `مساعد التقفيلات` = **مجلد النشر الكامل** (content/، dashboard/، shared/، Tempermonky/DateFilter) + قائمة المكتبات الـ 13
+
+---
+
+## [2026-08-11] — إصلاح أمني (Secrets)
+
+### أمن
+- **إزالة كلمة مرور CRM حقيقية منشورة** في 3 ملفات مفهرسة في المستودع:
+  - `PORTAL_MAP.md` (سطر "ملاحظة" عن CONFIG.PASSWORD)
+  - `portal-other-section/elaraby_crm_analysis.md`
+  - `portal-other-section/README.md`
+  - استُبدلت بإشارة "تُدخل يدوياً عند التشغيل" — لم تعد القيمة مخزنة في أي ملف سطرّي
+- **فحص شامل للأمان** (187 ملف نصي): لا توجد مفاتيح/أسرار إضافية — ما عدا integrity hashes القياسية لـ npm (غير حساسة) وقيم ViewState base64 في ملفات HTML محفوظة (بيانات واجهة، ليست مفاتيح)
+- مجلدات `*_files` الثلاثة المتبقية تحتوي فقط `bootstrap-rtl.min.css` (آمنة — لا مفاتيح Azure)
+- **تعقيم formula injection في `excel_autofix/excel_app.py`**: عنوان يبدأ بـ `=`/`+`/`-`/`@` يُفرض كنص (بادئة `'`) لمنع تنفيذ صيغ في Excel المخرج
+
+> **⚠️ تنبيه:** كلمة المرور كانت منشورة في `PORTAL_MAP.md` — يُنصح بتغييرها على البوابة إذا كانت ما زالت نشطة.
+
+---
+
+## [2026-08-11] — ربط n8n (Webhook Integration)
+
+### El Araby Unified System
+- **تبويب "🔗 n8n"** في الأدوات: Webhook URL + Bearer token + "إرسال تلقائي بعد كل تصدير Excel" + أزرار (حفظ / اختبار / سجل الجلسات / تحليل السلوك)
+- `shared/n8n-client.js` — `n8nSend()` / `n8nAutoExportEnabled()` / `n8nReady()` (مسار الرسائل عبر background)
+- `background.js` — handler `N8N_SEND` (proxy fetch: يتجاوز CORS، بـ host_permissions: localhost:5678 + *.n8n.cloud)
+- `excel-exporter.js` — خطاف تلقائي: أي تصدير → حدث `excel_export`
+- النموذج: `{"event","data","meta"}` — Webhook واحد يقبل كل الأحداث
+- اختُبر مسار العميل → background (Node simulation PASS)
+
+---
+
+## [2026-08-11] — الدمج الموحد: Excel Autofix Bridge + AI End-to-End Platform
+
+### El Araby Unified System (الإضافة الموحدة v4.0)
+- **3.5 Excel Autofix Bridge** — تبويب "📊 Excel Autofix" في الأدوات (فحص الخدمة + رفع + تنزيل)؛ خلفية Python: `autofix_core.py` (نواة موحدة) + `service.py` على `127.0.0.1:8765` (health / process / downloads، حد 20MB، أسماء UUID) + `service.bat`؛ `excel_app.py` يستورد النواة (لا تكرار)
+- **3.6 AI End-to-End Platform** — `ai-client.js`: `aiChatWithTools()` (محادثة → JSON tool → تنفيذ → تلخيص)؛ `content/rescheduling/`: `smart-scheduler.js` (Port الجدولة الذكية) + `scheduler-tools.js` (3 أدوات: get_current_incident / schedule_current_incident / open_scheduler_modal) + `ai-chat-panel.js` (FAB 🤖 + محادثة عائمة RTL، شارة عدد الأدوات)
+- **3.7 Popup Panels** — تبويب "🤖 المساعد الذكي" في الأدوات (محادثة عامة + فحص مفتاح API + زر فتح المحادثة على الصفحة عبر `SHOW_AI_CHAT`)
+- **3.8 Security/Docs** — فحص secrets (صفر مفاتيح)، node --check لكل ملفات JS (صفر أخطاء)، تحديث MASTER_README
+- إصلاح: ملف `Tempermonky/DateFilter/ElAraby_DateFilter_Unlocker.user.js` المفقود في نسخة النشر — نُسخ من unified-extension
+
+---
+
+## [2026-07-14] — مراجعة مساعد التقفيلات واكتشافات جديدة
 
 ### مساعد التقفيلات / Portal AutoFiller
 - **إصدار v1.1.0** — تحديث بناءً على مراجعة الكود
