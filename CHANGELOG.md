@@ -62,6 +62,16 @@
 
 ---
 
+## [2026-08-16] — نظام النسخ الاحتياطي التلقائي (GitHub + Task Scheduler)
+
+- **GitHub Private repo**: `https://github.com/AhmedsaifAlislam/ElArabyDev.git` (branch `main`) — أول push ناجح
+- **`tools/auto-backup.ps1`**: سكريبت ذكي — يتخطى بلا تغييرات، commit + push مع retry (3 محاولات)، سجل في `C:\Users\Zain\AppData\Local\Temp\opencode\auto-backup.log`
+- **`.git/hooks/post-commit`**: دفع فوري بالخلفية عند كل commit يدوي (لا يبطئ الـ commit)
+- **Windows Task Scheduler** — `ElArabyDev-AutoBackup`: يومياً 06:00، تكرار كل 4 ساعات، يبدأ عند فوات الموعد
+- التنفيذ: إعداد remote → push أولي → سكريبت → hook → جدولة → اختبار حي (Backup OK + origin/main متطابقان)
+
+---
+
 ## [2026-08-15] — DateFilter v1.8: حذف الفلتر مباشرة (مسار واحد نهائي)
 
 ### تشخيص حي رابع (سبب عدم الانطلاق)
