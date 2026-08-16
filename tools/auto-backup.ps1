@@ -37,9 +37,15 @@ try {
         exit 1
     }
 
-    git push origin main 2>&1 | Out-Null
-    if ($LASTEXITCODE -ne 0) {
-        Write-Log "ERROR: push failed (network/auth) - changes saved locally"
+    # Retry push up to 3 times (the post-commit hook may be pushing simultaneously)
+    $pushOk = $false
+    for ($i = 1; $i -le 3; $i++) {
+        git push origin main 2>&1 | Out-Null
+        if ($LASTEXITCODE -eq 0) { $pushOk = $true; break }
+        Start-Sleep -Seconds 3
+    }
+    if (-not $pushOk) {
+        Write-Log "ERROR: push failed after retries (network/auth) - changes saved locally"
         exit 1
     }
 
