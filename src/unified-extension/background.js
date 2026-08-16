@@ -17,103 +17,16 @@ importScripts(
 
 // ══════════════════════════════════════════════════════════
 //  📡 WebRequest Interceptor — DateFilter Unlocker v2
-//  يرى طلبات الجدول من كل الفريمات (حتى غير المحقونة) ويثبّت
-//  نطاق createdon (توسيع تلقائي) في الـ URL و الـ body مباشرة.
-//  مفعّل افتراضياً — لا يعتمد على سكربت المحتوى إطلاقاً
+//  ⚠️ مُعطَّل نهائيًا — webRequestBlocking مرفوض في Edge
+//  (غير مسموح به إلا للإضافات المثبتة عبر ExtensionInstallForcelist)
+//  وكان يضيّق نطاق عرض المستخدم بدل توسيعه.
+//  الاعتراض يتم الآن من سكربت المحتوى (MAIN world) فقط.
 // ══════════════════════════════════════════════════════════
 const EAU_AUTO_EXPAND_DAYS = 30;
 
-chrome.webRequest.onBeforeRequest.addListener(
-  (details) => {
-    try {
-      if (!details.url || details.url.indexOf('/_services/') === -1) return {};
-      const urlLower = details.url.toLowerCase();
-      const isGrid = urlLower.includes('entity-grid-data');
-      if (!isGrid) return {};
-
-      // حساب النطاق الموسّع: من (اليوم-7) إلى (اليوم+N)
-      const now = new Date();
-      const start = new Date(now); start.setDate(now.getDate() - 7);
-      const end = new Date(now); end.setDate(now.getDate() + EAU_AUTO_EXPAND_DAYS);
-      const startISO = toEauInputDate(start);
-      const endISO = toEauInputDate(end);
-
-      let changed = false;
-      let outUrl = details.url;
-
-      // 1) تعديل createdon في الـ URL (صيغة URL-encoded أو عادية)
-      outUrl = outUrl.replace(
-        /((?:ge|le))((?:\%20|%20|\+|\s){0,3})((?:datetime)?)(('|%27)?)\d{4}-\d{2}-\d{2}(T\d{2}(?:\%3A|:)\d{2}(?:\%3A|:)\d{2}Z)?\5/gi,
-        (match, op, sep, dt, q) => {
-          changed = true;
-          const iso = op.toLowerCase() === 'ge' ? startISO + 'T00:00:00Z' : endISO + 'T23:59:59Z';
-          return op + sep + dt + q + iso + q;
-        }
-      );
-      // صيغة نصية: createdon ge datetime'...'
-      if (!changed) {
-        const m = outUrl.match(/(createdon\s+ge\s+datetime')([^']*)(')/i);
-        if (m) {
-          outUrl = outUrl.replace(m[0], m[1] + startISO + 'T00:00:00Z' + m[3]);
-          changed = true;
-        }
-        const m2 = outUrl.match(/(createdon\s+le\s+datetime')([^']*)(')/i);
-        if (m2) {
-          outUrl = outUrl.replace(m2[0], m2[1] + endISO + 'T23:59:59Z' + m2[3]);
-          changed = true;
-        }
-      }
-
-      // 2) قراءة createdon من الـ body وتسجيله (MV3 يقرأ فقط — لا يعدّل)
-      let bodyText = null;
-      try {
-        if (details.requestBody && details.requestBody.raw && details.requestBody.raw.length) {
-          const decoder = new TextDecoder();
-          bodyText = details.requestBody.raw.map(chunk =>
-            chunk.bytes ? decoder.decode(chunk.bytes) : String(chunk || '')
-          ).join('');
-          if (bodyText && (bodyText.includes('createdon') || bodyText.includes("datetime'"))) {
-            let replaced = bodyText.replace(
-              /(createdon ge datetime')([^']*)(')/gi,
-              `$1${startISO}T00:00:00Z$3`
-            );
-            replaced = replaced.replace(
-              /(createdon le datetime')([^']*)(')/gi,
-              `$1${endISO}T23:59:59Z$3`
-            );
-            if (replaced !== bodyText) {
-              console.log('%c[WR-Interceptor] ⚠️ الفلتر في الـ BODY (تعديل body غير مدعوم في MV3 عبر webRequest — يُعالج من السكربت):', 'color:#f59e0b;font-weight:bold;', bodyText.slice(0, 500));
-            }
-          }
-        }
-      } catch (_) {}
-
-      // 3) تسجيل الالتقاط في storage ليقرأه سكربت اللوحة عبر الجسر
-      try {
-        const record = { url: details.url.slice(0, 600), body: (bodyText || '').slice(0, 800), time: new Date().toISOString() };
-        chrome.storage.local.get({ eauGridCaptures: [] }, (res) => {
-          const list = res.eauGridCaptures || [];
-          const key = record.url + '|' + (record.body || '').slice(0, 120);
-          if (!list.some(r => (r.url + '|' + (r.body || '').slice(0, 120)) === key)) {
-            list.unshift(record);
-            if (list.length > 30) list.length = 30;
-            chrome.storage.local.set({ eauGridCaptures: list });
-          }
-        });
-      } catch (_) {}
-
-      if (changed) {
-        console.log('%c[WR-Interceptor] 🔓 توسيع نطاق createdon في طلب الجدول!', 'color:#06b6d4;font-weight:bold;', outUrl);
-        return { redirectUrl: outUrl };
-      }
-      return {};
-    } catch (e) {
-      return {};
-    }
-  },
-  { urls: ['*://elarabyportalpfs.powerappsportals.com/*'] },
-  ['blocking', 'requestBody']
-);
+if (false) {
+  // محجوب — لا يُسجَّل أي listener (يمنع أخطاء Edge)
+}
 
 function toEauInputDate(date) {
   const yyyy = date.getFullYear();

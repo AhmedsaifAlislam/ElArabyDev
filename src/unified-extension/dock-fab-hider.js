@@ -6,7 +6,6 @@
   try {
     var FAB_IDS = [
       'elaraby-ba-fab',
-      'ea-date-unlocker-fab',
       'elaraby-control-panel-mini',
       'msq-fab',
       'elaraby-ai-fab',

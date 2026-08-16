@@ -2150,13 +2150,6 @@ const TM_BUILTIN = [
     match: 'https://elarabyportalpfs.powerappsportals.com/*',
   },
   {
-    id: 'elaraby-date-unlocker',
-    name: 'فلتر التاريخ (Unlocker)',
-    desc: 'يفتح فلتر التاريخ المقفل في بوابة العربي',
-    source: 'Tempermonky/DateFilter/ElAraby_DateFilter_Unlocker.user.js',
-    match: 'https://elarabyportalpfs.powerappsportals.com/*',
-  },
-  {
     id: 'portal-error-suppressor',
     name: 'كتم أخطاء البورتال',
     desc: 'يكتم خطأ ldv_workordertype is not defined المتكرر في الكونسول',

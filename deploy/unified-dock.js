@@ -33,13 +33,6 @@
       openByClick: true
     },
     {
-      id: 'ea-date-unlocker-fab',
-      title: 'فلتر التاريخ (Unlocker)',
-      icon: '🗓️',
-      group: 'حجز',
-      openByClick: true
-    },
-    {
       id: 'elaraby-control-panel-mini',
       title: 'لوحة التحكم (الاستعراض الفني)',
       icon: '⚙️',
@@ -130,7 +123,6 @@
   // مصدر الحالة الواحد: localStorage tm_running_<scriptId> (تكتبه الفابز والبوبأب والـ runner)
   const TOOL_TO_SCRIPT = {
     'elaraby-ba-fab': 'booking-automation',
-    'ea-date-unlocker-fab': 'elaraby-date-unlocker',
     'msq-fab': 'messenger-sender',
     'rp-fab': 'report-processor',
     'elaraby-mini-btn': 'elaraby-phone-reveal',
@@ -140,7 +132,6 @@
   // السكربتات المسجلة في الـ runner — كلها تظهر كأدوات في اللوحة
   const SCRIPT_META = {
     'booking-automation': { icon: '⚡📅', title: 'الحجز والجدولة الحرة', group: 'حجز' },
-    'elaraby-date-unlocker': { icon: '🗓️', title: 'فلتر التاريخ (Unlocker)', group: 'حجز' },
     'messenger-sender': { icon: '📨', title: 'مرسل الماسنجر', group: 'إرسال' },
     'report-processor': { icon: '📄', title: 'معالج البلاغات (Reports)', group: 'أدوات' },
     'elaraby-phone-reveal': { icon: '📱', title: 'كشف أرقام العملاء', group: 'أدوات' },
@@ -531,7 +522,7 @@
       #${DOCK_ID}-palette { scrollbar-width: thin; scrollbar-color: #6366f1 #0b1220; }
 
       /* حجم موحد لكل الفابز: مربعات 40×40 + تمركز الإيموجي + انزلاق ناعم + hover */
-      #elaraby-ba-fab, #ea-date-unlocker-fab, #msq-fab, #elaraby-ai-fab,
+      #elaraby-ba-fab, #msq-fab, #elaraby-ai-fab,
       #elaraby-agent-fab, #elaraby-duplicate-radar-fab, #elaraby-digest-fab,
       #elaraby-command-fab, #rp-fab, #elaraby-mini-btn, #elaraby-ai-voice-fab,
       #elaraby-unified-host {
@@ -553,7 +544,7 @@
                     right .3s cubic-bezier(.22,1,.36,1), transform .18s ease, box-shadow .18s ease !important;
       }
       /* حركة hover موحدة: تكبير ناعم + توهج ملون */
-      #elaraby-ba-fab:hover, #ea-date-unlocker-fab:hover, #msq-fab:hover, #elaraby-ai-fab:hover,
+      #elaraby-ba-fab:hover, #msq-fab:hover, #elaraby-ai-fab:hover,
       #elaraby-agent-fab:hover, #elaraby-duplicate-radar-fab:hover, #elaraby-digest-fab:hover,
       #elaraby-command-fab:hover, #rp-fab:hover, #elaraby-mini-btn:hover, #elaraby-ai-voice-fab:hover,
       #elaraby-unified-host:hover {
@@ -654,7 +645,6 @@
   // ════════════════════════════════════════════════════════
   const COMMAND_TOOL_IDS = {
     'booking': 'elaraby-ba-fab',
-    'date-unlocker': 'ea-date-unlocker-fab',
     'messenger': 'msq-fab',
     'reports': 'rp-fab',
     'phone': 'elaraby-mini-btn',

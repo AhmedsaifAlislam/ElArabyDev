@@ -3,7 +3,7 @@
   "name": "El Araby Unified System — نظام العربي الموحد",
   "version": "4.0.0",
   "description": "إضافة موحّدة: مساعد التقفيلات + البحث الذكي عن قطع الغيار + الاستخراج + الأدوات (Telemetry / Tampermonkey / المزامنة)",
-  "permissions": ["activeTab", "scripting", "storage", "notifications", "tabs", "clipboardRead", "unlimitedStorage", "webRequest", "webRequestBlocking", "alarms"],
+  "permissions": ["activeTab", "scripting", "storage", "notifications", "tabs", "clipboardRead", "unlimitedStorage", "alarms"],
   "host_permissions": [
     "https://elarabyportalpfs.powerappsportals.com/*",
     "https://elarabyiscrm2.azurewebsites.net/*",
@@ -72,13 +72,6 @@
       "js": ["elaraby-phone-reveal-layer0.js"],
       "run_at": "document_start",
       "world": "MAIN"
-    },
-    {
-      "matches": ["https://elarabyportalpfs.powerappsportals.com/*"],
-      "js": ["Tempermonky/DateFilter/ElAraby_DateFilter_Unlocker.user.js"],
-      "run_at": "document_start",
-      "world": "MAIN",
-      "all_frames": true
     },
     {
       "matches": ["https://elarabyportalpfs.powerappsportals.com/*"],
@@ -179,20 +172,6 @@
       "run_at": "document_idle"
     },
     {
-      "matches": ["https://elarabyportalpfs.powerappsportals.com/*"],
-      "js": ["assistant/lib/xlsx.full.min.js", "assistant/lib/exceljs.min.js"],
-      "run_at": "document_start"
-    },
-    {
-      "matches": ["https://elarabyportalpfs.powerappsportals.com/*"],
-      "js": [
-        "assistant/content-script.js",
-        "assistant/control-panel.js",
-        "assistant/order-extractor.js"
-      ],
-      "run_at": "document_idle"
-    },
-    {
       "matches": ["https://elarabyiscrm2.azurewebsites.net/*"],
       "js": [
         "shared/storage-proxy.js",
@@ -230,14 +209,7 @@
         "elaraby-phone-reveal-layer0.js",
         "Tempermonky/elaraby-phone-reveal.js",
         "Tempermonky/report-processor.js",
-        "Tempermonky/booking-automation.js",
-        "Tempermonky/DateFilter/ElAraby_DateFilter_Unlocker.user.js",
-        "assistant/selectors.json",
-        "assistant/secondVisitProfiles.json",
-        "assistant/products-db.json",
-        "assistant/travel-costs.json",
-        "assistant/lib/xlsx.full.min.js",
-        "assistant/lib/exceljs.min.js"
+        "Tempermonky/booking-automation.js"
       ],
       "matches": ["<all_urls>"]
     }

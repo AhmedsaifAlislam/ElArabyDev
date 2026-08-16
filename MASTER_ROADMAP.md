@@ -20,6 +20,7 @@
 | **أحدث إنجاز (14-08)** | **إصلاح الجدول الفارغ في التقفيلات (v1.5 — إزالة تطبيق الفلتر التلقائي) — ✅ تحقق حي من المستخدم** + second-visit.js + SMART_ASSISTANT_ARCHITECTURE.md + Security re-verify |
 | **إنجاز (15-08)** | Phone-Reveal UI/UX (tokens + classes) + توحيد iframes (frame-walker) + أداء Batch (concurrency pool) + Google Sheets (sync-manager — منجز مسبقاً) + order-extractor (حد 200 + retry) + ملاحظات سريعة (Quick Notes tab + تصدير) + DateFilter v1.6.1 (توسيع آلي: reload ثم metafilter مع شبكة أمان — جذر "بلاغات اليوم" = الجدول server-rendered + الخادم يتجاهل dtStart/dtEnd) — ✅ منشور SHA256 MATCH |
 | **إنجاز (16-08)** | **قاعدة صارمة: سيريال 2/موديل 2 للتكييف فقط** — بلاغ حي رُفض ("المنتج غير متطابق مع الرقم المسلسل" لأن serial2 = "0" في ثلاجة) → `isACProductType()` + `clearModel2Serial2Fields()` في `executePage1_Review` (إزالة isSharp + General fallback) — ✅ منشور SHA256 MATCH |
+| **إنجاز (16-08) — تنظيف الدمج** | **حذف مجلد `assistant/` (نسخة قديمة من مساعد التقفيلات اتنسخت كـ content scripts → تعارض `const` في الـ scope المشترك وقتل `content-script.js`)** — تم: حذف المجلد من src/deploy، تنظيف manifest من إدخالاته (content_scripts + web_accessible_resources)، إزالة debug logs، إرجاع `const`/`let`. **القرار: إعادة هيكلة "البحث الذكي" وخدماته ومميزاته (قطع الغيار) بعد دراسة الإصدار القديم المرجعي** — الوظائف الحالية في الجذر (popup تبويب البحث الذكي + PARTS_SEARCH + products-db.json) سليمة، والبنية الجديدة تُصمَّم في مرحلة قادمة بناءً على دراسة الإصدار القديم. |
 
 ---
 
@@ -144,6 +145,15 @@ ElArabyDev/
 | **D4** | ~~أذونات غير مستخدمة~~ ✅ | كل الأذونات مستخدمة فعلياً (tabs 22، notifications، clipboardRead 9) | تحليل خارجي |
 | **D5** | استبدال eval | 🔶 موثق: eval مشروع (حقن سكربتات مستخدم MAIN world — نمط Tampermonkey نفسه) | تحليل خارجي |
 | **E** | تحقق شامل | End-to-end testing | تحليل خارجي |
+
+### و) إعادة هيكلة "البحث الذكي" (قطع الغيار) — بعد دراسة الإصدار القديم
+> **القرار (16-08):** حُذف مجلد `assistant/` (نسخة قديمة من مساعد التقفيلات تسبب تعارض `const`). وظائف البحث الذكي الحالية في الجذر (popup تبويب البحث الذكي + `PARTS_SEARCH` + `products-db.json`) سليمة. **تُعاد هيكلة خدمات ومميزات البحث الذكي في مرحلة قادمة بعد دراسة الإصدار القديم المرجعي.**
+
+| المهمة | التفاصيل | الحالة |
+|--------|-----------|--------|
+| دراسة الإصدار القديم | تحليل ملفات `assistant/` المرجعية (control-panel: `readPartsFromGrid`, `executePartsShortcut`, `findProductByModel`, `loadProductsDb`) مقابل الجذر — تحديد الميزات المفقودة/الأفضل | ❌ |
+| تصميم البنية الجديدة للبحث الذكي | الوصلات: popup تبويب البحث الذكي ↔ `content-script.js` (`PARTS_SEARCH`) ↔ `products-db.json` + dashboard قطع الغيار | ❌ |
+| دمج ميزات الإصدار القديم المفقودة | قراءة جدول قطع الغيار من الصفحة، جملة "يحتاج: [...]", تكامل حالة قطع الغيار مع التقفيل (PAGE_2/PAGE_3) | ❌ |
 
 ### ب) Unified Extension - PROJECT_STATUS.md
 | المهمة | التفاصيل | المصدر |

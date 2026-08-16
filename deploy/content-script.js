@@ -1,4 +1,3 @@
-console.log('%c[ASSISTANT-DEBUG] ROOT content-script.js LOADED at ' + new Date().toISOString(), 'color:#0ff;font-size:16px;font-weight:bold;background:#000;padding:4px 8px');
 // =========================================================
 // content-script.js — Portal AutoFiller v3.0
 // TARGET: Modular Architecture (Page1 & Page 2) + ClearBtn Verifier
@@ -633,7 +632,9 @@ async function fillPowerAppsLookup(inputEl, labelText, value, cfgBtnSelectors) {
   for (const sel of dropdownSelectors) {
     let items; try { items = Array.from(collectAllDocs(document).flatMap(doc => doc ? Array.from(doc.querySelectorAll(sel)) : [])).filter(i => i.offsetParent !== null && i.innerText.trim().length > 0); } catch (_) { continue; }
     if (!items.length) continue;
-    const match = items.find(i => (i.textContent||'').toLowerCase().includes(value.toLowerCase())) || items[0];
+    // 🛡️ لا تختار أول عنصر أعمى (كان يفسد القيمة) — فقط تطابق حقيقي
+    const match = items.find(i => (i.textContent||'').toLowerCase().includes(value.toLowerCase()));
+    if (!match) return { ok: false };
     match.click(); await sleep(400);
     sendSmartLog('FIELD_FILLED', { field: labelText || 'lookup', value, method: 'fillPowerAppsLookup' });
     return { ok: true };
@@ -698,12 +699,34 @@ function isRealValue(v) {
   return !!v && v !== '0' && !/لا يوجد|n\/a|none|undefined/i.test(v);
 }
 
+// ينتظر حتى تظهر قيمة حقيقية في الحقل أو يختفي مؤشر التحميل (البورتال يحمّل البيانات غير متزامن)
+// — يمنع قراءة الحقل وهو فاضي مؤقتاً ثم مسح/استبدال قيمة حقيقية موجودة.
+async function waitForFieldStable(existingElFinder, maxWaitMs = 5000) {
+  const start = Date.now();
+  let lastVal = '';
+  let sawReal = null;
+  while (Date.now() - start < maxWaitMs) {
+    const el = existingElFinder ? existingElFinder() : null;
+    const v = readFieldValue(el);
+    if (isRealValue(v)) return v; // قيمة حقيقية ظهرت — الحقل اكتمل تحميله
+    if (v) lastVal = v;
+    // البورتال معبأ القيمة لكن بـ "0"/"لا يوجد" مؤقتاً → ننتظر
+    const loading = !!findFirst(['.blockUI:not([style*="display: none"])', '.blockOverlay', '.loading-spinner:not([style*="display: none"])', '[class*="loader"]:not([style*="display: none"])']);
+    if (!loading && Date.now() - start > 800 && sawReal === null) sawReal = Date.now();
+    // استقرت الحالة (لا تحميل) لمدة 1.2 ثانية ولم تظهر قيمة → نعتبرها فارغة نهائياً
+    if (sawReal && Date.now() - sawReal > 1200) return lastVal;
+    await sleep(250);
+  }
+  return lastVal;
+}
+
 // يملأ الحقل فقط إذا كان فارغاً — مع حماية القيمة الموجودة
 async function fillAndVerifyProtected(fieldLabel, targetValue, actionFn, verifyFn, existingElFinder, forceOverwrite) {
   if (!targetValue) return null;
   if (!forceOverwrite) {
-    await sleep(300); // مهلة قصيرة: نضمن أن الحقل أنهى التحميل قبل قراءة قيمته الحقيقية
-    const existing = readFieldValue(existingElFinder ? existingElFinder() : null);
+    // مهلة ذكية: ننتظر اكتمال تحميل الحقل من البورتال قبل قراءة قيمته الحقيقية
+    // (300ms سابقاً كانت غير كافية — الحقل فاضي مؤقتاً أثناء التحميل غير المتزامن)
+    const existing = await waitForFieldStable(existingElFinder);
     if (isRealValue(existing)) {
       log(`🛡️ ${fieldLabel}: قيمة موجودة ("${existing}") — تم الاحتفاظ بها (لا مسح).`);
       return { ok: true, keptExisting: existing };
@@ -1269,7 +1292,16 @@ function parseDataLine(line) {
 }
 
 // ── Check if Page 1 fields are already filled (skip already-processed orders) ──
-function isPage1AlreadyFilled(cfg) {
+async function isPage1AlreadyFilled(cfg) {
+  // انتظار استقرار تحميل البورتال قبل الفحص (الحقول فاضية مؤقتاً أثناء التحميل غير المتزامن)
+  const settleStart = Date.now();
+  while (Date.now() - settleStart < 6000) {
+    const hasLoading = !!findFirst(['.blockUI:not([style*="display: none"])', '.blockOverlay', '.loading-spinner:not([style*="display: none"])']);
+    const serialEl = findFirst(cfg.serial) || findFieldByLabel(['الرقم المسلسل 1','الرقم المسلسل','Serial Number','Serial']);
+    const probe = (serialEl?.value || '').trim();
+    if (!hasLoading && (probe || Date.now() - settleStart > 2000)) break;
+    await sleep(300);
+  }
   const serialEl = findFirst(cfg.serial) || findFieldByLabel(['الرقم المسلسل 1','الرقم المسلسل','Serial Number','Serial']);
   const serialVal = (serialEl?.value || '').trim();
 
@@ -1344,7 +1376,20 @@ async function executePage1_Review(data, cfg) {
     if (findFirst(cfg.brandInput || []) || findFieldByLabel(['العلامة التجاريه','العلامة التجارية','Brand'])) break; 
     await sleep(250); 
   }
+  // انتظار استقرار تحميل البيانات من البورتال (يختفي مؤشر التحميل + تظهر قيمة حقيقية)
+  // — يمنع قراءة نوع المنتج والحقول وهي فاضية مؤقتاً ثم معاملة التكييف كغير تكييف (مسح موديل 2/سيريال 2)
   await sleep(1200);
+  const loadStart = Date.now();
+  let dataSettled = false;
+  while (Date.now() - loadStart < 10000) {
+    const hasLoading = !!findFirst(['.blockUI:not([style*="display: none"])', '.blockOverlay', '.loading-spinner:not([style*="display: none"])']);
+    const brandEl = findFirst(cfg.brandInput) || findFieldByLabel(['العلامة التجاريه','العلامة التجارية','Brand']);
+    const serialEl = findFirst(cfg.serial) || findFieldByLabel(['الرقم المسلسل 1','الرقم المسلسل','Serial'],'input');
+    const someValue = isRealValue(readFieldValue(brandEl)) || isRealValue(readFieldValue(serialEl));
+    if (!hasLoading && (someValue || Date.now() - loadStart > 2500)) { dataSettled = true; break; }
+    await sleep(300);
+  }
+  if (!dataSettled) warn('⚠️ لم نتأكد من استقرار تحميل الصفحة — سنكمل بحذر (نحمي القيم الموجودة).');
 
   // Read and save product type for Page 2
   const pType = readDeviceTypeFromPage() || data.reportType;
@@ -1352,8 +1397,12 @@ async function executePage1_Review(data, cfg) {
 
   // ── قاعدة صارمة: سيريال 2/موديل 2 → للتكييف ومبرد/منقى الهواء فقط ──
   // غير التكييف (ثلاجات، غسالات، ...) → فاضي إلزاماً مهما كانت البيانات.
-  const productType = data.reportType || data.productType || readDeviceTypeFromPage() || '';
-  const isAC = isACProductType(productType);
+  // 🛡️ حماية: لو نوع المنتج غير معروف/فاضي (لم يكتمل تحميله) → لا نمسح إطلاقاً
+  // (كان ذلك يمسح موديل 2/سيريال 2 للتكييف خطأً لأن الحقل فاضي مؤقتاً).
+  const productType = (data.reportType || data.productType || '').trim() || (readDeviceTypeFromPage() || '').trim();
+  const typeKnown = !!productType;
+  const isAC = typeKnown && isACProductType(productType);
+  if (!typeKnown) warn('⚠️ نوع المنتج غير معروف بعد — لن نمسح موديل 2/سيريال 2 (حماية القيم الموجودة).');
 
   const hasModel2Field = !!(findFirst(cfg.modelInput2) || findFieldByLabel(['الموديل الفعلي 2','Model 2']));
   if (hasModel2Field) {
@@ -1365,20 +1414,23 @@ async function executePage1_Review(data, cfg) {
           const r = await fetch(chrome.runtime.getURL('secondVisitProfiles.json'));
           const svConfig = await r.json();
           const acProfile = svConfig.profiles.find(p => p.name === 'تكييف');
-          data.serial2 = acProfile?.page1Defaults?.serial2 || data.serial || '0';
+          data.serial2 = acProfile?.page1Defaults?.serial2 || data.serial || '';
           log('🔧 AC Fallback: Using profile defaults for model2/serial2');
         } catch(e) {
-          data.serial2 = data.serial || '0';
+          data.serial2 = data.serial || '';
           log('🔧 AC Fallback: Duplicated model/serial to model2/serial2');
         }
       }
       log(`🔧 AC Product (${productType}): model2="${data.model2}" serial2="${data.serial2}"`);
-    } else {
+    } else if (typeKnown) {
       // **قاعدة صارمة: غير التكييف → امسح serial2 و model2 من الداتا ومن الصفحة نفسها**
       data.model2 = '';
       data.serial2 = '';
       clearModel2Serial2Fields();
-      log(`🔧 Non-AC Product (${productType || 'unknown'}): Cleared model2/serial2 — MUST BE EMPTY`);
+      log(`🔧 Non-AC Product (${productType}): Cleared model2/serial2 — MUST BE EMPTY`);
+    } else {
+      // النوع غير معروف → لا تلمس موديل 2/سيريال 2 (حماية القيم الموجودة)
+      log(`🔧 Product type unknown — keeping existing model2/serial2 untouched (no clear).`);
     }
   }
 
@@ -1920,7 +1972,7 @@ async function _runSingleLineWithRouterInner(task) {
   if (feature === 'PAGE_1') {
     // ── Skip if page is already filled (order already processed) ──
     await sleep(800); // Wait briefly so fields render before checking
-    if (!data.forceOverwrite && isPage1AlreadyFilled(cfg)) {
+    if (!data.forceOverwrite && await isPage1AlreadyFilled(cfg)) {
         warn('⏭️ Page 1 already has data — marking task as done and skipping to next order.');
         try {
           const { currentTask } = await storageGet({ currentTask: null });
@@ -2707,49 +2759,8 @@ async function performExtractionAndLog(attempt = 1) {
 }
 
 // ══════════════════════════════════════════════════════════
-//  🖥️ EAU Grid Capture Bridge — يمرر التقاطات webRequest
-//  (المسجلة في storage بالخلفية) إلى سكربت اللوحة (MAIN world)
-// ══════════════════════════════════════════════════════════
-window.addEventListener('message', (ev) => {
-  try {
-    if (!ev || !ev.data || ev.data.type !== 'EAU_GET_GRID_CAPTURES') return;
-    (async () => {
-      const res = await storageGet({ eauGridCaptures: [] });
-      window.postMessage({
-        type: 'EAU_GRID_CAPTURES',
-        captures: (res.eauGridCaptures || []).slice(0, 20)
-      }, '*');
-    })().catch(() => {});
-  } catch (_) {}
-});
-
-// ══════════════════════════════════════════════════════════
 //  📡 Network Capture Bridge — من سكربت الفلتر (MAIN world)
-//  سكربت الفلتر يعترض fetch/XHR/iframes ويرسل NETWORK_REQUEST
-//  عبر postMessage → هنا → chrome.runtime → اللوج الذكي slNetwork
+//  ⚠️ مُعطَّل نهائيًا — سكربت الفلتر حُذف بالكامل (كان يضيّق
+//  نطاق عرض المستخدم بدل توسيعه). لا يوجد مرسل لهذه الأحداث.
 // ══════════════════════════════════════════════════════════
-window.addEventListener('message', (ev) => {
-  try {
-    if (!ev || !ev.data || ev.data.type !== 'EAU_NETWORK_EVENT') return;
-    const n = ev.data.event || {};
-    if (!n.url) return;
-    chrome.runtime.sendMessage({
-      type: 'SMART_LOG_EVENT',
-      event: {
-        pageVisitId: null,
-        url: location.href,
-        pageType: getPageType(),
-        timestamp: Date.now(),
-        eventType: 'NETWORK_REQUEST',
-        isAutomated: false,
-        kind: n.kind || 'fetch',
-        method: n.method || 'GET',
-        requestUrl: String(n.url).slice(0, 600),
-        body: (n.body || '').slice(0, 300),
-        modified: !!n.modified,
-        status: n.status || 0
-      }
-    }).catch(() => {});
-  } catch (_) {}
-});
 
