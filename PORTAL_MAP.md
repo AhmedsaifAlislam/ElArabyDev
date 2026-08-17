@@ -55,6 +55,14 @@
 | **Sharp** | علامة تجارية (فيها تكييف + ثلاجات + غسالات) وليست نوع منتج — لا تُملأ serial2 لثَلاجات شارب |
 | **التنفيذ** | `content-script.js` → `isACProductType()` + `clearModel2Serial2Fields()` |
 
+### قاعدة حماية السيريال (أُضيفت 2026-08-17)
+
+| القاعدة | التفاصيل |
+|---------|----------|
+| **سيريال حقيقي محمي** | أكثر من 5 أحرف/أرقام إنجليزية (مثل `20C01#010171HA2C`) → لا يُحذف ولا يُعدّل إلا بـ checkbox "الحقن الإجباري" (`forceOverwrite`) |
+| **قيم وهمية** | قصيرة/غير حقيقية (`"0"`, `"AB"`, `"123"`) → يسمح بالكتابة فوقها |
+| **التنفيذ** | `content-script.js` → `isRealSerialValue()` تُمرَّر لـ `fillAndVerifyProtected` (Serial1/Serial2) + حماية داخل `clearModel2Serial2Fields()` |
+
 ### إعدادات window.crmAccount
 
 ```javascript

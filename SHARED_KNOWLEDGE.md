@@ -31,6 +31,14 @@
 - **Sharp علامة تجارية وليست نوع منتج** — لا تعامل منتجات شارب كلها كتكييف.
 - التنفيذ في `content-script.js`: `isACProductType()` + `clearModel2Serial2Fields()` داخل `executePage1_Review`.
 
+### قاعدة حماية السيريال (> 5 أحرف/أرقام إنجليزية = محمي)
+
+> **أضيفت 2026-08-17** — سيريال حقيقي لا يُحذف ولا يُعدّل إطلاقاً إلا بتفعيل checkbox "الحقن الإجباري" (`forceOverwrite`) في الـ popup.
+
+- **`isRealSerialValue(v)`** في `content-script.js`: القيمة تعتبر **حقيقية محمية** فقط إذا احتوت أكثر من 5 أحرف/أرقام إنجليزية (مثل `20C01#010171HA2C`).
+- القيم القصيرة/الوهمية (`"0"`, `"AB"`, `"123"`, `"12345"`) → ليست حقيقية → يسمح بالكتابة فوقها (كان هذا سبب مشكلة بلاغ Sharp: `serial2 = "0"`).
+- تُستخدم في: `fillAndVerifyProtected` (معامل `realValueFn`) لحقلي `Serial1`/`Serial2`، وداخل `clearModel2Serial2Fields` (سيريال 2 حقيقي لا يُمسح لغير AC إلا بـ `forceOverwrite`).
+
 ---
 
 ## أولًا: أنماط الاستهداف المشتركة / Common Selectors

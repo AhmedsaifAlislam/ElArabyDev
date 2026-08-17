@@ -699,16 +699,27 @@ function isRealValue(v) {
   return !!v && v !== '0' && !/لا يوجد|n\/a|none|undefined/i.test(v);
 }
 
+// ── قاعدة حماية السيريال: القيمة الحقيقية = أكثر من 5 أحرف/أرقام إنجليزية ──
+// أي سيريال أطول من 5 أحرف/أرقام إنجليزية (مثل 20C01#010171HA2C) هو بيانات حقيقية:
+// لا يُحذف ولا يُعدل إطلاقاً إلا بتفعيل checkbox "الحقن الإجباري" (forceOverwrite).
+// القيم القصيرة/الوهمية ("0", "AB", "123") ليست بيانات حقيقية → يسمح بالكتابة فوقها.
+function isRealSerialValue(v) {
+  const s = String(v || '').trim();
+  if (!s || s === '0' || /لا يوجد|n\/a|none|undefined/i.test(s)) return false;
+  const enCount = (s.match(/[a-zA-Z0-9]/g) || []).length;
+  return enCount > 5;
+}
+
 // ينتظر حتى تظهر قيمة حقيقية في الحقل أو يختفي مؤشر التحميل (البورتال يحمّل البيانات غير متزامن)
 // — يمنع قراءة الحقل وهو فاضي مؤقتاً ثم مسح/استبدال قيمة حقيقية موجودة.
-async function waitForFieldStable(existingElFinder, maxWaitMs = 5000) {
+async function waitForFieldStable(existingElFinder, maxWaitMs = 5000, realValueFn = isRealValue) {
   const start = Date.now();
   let lastVal = '';
   let sawReal = null;
   while (Date.now() - start < maxWaitMs) {
     const el = existingElFinder ? existingElFinder() : null;
     const v = readFieldValue(el);
-    if (isRealValue(v)) return v; // قيمة حقيقية ظهرت — الحقل اكتمل تحميله
+    if (realValueFn(v)) return v; // قيمة حقيقية ظهرت — الحقل اكتمل تحميله
     if (v) lastVal = v;
     // البورتال معبأ القيمة لكن بـ "0"/"لا يوجد" مؤقتاً → ننتظر
     const loading = !!findFirst(['.blockUI:not([style*="display: none"])', '.blockOverlay', '.loading-spinner:not([style*="display: none"])', '[class*="loader"]:not([style*="display: none"])']);
@@ -721,13 +732,13 @@ async function waitForFieldStable(existingElFinder, maxWaitMs = 5000) {
 }
 
 // يملأ الحقل فقط إذا كان فارغاً — مع حماية القيمة الموجودة
-async function fillAndVerifyProtected(fieldLabel, targetValue, actionFn, verifyFn, existingElFinder, forceOverwrite) {
+async function fillAndVerifyProtected(fieldLabel, targetValue, actionFn, verifyFn, existingElFinder, forceOverwrite, realValueFn = isRealValue) {
   if (!targetValue) return null;
   if (!forceOverwrite) {
     // مهلة ذكية: ننتظر اكتمال تحميل الحقل من البورتال قبل قراءة قيمته الحقيقية
     // (300ms سابقاً كانت غير كافية — الحقل فاضي مؤقتاً أثناء التحميل غير المتزامن)
-    const existing = await waitForFieldStable(existingElFinder);
-    if (isRealValue(existing)) {
+    const existing = await waitForFieldStable(existingElFinder, 5000, realValueFn);
+    if (realValueFn(existing)) {
       log(`🛡️ ${fieldLabel}: قيمة موجودة ("${existing}") — تم الاحتفاظ بها (لا مسح).`);
       return { ok: true, keptExisting: existing };
     }
@@ -1339,14 +1350,19 @@ function isACProductType(productType) {
 }
 
 // مسح صريح لحقول موديل 2/سيريال 2 من الصفحة (لغير التكييف — القاعدة الصارمة)
-function clearModel2Serial2Fields() {
+// 🛡️ قاعدة حماية السيريال: سيريال 2 حقيقي (> 5 أحرف/أرقام إنجليزية) لا يُمسح إلا بالحقن الإجباري.
+function clearModel2Serial2Fields(forceOverwrite) {
   // 1) حقل الرقم المسلسل 2 (نصي)
   const serial2El = document.getElementById('ldv_serialnumber1') || findFieldByLabel(['الرقم المسلسل 2','Serial 2'],'input');
   if (serial2El && serial2El.value) {
-    serial2El.value = '';
-    serial2El.dispatchEvent(new Event('input', { bubbles: true }));
-    serial2El.dispatchEvent(new Event('change', { bubbles: true }));
-    log(`🧹 Serial 2 cleared from page`);
+    if (!forceOverwrite && isRealSerialValue(serial2El.value)) {
+      log(`🛡️ Serial 2 has real data ("${serial2El.value}") — kept, needs forceOverwrite to clear`);
+    } else {
+      serial2El.value = '';
+      serial2El.dispatchEvent(new Event('input', { bubbles: true }));
+      serial2El.dispatchEvent(new Event('change', { bubbles: true }));
+      log(`🧹 Serial 2 cleared from page`);
+    }
   }
   // 2) حقول lookup المخفية لموديل 2
   document.querySelectorAll('input[type="hidden"]').forEach(h => {
@@ -1424,10 +1440,11 @@ async function executePage1_Review(data, cfg) {
       log(`🔧 AC Product (${productType}): model2="${data.model2}" serial2="${data.serial2}"`);
     } else if (typeKnown) {
       // **قاعدة صارمة: غير التكييف → امسح serial2 و model2 من الداتا ومن الصفحة نفسها**
+      // 🛡️ إلا إذا كان serial2 حقيقياً (> 5 أحرف/أرقام إنجليزية) وبدون حقن إجباري → يحفظ ولا يمسح.
       data.model2 = '';
       data.serial2 = '';
-      clearModel2Serial2Fields();
-      log(`🔧 Non-AC Product (${productType}): Cleared model2/serial2 — MUST BE EMPTY`);
+      clearModel2Serial2Fields(data.forceOverwrite);
+      log(`🔧 Non-AC Product (${productType}): Cleared model2/serial2 — MUST BE EMPTY (real serial2 kept unless forceOverwrite)`);
     } else {
       // النوع غير معروف → لا تلمس موديل 2/سيريال 2 (حماية القيم الموجودة)
       log(`🔧 Product type unknown — keeping existing model2/serial2 untouched (no clear).`);
@@ -1436,9 +1453,9 @@ async function executePage1_Review(data, cfg) {
 
   FR.brand = await fillAndVerifyProtected('Brand', data.brand, () => fillPowerAppsLookup(findFirst(cfg.brandInput)||findFieldByLabel(['العلامة التجاريه','العلامة التجارية','Brand']), 'Brand', data.brand, cfg.brandBtn), createLookupVerifier(()=>findFirst(cfg.brandInput)||findFieldByLabel(['العلامة التجاريه','العلامة التجارية','Brand'])), () => findFirst(cfg.brandInput)||findFieldByLabel(['العلامة التجاريه','العلامة التجارية','Brand']), data.forceOverwrite);
   FR.model = await fillAndVerifyProtected('Model1', data.model, () => fillPowerAppsLookup(findFirst(cfg.modelInput)||findFieldByLabel(['الموديل الفعلي 1','Model']), 'Model1', data.model, cfg.modelBtn), createLookupVerifier(()=>findFirst(cfg.modelInput)||findFieldByLabel(['الموديل الفعلي 1','Model'])), () => findFirst(cfg.modelInput)||findFieldByLabel(['الموديل الفعلي 1','Model']), data.forceOverwrite);
-  FR.serial = await fillAndVerifyProtected('Serial1', data.serial, () => fillElement(findFirst(cfg.serial)||findFieldByLabel(['الرقم المسلسل 1','الرقم المسلسل','Serial'],'input'), data.serial), createInputVerifier(()=>findFirst(cfg.serial)||findFieldByLabel(['الرقم المسلسل 1','الرقم المسلسل','Serial'],'input')), () => findFirst(cfg.serial)||findFieldByLabel(['الرقم المسلسل 1','الرقم المسلسل','Serial'],'input'), data.forceOverwrite);
+  FR.serial = await fillAndVerifyProtected('Serial1', data.serial, () => fillElement(findFirst(cfg.serial)||findFieldByLabel(['الرقم المسلسل 1','الرقم المسلسل','Serial'],'input'), data.serial), createInputVerifier(()=>findFirst(cfg.serial)||findFieldByLabel(['الرقم المسلسل 1','الرقم المسلسل','Serial'],'input')), () => findFirst(cfg.serial)||findFieldByLabel(['الرقم المسلسل 1','الرقم المسلسل','Serial'],'input'), data.forceOverwrite, isRealSerialValue);
   FR.model2 = await fillAndVerifyProtected('Model2', data.model2, () => fillPowerAppsLookup(findFirst(cfg.modelInput2)||findFieldByLabel(['الموديل الفعلي 2','Model 2']), 'Model2', data.model2, cfg.modelBtn), createLookupVerifier(()=>findFirst(cfg.modelInput2)||findFieldByLabel(['الموديل الفعلي 2','Model 2'])), () => findFirst(cfg.modelInput2)||findFieldByLabel(['الموديل الفعلي 2','Model 2']), data.forceOverwrite);
-  FR.serial2 = await fillAndVerifyProtected('Serial2', data.serial2, () => fillElement(findFirst(cfg.serial2)||findFieldByLabel(['الرقم المسلسل 2','Serial 2'],'input'), data.serial2), createInputVerifier(()=>findFirst(cfg.serial2)||findFieldByLabel(['الرقم المسلسل 2','Serial 2'],'input')), () => findFirst(cfg.serial2)||findFieldByLabel(['الرقم المسلسل 2','Serial 2'],'input'), data.forceOverwrite);
+  FR.serial2 = await fillAndVerifyProtected('Serial2', data.serial2, () => fillElement(findFirst(cfg.serial2)||findFieldByLabel(['الرقم المسلسل 2','Serial 2'],'input'), data.serial2), createInputVerifier(()=>findFirst(cfg.serial2)||findFieldByLabel(['الرقم المسلسل 2','Serial 2'],'input')), () => findFirst(cfg.serial2)||findFieldByLabel(['الرقم المسلسل 2','Serial 2'],'input'), data.forceOverwrite, isRealSerialValue);
   FR.status = await fillAndVerify('Status', data.status, async () => {
     let el = findFirst(cfg.statusSelect) || findFieldByLabel(['حالة الضمان','Warranty Status'],'select');
     if (!el) el = Array.from(document.querySelectorAll('select')).find(s => /warranty|ضمان/i.test(s.getAttribute('aria-label')||'') || /warranty|ضمان/i.test(s.name||'') || /warranty|ضمان/i.test(s.id||''));
