@@ -699,16 +699,27 @@ function isRealValue(v) {
   return !!v && v !== '0' && !/لا يوجد|n\/a|none|undefined/i.test(v);
 }
 
+// ── قاعدة حماية السيريال: القيمة الحقيقية = أكثر من 5 أحرف/أرقام إنجليزية ──
+// أي سيريال أطول من 5 أحرف/أرقام إنجليزية (مثل 20C01#010171HA2C) هو بيانات حقيقية:
+// لا يُحذف ولا يُعدل إطلاقاً إلا بتفعيل checkbox "الحقن الإجباري" (forceOverwrite).
+// القيم القصيرة/الوهمية ("0", "AB", "123") ليست بيانات حقيقية → يسمح بالكتابة فوقها.
+function isRealSerialValue(v) {
+  const s = String(v || '').trim();
+  if (!s || s === '0' || /لا يوجد|n\/a|none|undefined/i.test(s)) return false;
+  const enCount = (s.match(/[a-zA-Z0-9]/g) || []).length;
+  return enCount > 5;
+}
+
 // ينتظر حتى تظهر قيمة حقيقية في الحقل أو يختفي مؤشر التحميل (البورتال يحمّل البيانات غير متزامن)
 // — يمنع قراءة الحقل وهو فاضي مؤقتاً ثم مسح/استبدال قيمة حقيقية موجودة.
-async function waitForFieldStable(existingElFinder, maxWaitMs = 5000) {
+async function waitForFieldStable(existingElFinder, maxWaitMs = 5000, realValueFn = isRealValue) {
   const start = Date.now();
   let lastVal = '';
   let sawReal = null;
   while (Date.now() - start < maxWaitMs) {
     const el = existingElFinder ? existingElFinder() : null;
     const v = readFieldValue(el);
-    if (isRealValue(v)) return v; // قيمة حقيقية ظهرت — الحقل اكتمل تحميله
+    if (realValueFn(v)) return v; // قيمة حقيقية ظهرت — الحقل اكتمل تحميله
     if (v) lastVal = v;
     // البورتال معبأ القيمة لكن بـ "0"/"لا يوجد" مؤقتاً → ننتظر
     const loading = !!findFirst(['.blockUI:not([style*="display: none"])', '.blockOverlay', '.loading-spinner:not([style*="display: none"])', '[class*="loader"]:not([style*="display: none"])']);
@@ -721,13 +732,13 @@ async function waitForFieldStable(existingElFinder, maxWaitMs = 5000) {
 }
 
 // يملأ الحقل فقط إذا كان فارغاً — مع حماية القيمة الموجودة
-async function fillAndVerifyProtected(fieldLabel, targetValue, actionFn, verifyFn, existingElFinder, forceOverwrite) {
+async function fillAndVerifyProtected(fieldLabel, targetValue, actionFn, verifyFn, existingElFinder, forceOverwrite, realValueFn = isRealValue) {
   if (!targetValue) return null;
   if (!forceOverwrite) {
     // مهلة ذكية: ننتظر اكتمال تحميل الحقل من البورتال قبل قراءة قيمته الحقيقية
     // (300ms سابقاً كانت غير كافية — الحقل فاضي مؤقتاً أثناء التحميل غير المتزامن)
-    const existing = await waitForFieldStable(existingElFinder);
-    if (isRealValue(existing)) {
+    const existing = await waitForFieldStable(existingElFinder, 5000, realValueFn);
+    if (realValueFn(existing)) {
       log(`🛡️ ${fieldLabel}: قيمة موجودة ("${existing}") — تم الاحتفاظ بها (لا مسح).`);
       return { ok: true, keptExisting: existing };
     }
@@ -1436,7 +1447,7 @@ async function executePage1_Review(data, cfg) {
 
   FR.brand = await fillAndVerifyProtected('Brand', data.brand, () => fillPowerAppsLookup(findFirst(cfg.brandInput)||findFieldByLabel(['العلامة التجاريه','العلامة التجارية','Brand']), 'Brand', data.brand, cfg.brandBtn), createLookupVerifier(()=>findFirst(cfg.brandInput)||findFieldByLabel(['العلامة التجاريه','العلامة التجارية','Brand'])), () => findFirst(cfg.brandInput)||findFieldByLabel(['العلامة التجاريه','العلامة التجارية','Brand']), data.forceOverwrite);
   FR.model = await fillAndVerifyProtected('Model1', data.model, () => fillPowerAppsLookup(findFirst(cfg.modelInput)||findFieldByLabel(['الموديل الفعلي 1','Model']), 'Model1', data.model, cfg.modelBtn), createLookupVerifier(()=>findFirst(cfg.modelInput)||findFieldByLabel(['الموديل الفعلي 1','Model'])), () => findFirst(cfg.modelInput)||findFieldByLabel(['الموديل الفعلي 1','Model']), data.forceOverwrite);
-  FR.serial = await fillAndVerifyProtected('Serial1', data.serial, () => fillElement(findFirst(cfg.serial)||findFieldByLabel(['الرقم المسلسل 1','الرقم المسلسل','Serial'],'input'), data.serial), createInputVerifier(()=>findFirst(cfg.serial)||findFieldByLabel(['الرقم المسلسل 1','الرقم المسلسل','Serial'],'input')), () => findFirst(cfg.serial)||findFieldByLabel(['الرقم المسلسل 1','الرقم المسلسل','Serial'],'input'), data.forceOverwrite);
+  FR.serial = await fillAndVerifyProtected('Serial1', data.serial, () => fillElement(findFirst(cfg.serial)||findFieldByLabel(['الرقم المسلسل 1','الرقم المسلسل','Serial'],'input'), data.serial), createInputVerifier(()=>findFirst(cfg.serial)||findFieldByLabel(['الرقم المسلسل 1','الرقم المسلسل','Serial'],'input')), () => findFirst(cfg.serial)||findFieldByLabel(['الرقم المسلسل 1','الرقم المسلسل','Serial'],'input'), data.forceOverwrite, isRealSerialValue);
   FR.model2 = await fillAndVerifyProtected('Model2', data.model2, () => fillPowerAppsLookup(findFirst(cfg.modelInput2)||findFieldByLabel(['الموديل الفعلي 2','Model 2']), 'Model2', data.model2, cfg.modelBtn), createLookupVerifier(()=>findFirst(cfg.modelInput2)||findFieldByLabel(['الموديل الفعلي 2','Model 2'])), () => findFirst(cfg.modelInput2)||findFieldByLabel(['الموديل الفعلي 2','Model 2']), data.forceOverwrite);
   FR.serial2 = await fillAndVerifyProtected('Serial2', data.serial2, () => fillElement(findFirst(cfg.serial2)||findFieldByLabel(['الرقم المسلسل 2','Serial 2'],'input'), data.serial2), createInputVerifier(()=>findFirst(cfg.serial2)||findFieldByLabel(['الرقم المسلسل 2','Serial 2'],'input')), () => findFirst(cfg.serial2)||findFieldByLabel(['الرقم المسلسل 2','Serial 2'],'input'), data.forceOverwrite);
   FR.status = await fillAndVerify('Status', data.status, async () => {
@@ -2231,6 +2242,20 @@ async function processQueueOnLoad() {
       sendSmartLog('MONITOR', { orderId: currentTask.orderId, pageType: getPageType(), url: location.href, reason: 'no-control-command' });
     }
     return;
+  }
+
+  // ── حماية جديدة: لا نعيد تشغيل مهمة قديمة على تبويب ليس تبويب المعالجة ──
+  // الباتش يعمل على تبويب محدد (processingTabId). أي تبويب آخر يفتحه المستخدم يدوياً
+  // كان عند تحديثه يعيد تشغيل المهمة القديمة ويمسح/يعبئ حقول البلاغ ببيانات بلاغ آخر!
+  // إذا لم يُحدد processingTabId → نسمح بالتشغيل (سلوك قديم آمن للباتش من التبويب الحالي).
+  if (currentTask && processingTabId) {
+    let myTabId = null;
+    try { myTabId = (await chrome.runtime.sendMessage({ type: 'GET_MY_TAB_ID' }))?.tabId; } catch (e) {}
+    if (myTabId && myTabId !== processingTabId) {
+      log(`👁️ Monitor mode: this tab (${myTabId}) is not the processing tab (${processingTabId}) — logging only, data untouched.`);
+      sendSmartLog('MONITOR', { orderId: currentTask.orderId, pageType: getPageType(), url: location.href, reason: 'not-processing-tab' });
+      return;
+    }
   }
 
   // ── مهلة التحكم: إذا مرّ وقت طويل بدون نشاط (تبويب ميت/باتش متعطل) نعود للمراقب ──

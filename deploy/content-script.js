@@ -2233,6 +2233,20 @@ async function processQueueOnLoad() {
     return;
   }
 
+  // ── حماية جديدة: لا نعيد تشغيل مهمة قديمة على تبويب ليس تبويب المعالجة ──
+  // الباتش يعمل على تبويب محدد (processingTabId). أي تبويب آخر يفتحه المستخدم يدوياً
+  // كان عند تحديثه يعيد تشغيل المهمة القديمة ويمسح/يعبئ حقول البلاغ ببيانات بلاغ آخر!
+  // إذا لم يُحدد processingTabId → نسمح بالتشغيل (سلوك قديم آمن للباتش من التبويب الحالي).
+  if (currentTask && processingTabId) {
+    let myTabId = null;
+    try { myTabId = (await chrome.runtime.sendMessage({ type: 'GET_MY_TAB_ID' }))?.tabId; } catch (e) {}
+    if (myTabId && myTabId !== processingTabId) {
+      log(`👁️ Monitor mode: this tab (${myTabId}) is not the processing tab (${processingTabId}) — logging only, data untouched.`);
+      sendSmartLog('MONITOR', { orderId: currentTask.orderId, pageType: getPageType(), url: location.href, reason: 'not-processing-tab' });
+      return;
+    }
+  }
+
   // ── مهلة التحكم: إذا مرّ وقت طويل بدون نشاط (تبويب ميت/باتش متعطل) نعود للمراقب ──
   // بدون حذف أي بيانات — فقط نتوقف عن التحكم.
   const CONTROL_TIMEOUT_MS = 60 * 60 * 1000; // ساعة واحدة
