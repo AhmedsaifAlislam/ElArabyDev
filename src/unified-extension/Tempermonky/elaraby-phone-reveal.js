@@ -17,12 +17,6 @@
 (function () {
   'use strict';
 
-  // 🛑 بروتوكول Tampermonkey Lifecycle: إيقاف دائم يبقى حتى بعد تحديث الصفحة
-  try {
-    if (localStorage.getItem('tm_running_elaraby-phone-reveal') === '0') return;
-    localStorage.setItem('tm_running_elaraby-phone-reveal', '1');
-  } catch(e) {}
-
   if (document.readyState === 'loading') {
     document.addEventListener("DOMContentLoaded", initSmartAssistant);
   } else {
@@ -30,80 +24,11 @@
   }
 
   function initSmartAssistant() {
-      // 🛑 منع الحقن المزدوج (manifest + popup run) — نفس الجلسة
-      if (window.__ERP_ALREADY_INJECTED) return;
-      window.__ERP_ALREADY_INJECTED = true;
-
       if (window.__ELARABY_INTERVAL) clearInterval(window.__ELARABY_INTERVAL);
       ['elaraby-fixed-box', 'elaraby-mini-btn'].forEach(id => {
         const el = document.getElementById(id);
         if (el) el.remove();
       });
-
-      // =====================================================================
-      // 🟢 Design Tokens + Component Styles (UI/UX v15.1)
-      // =====================================================================
-      function injectDesignTokens() {
-        if (document.getElementById('erp-design-tokens')) return;
-        const style = document.createElement('style');
-        style.id = 'erp-design-tokens';
-        style.textContent = `
-          :root {
-            --erp-primary: #005A9C;
-            --erp-primary-hover: #0078D4;
-            --erp-success: #10b981;
-            --erp-warning: #f59e0b;
-            --erp-danger: #ef4444;
-            --erp-indigo: #6366f1;
-            --erp-radius-sm: 6px;
-            --erp-radius-md: 10px;
-            --erp-radius-lg: 14px;
-            --erp-space-1: 4px;
-            --erp-space-2: 8px;
-            --erp-space-3: 12px;
-            --erp-space-4: 16px;
-            --erp-shadow-fab: 0 4px 20px rgba(0,90,156,0.5);
-            --erp-shadow-panel: 0 -4px 30px rgba(0,0,0,0.25);
-            --erp-font: 'Segoe UI', Tahoma, sans-serif;
-          }
-          #elaraby-fixed-box button, #elaraby-mini-btn {
-            transition: transform 0.15s ease, box-shadow 0.15s ease, filter 0.15s ease;
-          }
-          #elaraby-fixed-box button:hover, #elaraby-mini-btn:hover {
-            filter: brightness(1.1);
-          }
-          #elaraby-fixed-box button:active, #elaraby-mini-btn:active {
-            transform: scale(0.96);
-          }
-          #elaraby-fixed-box button:focus-visible, #elaraby-mini-btn:focus-visible {
-            outline: 2px solid var(--erp-primary);
-            outline-offset: 2px;
-          }
-          #elaraby-fixed-box input:focus {
-            border-color: var(--erp-primary) !important;
-            box-shadow: 0 0 0 2px rgba(0,90,156,0.15);
-          }
-          #elaraby-fixed-box ::selection { background: rgba(0,90,156,0.2); }
-          #elaraby-fixed-box { font-family: var(--erp-font); }
-          #elaraby-fixed-box .erp-btn {
-            display: inline-flex; align-items: center; justify-content: center;
-            border: none; cursor: pointer; font-weight: bold;
-            border-radius: var(--erp-radius-sm); text-align: center;
-            -webkit-tap-highlight-color: transparent; user-select: none;
-          }
-          #elaraby-fixed-box .erp-btn-primary { background: var(--erp-primary); color: #fff; }
-          #elaraby-fixed-box .erp-btn-success { background: var(--erp-success); color: #fff; }
-          #elaraby-fixed-box .erp-btn-indigo { background: var(--erp-indigo); color: #fff; }
-          #elaraby-fixed-box .erp-btn-danger { background: var(--erp-danger); color: #fff; }
-          #elaraby-fixed-box .erp-btn-warning { background: var(--erp-warning); color: #fff; }
-          @media (prefers-reduced-motion: reduce) {
-            #elaraby-fixed-box button, #elaraby-mini-btn { transition: none !important; }
-            #elaraby-fixed-box button:active, #elaraby-mini-btn:active { transform: none; }
-          }
-        `;
-        (document.head || document.documentElement).appendChild(style);
-      }
-      injectDesignTokens();
 
       // =====================================================================
       // 🟢 Cache Layer - تخزين مؤقت للـ localStorage
@@ -166,50 +91,12 @@
       };
 
       // =====================================================================
-      // 🟢 Quick Notes - ملاحظات سريعة محلية
-      // =====================================================================
-      function loadQuickNotes() {
-        try {
-          const raw = localStorage.getItem('erp_quick_notes');
-          const arr = raw ? JSON.parse(raw) : [];
-          return Array.isArray(arr) ? arr : [];
-        } catch (e) { return []; }
-      }
-      function saveQuickNotes() {
-        try { localStorage.setItem('erp_quick_notes', JSON.stringify(state.quickNotes)); } catch (e) {}
-      }
-      window.__ERP_ADD_NOTE = () => {
-        const input = document.getElementById('erp-quick-note-input');
-        const text = input ? input.value.trim() : '';
-        if (!text) return;
-        state.quickNotes.unshift({ text, time: new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }) });
-        if (state.quickNotes.length > 200) state.quickNotes.length = 200;
-        saveQuickNotes();
-        if (input) input.value = '';
-        updateUI(false);
-      };
-      window.__ERP_DEL_NOTE = (idx) => {
-        state.quickNotes.splice(idx, 1);
-        saveQuickNotes();
-        updateUI(false);
-      };
-      window.__ERP_CLEAR_NOTES = () => {
-        state.quickNotes = [];
-        saveQuickNotes();
-        updateUI(false);
-      };
-      window.__ERP_ADD_NOTE_KEY = (e) => {
-        if (e.key === 'Enter') window.__ERP_ADD_NOTE();
-      };
-
-      // =====================================================================
       // 🟢 State - الحالة الرئيسية مع Map للأداء
       // =====================================================================
       const state = {
         rows: new Map(),       // Map<orderNo, rowData> بدل Array
         logs: [],
         activeTab: 'data',
-        quickNotes: loadQuickNotes(),
         searchQuery: '',
         dirSearchQuery: '',
         isMinimized: true,
@@ -225,8 +112,7 @@
         virtualScrollTop: 0,
         virtualRowHeight: 85,
         notificationsEnabled: Notification.permission === 'granted',
-        prevRowsCount: 0,
-        running: true
+        prevRowsCount: 0
       };
 
       // =====================================================================
@@ -243,30 +129,12 @@
       // =====================================================================
       // 🟢 Google Sheets Sync
       // =====================================================================
-      // الرابط قابل للتغيير من popup (الإعدادات) — يُخزَّن في localStorage عبر
-      // إعدادات الإضافة، مع fallback آمن للقيمة الحالية.
-      function getWebAppUrl() {
-        try {
-          const v = localStorage.getItem('elarabyWebAppUrl');
-          if (v && v.startsWith('https://')) return v;
-        } catch(e) {}
-        return 'https://script.google.com/macros/s/AKfycbwlDrxzd2u4RjpZNg1EOecVwNcmip3nwe75hJIMrrPmaBnnwIZh4knxxpVUwS3V0Ui-jA/exec';
-      }
+      const GOOGLE_WEBAPP_URL = 'https://script.google.com/macros/s/AKfycbwlDrxzd2u4RjpZNg1EOecVwNcmip3nwe75hJIMrrPmaBnnwIZh4knxxpVUwS3V0Ui-jA/exec';
 
       async function syncRowToGoogle(row, force = false) {
         if (!force && SYNC_CACHE.isSynced(row)) return false;
         try {
-          if (typeof window.ElArabySyncManager !== 'undefined') {
-            window.__ELARABY_WEBAPP_URL = getWebAppUrl();
-            window.ElArabySyncManager.enqueue(row);
-            SYNC_CACHE.markSynced(row);
-            log(`☁️ تمت جدولة ${row.orderNo} للمزامنة مع جوجل شيت`, 'success', '☁️');
-            updateUI(false);
-            return true;
-          }
-        } catch(e) { /* fallback للإرسال المباشر أدناه */ }
-        try {
-          await fetch(getWebAppUrl(), {
+          await fetch(GOOGLE_WEBAPP_URL, {
             method: 'POST',
             mode: 'no-cors',
             headers: { 'Content-Type': 'application/json' },
@@ -308,20 +176,10 @@
 
       function detectColumns(doc) {
           doc = doc || document;
-          let headers = [];
-          // استخدم TableScraper الموحد إن كان محقوناً (manifest) — مع fallback محلي
-          try {
-            if (typeof window.TableScraper !== 'undefined' && window.TableScraper.extractHeaders) {
-              const table = window.TableScraper.findTable(doc);
-              if (table) headers = window.TableScraper.extractHeaders(table);
-            }
-          } catch(e) {}
+          const headers = Array.from(doc.querySelectorAll('table th')).map(th => th.textContent.trim());
           if (headers.length === 0) {
-            headers = Array.from(doc.querySelectorAll('table th')).map(th => th.textContent.trim());
-            if (headers.length === 0) {
-                const roleHeaders = Array.from(doc.querySelectorAll('[role="columnheader"]')).map(th => th.textContent.trim());
-                if (roleHeaders.length > 0) headers.push(...roleHeaders);
-            }
+              const roleHeaders = Array.from(doc.querySelectorAll('[role="columnheader"]')).map(th => th.textContent.trim());
+              if (roleHeaders.length > 0) headers.push(...roleHeaders);
           }
           if (headers.length === 0) return false;
           headers.forEach((h, i) => {
@@ -386,7 +244,6 @@
       }
 
       function extractFromDOM() {
-        if (!state.running) return;
         // Search main document + iframes (PowerApps renders tables in iframes)
         function extractFromDoc(doc) {
           if (!detectColumns(doc)) return false;
@@ -439,7 +296,6 @@
       // 🟢 Layer 3: API Fetch - Batch Control
       // =====================================================================
       const BATCH_SIZE = 5;
-      const CONCURRENCY = 4;
 
       async function processLayer3() {
         if (state.isFetchingMissing) return;
@@ -451,60 +307,50 @@
         log(`Layer 3: جاري سحب ${missing.length} بلاغات...`, 'info', '⚡');
         updateUI(false);
 
-        let nextIndex = 0;
-        let doneInWindow = 0;
-        const fetchOne = async (r) => {
-          r.fetchAttempted = true;
-          try {
-            const res = await fetch(`/_api/incidents?$filter=ticketnumber eq '${r.orderNo}'`, { headers: { 'Accept': 'application/json' }, credentials: 'same-origin' });
-            if (res.ok) {
-              const data = await res.json();
-              if (data?.value?.length > 0) {
-                const item = data.value[0];
-                const str = JSON.stringify(item);
-                const pMatch = str.match(REGEX.PHONE) || [];
-                const sMatch = str.match(REGEX.SAP) || [];
-                if (pMatch.length > 0) r.phone = pMatch[0];
-                if (pMatch.length > 1) r.phone2 = pMatch[1];
-                if (sMatch.length > 0) r.sap = sMatch[0];
-                if (!r.phone) {
-                  const customerId = item._customerid_value;
-                  const customerType = item['_customerid_value@Microsoft.Dynamics.CRM.lookuplogicalname'];
-                  if (customerId && customerType) {
-                    const endpoint = customerType === 'account' ? 'accounts' : 'contacts';
-                    const custRes = await fetch(`/_api/${endpoint}(${customerId})`, { headers: { 'Accept': 'application/json' } });
-                    if (custRes.ok) {
-                      const custData = await custRes.json();
-                      const cStr = JSON.stringify(custData);
-                      const cpMatch = cStr.match(REGEX.PHONE) || [];
-                      const csMatch = cStr.match(REGEX.SAP) || [];
-                      if (cpMatch.length > 0) r.phone = cpMatch[0];
-                      if (csMatch.length > 0) r.sap = csMatch[0];
+        for (let i = 0; i < missing.length; i += BATCH_SIZE) {
+          const batch = missing.slice(i, i + BATCH_SIZE);
+          const promises = batch.map(async (r) => {
+            r.fetchAttempted = true;
+            try {
+              const res = await fetch(`/_api/incidents?$filter=ticketnumber eq '${r.orderNo}'`, { headers: { 'Accept': 'application/json' }, credentials: 'same-origin' });
+              if (res.ok) {
+                const data = await res.json();
+                if (data?.value?.length > 0) {
+                  const item = data.value[0];
+                  const str = JSON.stringify(item);
+                  const pMatch = str.match(REGEX.PHONE) || [];
+                  const sMatch = str.match(REGEX.SAP) || [];
+                  if (pMatch.length > 0) r.phone = pMatch[0];
+                  if (pMatch.length > 1) r.phone2 = pMatch[1];
+                  if (sMatch.length > 0) r.sap = sMatch[0];
+                  if (!r.phone) {
+                    const customerId = item._customerid_value;
+                    const customerType = item['_customerid_value@Microsoft.Dynamics.CRM.lookuplogicalname'];
+                    if (customerId && customerType) {
+                      const endpoint = customerType === 'account' ? 'accounts' : 'contacts';
+                      const custRes = await fetch(`/_api/${endpoint}(${customerId})`, { headers: { 'Accept': 'application/json' } });
+                      if (custRes.ok) {
+                        const custData = await custRes.json();
+                        const cStr = JSON.stringify(custData);
+                        const cpMatch = cStr.match(REGEX.PHONE) || [];
+                        const csMatch = cStr.match(REGEX.SAP) || [];
+                        if (cpMatch.length > 0) r.phone = cpMatch[0];
+                        if (csMatch.length > 0) r.sap = csMatch[0];
+                      }
                     }
                   }
-                }
-                if (r.phone || r.sap) {
-                  log(`✅ [API] ${r.orderNo} | ${r.phone}`, 'success', '🌐');
-                  DIR_CACHE.add(r.name, r.phone, r.phone2, r.sap);
-                  syncRowToGoogle(r);
+                  if (r.phone || r.sap) {
+                    log(`✅ [API] ${r.orderNo} | ${r.phone}`, 'success', '🌐');
+                    DIR_CACHE.add(r.name, r.phone, r.phone2, r.sap);
+                    syncRowToGoogle(r);
+                  }
                 }
               }
-            }
-          } catch(e) { r.fetchAttempted = false; }
-        };
-
-        const workers = [];
-        const worker = async () => {
-          while (true) {
-            const idx = nextIndex++;
-            if (idx >= missing.length) break;
-            await fetchOne(missing[idx]);
-            if (++doneInWindow % BATCH_SIZE === 0) updateUI(false);
-          }
-        };
-        for (let w = 0; w < Math.min(CONCURRENCY, missing.length); w++) workers.push(worker());
-        await Promise.all(workers);
-        updateUI(false);
+            } catch(e) { r.fetchAttempted = false; }
+          });
+          await Promise.all(promises);
+          updateUI(false);
+        }
 
         state.isFetchingMissing = false;
         state.isLoading = false;
@@ -594,7 +440,7 @@
             state.scrapedPages.add(p);
             updateUI(false);
           } catch (e) {}
-          await new Promise(r => setTimeout(r, 350 + Math.floor(Math.random() * 250)));
+          await new Promise(r => setTimeout(r, 400));
         }
         state.isScraping = false;
         state.isLoading = false;
@@ -754,20 +600,13 @@
           const row = [i+1, r.orderNo, r.name, r.center, r.phone, r.phone2, r.sap, r.address, r.type, r.service, r.date];
           xml += '<Row>' + row.map(c => `<Cell${!isNaN(c)&&c!==''?' ss:StyleID="num"':''}><Data ss:Type="${!isNaN(c)&&c!==''?'Number':'String'}">${String(c||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}</Data></Cell>`).join('') + '</Row>';
         });
-        if (state.quickNotes.length > 0) {
-          xml += '<Row><Cell ss:StyleID="hdr"><Data ss:Type="String">ملاحظات سريعة (' + new Date().toLocaleDateString('en-CA') + ')</Data></Cell></Row>';
-          xml += '<Row ss:StyleID="hdr"><Cell><Data ss:Type="String">الوقت</Data></Cell><Cell><Data ss:Type="String">الملاحظة</Data></Cell></Row>';
-          state.quickNotes.forEach(n => {
-            xml += '<Row><Cell><Data ss:Type="String">' + n.time + '</Data></Cell><Cell><Data ss:Type="String">' + String(n.text).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;') + '</Data></Cell></Row>';
-          });
-        }
         xml += '</Table></Worksheet></Workbook>';
         const blob = new Blob([xml], { type: 'application/vnd.ms-excel;charset=utf-8;' });
         const link = document.createElement('a');
         link.href = URL.createObjectURL(blob);
         link.download = `El-Araby-Orders-${new Date().toLocaleDateString('en-CA')}.xls`;
         link.click();
-        log(`تم تصدير ${sorted.length} بلاغ كـ Excel${state.quickNotes.length ? ' + ' + state.quickNotes.length + ' ملاحظة' : ''}`, 'success', '📊');
+        log(`تم تصدير ${sorted.length} بلاغ كـ Excel`, 'success', '📊');
       };
 
       // =====================================================================
@@ -781,18 +620,11 @@
             const row = [i+1, r.orderNo, r.name, r.center, r.phone, r.phone2, r.sap, r.address, r.type, r.service, r.date];
           csv += row.map(c => `"${(c||'').toString().replace(/"/g,'""')}"`).join(',') + '\r\n';
         });
-        if (state.quickNotes.length > 0) {
-          csv += '\r\n' + `"ملاحظات سريعة (${new Date().toLocaleDateString('en-CA')})"` + '\r\n';
-          csv += `"الوقت","الملاحظة"` + '\r\n';
-          state.quickNotes.forEach(n => {
-            csv += `"${n.time}","${n.text.replace(/"/g,'""')}"` + '\r\n';
-          });
-        }
         const link = document.createElement('a');
         link.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8;' }));
         link.download = `El-Araby-Orders-${new Date().toLocaleDateString('en-CA')}.csv`;
         link.click();
-        log(`تم تصدير ${sorted.length} بلاغ${state.quickNotes.length ? ' + ' + state.quickNotes.length + ' ملاحظة' : ''}`, 'success', '📥');
+        log(`تم تصدير ${sorted.length} بلاغ`, 'success', '📥');
       };
 
       window.__ERP_FORCE_SYNC_ROW = (orderNo) => {
@@ -835,44 +667,6 @@
         const btn = document.getElementById('elaraby-mini-btn');
         if (box) box.style.display = state.isMinimized ? 'none' : 'flex';
         if (btn) btn.style.display = state.isMinimized ? 'flex' : 'none';
-      };
-
-      // =====================================================================
-      // 🟢 الإيقاف الكامل __ERP_STOP - يوقف كل شيء فعلياً
-      // =====================================================================
-      function stopERP() {
-        state.running = false;
-        state.isAutoPilot = false;
-        state.isScraping = false;
-        state.isFetchingMissing = false;
-        state.isLoading = false;
-        if (state.autoPilotTimer) { clearTimeout(state.autoPilotTimer); state.autoPilotTimer = null; }
-        if (window.__ELARABY_INTERVAL) { clearInterval(window.__ELARABY_INTERVAL); window.__ELARABY_INTERVAL = null; }
-        ['elaraby-fixed-box', 'elaraby-mini-btn'].forEach(id => {
-          const el = document.getElementById(id);
-          if (el) el.remove();
-        });
-        if (window.__ERP_HANDLERS__) {
-          window.__ERP_HANDLERS__.forEach(h => { try { h.target.removeEventListener(h.type, h.fn); } catch(e) {} });
-          window.__ERP_HANDLERS__.length = 0;
-        }
-        try { localStorage.setItem('elaraby_phone_reveal_disabled', '1'); } catch(e) {}
-        try { localStorage.setItem('__ERP_ENABLED', '0'); } catch(e) {}
-        window.__ERP_ALREADY_INJECTED = false;
-        ['__ERP_TOGGLE','__ERP_TOGGLE_DARK','__ERP_TAB','__ERP_SEARCH','__ERP_DIR_SEARCH','__ERP_FETCH_ALL',
-         '__ERP_FORCE_REVEAL','__ERP_EXPORT','__ERP_EXPORT_EXCEL','__ERP_FORCE_SYNC_ROW','__ERP_FORCE_SYNC_ALL',
-         '__ERP_COPY_LOGS','__ERP_CLEAR_DIR','__ERP_TOGGLE_AUTOPILOT','__ERP_DEEP_SEARCH'].forEach(g => {
-          try { delete window[g]; } catch(e) {}
-        });
-        log('🛑 تم الإيقاف الكامل.', 'info', '🛑');
-      }
-      window.__ERP_STOP = stopERP;
-      window.__ERP_HANDLERS__ = [];
-
-      // 🛑 hook الإيقاف الدائم (بروتوكول Tampermonkey Lifecycle)
-      window['__TM_STOP_elaraby-phone-reveal'] = () => {
-        try { localStorage.setItem('tm_running_elaraby-phone-reveal', '0'); } catch(e) {}
-        stopERP();
       };
       window.__ERP_TAB = (tab) => { state.activeTab = tab; updateUI(false); };
 
@@ -976,10 +770,10 @@
               <span style="font-weight:bold;color:${accentColor};font-size:${R.headerSize};">📱 كشف الأرقام v15</span>
               <div style="display:flex;gap:${R.isMobile?'6px':'4px'};align-items:center;">
                 ${state.isLoading ? `<span style="font-size:${R.fontSize};color:#f59e0b;">⏳ جاري التحميل...</span>` : ''}
-                <button type="button" aria-label="تبديل الوضع" onclick="window.__ERP_TOGGLE_DARK()" style="background:${D?'#fbbf24':'#1e293b'};color:${D?'#000':'#fff'};border:none;border-radius:${R.isMobile?'6px':'4px'};padding:${R.isMobile?'4px 8px':'2px 6px'};font-size:${R.fontSize};cursor:pointer;min-width:${R.isMobile?'36px':'auto'};min-height:${R.isMobile?'32px':'auto'};" title="تبديل الوضع">${D?'☀️':'🌙'}</button>
-                <button type="button" aria-label="إجبار كشف الأرقام" onclick="window.__ERP_FORCE_REVEAL()" class="erp-btn erp-btn-danger" style="flex:0 0 auto;padding:${R.isMobile?'4px 8px':'2px 6px'};font-size:${R.fontSize};min-width:${R.isMobile?'36px':'auto'};min-height:${R.isMobile?'32px':'auto'};" title="إجبار كشف الأرقام">🔓 كشف</button>
-                <button type="button" aria-label="تصغير اللوحة" onclick="window.__ERP_TOGGLE()" style="background:none;border:none;cursor:pointer;font-size:${R.isMobile?'16px':'12px'};color:${D?'#94a3b8':'#aaa'};min-width:${R.isMobile?'32px':'auto'};min-height:${R.isMobile?'32px':'auto'};" title="تصغير">➖</button>
-                <button type="button" aria-label="إغلاق اللوحة" onclick="window.__ERP_STOP()" style="background:none;border:none;cursor:pointer;font-size:${R.isMobile?'16px':'12px'};color:${D?'#94a3b8':'#aaa'};min-width:${R.isMobile?'32px':'auto'};min-height:${R.isMobile?'32px':'auto'};" title="إغلاق">✕</button>
+                <button onclick="window.__ERP_TOGGLE_DARK()" style="background:${D?'#fbbf24':'#1e293b'};color:${D?'#000':'#fff'};border:none;border-radius:${R.isMobile?'6px':'4px'};padding:${R.isMobile?'4px 8px':'2px 6px'};font-size:${R.fontSize};cursor:pointer;min-width:${R.isMobile?'36px':'auto'};min-height:${R.isMobile?'32px':'auto'};" title="تبديل الوضع">${D?'☀️':'🌙'}</button>
+                <button onclick="window.__ERP_FORCE_REVEAL()" style="background:#ef4444;color:white;border:none;border-radius:${R.isMobile?'6px':'4px'};padding:${R.isMobile?'4px 8px':'2px 6px'};font-size:${R.fontSize};font-weight:bold;cursor:pointer;min-width:${R.isMobile?'36px':'auto'};min-height:${R.isMobile?'32px':'auto'};" title="إجبار كشف الأرقام">🔓 كشف</button>
+                <button onclick="window.__ERP_TOGGLE()" style="background:none;border:none;cursor:pointer;font-size:${R.isMobile?'16px':'12px'};color:${D?'#94a3b8':'#aaa'};min-width:${R.isMobile?'32px':'auto'};min-height:${R.isMobile?'32px':'auto'};" title="تصغير">➖</button>
+                <button onclick="document.getElementById('elaraby-fixed-box').remove();document.getElementById('elaraby-mini-btn').remove();clearInterval(window.__ELARABY_INTERVAL);" style="background:none;border:none;cursor:pointer;font-size:${R.isMobile?'16px':'12px'};color:${D?'#94a3b8':'#aaa'};min-width:${R.isMobile?'32px':'auto'};min-height:${R.isMobile?'32px':'auto'};" title="إغلاق">✕</button>
               </div>
             </div>
             <div style="display:flex;justify-content:space-between;font-size:${R.fontSize};color:${textMuted};">
@@ -990,7 +784,6 @@
           <div style="display:flex;border-bottom:1px solid ${border};background:${bgTab};">
             <button style="${tabStyle('data')}" onclick="window.__ERP_TAB('data')">📋 البلاغات</button>
             <button style="${tabStyle('directory')}" onclick="window.__ERP_TAB('directory')">📞 الدليل</button>
-            <button style="${tabStyle('notes')}" onclick="window.__ERP_TAB('notes')">📝 ملاحظات</button>
             <button style="${tabStyle('logs')}" onclick="window.__ERP_TAB('logs')">🛠️ السجل</button>
           </div>
           <div style="overflow-y:auto;flex:1;background:${bgContent};-webkit-overflow-scrolling:touch;">
@@ -1001,9 +794,9 @@
             <div style="padding:${R.isMobile?'10px 12px':'8px'};background:${D?'#1e293b':'#f0f4f8'};border-bottom:1px solid ${border};position:sticky;top:0;z-index:10;display:flex;flex-direction:column;gap:${R.isMobile?'8px':'6px'};">
               <input type="text" placeholder="🔍 بحث (Enter للبحث العميق)..." oninput="window.__ERP_SEARCH(this.value)" onkeydown="window.__ERP_DEEP_SEARCH(event)" value="${state.searchQuery}" style="width:100%;padding:${R.inputPadding};border:1px solid ${D?'#475569':'#ccc'};border-radius:${R.isMobile?'8px':'6px'};outline:none;font-family:inherit;font-size:${R.inputFontSize};background:${D?'#0f172a':'#fff'};color:${textMain};box-sizing:border-box;min-height:${R.isMobile?'44px':'auto'};">
               <div style="display:flex;gap:${R.searchRowGap};">
-                <button type="button" aria-label="تصدير Excel" onclick="window.__ERP_EXPORT_EXCEL()" class="erp-btn erp-btn-success" style="flex:1;padding:${R.btnPadding};border-radius:${R.isMobile?'8px':'6px'};font-size:${R.fontSize};min-height:${R.btnMinH};">📊 Excel</button>
-                <button type="button" aria-label="تصدير CSV" onclick="window.__ERP_EXPORT()" class="erp-btn erp-btn-indigo" style="flex:1;padding:${R.btnPadding};border-radius:${R.isMobile?'8px':'6px'};font-size:${R.fontSize};min-height:${R.btnMinH};">📥 CSV</button>
-                <button type="button" aria-label="رفع إلى Google Sheets" onclick="window.__ERP_FORCE_SYNC_ALL()" class="erp-btn erp-btn-primary" style="flex:1;padding:${R.btnPadding};border-radius:${R.isMobile?'8px':'6px'};font-size:${R.fontSize};min-height:${R.btnMinH};">☁️ رفع</button>
+                <button onclick="window.__ERP_EXPORT_EXCEL()" style="flex:1;background:#10b981;color:#fff;border:none;padding:${R.btnPadding};border-radius:${R.isMobile?'8px':'6px'};cursor:pointer;font-weight:bold;font-size:${R.fontSize};text-align:center;min-height:${R.btnMinH};-webkit-tap-highlight-color:transparent;">📊 Excel</button>
+                <button onclick="window.__ERP_EXPORT()" style="flex:1;background:#6366f1;color:#fff;border:none;padding:${R.btnPadding};border-radius:${R.isMobile?'8px':'6px'};cursor:pointer;font-weight:bold;font-size:${R.fontSize};text-align:center;min-height:${R.btnMinH};-webkit-tap-highlight-color:transparent;">📥 CSV</button>
+                <button onclick="window.__ERP_FORCE_SYNC_ALL()" style="flex:1;background:#005A9C;color:#fff;border:none;padding:${R.btnPadding};border-radius:${R.isMobile?'8px':'6px'};cursor:pointer;font-weight:bold;font-size:${R.fontSize};text-align:center;min-height:${R.btnMinH};-webkit-tap-highlight-color:transparent;">☁️ رفع</button>
               </div>
             </div>
           `;
@@ -1011,11 +804,11 @@
           const apText = state.isAutoPilot ? '🛑 إيقاف' : '🤖 تصفح تلقائي';
           html += `
             <div style="padding:${R.isMobile?'8px 12px':'6px 8px'};background:${D?'#1e293b':'#fffbeb'};border-bottom:1px solid ${D?'#334155':'#fde68a'};">
-              <button type="button" aria-label="${state.isAutoPilot?'إيقاف التصفح التلقائي':'بدء التصفح التلقائي'}" onclick="window.__ERP_TOGGLE_AUTOPILOT()" class="erp-btn" style="background:${apColor};color:white;border-radius:${R.isMobile?'8px':'6px'};padding:${R.btnPadding};font-size:${R.fontSize};width:100%;min-height:${R.btnMinH};">${apText}</button>
+              <button onclick="window.__ERP_TOGGLE_AUTOPILOT()" style="background:${apColor};color:white;border:none;border-radius:${R.isMobile?'8px':'6px'};padding:${R.btnPadding};font-size:${R.fontSize};font-weight:bold;cursor:pointer;width:100%;text-align:center;min-height:${R.btnMinH};-webkit-tap-highlight-color:transparent;">${apText}</button>
             </div>
           `;
           if (state.totalPages > 1 && state.scrapedPages.size < state.totalPages && !state.isAutoPilot) {
-            html += `<div style="padding:${R.isMobile?'8px 12px':'6px'};background:${D?'#1e293b':'#fffbeb'};border-bottom:1px solid ${D?'#334155':'#fde68a'};display:flex;justify-content:space-between;align-items:center;"><span style="font-size:${R.fontSize};color:${D?'#fbbf24':'#92400e'};">⚠️ باقي ${state.totalPages - state.scrapedPages.size} صفحات</span><button type="button" aria-label="جلب كل الصفحات" onclick="window.__ERP_FETCH_ALL()" class="erp-btn erp-btn-warning" style="padding:4px 8px;border-radius:${R.isMobile?'6px':'4px'};font-size:${R.fontSize};min-height:32px;">جلب الكل</button></div>`;
+            html += `<div style="padding:${R.isMobile?'8px 12px':'6px'};background:${D?'#1e293b':'#fffbeb'};border-bottom:1px solid ${D?'#334155':'#fde68a'};display:flex;justify-content:space-between;align-items:center;"><span style="font-size:${R.fontSize};color:${D?'#fbbf24':'#92400e'};">⚠️ باقي ${state.totalPages - state.scrapedPages.size} صفحات</span><button onclick="window.__ERP_FETCH_ALL()" style="background:#f59e0b;color:#fff;border:none;padding:4px 8px;border-radius:${R.isMobile?'6px':'4px'};cursor:pointer;font-size:${R.fontSize};min-height:32px;">جلب الكل</button></div>`;
           }
           html += `<table style="width:100%;border-collapse:collapse;font-size:${R.fontSize};"><tbody>`;
           if (state.searchQuery) {
@@ -1051,27 +844,6 @@
           html += `<div style="background:#0f172a;color:#d4d4d4;padding:10px;min-height:300px;font-family:monospace;"><div style="margin-bottom:8px;display:flex;justify-content:space-between;"><span style="color:#4ade80;">● مراقب نشط</span><button onclick="window.__ERP_COPY_LOGS()" style="background:#005A9C;color:#fff;border:none;padding:2px 8px;border-radius:4px;font-size:11px;">نسخ</button></div><div id="erp-logs-container"></div></div>`;
         }
 
-        if (state.activeTab === 'notes') {
-          html += `<div style="padding:${R.isMobile?'10px 12px':'8px'};background:${D?'#1e293b':'#f0f4f8'};display:flex;gap:6px;border-bottom:1px solid ${border};">
-            <input id="erp-quick-note-input" type="text" placeholder="📝 اكتب ملاحظة سريعة ثم Enter..." onkeydown="window.__ERP_ADD_NOTE_KEY(event)" style="flex:1;padding:${R.inputPadding};border:1px solid ${D?'#475569':'#ccc'};border-radius:${R.isMobile?'8px':'6px'};outline:none;font-family:inherit;font-size:${R.inputFontSize};background:${D?'#0f172a':'#fff'};color:${textMain};min-height:${R.isMobile?'44px':'auto'};box-sizing:border-box;">
-            <button type="button" aria-label="إضافة ملاحظة" onclick="window.__ERP_ADD_NOTE()" class="erp-btn erp-btn-primary" style="flex:0 0 auto;padding:${R.btnPadding};border-radius:${R.isMobile?'8px':'6px'};font-size:${R.fontSize};min-height:${R.btnMinH};">إضافة</button>
-            <button type="button" aria-label="مسح كل الملاحظات" onclick="window.__ERP_CLEAR_NOTES()" class="erp-btn erp-btn-danger" style="flex:0 0 auto;padding:${R.btnPadding};border-radius:${R.isMobile?'8px':'6px'};font-size:${R.fontSize};min-height:${R.btnMinH};">مسح</button>
-          </div>`;
-          if (state.quickNotes.length === 0) {
-            html += `<div style="padding:20px;text-align:center;color:${textMuted};font-size:${R.fontSize};">لا توجد ملاحظات — أضف ملاحظاتك السريعة هنا (تُحفظ محلياً وتُصدَّر مع Excel/CSV)</div>`;
-          } else {
-            html += `<div style="padding:${R.isMobile?'8px 12px':'8px'};">`;
-            state.quickNotes.forEach((n, i) => {
-              html += `<div style="display:flex;align-items:flex-start;gap:6px;padding:8px;margin-bottom:6px;background:${D?'#1e293b':'#fffbeb'};border:1px solid ${D?'#334155':'#fde68a'};border-radius:6px;">
-                <div style="flex:1;min-width:0;font-size:${R.fontSize};color:${textMain};word-break:break-word;">${n.text}</div>
-                <span style="font-size:10px;color:${textMuted};white-space:nowrap;">${n.time}</span>
-                <button type="button" aria-label="حذف ملاحظة" onclick="window.__ERP_DEL_NOTE(${i})" style="background:none;border:none;color:#ef4444;cursor:pointer;font-size:14px;padding:2px;">🗑</button>
-              </div>`;
-            });
-            html += `<div style="font-size:10px;color:${textMuted};padding:4px;">إجمالي ${state.quickNotes.length} ملاحظة</div></div>`;
-          }
-        }
-
         html += `</div>`;
         box.innerHTML = html;
         if (state.activeTab === 'logs') renderLogs(document.getElementById('erp-logs-container'));
@@ -1082,7 +854,7 @@
       // =====================================================================
       // 🟢 Keyboard Shortcuts
       // =====================================================================
-      function handleKeyDown(e) {
+      document.addEventListener('keydown', (e) => {
         if (e.key === 'Escape') {
           const box = document.getElementById('elaraby-fixed-box');
           if (box && box.style.display !== 'none') {
@@ -1098,47 +870,27 @@
           const searchInput = document.querySelector('#elaraby-fixed-box input[type="text"]');
           if (searchInput) searchInput.focus();
         }
-      }
-      document.addEventListener('keydown', handleKeyDown);
-      window.__ERP_HANDLERS__.push({ target: document, type: 'keydown', fn: handleKeyDown });
+      });
 
       // =====================================================================
       // 🟢 Observers & Network Hooks
       // =====================================================================
-      if (!XMLHttpRequest.prototype.__erpHooked) {
-        XMLHttpRequest.prototype.__erpHooked = true;
-        const origOpen = XMLHttpRequest.prototype.open;
-        XMLHttpRequest.prototype.open = function(m, u, ...a) { this._url = u; return origOpen.apply(this, [m, u, ...a]); };
-        const origSend = XMLHttpRequest.prototype.send;
-        XMLHttpRequest.prototype.send = function(b, ...a) {
-          this.addEventListener('load', () => {
-            if (this._url && (this._url.includes('entitylist') || this._url.includes('filter-request') || this._url.includes('viewData'))) {
-              log('تحديث الجدول (AJAX)', 'info', '🌐');
-              setTimeout(() => { extractFromDOM(); }, 800);
-            }
-          });
-          return origSend.apply(this, [b, ...a]);
-        };
-      }
-      function handleDocClick(e) {
+      const origOpen = XMLHttpRequest.prototype.open;
+      XMLHttpRequest.prototype.open = function(m, u, ...a) { this._url = u; return origOpen.apply(this, [m, u, ...a]); };
+      const origSend = XMLHttpRequest.prototype.send;
+      XMLHttpRequest.prototype.send = function(b, ...a) {
+        this.addEventListener('load', () => {
+          if (this._url && (this._url.includes('entitylist') || this._url.includes('filter-request') || this._url.includes('viewData'))) {
+            log('تحديث الجدول (AJAX)', 'info', '🌐');
+            setTimeout(() => { extractFromDOM(); }, 800);
+          }
+        });
+        return origSend.apply(this, [b, ...a]);
+      };
+      document.addEventListener('click', e => {
         const a = e.target.closest('.pagination a, .pager a, ul.pagination li a');
         if (a && !isNaN(parseInt(a.textContent.trim()))) setTimeout(() => extractFromDOM(), 1000);
-      }
-      document.addEventListener('click', handleDocClick);
-      window.__ERP_HANDLERS__.push({ target: document, type: 'click', fn: handleDocClick });
-
-      // =====================================================================
-      // 🟢 إجبار كشف الأرقام عند (إعادة) التشغيل - يحل: تشغيل بعد إيقاف → أرقام لا تظهر
-      // =====================================================================
-      function forceRevealPhones() {
-        try { if (window.crmAccount) window.crmAccount.hideCustomersPhones = false; } catch(e) {}
-        setTimeout(() => {
-          try { if (window.crmAccount) window.crmAccount.hideCustomersPhones = false; } catch(e) {}
-          const searchBtn = document.querySelector('.input-group-btn button, .entity-grid .btn-default');
-          if (searchBtn) { try { searchBtn.click(); } catch(e) {} }
-          setTimeout(() => extractFromDOM(), 1200);
-        }, 600);
-      }
+      });
 
       // =====================================================================
       // 🟢 التشغيل
@@ -1148,18 +900,14 @@
       requestNotificationPermission();
       extractFromDOM();
       window.__ELARABY_INTERVAL = setInterval(() => { extractFromDOM(); }, 3000);
-      forceRevealPhones();
 
       // Resize handler - إعادة بناء UI عند تغير حجم الشاشة
       let lastWidth = window.innerWidth;
-      function handleResize() {
+      window.addEventListener('resize', debounce(() => {
         const newWidth = window.innerWidth;
         const crossedBreakpoint = (lastWidth <= 480 && newWidth > 480) || (lastWidth > 480 && newWidth <= 480) || (lastWidth <= 768 && newWidth > 768) || (lastWidth > 768 && newWidth <= 768);
         lastWidth = newWidth;
         if (crossedBreakpoint) updateUI(true);
-      }
-      const resizeHandler = debounce(handleResize, 300);
-      window.addEventListener('resize', resizeHandler);
-      window.__ERP_HANDLERS__.push({ target: window, type: 'resize', fn: resizeHandler });
+      }, 300));
   }
 })();

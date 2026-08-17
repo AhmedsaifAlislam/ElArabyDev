@@ -9,39 +9,11 @@
   const STATE_KEY = 'elaraby_cp_state';
   const LOG_KEY = 'elaraby_debug_log';
   const PAGE_LOG_KEY = 'elaraby_page_log';
-
-  // Design-system tokens for runtime JS styles OUTSIDE the shadow panel
-  // (elements appended to document.body cannot read var(--cp-*) from .cp-panel).
-  const CP_THEME = {
-    execGrad: 'linear-gradient(135deg,#2563eb,#1d4ed8)',
-    miniGrad: 'linear-gradient(135deg,#1e40af,#2563eb)',
-    onGold: '#000',
-    bg: '#131821',
-    border: '#232840',
-    border2: '#2a3050',
-    surface: '#0d1528',
-    sub: '#a8c7fa',
-    muted: '#667799',
-    warn: '#fbbf24',
-    success: '#4ade80',
-    error: '#ef4444',
-    onAccent: '#fff',
-    dangerBg: '#7f1d1d',
-    dangerBorder: '#dc2626',
-    popupShadow: '0 4px 16px rgba(0,0,0,0.6)'
-  };
-
   let CFG = null;
   let isMinimized = true;
   let isDocked = false;
   let productsDb = null;
   let debugLog = [];
-  let parsedImages = [];
-  let currentTicket = '';
-  const autoAttemptedTickets = new Set();
-  const IMAGES_KEY = 'elaraby_cp_images_data';
-  const IMAGES_DONE_KEY = 'elaraby_cp_images_done';
-  const CODES_TRANSFER_KEY = 'elaraby_codes_transfer';
 
   function logEvent(type, detail) {
     const ts = new Date().toLocaleTimeString('ar-EG');
@@ -50,19 +22,6 @@
     if (debugLog.length > 200) debugLog = debugLog.slice(-200);
     try { localStorage.setItem(LOG_KEY, debugLog.join('\n')); } catch(_) {}
     console.log(`%c[PortalHelper] ${entry}`, 'color:#60a5fa;font-weight:bold');
-  }
-
-  // الفرق بين القيمتين: يشيل البادئة/اللاحقة المشتركة ويُبقي الجزء المتغير فقط
-  // (يجعل التجميع في اللوج الذكي يظهر نمط التغيير بدل النص الكامل)
-  function getDiff(oldVal, newVal) {
-    const o = String(oldVal || ''), n = String(newVal || '');
-    if (!o && !n) return '';
-    if (o === n) return '';
-    let s = 0, min = Math.min(o.length, n.length);
-    while (s < min && o[s] === n[s]) s++;
-    let e = 0;
-    while (e < min - s && o[o.length - 1 - e] === n[n.length - 1 - e]) e++;
-    return o.substring(s, o.length - e) + ' → ' + n.substring(s, n.length - e);
   }
 
   function getLogText() {
@@ -264,64 +223,57 @@
   function getCSS() {
     return `
 *{box-sizing:border-box;margin:0;padding:0}
-.cp-panel{--cp-bg:#131821;--cp-surface:#0d1528;--cp-surface2:#0f1a2e;--cp-surface3:#162a45;--cp-border:#232840;--cp-border2:#2a3050;--cp-border3:#1a2340;--cp-border-strong:#2a4a6a;--cp-text:#c8d0e0;--cp-text-strong:#e2eaf5;--cp-title:#60a5fa;--cp-sub:#a8c7fa;--cp-muted:#667799;--cp-label:#7a9cc8;--cp-faint:#445577;--cp-place:#334466;--cp-handle:#3a4a6a;--cp-accent:#2563eb;--cp-accent2:#1d4ed8;--cp-warn:#fbbf24;--cp-success:#4ade80;--cp-error:#ef4444;--cp-header-a:#1a2744;--cp-header-b:#0f1b33;--cp-exec-a:#2563eb;--cp-exec-b:#1d4ed8;--cp-inject-a:#059669;--cp-inject-b:#047857;--cp-gold-a:#f59e0b;--cp-gold-b:#d97706;--cp-danger-bg:#7f1d1d;--cp-danger-border:#dc2626;--cp-fill-a:rgba(255,255,255,.1);--cp-fill-b:rgba(255,255,255,.2);--cp-dock-bg:rgba(16,185,129,.2);--cp-dock-text:#34d399;--cp-shadow:0 12px 40px rgba(0,0,0,.7);--cp-shadow-docked:0 2px 10px rgba(0,0,0,.3)}
-.cp-panel{position:fixed;bottom:14px;right:14px;width:300px;background:var(--cp-bg);border:1px solid var(--cp-border);border-radius:10px;box-shadow:var(--cp-shadow);z-index:2147483647;font-family:'Segoe UI',Tahoma,sans-serif;direction:rtl;font-size:11px;color:var(--cp-text);overflow:hidden;display:flex;flex-direction:column}
-.cp-header{display:flex;justify-content:space-between;align-items:center;padding:6px 10px;background:linear-gradient(135deg,var(--cp-header-a),var(--cp-header-b));border-bottom:1px solid var(--cp-border2);cursor:move;user-select:none}
-.cp-title{font-weight:700;color:var(--cp-title);font-size:12px}
-.cp-toggle{background:var(--cp-fill-a);border:none;border-radius:50%;color:var(--cp-muted);cursor:pointer;width:22px;height:22px;font-size:14px;display:flex;align-items:center;justify-content:center;line-height:1;transition:all .15s}
-.cp-toggle:hover{background:var(--cp-fill-b);color:var(--cp-text-strong)}
+.cp-panel{position:fixed;bottom:14px;right:14px;width:300px;background:#131821;border:1px solid #232840;border-radius:10px;box-shadow:0 12px 40px rgba(0,0,0,.7);z-index:2147483647;font-family:'Segoe UI',Tahoma,sans-serif;direction:rtl;font-size:11px;color:#c8d0e0;overflow:hidden;display:flex;flex-direction:column}
+.cp-header{display:flex;justify-content:space-between;align-items:center;padding:6px 10px;background:linear-gradient(135deg,#1a2744,#0f1b33);border-bottom:1px solid #2a3050;cursor:move;user-select:none}
+.cp-title{font-weight:700;color:#60a5fa;font-size:12px}
+.cp-toggle{background:rgba(255,255,255,.1);border:none;border-radius:50%;color:#94a3b8;cursor:pointer;width:22px;height:22px;font-size:14px;display:flex;align-items:center;justify-content:center;line-height:1;transition:all .15s}
+.cp-toggle:hover{background:rgba(255,255,255,.2);color:#e2eaf5}
 .cp-body{padding:8px 10px;overflow-y:auto;max-height:440px;scrollbar-width:thin}
 .cp-body::-webkit-scrollbar{width:4px}
-.cp-body::-webkit-scrollbar-thumb{background:var(--cp-border2);border-radius:2px}
+.cp-body::-webkit-scrollbar-thumb{background:#2a3050;border-radius:2px}
 .cp-tab{display:none}
 .cp-tab.active{display:block}
-.cp-tab-title{font-weight:700;color:var(--cp-sub);margin-bottom:6px;font-size:11px;padding-bottom:4px;border-bottom:1px solid var(--cp-border3);letter-spacing:.3px}
-.cp-info{background:var(--cp-surface);padding:5px 8px;border-radius:5px;margin-bottom:6px;font-size:11px;color:var(--cp-sub);line-height:1.5;border:1px solid var(--cp-border3)}
+.cp-tab-title{font-weight:700;color:#a8c7fa;margin-bottom:6px;font-size:11px;padding-bottom:4px;border-bottom:1px solid #232840;letter-spacing:.3px}
+.cp-info{background:#0d1528;padding:5px 8px;border-radius:5px;margin-bottom:6px;font-size:11px;color:#a8c7fa;line-height:1.5;border:1px solid #1a2340}
 .cp-check,.cp-radio{display:flex;align-items:center;gap:5px;margin-bottom:2px;cursor:pointer;padding:3px 5px;border-radius:4px;transition:background .15s}
-.cp-check:hover,.cp-radio:hover{background:var(--cp-border3)}
-.cp-check input,.cp-radio input{width:13px;height:13px;cursor:pointer;flex-shrink:0;accent-color:var(--cp-accent)}
-.cp-label{display:block;margin-bottom:2px;font-size:10px;color:var(--cp-label);margin-top:2px;font-weight:600}
-.cp-select{width:100%;padding:4px 6px;margin-bottom:4px;background:var(--cp-bg);color:var(--cp-sub);border:1px solid var(--cp-border);border-radius:5px;font-size:11px;cursor:pointer}
+.cp-check:hover,.cp-radio:hover{background:#1a2340}
+.cp-check input,.cp-radio input{width:13px;height:13px;cursor:pointer;flex-shrink:0;accent-color:#2563eb}
+.cp-label{display:block;margin-bottom:2px;font-size:10px;color:#7a9cc8;margin-top:2px;font-weight:600}
+.cp-select{width:100%;padding:4px 6px;margin-bottom:4px;background:#0a0f1f;color:#a8c7fa;border:1px solid #232840;border-radius:5px;font-size:11px;cursor:pointer}
 .cp-btn{width:100%;padding:6px;border:none;border-radius:5px;font-weight:700;font-size:11px;cursor:pointer;margin-top:4px;transition:opacity .15s}
 .cp-btn:hover{opacity:.85}
 .cp-btn:active{opacity:.7}
-.cp-btn-exec{background:linear-gradient(135deg,var(--cp-accent),var(--cp-accent2));color:var(--cp-text-strong)}
-.cp-btn-inject{background:linear-gradient(135deg,var(--cp-inject-a),var(--cp-inject-b));color:var(--cp-text-strong)}
+.cp-btn-exec{background:linear-gradient(135deg,#2563eb,#1d4ed8);color:#fff}
+.cp-btn-inject{background:linear-gradient(135deg,#059669,#047857);color:#fff}
 .cp-btn:disabled{opacity:.4;cursor:not-allowed}
-.cp-status{padding:4px 10px;font-size:10px;color:var(--cp-muted);border-top:1px solid var(--cp-border3);min-height:20px;transition:color .3s}
-.cp-badge{display:inline-block;background:var(--cp-header-b);color:var(--cp-sub);font-size:9px;padding:1px 5px;border-radius:8px;margin-right:3px}
-.cp-install{color:var(--cp-warn);font-size:12px;font-weight:900}
-.cp-maintenance{color:var(--cp-sub);font-size:11px}
-.cp-empty{color:var(--cp-muted);padding:5px;text-align:center;font-size:10px}
-.cp-notes-title{font-weight:700;color:var(--cp-warn);margin:6px 0 3px;padding-top:5px;border-top:1px solid var(--cp-border);font-size:11px}
-.cp-note-item{background:var(--cp-surface2);padding:3px 6px;border-radius:5px;margin-bottom:1px;cursor:grab;font-size:10px;line-height:1.4;border:1px solid transparent;transition:all .12s;display:flex;align-items:flex-start;gap:4px;user-select:none}
-.cp-note-item:hover{background:var(--cp-surface3);border-color:var(--cp-border-strong)}
+.cp-status{padding:4px 10px;font-size:10px;color:#667799;border-top:1px solid #1a2340;min-height:20px;transition:color .3s}
+.cp-badge{display:inline-block;background:#1e3a5f;color:#a8c7fa;font-size:9px;padding:1px 5px;border-radius:8px;margin-right:3px}
+.cp-install{color:#fbbf24;font-size:12px;font-weight:900}
+.cp-maintenance{color:#a8c7fa;font-size:11px}
+.cp-empty{color:#445577;padding:5px;text-align:center;font-size:10px}
+.cp-notes-title{font-weight:700;color:#fbbf24;margin:6px 0 3px;padding-top:5px;border-top:1px solid #232840;font-size:11px}
+.cp-note-item{background:#0f1a2e;padding:3px 6px;border-radius:5px;margin-bottom:1px;cursor:grab;font-size:10px;line-height:1.4;border:1px solid transparent;transition:all .12s;display:flex;align-items:flex-start;gap:4px;user-select:none}
+.cp-note-item:hover{background:#162a45;border-color:#2a4a6a}
 .cp-note-item:active{cursor:grabbing}
-.cp-note-item.dragging{opacity:.5;border-color:var(--cp-accent);background:var(--cp-surface2)}
-.cp-note-item.drag-over{border-color:var(--cp-title);background:var(--cp-surface3)}
-.cp-note-item input{margin-top:1px;flex-shrink:0;width:12px;height:12px;cursor:pointer;accent-color:var(--cp-accent)}
-.cp-note-item .ni-handle{color:var(--cp-faint);font-size:9px;cursor:grab;flex-shrink:0;padding:0 1px;line-height:1.4}
+.cp-note-item.dragging{opacity:.5;border-color:#2563eb;background:#0f1a2e}
+.cp-note-item.drag-over{border-color:#60a5fa;background:#1a3060}
+.cp-note-item input{margin-top:1px;flex-shrink:0;width:12px;height:12px;cursor:pointer;accent-color:#2563eb}
+.cp-note-item .ni-handle{color:#3a4a6a;font-size:9px;cursor:grab;flex-shrink:0;padding:0 1px;line-height:1.4}
 .cp-note-item .ni-handle:active{cursor:grabbing}
 .cp-note-item .ni-text{flex:1;line-height:1.4}
-.cp-amount{width:100%;padding:4px 6px;margin:2px 0 4px;background:var(--cp-bg);color:var(--cp-sub);border:1px solid var(--cp-border);border-radius:5px;font-size:11px;direction:ltr;text-align:left}
-.cp-amount::placeholder{color:var(--cp-border3)}
-.cp-btn-gold{background:linear-gradient(135deg,var(--cp-gold-a),var(--cp-gold-b));color:${CP_THEME.onGold};font-size:11px;padding:6px}
-.cp-image-paste{width:100%;min-height:56px;padding:5px 6px;margin:4px 0;background:var(--cp-bg);color:var(--cp-sub);border:1px solid var(--cp-border);border-radius:5px;font-size:10px;font-family:Consolas,monospace;direction:ltr;text-align:left;resize:vertical;line-height:1.4}
-.cp-image-paste::placeholder{color:var(--cp-border3);direction:rtl;font-family:'Segoe UI',Tahoma,sans-serif;text-align:right}
-.cp-img-status{background:var(--cp-surface);padding:4px 7px;border-radius:5px;margin-top:4px;font-size:10px;color:var(--cp-sub);line-height:1.5;border:1px solid var(--cp-border3);min-height:18px}
-.cp-img-status.ok{color:var(--cp-success)}
-.cp-img-status.err{color:var(--cp-error)}
-.cp-img-status.warn{color:var(--cp-warn)}
-.cp-panel.docked{position:relative!important;bottom:auto!important;right:auto!important;margin:6px 12px;width:auto;max-height:none;box-shadow:var(--cp-shadow-docked)}
+.cp-amount{width:100%;padding:4px 6px;margin:2px 0 4px;background:#0a0f1f;color:#a8c7fa;border:1px solid #232840;border-radius:5px;font-size:11px;direction:ltr;text-align:left}
+.cp-amount::placeholder{color:#334466}
+.cp-btn-gold{background:linear-gradient(135deg,#f59e0b,#d97706);color:#000;font-size:11px;padding:6px}
+.cp-panel.docked{position:relative!important;bottom:auto!important;right:auto!important;margin:6px 12px;width:auto;max-height:none;box-shadow:0 2px 10px rgba(0,0,0,.3)}
 .cp-panel.docked .cp-header{cursor:default}
 .cp-panel.docked .cp-body{max-height:60vh}
-.cp-dock{background:var(--cp-fill-a);border:none;border-radius:50%;color:var(--cp-muted);cursor:pointer;width:22px;height:22px;font-size:12px;display:flex;align-items:center;justify-content:center;line-height:1;transition:all .15s;margin-right:2px}
-.cp-dock:hover{background:var(--cp-fill-b);color:var(--cp-text-strong)}
-.cp-dock.active{background:var(--cp-dock-bg);color:var(--cp-dock-text)}
+.cp-dock{background:rgba(255,255,255,.1);border:none;border-radius:50%;color:#94a3b8;cursor:pointer;width:22px;height:22px;font-size:12px;display:flex;align-items:center;justify-content:center;line-height:1;transition:all .15s;margin-right:2px}
+.cp-dock:hover{background:rgba(255,255,255,.2);color:#e2eaf5}
+.cp-dock.active{background:rgba(16,185,129,.2);color:#34d399}
 .cp-shortcuts{display:flex;flex-direction:column;gap:2px;margin:4px 0}
 .cp-shortcut-row{display:flex;gap:4px}
-.p2-sc, .cp-shortcut-btn{flex:1;padding:5px 4px;border:1px solid var(--cp-border2);border-radius:5px;background:var(--cp-surface);color:var(--cp-sub);font-size:10px;font-weight:600;cursor:pointer;transition:all .12s;text-align:center}
-.p2-sc:hover, .cp-shortcut-btn:hover{background:var(--cp-header-a);border-color:var(--cp-label);color:var(--cp-text-strong)}
+.p2-sc, .cp-shortcut-btn{flex:1;padding:5px 4px;border:1px solid #2a3050;border-radius:5px;background:#0d1528;color:#a8c7fa;font-size:10px;font-weight:600;cursor:pointer;transition:all .12s;text-align:center}
+.p2-sc:hover, .cp-shortcut-btn:hover{background:#1a2744;border-color:#3a5a8a;color:#e2eaf5}
 .p2-sc:active, .cp-shortcut-btn:active{transform:scale(.96)}
 .p2-sc .sc-icon, .cp-shortcut-btn .sc-icon{display:block;font-size:16px;margin-bottom:1px}
 `;
@@ -332,7 +284,6 @@
 <div class="cp-header" id="cp-header">
   <span class="cp-title">⚙ لوحة التحكم</span>
   <div style="display:flex;align-items:center;gap:2px">
-    <button class="cp-dock" id="cp-ai-ideas" title="أفكار تطوير (AI)">💡</button>
     <button class="cp-dock" id="cp-dock" title="إرساء">⛶</button>
     <button class="cp-toggle" id="cp-toggle" title="تصغير">−</button>
   </div>
@@ -347,7 +298,7 @@
   <div class="cp-tab" data-page="PAGE_2" id="tab-p2">
     <div class="cp-tab-title">📋 الصفحة الثانية — حالة البلاغ</div>
     <div class="cp-info" id="cp-device-info">⏳ جاري التحميل...</div>
-    <div id="cp-install-warn" style="display:none;background:var(--cp-danger-bg);border:1px solid var(--cp-danger-border);border-radius:6px;padding:6px 8px;margin-bottom:8px;font-size:11px;color:var(--cp-warn);font-weight:700;text-align:center">⚠️ لا تنسي صورة الضمان وفيديو الفاكيوم</div>
+    <div id="cp-install-warn" style="display:none;background:#7f1d1d;border:1px solid #dc2626;border-radius:6px;padding:6px 8px;margin-bottom:8px;font-size:11px;color:#fbbf24;font-weight:700;text-align:center">⚠️ لا تنسي صورة الضمان وفيديو الفاكيوم</div>
     <label class="cp-label">حالة قطع الغيار:</label>
     <select class="cp-select" id="cp-spare-status">
       <option value="963400002" selected>بدون قطع غيار</option>
@@ -363,23 +314,9 @@
         <button class="p2-sc" data-sc="prob"><span class="sc-icon">📋</span>مشاكل فقط</button>
       </div>
       <div class="cp-shortcut-row" style="margin-top:2px">
-        <button class="p2-sc" data-sc="all" style="background:var(--cp-header-a);border-color:var(--cp-accent)"><span class="sc-icon">⚡</span>الكل</button>
+        <button class="p2-sc" data-sc="all" style="background:#1a2744;border-color:#2563eb"><span class="sc-icon">⚡</span>الكل</button>
       </div>
     </div>
-    <div class="cp-notes-title" style="margin-top:8px">📷 صور السيريات (مرفقات)</div>
-    <label class="cp-check"><input type="checkbox" id="cp-auto-next"> <span>الانتقال للصفحة التالية تلقائياً بعد التعبئة</span></label>
-    <textarea id="cp-image-paste" class="cp-image-paste" spellcheck="false" placeholder="الصق هنا نتائج الـ AI... (OrderId: CAS... | Serial: ... | Image: data:image/jpeg;base64,...)"></textarea>
-    <div class="cp-shortcut-row">
-      <button class="p2-sc" id="cp-parse-images" style="background:var(--cp-header-a);border-color:var(--cp-title)"><span class="sc-icon">🔍</span>تحليل</button>
-      <button class="p2-sc" id="cp-upload-images" style="background:var(--cp-header-a);border-color:var(--cp-inject-a)"><span class="sc-icon">📤</span>رفع</button>
-    </div>
-    <div class="cp-img-status" id="cp-image-status">لا يوجد نص بعد — الصق نتائج الـ AI</div>
-    <div class="cp-notes-title" style="margin-top:8px">🔁 نقل أكواد الأعطال</div>
-    <div class="cp-shortcut-row">
-      <button class="p2-sc" id="cp-capture-codes-2" style="background:var(--cp-header-a);border-color:var(--cp-title)"><span class="sc-icon">📥</span>سحب من هذا البلاغ</button>
-      <button class="p2-sc" id="cp-credit-codes-2" style="background:var(--cp-header-a);border-color:var(--cp-gold-a)"><span class="sc-icon">📤</span>ترصيد في هذا البلاغ</button>
-    </div>
-    <div class="cp-img-status" id="cp-codes-clipboard-info-2">لا توجد أكواد محفوظة</div>
     <button class="cp-btn cp-btn-exec" id="btn-exec2">▶ تنفيذ يدوي</button>
   </div>
   <div class="cp-tab" data-page="PAGE_3" id="tab-p3">
@@ -400,15 +337,9 @@
         <button class="cp-shortcut-btn" data-sc="refuse"><span class="sc-icon">🚫</span>يرفض الدفع</button>
       </div>
       <div class="cp-shortcut-row" style="margin-top:2px">
-        <button class="p2-sc" id="cp-parts-btn" style="flex:1;background:var(--cp-header-a);border-color:var(--cp-gold-a)"><span class="sc-icon">🔧</span>قطع الغيار</button>
+        <button class="p2-sc" id="cp-parts-btn" style="flex:1;background:#1a2744;border-color:#f59e0b"><span class="sc-icon">🔧</span>قطع الغيار</button>
       </div>
     </div>
-    <div class="cp-notes-title" style="margin-top:8px">🔁 نقل أكواد الأعطال</div>
-    <div class="cp-shortcut-row">
-      <button class="p2-sc" id="cp-capture-codes" style="background:var(--cp-header-a);border-color:var(--cp-title)"><span class="sc-icon">📥</span>سحب من هذا البلاغ</button>
-      <button class="p2-sc" id="cp-credit-codes" style="background:var(--cp-header-a);border-color:var(--cp-gold-a)"><span class="sc-icon">📤</span>ترصيد في هذا البلاغ</button>
-    </div>
-    <div class="cp-img-status" id="cp-codes-clipboard-info">لا توجد أكواد محفوظة</div>
     <div class="cp-notes-title">📝 جمل التقرير</div>
     <div class="cp-notes-list" id="cp-notes-list"></div>
     <label class="cp-label" style="margin-top:8px">المبلغ المحصل:</label>
@@ -417,10 +348,9 @@
   </div>
 </div>
 <div class="cp-status" id="cp-status">✅ جاهز</div>
-<div id="cp-ai-ideas-box" style="display:none;border-top:1px solid var(--cp-border3);padding:8px 10px;max-height:220px;overflow-y:auto;font-size:10px;line-height:1.6;color:var(--cp-text);background:var(--cp-surface);white-space:pre-wrap" dir="rtl"></div>
-<div style="padding:3px 10px;border-top:1px solid var(--cp-border3);display:flex;gap:4px">
-  <button id="cp-copy-log" style="flex:1;padding:3px;border:1px solid var(--cp-border);border-radius:4px;background:var(--cp-surface);color:var(--cp-muted);font-size:9px;cursor:pointer">📋 نسخ اللوج</button>
-  <button id="cp-clear-log" style="flex:1;padding:3px;border:1px solid var(--cp-border);border-radius:4px;background:var(--cp-surface);color:var(--cp-muted);font-size:9px;cursor:pointer">🗑️ مسح</button>
+<div style="padding:3px 10px;border-top:1px solid #1a2340;display:flex;gap:4px">
+  <button id="cp-copy-log" style="flex:1;padding:3px;border:1px solid #232840;border-radius:4px;background:#0d1528;color:#667799;font-size:9px;cursor:pointer">📋 نسخ اللوج</button>
+  <button id="cp-clear-log" style="flex:1;padding:3px;border:1px solid #232840;border-radius:4px;background:#0d1528;color:#667799;font-size:9px;cursor:pointer">🗑️ مسح</button>
 </div>
 `;
   }
@@ -519,142 +449,9 @@
     setStatus(shadow, `✅ ${parts.length} قطعة — الإجمالي: ${total} ج.م`, 'success');
   }
 
-  // ════════════════════════════════════════════
-  // سحب / ترصيد أكواد الأعطال بين البلاغات
-  // ════════════════════════════════════════════
-
-  function collectPanelDocs() {
-    const docs = [document];
-    document.querySelectorAll('iframe').forEach(f => {
-      try { const d = f.contentDocument || f.contentWindow?.document; if (d) docs.push(d); } catch (_) {}
-    });
-    return docs;
-  }
-
-  function getCurrentOrderId() {
-    const m = location.href.match(/[?&]id=([^&]+)/);
-    return m ? decodeURIComponent(m[1]) : '';
-  }
-
-  function saveCodesBuffer(codes) {
-    const data = { codes, sourceOrderId: getCurrentOrderId(), capturedAt: Date.now() };
-    try { localStorage.setItem(CODES_TRANSFER_KEY, JSON.stringify(data)); } catch (_) {}
-    try {
-      if (typeof window.storageSet === 'function') { window.storageSet({ [CODES_TRANSFER_KEY]: data }); }
-      else if (chrome.storage?.local) { chrome.storage.local.set({ [CODES_TRANSFER_KEY]: data }).catch(() => {}); }
-    } catch (_) {}
-    return data;
-  }
-
-  function loadCodesBuffer() {
-    const raw = localStorage.getItem(CODES_TRANSFER_KEY);
-    if (raw) { try { return JSON.parse(raw); } catch (_) {} }
-    return null;
-  }
-
-  function clearCodesBuffer() {
-    try { localStorage.removeItem(CODES_TRANSFER_KEY); } catch (_) {}
-    try {
-      if (typeof window.storageRemove === 'function') { window.storageRemove([CODES_TRANSFER_KEY]); }
-      else if (chrome.storage?.local) { chrome.storage.local.remove(CODES_TRANSFER_KEY).catch(() => {}); }
-    } catch (_) {}
-  }
-
-  async function captureCodes(shadow, tab2) {
-    logEvent('TRANSFER', 'بدء سحب أكواد هذا البلاغ');
-    const codes = readFaultCodesFromGridPanel();
-    if (!codes.length) {
-      setStatus(shadow, '⚠️ لم يتم العثور على أكواد في الجدول — تأكد أن الصفحة فيها جدول أكواد الأعطال', 'warn');
-      return;
-    }
-    saveCodesBuffer(codes);
-    const order = getCurrentOrderId();
-    setStatus(shadow, `✅ تم سحب ${codes.length} كود من البلاغ ${order}`, 'success');
-    logEvent('TRANSFER', `تم سحب ${codes.length} كود من ${order}`);
-    const el = shadow.getElementById(tab2 ? 'cp-codes-clipboard-info-2' : 'cp-codes-clipboard-info');
-    if (el) el.textContent = `المحفوظ: ${codes.length} كود من ${order}`;
-  }
-
-  async function creditCodesToTarget(shadow, tab2) {
-    const buf = loadCodesBuffer();
-    if (!buf || !buf.codes || !buf.codes.length) {
-      setStatus(shadow, '⚠️ لا توجد أكواد محفوظة — افتح البلاغ المصدر وضغط "سحب الأكواد" أولاً', 'warn');
-      return;
-    }
-    const order = getCurrentOrderId();
-    logEvent('TRANSFER', `بدء ترصيد ${buf.codes.length} كود إلى ${order}`);
-    setStatus(shadow, `⏳ جاري ترصيد ${buf.codes.length} كود إلى ${order}...`);
-    let ok = 0, fail = 0;
-    for (const c of buf.codes) {
-      setStatus(shadow, `⏳ كود: ${c.main}${c.sub ? ' / ' + c.sub : ''}`);
-      try {
-        if (typeof addFaultCodePage3 === 'function') {
-          const res = await addFaultCodePage3(c.main, c.sub || null);
-          if (res && res.ok) ok++; else fail++;
-        } else {
-          const addBtn = Array.from(document.querySelectorAll('a, button'))
-            .find(el => el.innerText.trim() === 'اضافة كود عطل' && el.offsetParent !== null);
-          if (addBtn) { addBtn.click(); fail++; }
-          else fail++;
-        }
-      } catch (e) {
-        logEvent('TRANSFER', `فشل ترصيد ${c.main}: ${e.message || e}`);
-        fail++;
-      }
-      await sleep(800);
-    }
-    logEvent('TRANSFER', `اكتمل الترصيد: نجحت ${ok} فشل ${fail}`);
-    setStatus(shadow, ok ? `✅ تم ترصيد ${ok} كود` + (fail ? ` (فشل ${fail})` : '') : `❌ فشلت جميع الأكواد (${fail})`, ok ? 'success' : 'error');
-    const el = shadow.getElementById(tab2 ? 'cp-codes-clipboard-info-2' : 'cp-codes-clipboard-info');
-    if (el) el.textContent = ok ? `تم ترصيد ${ok}` : `فشل ${fail}`;
-  }
-
-  async function archiveTransfer() {
-    if (typeof logEvent !== 'function') return;
-    const buf = loadCodesBuffer();
-    if (buf && buf.codes) {
-      try { await logEvent('TRANSFER_CAPTURED', { count: buf.codes.length, source: buf.sourceOrderId, ts: buf.capturedAt }); } catch(_) {}
-    }
-  }
-
-  function readFaultCodesFromGridPanel() {
-    const found = [];
-    const visited = new Set();
-    const codeRe = /[A-Z]{2,6}\d{2,6}[A-Z0-9_-]*/g;
-    for (const doc of collectPanelDocs()) {
-      const grids = doc.querySelectorAll('div.view-grid table, table.view-grid, table.entity-grid, table');
-      for (const grid of grids) {
-        const secText = (grid.closest('section, div[class*="grid"], div[aria-label], table')?.innerText || '') + ' ' + grid.innerText;
-        if (!/أعطال|fault|defect/i.test(secText)) continue;
-        const rows = grid.querySelectorAll('tbody tr, tr[data]');
-        for (const tr of rows) {
-          if (tr.offsetParent === null) continue;
-          const tds = tr.querySelectorAll('td');
-          if (tds.length < 2) continue;
-          const cells = Array.from(tds).map(td => {
-            try { const p = JSON.parse(td.getAttribute('data-value') || '{}'); if (p && p.FormattedValue) return String(p.FormattedValue); } catch (_) {}
-            return (td.innerText || '').trim();
-          }).filter(Boolean);
-          const tokens = cells.join(' ').match(codeRe) || [];
-          if (!tokens.length) continue;
-          const main = tokens[0].replace(/^\*/, '');
-          const sub = tokens.find(t => t.replace(/^\*/, '') !== main) || null;
-          const key = main + (sub || '');
-          if (visited.has(key)) continue;
-          visited.add(key);
-          found.push({ main, sub: sub || null, rowText: cells.join(' | ') });
-        }
-        if (found.length) break;
-      }
-      if (found.length) break;
-    }
-    return found;
-  }
-
   function bindEvents(shadow) {
     shadow.getElementById('cp-toggle').onclick = () => { logEvent('CLICK', 'نقر على زر التبديل'); toggle(shadow); };
     shadow.getElementById('cp-dock').onclick = () => { logEvent('CLICK', 'نقر على زر الإرساء'); toggleDock(shadow); };
-    shadow.getElementById('cp-ai-ideas').onclick = () => { logEvent('CLICK', 'أفكار تطوير AI'); runDevIdeas(shadow); };
     shadow.getElementById('btn-exec1').onclick = () => { logEvent('CLICK', 'نقر على تنفيذ الصفحة 1'); executePage1(shadow); };
     shadow.getElementById('btn-exec2').onclick = () => { logEvent('CLICK', 'نقر على تنفيذ الصفحة 2'); executePage2(shadow); };
     shadow.querySelectorAll('.p2-sc').forEach(btn => {
@@ -675,24 +472,6 @@
     shadow.getElementById('cp-parts-btn').onclick = () => {
       logEvent('CLICK', 'نقر على قطع الغيار');
       executePartsShortcut(shadow);
-    };
-    const captureBtns = ['cp-capture-codes', 'cp-capture-codes-2'];
-    captureBtns.forEach(id => {
-      const b = shadow.getElementById(id);
-      if (b) b.onclick = () => { logEvent('CLICK', 'نقر على سحب الأكواد'); captureCodes(shadow, id.endsWith('-2')); };
-    });
-    const creditBtns = ['cp-credit-codes', 'cp-credit-codes-2'];
-    creditBtns.forEach(id => {
-      const b = shadow.getElementById(id);
-      if (b) b.onclick = () => { logEvent('CLICK', 'نقر على ترصيد الأكواد'); creditCodesToTarget(shadow, id.endsWith('-2')); };
-    });
-    shadow.getElementById('cp-parse-images').onclick = () => {
-      logEvent('IMAGES', 'تحليل النص');
-      handleParseImages(shadow);
-    };
-    shadow.getElementById('cp-upload-images').onclick = () => {
-      logEvent('IMAGES', 'بدء رفع الصور');
-      handleUploadImages(shadow);
     };
     shadow.getElementById('cp-copy-log').onclick = () => {
       const text = getLogText();
@@ -735,8 +514,8 @@
       mini.textContent = '⚙';
       Object.assign(mini.style, {
         position: 'fixed', bottom: '20px', right: '20px', width: '44px', height: '44px',
-        background: CP_THEME.miniGrad, color: CP_THEME.onAccent,
-        borderRadius: '50%', boxShadow: CP_THEME.popupShadow,
+        background: 'linear-gradient(135deg,#1e40af,#2563eb)', color: '#fff',
+        borderRadius: '50%', boxShadow: '0 4px 16px rgba(0,0,0,0.5)',
         zIndex: '2147483647', display: 'flex', alignItems: 'center', justifyContent: 'center',
         fontSize: '20px', cursor: 'pointer', fontFamily: 'sans-serif',
         transition: 'transform 0.15s', userSelect: 'none'
@@ -750,18 +529,18 @@
         const popup = document.createElement('div');
         popup.id = PANEL_ID + '-popup';
         popup.innerHTML = `
-          <div id="${PANEL_ID}-popup-box" style="position:fixed;bottom:70px;right:14px;background:${CP_THEME.bg};border:1px solid ${CP_THEME.border};border-radius:8px;padding:6px;z-index:2147483646;font-family:'Segoe UI',Tahoma,sans-serif;direction:rtl;display:none;box-shadow:${CP_THEME.popupShadow}">
-            <div style="font-size:10px;color:${CP_THEME.warn};font-weight:700;margin-bottom:4px;text-align:center">⚡ شورت كت</div>
+          <div id="${PANEL_ID}-popup-box" style="position:fixed;bottom:70px;right:14px;background:#131821;border:1px solid #232840;border-radius:8px;padding:6px;z-index:2147483646;font-family:'Segoe UI',Tahoma,sans-serif;direction:rtl;display:none;box-shadow:0 4px 16px rgba(0,0,0,.6)">
+            <div style="font-size:10px;color:#fbbf24;font-weight:700;margin-bottom:4px;text-align:center">⚡ شورت كت</div>
             <div style="display:flex;gap:3px">
-              <button class="sc-popup-btn" data-sc="pm" style="flex:1;padding:4px 2px;border:1px solid ${CP_THEME.border2};border-radius:4px;background:${CP_THEME.surface};color:${CP_THEME.sub};font-size:9px;font-weight:600;cursor:pointer;text-align:center">🔧 صيانة</button>
-              <button class="sc-popup-btn" data-sc="charge" style="flex:1;padding:4px 2px;border:1px solid ${CP_THEME.border2};border-radius:4px;background:${CP_THEME.surface};color:${CP_THEME.sub};font-size:9px;font-weight:600;cursor:pointer;text-align:center">❄️ شحن</button>
-              <button class="sc-popup-btn" data-sc="drain" style="flex:1;padding:4px 2px;border:1px solid ${CP_THEME.border2};border-radius:4px;background:${CP_THEME.surface};color:${CP_THEME.sub};font-size:9px;font-weight:600;cursor:pointer;text-align:center">💧 صرف</button>
+              <button class="sc-popup-btn" data-sc="pm" style="flex:1;padding:4px 2px;border:1px solid #2a3050;border-radius:4px;background:#0d1528;color:#a8c7fa;font-size:9px;font-weight:600;cursor:pointer;text-align:center">🔧 صيانة</button>
+              <button class="sc-popup-btn" data-sc="charge" style="flex:1;padding:4px 2px;border:1px solid #2a3050;border-radius:4px;background:#0d1528;color:#a8c7fa;font-size:9px;font-weight:600;cursor:pointer;text-align:center">❄️ شحن</button>
+              <button class="sc-popup-btn" data-sc="drain" style="flex:1;padding:4px 2px;border:1px solid #2a3050;border-radius:4px;background:#0d1528;color:#a8c7fa;font-size:9px;font-weight:600;cursor:pointer;text-align:center">💧 صرف</button>
             </div>
             <div style="display:flex;gap:3px;margin-top:3px">
-              <button class="sc-popup-btn" data-sc="pull" style="flex:1;padding:4px 2px;border:1px solid ${CP_THEME.border2};border-radius:4px;background:${CP_THEME.surface};color:${CP_THEME.sub};font-size:9px;font-weight:600;cursor:pointer;text-align:center">📦 سحب</button>
-              <button class="sc-popup-btn" data-sc="refuse" style="flex:1;padding:4px 2px;border:1px solid ${CP_THEME.border2};border-radius:4px;background:${CP_THEME.surface};color:${CP_THEME.sub};font-size:9px;font-weight:600;cursor:pointer;text-align:center">🚫 رفض</button>
+              <button class="sc-popup-btn" data-sc="pull" style="flex:1;padding:4px 2px;border:1px solid #2a3050;border-radius:4px;background:#0d1528;color:#a8c7fa;font-size:9px;font-weight:600;cursor:pointer;text-align:center">📦 سحب</button>
+              <button class="sc-popup-btn" data-sc="refuse" style="flex:1;padding:4px 2px;border:1px solid #2a3050;border-radius:4px;background:#0d1528;color:#a8c7fa;font-size:9px;font-weight:600;cursor:pointer;text-align:center">🚫 رفض</button>
             </div>
-            <button id="${PANEL_ID}-popup-exec" style="width:100%;margin-top:4px;padding:5px;border:none;border-radius:4px;background:${CP_THEME.execGrad};color:${CP_THEME.onAccent};font-size:10px;font-weight:700;cursor:pointer">▶ تنفيذ الكل</button>
+            <button id="${PANEL_ID}-popup-exec" style="width:100%;margin-top:4px;padding:5px;border:none;border-radius:4px;background:linear-gradient(135deg,#2563eb,#1d4ed8);color:#fff;font-size:10px;font-weight:700;cursor:pointer">▶ تنفيذ الكل</button>
           </div>`;
         document.body.appendChild(popup);
         const popupBox = popup.querySelector(`#${PANEL_ID}-popup-box`);
@@ -1015,116 +794,7 @@
     const el = shadow.getElementById('cp-status');
     if (!el) return;
     el.textContent = msg;
-    el.style.color = type === 'success' ? CP_THEME.success : type === 'error' ? CP_THEME.error : type === 'warn' ? CP_THEME.warn : CP_THEME.muted;
-  }
-
-  // ── أفكار تطوير (AI) — يجمع سياق الإضافة + الصفحة الحية ويرسلها للنموذج ──
-  function collectExtensionContext() {
-    const lines = [];
-    try {
-      const m = chrome.runtime.getManifest();
-      lines.push('=== ملخص الإضافة ===');
-      lines.push('اسم: ' + (m.name || ''));
-      lines.push('نسخة: ' + (m.version || ''));
-      lines.push('وصف: ' + (m.description || ''));
-      if (m.permissions) lines.push('الصلاحيات: ' + m.permissions.join(', '));
-      if (m.commands) lines.push('اختصارات: ' + Object.keys(m.commands).join(', '));
-      if (m.content_scripts) {
-        m.content_scripts.forEach((cs, i) => {
-          lines.push('ContentScript[' + i + ']: يسري على ' + (cs.matches || []).join(', '));
-          lines.push('  ملفات: ' + (cs.js || []).join(', '));
-          if (cs.css) lines.push('  CSS: ' + cs.css.join(', '));
-        });
-      }
-      if (m.web_accessible_resources) {
-        const all = (m.web_accessible_resources || []).flatMap(w => w.resources || []);
-        lines.push('موارد مكشوفة: ' + all.slice(0, 30).join(', '));
-      }
-    } catch (e) { lines.push('⚠️ تعذر قراءة الماني فيست: ' + e.message); }
-    return lines.join('\n');
-  }
-
-  function collectPageContext() {
-    const lines = [];
-    try {
-      lines.push('=== سياق الصفحة الحالية ===');
-      lines.push('الرابط: ' + location.href);
-      lines.push('العنوان: ' + (document.title || ''));
-      lines.push('نوع الصفحة: ' + (typeof getPageType === 'function' ? (getPageType() || 'unknown') : 'unknown'));
-      const feature = (typeof getActivePageFeature === 'function') ? (getActivePageFeature() || '') : '';
-      if (feature) lines.push('ميزة الصفحة: ' + feature);
-
-      const labels = new Set();
-      document.querySelectorAll('label, .ms-Label, [data-label], th').forEach(el => {
-        const t = (el.innerText || el.textContent || el.getAttribute('data-label') || '').trim().replace(/\s+/g, ' ');
-        if (t && t.length < 80) labels.add(t);
-      });
-      if (labels.size) lines.push('حقول/تسميات ظاهرة (' + labels.size + '): ' + [...labels].slice(0, 40).join(' | '));
-
-      const buttons = new Set();
-      document.querySelectorAll('button, a.btn, input[type="button"]').forEach(b => {
-        const t = (b.innerText || b.value || '').trim().replace(/\s+/g, ' ');
-        if (t && t.length < 50) buttons.add(t);
-      });
-      if (buttons.size) lines.push('أزرار (' + buttons.size + '): ' + [...buttons].slice(0, 40).join(' | '));
-
-      const selects = document.querySelectorAll('select');
-      const selOpts = [];
-      selects.forEach((s, i) => {
-        if (i > 15) return;
-        const name = (s.getAttribute('data-name') || s.name || s.id || 'sel' + i).trim();
-        const opts = Array.from(s.options).slice(0, 8).map(o => o.text.trim()).filter(Boolean);
-        if (opts.length) selOpts.push(name + '={' + opts.join(',') + '}');
-      });
-      if (selOpts.length) lines.push('قوائم منسدلة: ' + selOpts.join(' | '));
-
-      const iframes = Array.from(document.querySelectorAll('iframe'));
-      lines.push('Iframes (' + iframes.length + '): ' + iframes.slice(0, 10).map(f => f.src || f.id || '?').join(' | '));
-
-      const grids = document.querySelectorAll('div.view-grid table thead, table.grid thead, [role="grid"] [role="columnheader"]');
-      if (grids.length) {
-        const headers = new Set();
-        grids.forEach(g => { try { g.querySelectorAll('th, [role="columnheader"]').forEach(th => { const t = (th.innerText || '').trim(); if (t && t.length < 60) headers.add(t); }); } catch(_) {} });
-        if (headers.size) lines.push('أعمدة الجداول: ' + [...headers].slice(0, 40).join(' | '));
-      }
-
-      const source = (document.documentElement.outerHTML || '').replace(/\s+/g, ' ').slice(0, 6000);
-      if (source) lines.push('=== مقتطف من مصدر الصفحة (HTML) ===\n' + source);
-    } catch (e) { lines.push('⚠️ خطأ بجمع سياق الصفحة: ' + e.message); }
-    return lines.join('\n');
-  }
-
-  async function runDevIdeas(shadow) {
-    const box = shadow.getElementById('cp-ai-ideas-box');
-    if (!box) return;
-    if (typeof aiService === 'undefined') {
-      box.style.display = 'none';
-      setStatus(shadow, '❌ aiService غير متاح', 'error');
-      return;
-    }
-    if (!(await aiService.isAvailable())) {
-      box.style.display = 'block';
-      box.textContent = '⚠️ ضع API Key أولاً: افتح البوب-أب → تبويب التقارير → ⚙️ إعدادات الذكاء الاصطناعي.';
-      return;
-    }
-
-    box.style.display = 'block';
-    box.textContent = '💡 جاري جمع السياق وتحليل التطوير...';
-    const context = collectExtensionContext() + '\n\n' + collectPageContext();
-
-    const prompt = 'أنت خبير تطوير إضافات متصفح للبوابات (PowerApps / ASP.NET WebForms).\n' +
-      'هذا ملخص إضافة موجودة تعمل على البوابة، وسياق الصفحة التي تعمل عليها حالياً.\n' +
-      'اقترح 5-8 أفكار تطوير عملية وقابلة للتنفيذ، مفصّلة وواضحة بالعربية، مع إشارة لكل فكرة إلى: الفائدة والجهد (سهل/متوسط/متقدم). ركِّز على أتمتة ذكية وتقليل العمل اليدوي ورفع الدقة وتحسين تجربة المستخدم.\n\n' +
-      context + '\n\nسلّط الضوء على أي ملاحظات أخطار أو تحسينات بناءة.'
-
-    try {
-      const res = await aiService.prompt(prompt,
-        'أنت مساعد تطوير محترم يجيب بالعربية فقط، بشكل منظم وقوائم.',
-        { maxTokens: 2000, timeout: 60000 });
-      box.textContent = res || '⚠️ لم يُسحب رد';
-    } catch (e) {
-      box.textContent = '❌ فشل: ' + (e && e.message || String(e));
-    }
+    el.style.color = type === 'success' ? '#4ade80' : type === 'error' ? '#ef4444' : type === 'warn' ? '#fbbf24' : '#94a3b8';
   }
 
   function updateTab(shadow) {
@@ -1199,7 +869,7 @@
       const warn = document.createElement('div');
       warn.id = PAGE_WARN_ID;
       warn.setAttribute('role', 'alert');
-      warn.style.cssText = `background:${CP_THEME.dangerBg};border:2px solid ${CP_THEME.dangerBorder};border-radius:8px;padding:10px 14px;margin:12px 0;color:${CP_THEME.warn};font-weight:700;font-size:15px;text-align:center;font-family:Segoe UI,Tahoma,Arial,sans-serif;box-shadow:0 2px 8px ${CP_THEME.dangerBorder}`;
+      warn.style.cssText = 'background:#7f1d1d;border:2px solid #dc2626;border-radius:8px;padding:10px 14px;margin:12px 0;color:#fbbf24;font-weight:700;font-size:15px;text-align:center;font-family:Segoe UI,Tahoma,Arial,sans-serif;box-shadow:0 2px 8px rgba(220,38,38,.3)';
       warn.innerHTML = '⚠️ <b>لا تنسي صورة الضمان وفيديو الفاكيوم</b>';
       target.insertAdjacentElement('afterend', warn);
       logEvent('INSTALL', 'تم حقن التنبيه تحت المرفقات');
@@ -1426,10 +1096,9 @@
         }
       }
 
-      // 2. المشاكل والفنية حسب الشورت كت — الافتراضي (بدون شورت كت) = الكل
-      const addManual = !shortcutType || shortcutType === 'all';
-      const addProblems = addManual || shortcutType === 'prob';
-      const addTech = addManual || shortcutType === 'tech';
+      // 2. المشاكل والفنية حسب الشورت كت
+      const addProblems = shortcutType === 'prob' || shortcutType === 'all';
+      const addTech = shortcutType === 'tech' || shortcutType === 'all';
 
       if (addProblems) {
         const device = readDeviceHint();
@@ -1462,13 +1131,8 @@
         setStatus(shadow, '✅ تم التعبئة', 'success');
       }
 
-      // 3. التالي — توقف بعد التعبئة (يترك الحفظ للمستخدم) إلا إذا طلب الصراحة
-      const autoNext = shadow.getElementById('cp-auto-next')?.checked;
-      if (autoNext) {
-        await doNext(shadow);
-      } else {
-        setStatus(shadow, '✅ تم التعبئة — اضغط التالي/حفظ بنفسك', 'success');
-      }
+      // 3. التالي
+      await doNext(shadow);
 
       setStatus(shadow, '✅ تم التنفيذ بنجاح', 'success');
       logEvent('EXEC_PAGE2', 'اكتمل التنفيذ');
@@ -1634,332 +1298,6 @@
     }
   }
 
-  // ════════════════════════════════════════════
-  // IMAGE UPLOAD — صور السيريات
-  // ════════════════════════════════════════════
-  function collectDocs() {
-    return [document, ...Array.from(document.querySelectorAll('iframe'))
-      .map(f => { try { return f.contentDocument || f.contentWindow?.document; } catch(e) { return null; } })
-      .filter(Boolean)];
-  }
-
-  function parseImageText(text) {
-    const results = [];
-    const lines = String(text).split(/\r?\n/).map(l => l.trim()).filter(Boolean);
-    for (const line of lines) {
-      if (!/OrderId\s*:/.test(line) || !/Image\s*:/.test(line)) continue;
-      const entry = {};
-      const parts = line.split('|').map(p => p.trim());
-      for (const part of parts) {
-        const idx = part.indexOf(':');
-        if (idx === -1) continue;
-        const key = part.slice(0, idx).trim().toLowerCase();
-        const value = part.slice(idx + 1).trim();
-        if (key === 'orderid') entry.ticket = value;
-        else if (key === 'serial') entry.serial = value;
-        else if (key === 'brand') entry.brand = value;
-        else if (key === 'model') entry.model = value;
-        else if (key === 'status') entry.status = value;
-        else if (key === 'date') entry.date = value;
-        else if (key === 'image') entry.imageData = value;
-      }
-      if (!entry.ticket || !entry.imageData || !entry.imageData.startsWith('data:image')) continue;
-      const mime = (entry.imageData.split(';')[0].replace('data:', '')) || 'image/jpeg';
-      const ext = mime.split('/')[1] || 'jpg';
-      const safeTicket = entry.ticket.replace(/[^\w.-]/g, '_');
-      const safeSerial = (entry.serial || '').replace(/[^\w.-]/g, '_');
-      entry.mimetype = mime;
-      entry.filename = `${safeTicket}${safeSerial ? '_' + safeSerial : ''}.${ext}`;
-      const commaIdx = entry.imageData.indexOf(',');
-      entry.base64 = commaIdx >= 0 ? entry.imageData.substring(commaIdx + 1) : entry.imageData;
-      results.push(entry);
-    }
-    const merged = [];
-    const byTicket = new Map();
-    for (const im of results) {
-      const key = (im.ticket || '').toLowerCase();
-      if (!key) { merged.push(im); continue; }
-      const existing = byTicket.get(key);
-      if (!existing) { byTicket.set(key, im); merged.push(im); }
-      else if (!existing.serial2) {
-        existing.serial2 = im.serial || '';
-        existing.model2 = im.model || '';
-        existing.imageData2 = im.imageData || '';
-        existing.base64_2 = im.base64 || '';
-        existing.filename2 = im.filename || '';
-        existing.mimetype2 = im.mimetype || '';
-      } else { merged.push(im); }
-    }
-    logEvent('IMAGES', `تم تحليل ${merged.length} سطر يحتوي صور${merged.length < results.length ? ` (${results.length - merged.length} تم دمجهم)` : ''}`);
-    return merged;
-  }
-
-  function readTicketFromPage() {
-    const url = location.href;
-    const m = url.match(/(CAS\d+)/i);
-    if (m) return m[1];
-    for (const doc of collectDocs()) {
-      const tn = doc.querySelector('#ticketnumber, input[name*="ticketnumber"], input[id*="ticketnumber"]');
-      if (tn && tn.value) {
-        const vm = String(tn.value).match(/(CAS\d+)/i);
-        if (vm) return vm[1];
-      }
-      const an = doc.querySelector('#ats_name, input[name*="ats_name"], input[id*="ats_name"]');
-      if (an && an.value) {
-        const am = String(an.value).match(/(CAS\d+)/i);
-        if (am) return am[1];
-      }
-      const bodyText = (doc.body && doc.body.innerText) || '';
-      const bm = bodyText.match(/(CAS\d+)/);
-      if (bm) return bm[1];
-    }
-    return '';
-  }
-
-  function getEntityInfo() {
-    const allDocs = collectDocs();
-    for (const doc of allDocs) {
-      const el = doc.querySelector('#notescontrol, [data-url-add]');
-      if (el) {
-        const targetAttr = el.getAttribute('data-target');
-        if (targetAttr) {
-          try {
-            const parsed = JSON.parse(targetAttr);
-            if (parsed.Id && parsed.LogicalName) {
-              return { id: parsed.Id, logicalName: parsed.LogicalName };
-            }
-          } catch(e) {}
-        }
-        const eidEl = doc.querySelector('#EntityFormView_EntityID, input[name="EntityFormView_EntityID"]');
-        if (eidEl && eidEl.value) return { id: eidEl.value, logicalName: 'incident' };
-      }
-    }
-    for (const doc of allDocs) {
-      const eidEl = doc.querySelector('#EntityFormView_EntityID, input[name="EntityFormView_EntityID"]');
-      if (eidEl && eidEl.value) return { id: eidEl.value, logicalName: 'incident' };
-    }
-    return null;
-  }
-
-  function findNoteFileInput() {
-    const allDocs = collectDocs();
-    for (const doc of allDocs) {
-      const input = doc.querySelector('#notescontrol input[type="file"], .entity-notes input[type="file"], [data-url-add] input[type="file"], input[type="file"][id*="note"], input[type="file"][id*="attach"], .modal input[type="file"], input[type="file"][accept*="image"]');
-      if (input) return { input, doc };
-    }
-    return null;
-  }
-
-  function clickAddNoteButton() {
-    const allDocs = collectDocs();
-    for (const doc of allDocs) {
-      const btn = Array.from(doc.querySelectorAll('button, a, input[type="button"], input[type="submit"]'))
-        .find(b => b.offsetParent !== null && /add.?note|اضاف[ةه]\s*ملاحظ[ةه]|ملاحظ[ةه]\s*جديد|attachment/i.test((b.innerText || b.value || b.title || '').trim()));
-      if (btn) { btn.click(); logEvent('IMAGES', 'تم فتح نافذة إضافة ملاحظة'); return true; }
-    }
-    return false;
-  }
-
-  async function getCsrfToken() {
-    const allDocs = collectDocs();
-    for (const doc of allDocs) {
-      const inp = doc.querySelector('input[name="__RequestVerificationToken"]');
-      if (inp && inp.value) { logEvent('IMAGES', 'CSRF token من input'); return inp.value; }
-      const meta = doc.querySelector('meta[name="__RequestVerificationToken"], meta[name="csrf-token"]');
-      if (meta && meta.content) { logEvent('IMAGES', 'CSRF token من meta'); return meta.content; }
-    }
-    const cookieMatch = document.cookie.match(/__RequestVerificationToken=([^;]+)/);
-    if (cookieMatch) { logEvent('IMAGES', 'CSRF token من cookie'); return decodeURIComponent(cookieMatch[1]); }
-    try {
-      const resp = await chrome.runtime.sendMessage({ type: 'GET_CSRF_TOKEN' });
-      if (resp && resp.token) { logEvent('IMAGES', 'CSRF token من MAIN world'); return resp.token; }
-    } catch(e) {}
-    return null;
-  }
-
-  function base64ToFile(entry) {
-    try {
-      const byteString = atob(entry.base64);
-      const bytes = new Uint8Array(byteString.length);
-      for (let i = 0; i < byteString.length; i++) bytes[i] = byteString.charCodeAt(i);
-      return new File([bytes], entry.filename, { type: entry.mimetype });
-    } catch(e) {
-      logEvent('IMAGES', `فشل تحويل base64 لـ ${entry.filename}: ${e.message}`);
-      return null;
-    }
-  }
-
-  async function uploadImageViaWebApi(entry, entityInfo, token) {
-    const navProp = `objectid_${entityInfo.logicalName}@odata.bind`;
-    const body = {
-      subject: 'سيريال' + (entry.serial ? ' ' + entry.serial : ''),
-      notetext: '*WEB*',
-      filename: entry.filename,
-      mimetype: entry.mimetype,
-      documentbody: entry.base64,
-      objecttypecode: entityInfo.logicalName
-    };
-    body[navProp] = `/${entityInfo.logicalName}s(${entityInfo.id})`;
-    const resp = await fetch('/_api/annotations', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Accept': 'application/json',
-        '__RequestVerificationToken': token
-      },
-      body: JSON.stringify(body)
-    });
-    if (!resp.ok) {
-      const text = await resp.text().catch(() => '');
-      throw new Error(`HTTP ${resp.status} ${text.slice(0, 160)}`);
-    }
-    return true;
-  }
-
-  async function uploadViaFileInput(entry) {
-    let result = findNoteFileInput();
-    if (!result || result.input.offsetParent === null) {
-      clickAddNoteButton();
-      for (let i = 0; i < 6; i++) {
-        await sleep(500);
-        result = findNoteFileInput();
-        if (result && result.input.offsetParent !== null) break;
-      }
-    }
-    if (!result) return false;
-    const { input } = result;
-    const file = base64ToFile(entry);
-    if (!file) throw new Error('تعذر تحويل الصورة');
-    const dt = new DataTransfer();
-    dt.items.add(file);
-    input.files = dt.files;
-    input.dispatchEvent(new Event('change', { bubbles: true }));
-    await sleep(2500);
-    return true;
-  }
-
-  function setImgStatus(shadow, msg, type) {
-    const el = shadow.getElementById('cp-image-status');
-    if (!el) return;
-    el.textContent = msg;
-    el.className = 'cp-img-status' + (type ? ' ' + type : '');
-    logEvent('IMAGES', msg);
-  }
-
-  function saveParsedImages(images) {
-    try {
-      localStorage.setItem(IMAGES_KEY, JSON.stringify(images.map(i => ({ ticket: i.ticket, serial: i.serial, model: i.model, filename: i.filename, mimetype: i.mimetype, base64: i.base64, serial2: i.serial2, model2: i.model2, filename2: i.filename2, mimetype2: i.mimetype2, base64_2: i.base64_2 }))));
-      logEvent('IMAGES', `حفظ ${images.length} صورة في التخزين المحلي`);
-    } catch(e) { logEvent('IMAGES', 'تعذر الحفظ في localStorage: ' + e.message); }
-  }
-
-  function loadParsedImages() {
-    try {
-      const raw = localStorage.getItem(IMAGES_KEY);
-      if (raw) return JSON.parse(raw);
-    } catch(e) {}
-    return [];
-  }
-
-  function markImagesDone(ticket) {
-    try {
-      const done = JSON.parse(localStorage.getItem(IMAGES_DONE_KEY) || '[]');
-      if (!done.includes(ticket)) { done.push(ticket); localStorage.setItem(IMAGES_DONE_KEY, JSON.stringify(done)); }
-    } catch(e) {}
-  }
-
-  function isImagesDone(ticket) {
-    try { return (JSON.parse(localStorage.getItem(IMAGES_DONE_KEY) || '[]')).includes(ticket); } catch(e) { return false; }
-  }
-
-  function handleParseImages(shadow) {
-    const textarea = shadow.getElementById('cp-image-paste');
-    if (!textarea) return;
-    const text = textarea.value.trim();
-    if (!text) { setImgStatus(shadow, '⚠️ الصق نتائج الـ AI أولاً', 'warn'); return; }
-    parsedImages = parseImageText(text);
-    currentTicket = readTicketFromPage();
-    saveParsedImages(parsedImages);
-    const matching = parsedImages.filter(im => im.ticket.toLowerCase() === currentTicket.toLowerCase());
-    if (parsedImages.length === 0) {
-      setImgStatus(shadow, '⚠️ لم يتم العثور على صيغة صحيحة (OrderId + Image)', 'warn');
-      return;
-    }
-    setImgStatus(shadow, `✅ تم تحليل ${parsedImages.length} صورة — ${matching.length} للبلاغ الحالي (${currentTicket || 'غير معروف'})`, 'ok');
-  }
-
-  async function handleUploadImages(shadow, imagesOverride, ticketOverride) {
-    setImgStatus(shadow, '⏳ جاري التحضير...');
-    try {
-      if (imagesOverride) {
-        parsedImages = imagesOverride;
-      } else if (parsedImages.length === 0) {
-        handleParseImages(shadow);
-      }
-      if (parsedImages.length === 0) return;
-
-      currentTicket = ticketOverride || readTicketFromPage();
-      if (!currentTicket) { setImgStatus(shadow, '⚠️ لم أجد رقم البلاغ في الصفحة', 'warn'); return; }
-
-      const matching = parsedImages.filter(im => im.ticket.toLowerCase() === currentTicket.toLowerCase());
-      if (matching.length === 0) {
-        setImgStatus(shadow, `⚠️ لا توجد صور للبلاغ ${currentTicket} — صور النص: ${parsedImages.map(i => i.ticket).join(', ')}`, 'warn');
-        return;
-      }
-
-      const entityInfo = getEntityInfo();
-      const token = await getCsrfToken();
-      const method = (entityInfo && token) ? 'webapi' : (findNoteFileInput() ? 'fileinput' : 'none');
-      if (method === 'none') { setImgStatus(shadow, '⚠️ لا يوجد نظام مرفقات في الصفحة', 'warn'); return; }
-
-      logEvent('IMAGES', `طريقة الرفع: ${method} — ${matching.length} صورة`);
-      let uploaded = 0, failed = 0;
-      for (const im of matching) {
-        const toUpload = [{ filename: im.filename, mimetype: im.mimetype, base64: im.base64, serial: im.serial }];
-        if (im.base64_2) toUpload.push({ filename: im.filename2 || im.filename, mimetype: im.mimetype2 || im.mimetype, base64: im.base64_2, serial: im.serial2 });
-        for (const up of toUpload) {
-          setImgStatus(shadow, `⏳ جاري رفع (${uploaded + failed + 1}/${matching.length + (im.base64_2 ? matching.length : 0)}): ${up.filename}`);
-          try {
-            let ok = false;
-            if (method === 'webapi') {
-              try {
-                await uploadImageViaWebApi(up, entityInfo, token);
-                ok = true;
-              } catch(e) {
-                logEvent('IMAGES', `Web API فشل لـ ${up.filename} — محاولة file input: ${e.message}`);
-                ok = await uploadViaFileInput(up);
-                if (!ok) throw new Error('لا يوجد file input بديل');
-              }
-            } else {
-              ok = await uploadViaFileInput(up);
-              if (!ok) throw new Error('لا يوجد file input');
-            }
-            uploaded++;
-            await sleep(900);
-          } catch(e) {
-            failed++;
-            logEvent('IMAGES', `فشل ${up.filename}: ${e.message}`);
-          }
-        }
-      }
-      if (uploaded > 0) markImagesDone(currentTicket);
-      setImgStatus(shadow, `✅ تم رفع ${uploaded} صورة${failed ? ` — فشل ${failed}` : ''} للبلاغ ${currentTicket}`, uploaded > 0 && failed === 0 ? 'ok' : 'warn');
-    } catch(e) {
-      logEvent('IMAGES', 'خطأ: ' + e.message);
-      setImgStatus(shadow, '❌ ' + e.message, 'err');
-    }
-  }
-
-  async function autoUploadStoredImages(shadow) {
-    const ticket = readTicketFromPage();
-    if (!ticket || isImagesDone(ticket)) return;
-    const stored = loadParsedImages();
-    const matching = stored.filter(im => im.ticket.toLowerCase() === ticket.toLowerCase());
-    if (matching.length === 0) return;
-    logEvent('IMAGES', `رفع تلقائي: ${matching.length} صورة للبلاغ ${ticket}`);
-    await handleUploadImages(shadow, matching);
-  }
-
   function observePageChanges() {
     let lastPage = detectPage();
     setInterval(() => {
@@ -1968,13 +1306,7 @@
       if (page !== lastPage) {
         lastPage = page;
         if (host && host.shadowRoot) updateTab(host.shadowRoot);
-      }
-      if (page === 'PAGE_2' && host && host.shadowRoot) {
-        const ticket = readTicketFromPage();
-        if (ticket && !autoAttemptedTickets.has(ticket)) {
-          autoAttemptedTickets.add(ticket);
-          setTimeout(() => { autoUploadStoredImages(host.shadowRoot); }, 2500);
-        }
+      } else if (page === 'PAGE_2' && host && host.shadowRoot) {
         const warn = host.shadowRoot.getElementById('cp-install-warn');
         if (warn) {
           const isInstall = detectInstallation();
@@ -2100,29 +1432,6 @@
         const val = el.value?.slice(0, 80);
         const tag = el.tagName;
         logPage('FIELD_CHANGE', `${tag}#${id} = "${val}"`);
-        // تمرير الحدث للسجل المركزي (أحداث يدوية) في تبويب التقارير
-        try {
-          const oldValue = el._lastVal || '';
-          chrome.runtime.sendMessage({
-            type: 'SMART_LOG_EVENT',
-            event: {
-              pageVisitId: null,
-              url: location.href,
-              pageType: typeof getPageType === 'function' ? getPageType() : 'report',
-              timestamp: Date.now(),
-              eventType: 'FIELD_CHANGE',
-              isAutomated: document.body?.dataset?.isAutofilling === 'true',
-              field: id || 'غير معروف',
-              tag,
-              value: val || '',
-              oldValue,
-              diff: getDiff(oldValue, val || ''),
-              label: id || tag,
-              category: 'other',
-            },
-          }).catch(() => {});
-        } catch (_) {}
-        el._lastVal = el.value;
       }
     }, true);
 
@@ -2167,15 +1476,6 @@
   }
 
   function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
-
-  document.addEventListener('elaraby:upload-images', (e) => {
-    const detail = e.detail || {};
-    logEvent('IMAGES', `أمر رفع من AutoFiller: ${detail.orderId || 'بدون رقم'}`);
-    const host = document.getElementById(PANEL_ID);
-    const shadow = host && host.shadowRoot ? host.shadowRoot : null;
-    if (!shadow) { logEvent('IMAGES', 'اللوحة غير جاهزة بعد'); return; }
-    handleUploadImages(shadow, null, detail.orderId).catch(() => {});
-  });
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
   else init();

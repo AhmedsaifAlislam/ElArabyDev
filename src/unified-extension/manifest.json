@@ -1,36 +1,26 @@
 {
   "manifest_version": 3,
-  "name": "El Araby Unified System — نظام العربي الموحد",
-  "version": "4.0.0",
-  "description": "إضافة موحّدة: مساعد التقفيلات + البحث الذكي عن قطع الغيار + الاستخراج + الأدوات (Telemetry / Tampermonkey / المزامنة)",
-  "permissions": ["activeTab", "scripting", "storage", "notifications", "tabs", "clipboardRead", "unlimitedStorage", "alarms"],
+  "name": "Portal AutoFiller — مساعد التقفيلات",
+  "version": "1.0.0",
+  "description": "ملء تلقائي لحقول Work Order Review في بوابة El Araby Partner Portal مع دعم Batch وتقارير مخزنة",
+  "permissions": ["activeTab", "scripting", "storage", "notifications", "tabs", "clipboardRead"],
   "host_permissions": [
     "https://elarabyportalpfs.powerappsportals.com/*",
-    "https://elarabyiscrm2.azurewebsites.net/*",
-    "https://opencode.ai/*",
-    "https://drive.usercontent.google.com/*",
-    "https://drive.google.com/*",
-    "http://127.0.0.1:8765/*",
-    "http://localhost:5678/*",
-    "http://127.0.0.1:5678/*",
-    "https://*.n8n.cloud/*"
+    "http://localhost:11434/*"
   ],
   "action": {
     "default_popup": "popup.html",
-    "default_title": "نظام العربي الموحد"
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "48": "icons/icon48.png",
+      "128": "icons/icon128.png"
+    },
+    "default_title": "Portal AutoFiller"
   },
   "background": {
     "service_worker": "background.js"
   },
   "commands": {
-    "toggle-tools-dock": {
-      "suggested_key": {
-        "default": "Alt+Shift+E",
-        "windows": "Alt+Shift+E",
-        "mac": "Alt+Shift+E"
-      },
-      "description": "إظهار/إخفاء فابز كل أدوات العربي (الظاهرة في إعدادات اللوحة)"
-    },
     "quick-paste-batch": {
       "suggested_key": {
         "default": "Ctrl+Shift+Space",
@@ -59,14 +49,10 @@
   "content_scripts": [
     {
       "matches": ["https://elarabyportalpfs.powerappsportals.com/*"],
-      "js": ["lib/xlsx.full.min.js"],
+      "js": ["lib/xlsx.full.min.js", "lib/exceljs.min.js"],
       "run_at": "document_start"
     },
-    {
-      "matches": ["https://elarabyportalpfs.powerappsportals.com/*"],
-      "js": ["dock-fab-hider.js"],
-      "run_at": "document_start"
-    },
+
     {
       "matches": ["https://elarabyportalpfs.powerappsportals.com/*"],
       "js": ["elaraby-phone-reveal-layer0.js"],
@@ -75,56 +61,22 @@
     },
     {
       "matches": ["https://elarabyportalpfs.powerappsportals.com/*"],
-      "js": [
-        "shared/table-scraper.js",
-        "shared/sync-manager.js",
-        "Tempermonky/elaraby-phone-reveal.js"
-      ],
-      "run_at": "document_idle",
-      "world": "MAIN"
-    },
-    {
-      "matches": ["https://elarabyportalpfs.powerappsportals.com/*"],
-      "js": [
-        "shared/session-guardian.js",
-        "shared/preferences-memory.js",
-        "shared/duplicate-radar.js",
-        "shared/daily-digest.js",
-        "shared/tab-coordinator.js",
-        "shared/tools-bridge.js"
-      ],
-      "run_at": "document_start",
-      "world": "MAIN"
-    },
-    {
-      "matches": ["https://elarabyportalpfs.powerappsportals.com/*"],
-      "js": [
-        "shared/message-bus.js",
-        "shared/storage-proxy.js",
-        "shared/smart-log.js",
-        "shared/arabic-utils.js",
-        "shared/data-mapper.js",
-        "shared/portal-selectors.js",
-        "shared/frame-walker.js",
-        "shared/table-scraper.js",
-        "shared/excel-exporter.js",
-        "shared/portal-config.js",
-        "shared/ai-prompts.js",
-        "shared/ai-client.js",
-        "shared/n8n-event-bus.js",
-        "shared/n8n-client.js",
-        "content-script.js"
-      ],
+      "js": ["content-script.js"],
       "run_at": "document_idle"
     },
     {
       "matches": ["https://elarabyportalpfs.powerappsportals.com/*"],
-      "js": ["shared/storage-proxy.js", "shared/ai-client.js", "control-panel.js", "unified-dock.js"],
+      "js": ["smart-log.js"],
       "run_at": "document_idle"
     },
     {
       "matches": ["https://elarabyportalpfs.powerappsportals.com/*"],
-      "js": ["lib/exceljs.min.js", "shared/message-bus.js", "shared/portal-selectors.js", "order-extractor.js"],
+      "js": ["control-panel.js"],
+      "run_at": "document_idle"
+    },
+    {
+      "matches": ["https://elarabyportalpfs.powerappsportals.com/*"],
+      "js": ["order-extractor.js"],
       "run_at": "document_idle"
     },
     {
@@ -133,68 +85,15 @@
         "https://*.facebook.com/*",
         "https://*.messenger.com/*"
       ],
-      "js": ["shared/storage-proxy.js", "tampermonkey-runner.js"],
-      "run_at": "document_idle"
-    },
-    {
-      "matches": ["https://elarabyportalpfs.powerappsportals.com/*"],
-      "js": [
-        "shared/storage-proxy.js",
-        "shared/smart-log.js",
-        "shared/arabic-utils.js",
-        "shared/data-mapper.js",
-        "core/booking/scanner.js",
-        "core/booking/auto-filler.js",
-        "core/booking/shadow-panel.js"
-      ],
-      "run_at": "document_idle"
-    },
-    {
-      "matches": ["https://elarabyportalpfs.powerappsportals.com/*"],
-      "js": [
-        "shared/storage-proxy.js",
-        "shared/ai-client.js",
-        "shared/n8n-event-bus.js",
-        "shared/n8n-client.js",
-        "ai/smart-ai-tools.js",
-        "ai/smart-scheduler.js",
-        "ai/scheduler-tools.js",
-        "ai/session-prefs-tools.js",
-        "ai/chat-panel.js",
-        "ai/agent-engine.js",
-        "ai/command-palette.js"
-      ],
-      "run_at": "document_idle"
-    },
-    {
-      "matches": ["https://elarabyportalpfs.powerappsportals.com/*"],
-      "js": ["ai/voice-control.js"],
-      "run_at": "document_idle"
-    },
-    {
-      "matches": ["https://elarabyiscrm2.azurewebsites.net/*"],
-      "js": [
-        "shared/storage-proxy.js",
-        "shared/smart-log.js",
-        "shared/portal-selectors.js",
-        "features/crm/crm-content.js"
-      ],
-      "css": ["styles/tokens.css"],
-      "run_at": "document_idle"
-    },
-    {
-      "matches": ["https://elarabyiscrm2.azurewebsites.net/ASPPage/*"],
-      "js": [
-        "shared/ai-prompts.js",
-        "shared/ai-client.js",
-        "shared/excel-exporter.js",
-        "features/financial/scraper.js",
-        "features/financial/analyzer.js",
-        "features/financial/financial-boot.js"
-      ],
+      "js": ["tampermonkey-runner.js"],
       "run_at": "document_idle"
     }
   ],
+  "icons": {
+    "16": "icons/icon16.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  },
   "web_accessible_resources": [
     {
       "resources": [
@@ -203,13 +102,8 @@
         "products-db.json",
         "travel-costs.json",
         "lib/xlsx.full.min.js",
-        "lib/exceljs.min.js",
-        "lib/papaparse.min.js",
-        "features/spare-parts/dashboard/dashboard.html",
-        "elaraby-phone-reveal-layer0.js",
         "Tempermonky/elaraby-phone-reveal.js",
-        "Tempermonky/report-processor.js",
-        "Tempermonky/booking-automation.js"
+        "Tempermonky/messenger-sender.js"
       ],
       "matches": ["<all_urls>"]
     }

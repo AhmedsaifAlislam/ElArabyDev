@@ -55,7 +55,24 @@
   let reportFetchQueue = [];
   let reportFetchResults = [];
 
-  // ── Storage (shared/storage-proxy.js provides window.storageGet/Set) ──
+  // ── Storage (routed through background.js to bypass Edge Tracking Prevention) ──
+  async function storageGet(keys) {
+    try {
+      const resp = await chrome.runtime.sendMessage({ type: 'STORAGE_GET', keys });
+      return resp?.ok ? resp.data : {};
+    } catch (e) {
+      console.warn('[OrderExtractor] Storage GET failed:', e.message);
+      return {};
+    }
+  }
+
+  async function storageSet(data) {
+    try {
+      await chrome.runtime.sendMessage({ type: 'STORAGE_SET', data });
+    } catch (e) {
+      console.warn('[OrderExtractor] Storage SET failed:', e.message);
+    }
+  }
 
   // ── Customer Area API ──
   let customerAreaCache = new Map();
@@ -65,7 +82,6 @@
     if (customerIdCache.has(incidentId)) return customerIdCache.get(incidentId);
     try {
       const resp = await fetch('/_api/incidents(' + incidentId + ')?$select=_customerid_value');
-      if (!resp.ok) throw new Error('HTTP ' + resp.status);
       const data = await resp.json();
       const id = data._customerid_value || null;
       customerIdCache.set(incidentId, id);
@@ -80,7 +96,6 @@
     if (customerAreaCache.has(customerId)) return customerAreaCache.get(customerId);
     try {
       const resp = await fetch('/_api/accounts(' + customerId + ')?$select=accountid,_ldv_area_value');
-      if (!resp.ok) throw new Error('HTTP ' + resp.status);
       const data = await resp.json();
       const area = data['_ldv_area_value@OData.Community.Display.V1.FormattedValue']
         || data['_ldv_centraltelephone_value@OData.Community.Display.V1.FormattedValue']
@@ -355,13 +370,7 @@
   }
 
   // ── Table Scraping ──
-  // Base selectors from shared portal-selectors.js (task 2.1) with local fallback
   const TABLE_SELECTORS = [
-    ...(window.PORTAL_SELECTORS?.POWERAPPS?.table ? [
-      window.PORTAL_SELECTORS.POWERAPPS.table.entityGrid,
-      window.PORTAL_SELECTORS.POWERAPPS.table.tableStriped,
-      window.PORTAL_SELECTORS.POWERAPPS.table.tableClass
-    ] : []),
     'table.entity-grid',
     'table[class*="entitylist"]',
     '.grid-content table',
@@ -1030,8 +1039,6 @@
     let allOrders = [];
     let firstHeaders = null;
     let pageNum = 1;
-    const MAX_PAGES = 200;
-    const MAX_PAGE_RETRIES = 3;
 
     try {
       setStatus('جاري انتظار تحميل الجدول...', 'warn');
@@ -1060,7 +1067,7 @@
 
       let searchRetried = false;
       while (!stopRequested) {
-        let result = scrapeCurrentPage();
+        const result = scrapeCurrentPage();
         if (!result.ok) {
           // Retry on first page: table shell exists but no data rows — click search
           if (!searchRetried) {
@@ -1073,16 +1080,9 @@
               continue;
             }
           }
-          // Retry on later pages: page transition may still be in progress — one re-scrape attempt
-          console.log('[OrderExtractor] Scrape failed, retrying once:', result.error);
-          setStatus('⏳ إعادة محاولة قراءة الصفحة...', 'warn');
-          await new Promise(r => setTimeout(r, 1500));
-          result = scrapeCurrentPage();
-          if (!result.ok) {
-            console.log('[OrderExtractor] Scrape failed after retry:', result.error);
-            setStatus(result.error, 'error');
-            break;
-          }
+          console.log('[OrderExtractor] Scrape failed:', result.error);
+          setStatus(result.error, 'error');
+          break;
         }
 
         console.log(`[OrderExtractor] Page ${pageNum}: ${result.count} orders`);
@@ -1096,23 +1096,16 @@
         clickNextPage();
         pageNum++;
 
-        if (pageNum > MAX_PAGES) {
-          setStatus(`تم الوصول للحد الأقصى (${MAX_PAGES} صفحة)`, 'warn');
+        if (pageNum > 50) {
+          setStatus('تم الوصول للحد الأقصى (50 صفحة)', 'warn');
           break;
         }
 
-        // Small delay for page transition, then wait for table (with retries)
+        // Small delay for page transition, then wait for table
         await new Promise(r => setTimeout(r, 800));
-        let nextTable = null;
-        for (let attempt = 0; attempt < MAX_PAGE_RETRIES; attempt++) {
-          nextTable = await waitForTable(12000);
-          if (nextTable) break;
-          console.log(`[OrderExtractor] Next page table not ready, retry ${attempt + 1}/${MAX_PAGE_RETRIES}`);
-          setStatus(`⏳ إعادة محاولة تحميل الصفحة (${attempt + 1}/${MAX_PAGE_RETRIES})...`, 'warn');
-          await new Promise(r => setTimeout(r, 1500));
-        }
+        const nextTable = await waitForTable(12000);
         if (!nextTable) {
-          setStatus('❌ فشل تحميل الصفحة التالية بعد إعادة المحاولة', 'error');
+          setStatus('❌ فشل تحميل الصفحة التالية', 'error');
           break;
         }
       }
@@ -1206,47 +1199,43 @@
   }
 
   // ── Message Handler ──
-  // Unified Dispatcher (order-extractor.js): أفعال إضافة-الاستخراج مسجلة عبر message-bus.
-  // كلا الملفين (content-script + order-extractor) على نفس الدومين — الموزع يملك action
-  // واحدة لكل handler فيمنع "أول من يردّ يكسب" نهائياً.
-  if (typeof messageBus !== 'undefined') {
-    messageBus.on('EXTRACT_CURRENT_PAGE', (msg, sendResponse) => {
-      (async () => {
-        try {
-          let table = await waitForTable(8000);
-          if (!table) {
-            setStatus('🔍 جاري الضغط على زر البحث...', 'warn');
-            if (clickSearchButton()) {
-              await new Promise(r => setTimeout(r, 2000));
-              table = await waitForTable(12000);
-            }
-          }
-          if (!table) {
-            sendResponse({ ok: false, error: 'لم يتم العثور على جدول البلاغات' });
-            return;
-          }
-          let result = scrapeCurrentPage();
-          if (!result.ok) {
-            if (clickSearchButton()) {
-              await new Promise(r => setTimeout(r, 2000));
-              table = await waitForTable(12000);
-              if (table) result = scrapeCurrentPage();
-            }
-          }
-          if (!result.ok) {
-            sendResponse({ ok: false, error: result.error });
-            return;
-          }
-          await enrichOrdersWithArea(result.orders);
-          exportXLSX(result.orders, result.headers);
-          sendResponse({ ok: true, count: result.count });
-        } catch (e) {
-          sendResponse({ ok: false, error: e.message });
-        }
-      })();
-    });
+  chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
+    if (!msg) return;
 
-    messageBus.on('EXTRACT_ALL_PAGES', (msg, sendResponse) => {
+    if (msg.action === 'EXTRACT_CURRENT_PAGE') {
+      (async () => {
+        let table = await waitForTable(8000);
+        if (!table) {
+          setStatus('🔍 جاري الضغط على زر البحث...', 'warn');
+          if (clickSearchButton()) {
+            await new Promise(r => setTimeout(r, 2000));
+            table = await waitForTable(12000);
+          }
+        }
+        if (!table) {
+          sendResponse({ ok: false, error: 'لم يتم العثور على جدول البلاغات' });
+          return;
+        }
+        let result = scrapeCurrentPage();
+        if (!result.ok) {
+          if (clickSearchButton()) {
+            await new Promise(r => setTimeout(r, 2000));
+            table = await waitForTable(12000);
+            if (table) result = scrapeCurrentPage();
+          }
+        }
+        if (!result.ok) {
+          sendResponse({ ok: false, error: result.error });
+          return;
+        }
+        await enrichOrdersWithArea(result.orders);
+        exportXLSX(result.orders, result.headers);
+        sendResponse({ ok: true, count: result.count });
+      })();
+      return true;
+    }
+
+    if (msg.action === 'EXTRACT_ALL_PAGES') {
       extractAllPages().then(() => {
         const statusEl = document.getElementById('oe-status');
         const statusText = statusEl ? statusEl.textContent : '';
@@ -1255,25 +1244,30 @@
       }).catch(e => {
         sendResponse({ ok: false, error: e.message });
       });
-    });
+      return true;
+    }
 
-    messageBus.on('GET_EXTRACTOR_COLUMNS', (msg, sendResponse) => {
+    if (msg.action === 'GET_EXTRACTOR_COLUMNS') {
       sendResponse({ columns: selectedColumns });
-    });
+      return;
+    }
 
-    messageBus.on('UPDATE_EXTRACTOR_COLUMNS', (msg, sendResponse) => {
+    if (msg.action === 'UPDATE_EXTRACTOR_COLUMNS') {
       selectedColumns = msg.columns || DEFAULT_COLUMNS.map(c => ({ ...c }));
       saveSettings();
       renderCheckboxes();
       sendResponse({ ok: true });
-    });
+      return;
+    }
 
-    messageBus.on('EXTRACT_ORDER_REPORT', (msg, sendResponse) => {
+    if (msg.action === 'EXTRACT_ORDER_REPORT') {
+      // Open order detail page and extract report data
       const orderId = msg.orderId;
       if (!orderId) {
         sendResponse({ ok: false, error: 'لم يتم تحديد رقم البلاغ' });
         return;
       }
+      // Find the order link in the table
       const links = activeDoc.querySelectorAll('table.entity-grid a[href*="id="]');
       let targetLink = null;
       links.forEach(link => {
@@ -1287,68 +1281,9 @@
       } else {
         sendResponse({ ok: false, error: 'لم يتم العثور على البلاغ في الجدول' });
       }
-    });
-
-    messageBus.on('EXTRACT_REPORT_DETAIL', (msg, sendResponse) => {
-      try {
-        const data = extractReportDetailFromPage();
-        const fieldCount = data ? Object.keys(data).length : 0;
-        sendResponse({ ok: true, fields: fieldCount, data });
-      } catch (e) {
-        sendResponse({ ok: false, error: e.message });
-      }
-    });
-
-    messageBus.on('EXTRACT_REPORTS_BATCH', (msg, sendResponse) => {
-      (async () => {
-        try {
-          let table = await waitForTable(8000);
-          if (!table) { sendResponse({ ok: false, error: 'لم يتم العثور على جدول البلاغات' }); return; }
-          const result = scrapeCurrentPage();
-          if (!result.ok) { sendResponse({ ok: false, error: result.error }); return; }
-          const rows = result.orders || [];
-          sendResponse({ ok: true, count: rows.length });
-        } catch (e) {
-          sendResponse({ ok: false, error: e.message });
-        }
-      })();
-    });
-  }
-
-  // ── Report Detail Extractor ──
-  function extractReportDetailFromPage() {
-    const doc = (() => {
-      for (const iframe of document.querySelectorAll('iframe')) {
-        try { if (iframe.contentDocument) return iframe.contentDocument; } catch(e) {}
-      }
-      return document;
-    })();
-
-    const data = {};
-    const get = (selectors) => {
-      for (const s of selectors) {
-        const el = doc.querySelector(s);
-        if (el && (el.value || el.innerText)) return (el.value || el.innerText).trim();
-      }
-      return '';
-    };
-
-    data.orderId = (window.location.search.match(/id=([^&]+)/) || [])[1] || '';
-    data.brand = get(['input[aria-label="علامة تجارية"]', '#ats_producttypebrand_name', '#ldv_actualbrand_name']);
-    data.model = get(['input[aria-label="الموديل الفعلى 1"]', '#ldv_actualmodel_name']);
-    data.serial = get(['#ldv_technicalserialnumber', '[aria-label*="الرقم المسلسل"]', '#ldv_serialnumber']);
-    data.status = get(['#ldv_warrantystatus', 'select[name*="warranty"]']);
-    data.date = get(['#ldv_warrantydate_datepicker_description', 'input[aria-label*="Warranty Date"]']);
-    data.customer = get(['.customer-name', '[class*="customer-name"]']);
-    data.phone = get(['[aria-label*="هاتف"]', 'input[aria-label*="Phone"]', 'input[aria-label*="موبايل"]']);
-    data.address = get(['[aria-label*="عنوان"]', 'input[aria-label*="Address"]', 'textarea[aria-label*="Address"]']);
-    data.complaint = get(['[aria-label*="شكوى"]', '[aria-label*="Complaint"]', '[aria-label*="البلاغ"]']);
-    data.reportType = get(['[aria-label*="نوع"]', 'select[name*="type"]']);
-    data.technician = get(['[aria-label*="فني"]', 'select[name*="technician"]', 'input[aria-label*="فني"]']);
-
-    return data;
-  }
-
+      return;
+    }
+  });
 
   // ── Init ──
   async function init() {

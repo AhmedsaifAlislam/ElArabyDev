@@ -7,15 +7,14 @@
 (function () {
 
   const BUILTIN_SCRIPTS = {
-'elaraby-phone-reveal': {
+    'elaraby-phone-reveal': {
       name: 'كشف أرقام الهواتف',
       desc: 'يلغي إخفاء أرقام الهاتف في البورتال ويسحب بيانات البلاغات',
       source: 'Tempermonky/elaraby-phone-reveal.js',
       match: '*://elarabyportalpfs.powerappsportals.com/*',
-      enabled: true,
+      enabled: false,
       injectAt: 'document-end',
       builtin: true,
-      manifestInjected: true,
     },
     'messenger-sender': {
       name: 'مساعد إرسال الماسنجر',
@@ -26,31 +25,10 @@
       injectAt: 'document-end',
       builtin: true,
     },
-'report-processor': {
+    'report-processor': {
       name: 'معالج البلاغات',
       desc: 'يفتح البلاغات ويفحص البيانات ويقفل اللي مفيهوش داتا + اختيار يوم + بلاغات محددة',
       source: 'Tempermonky/report-processor.js',
-      match: '*://elarabyportalpfs.powerappsportals.com/*',
-      enabled: true,
-      injectAt: 'document-end',
-      builtin: true,
-      manifestInjected: true,
-    },
-    // Suppress repeated portal error: ldv_workordertype is not defined
-    // Runs in MAIN world at document-start to catch early initialization errors
-    'portal-error-suppressor': {
-      name: 'كتم أخطاء البورتال المتكررة',
-      desc: 'يكتم خطأ ldv_workordertype is not defined المتكرر في الكونسول',
-      source: 'shared/portal-error-suppressor.js',
-      match: '*://elarabyportalpfs.powerappsportals.com/*',
-      enabled: true,
-      injectAt: 'document-start',
-      builtin: true,
-    },
-    'booking-automation': {
-      name: 'أتمتة حجز البلاغات',
-      desc: 'حجز جماعي: تعبئة تاريخ الزيارة وحفظ كل بلاغ تباعاً من جدول الحالات',
-      source: 'Tempermonky/booking-automation.js',
       match: '*://elarabyportalpfs.powerappsportals.com/*',
       enabled: false,
       injectAt: 'document-end',
@@ -62,11 +40,14 @@
   let scriptsRegistry = { ...BUILTIN_SCRIPTS };
   let customScripts = [];
 
-  // ── Storage (via shared/storage-proxy.js → background) ──
+  // ── Storage ──
   async function loadRegistry() {
     try {
-      const stored = await storageGet(['tampermonkeyScripts', 'tampermonkeyCustomScripts']);
-      scriptsRegistry = { ...BUILTIN_SCRIPTS, ...(stored.tampermonkeyScripts || {}) };
+      const stored = await chrome.storage.local.get({
+        tampermonkeyScripts: {},
+        tampermonkeyCustomScripts: [],
+      });
+      scriptsRegistry = { ...BUILTIN_SCRIPTS, ...stored.tampermonkeyScripts };
       customScripts = stored.tampermonkeyCustomScripts || [];
     } catch (e) {
       scriptsRegistry = { ...BUILTIN_SCRIPTS };
@@ -76,7 +57,7 @@
 
   async function saveRegistry() {
     try {
-      await storageSet({
+      await chrome.storage.local.set({
         tampermonkeyScripts: scriptsRegistry,
         tampermonkeyCustomScripts: customScripts,
       });
@@ -103,44 +84,32 @@
     });
   }
 
-  // ── CSP-compliant script injection via Background (content scripts can't call chrome.scripting) ──
-  async function injectScriptFile(source, injectAt = 'document-end') {
+  // ── Script Injection ──
+  function injectScript(code, injectAt = 'document-end') {
     try {
-      return await new Promise((resolve) => {
-        chrome.runtime.sendMessage({
-          type: 'INJECT_SCRIPT_FILE',
-          source,
-          world: 'MAIN',
-          allFrames: false
-        }, (response) => {
-          resolve(response?.ok === true);
-        });
-      });
+      const script = document.createElement('script');
+      script.textContent = code;
+      if (injectAt === 'document-start') {
+        document.documentElement.prepend(script);
+      } else {
+        document.documentElement.appendChild(script);
+      }
+      script.remove();
+      return true;
     } catch (e) {
-      console.error('[TampermonkeyRunner] File injection failed:', source, e);
+      console.error('[TampermonkeyRunner] Injection failed:', e);
       return false;
     }
   }
 
-  async function injectScriptCode(code, injectAt = 'document-end') {
-    try {
-      return await new Promise((resolve) => {
-        chrome.runtime.sendMessage({
-          type: 'INJECT_SCRIPT_CODE',
-          code,
-          world: 'MAIN',
-          allFrames: false
-        }, (response) => {
-          resolve(response?.ok === true);
-        });
-      });
-    } catch (e) {
-      console.error('[TampermonkeyRunner] Code injection failed:', e);
-      return false;
-    }
+  function injectCSS(css) {
+    if (!css) return;
+    const style = document.createElement('style');
+    style.textContent = css;
+    document.documentElement.appendChild(style);
   }
 
-  // ── Fetch Script Code (kept for potential future use) ──
+  // ── Fetch Script Code ──
   async function fetchScriptCode(source) {
     try {
       const url = chrome.runtime.getURL(source);
@@ -153,23 +122,29 @@
     }
   }
 
-  // ── Run Scripts for Current Page (CSP-compliant) ──
+  // ── Run Scripts for Current Page ──
   async function runAll() {
     const currentUrl = window.location.href;
-    const tabId = (await chrome.runtime.sendMessage({ type: 'GET_MY_TAB_ID' })).tabId;
 
     // Only run scripts that are explicitly enabled
+    // Built-in scripts default to disabled — user must toggle them on
     for (const [id, script] of Object.entries(scriptsRegistry)) {
       if (!script.enabled) continue;
-      if (script.manifestInjected) continue;
       if (!matchesUrl(currentUrl, script.match)) continue;
 
+      let code = null;
+
+      // Built-in scripts: fetch from extension resources
       if (script.builtin && script.source) {
-        // Built-in scripts: inject via file (CSP-compliant)
-        script.manifestInjected = await injectScriptFile(script.source, script.injectAt);
-      } else if (script.code) {
-        // Custom scripts: inject via code (may still hit CSP on FB/Messenger)
-        await injectScriptCode(script.code, script.injectAt);
+        code = await fetchScriptCode(script.source);
+      }
+      // Custom scripts: code stored directly
+      else if (script.code) {
+        code = script.code;
+      }
+
+      if (code) {
+        injectScript(code, script.injectAt);
       }
     }
 
@@ -178,16 +153,9 @@
       if (!cs.enabled) continue;
       if (!matchesUrl(currentUrl, cs.match)) continue;
       if (cs.code) {
-        await injectScriptCode(cs.code, cs.injectAt || 'document-end');
+        injectScript(cs.code, cs.injectAt || 'document-end');
       }
     }
-  }
-
-  // ── بث تغيير الحالة للفابز في نفس الصفحة (حدث storage لا يعمل داخل نفس التبويب) ──
-  function broadcastState(scriptId) {
-    try {
-      window.dispatchEvent(new CustomEvent('ea-script-state', { detail: { scriptId } }));
-    } catch (e) {}
   }
 
   // ── Message Handler ──
@@ -215,56 +183,17 @@
         if (id === 'elaraby-phone-reveal') {
           try { localStorage.setItem('elaraby_phone_reveal_disabled', scriptsRegistry[id].enabled ? '' : '1'); } catch(e) {}
         }
-        try { localStorage.setItem('tm_running_' + id, scriptsRegistry[id].enabled ? '1' : '0'); } catch(e) {}
-        broadcastState(id);
         sendResponse({ ok: true, enabled: scriptsRegistry[id].enabled });
       } else if (id.startsWith('custom-')) {
         const idx = parseInt(id.replace('custom-', ''));
         if (customScripts[idx]) {
           customScripts[idx].enabled = !customScripts[idx].enabled;
           saveRegistry();
-          try { localStorage.setItem('tm_running_' + id, customScripts[idx].enabled ? '1' : '0'); } catch(e) {}
-          broadcastState(id);
           sendResponse({ ok: true, enabled: customScripts[idx].enabled });
         }
       } else {
         sendResponse({ ok: false, error: 'Script not found' });
       }
-      return;
-    }
-
-    if (msg.action === 'OPEN_SCRIPT_PANEL') {
-      const script = scriptsRegistry[msg.scriptId];
-      if (!script) { sendResponse({ ok: false, error: 'Script not found' }); return; }
-      // دالة فتح اللوحة لكل سكربت (تعريفها داخل السكربت نفسه في MAIN world)
-      const OPENERS = {
-        'booking-automation': 'window.__elarabyBookingOpen',
-        'report-processor': 'window.__elarabyReportProcessorOpen',
-      };
-      const openFn = OPENERS[msg.scriptId];
-      if (!openFn) { sendResponse({ ok: false, error: 'No opener registered' }); return; }
-      try { localStorage.setItem('tm_running_' + msg.scriptId, '1'); } catch(e) {}
-      const doOpen = async () => {
-        try {
-          if (!script.manifestInjected) {
-            script.manifestInjected = await injectScriptFile(script.source, script.injectAt);
-            console.log('[TM-Runner] OPEN_SCRIPT_PANEL: injected', msg.scriptId, script.manifestInjected);
-          }
-          // مهلة قصيرة لضمان تعريف دالة الفتح في MAIN world بعد الحقن
-          await new Promise(r => setTimeout(r, 150));
-          await injectScriptCode(
-            'try { (' + openFn + ' ? ' + openFn + '() : console.warn("[TM-Runner] opener missing for ' + msg.scriptId + '")); } catch(e) { console.error(e); }',
-            'document-end'
-          );
-          console.log('[TM-Runner] OPEN_SCRIPT_PANEL ok:', msg.scriptId);
-          broadcastState(msg.scriptId);
-          sendResponse({ ok: true });
-        } catch (e) {
-          console.error('[TM-Runner] OPEN_SCRIPT_PANEL failed:', msg.scriptId, e);
-          sendResponse({ ok: false, error: String(e) });
-        }
-      };
-      doOpen();
       return;
     }
 
@@ -275,80 +204,21 @@
         script = customScripts[parseInt(id.replace('custom-', ''))];
       }
       if (script) {
-        // إشارة التشغيل: تظهر فوراً في الفابز (dock) والبوبأب عبر localStorage
-        try { localStorage.setItem('tm_running_' + id, '1'); } catch(e) {}
-        broadcastState(id);
-        if (script.manifestInjected) {
-          // السكربت محقون تلقائياً — أزل flag الإيقاف الدائم وأعد التفعيل
-          try { localStorage.setItem('elaraby_phone_reveal_disabled', ''); } catch(e) {}
-          sendResponse({ ok: true, alreadyInjected: true });
-          return;
-        }
-        const doInject = async () => {
-          if (script.builtin && script.source) {
-            script.manifestInjected = await injectScriptFile(script.source, script.injectAt);
-          } else if (script.code) {
-            await injectScriptCode(script.code, script.injectAt || 'document-end');
-          } else {
-            sendResponse({ ok: false, error: 'No code available' });
-            return;
-          }
+        let code = script.code;
+        if (script.builtin && script.source) {
+          fetchScriptCode(script.source).then(code => {
+            if (code) injectScript(code, script.injectAt);
+          });
           sendResponse({ ok: true });
-        };
-        doInject();
+        } else if (code) {
+          injectScript(code, script.injectAt || 'document-end');
+          sendResponse({ ok: true });
+        } else {
+          sendResponse({ ok: false, error: 'No code available' });
+        }
       } else {
         sendResponse({ ok: false, error: 'Script not found' });
       }
-      return;
-    }
-
-    if (msg.action === 'STOP_SCRIPT_NOW') {
-      const id = msg.scriptId;
-      let script = scriptsRegistry[id];
-      if (!script && id.startsWith('custom-')) {
-        script = customScripts[parseInt(id.replace('custom-', ''))];
-      }
-      // إشارة الإيقاف الدائم — تظهر فوراً في الفابز والبوبأب
-      try { localStorage.setItem('tm_running_' + id, '0'); } catch(e) {}
-      broadcastState(id);
-      if (id === 'elaraby-phone-reveal') {
-        try { localStorage.setItem('elaraby_phone_reveal_disabled', '1'); } catch(e) {}
-      }
-      if (script) {
-        script.enabled = false;
-        saveRegistry();
-        // استدعاء بروتوكول الإيقاف الفعلي في الصفحة (MAIN world)
-        injectScriptCode(
-          `(function(){ try { localStorage.setItem('tm_running_${id}','0'); } catch(e) {} ` +
-          `var f = window['__TM_STOP_${id}']; if (typeof f === 'function') { try { f(); } catch(e) {} } ` +
-          `else if ('${id}' === 'elaraby-phone-reveal' && typeof window.__ERP_STOP === 'function') { try { window.__ERP_STOP(); } catch(e) {} } })();`,
-          'document-idle'
-        ).then(() => sendResponse({ ok: true }));
-      } else {
-        // سكربت غير مسجل: فقط اضبط الإشارة (يكفي لسكربتات layer0/manifest)
-        sendResponse({ ok: true });
-      }
-      return;
-    }
-
-    if (msg.action === 'GET_SCRIPT_STATE') {
-      // الحالة الحية لكل السكربتات (enabled + running من localStorage)
-      const state = {};
-      const getFlag = (id) => {
-        try { return localStorage.getItem('tm_running_' + id); } catch(e) { return null; }
-      };
-      for (const [id, s] of Object.entries(scriptsRegistry)) {
-        state[id] = {
-          enabled: s.enabled,
-          manifestInjected: s.manifestInjected,
-          running: getFlag(id) === '1'
-        };
-      }
-      customScripts.forEach((cs, i) => {
-        const id = 'custom-' + i;
-        state[id] = { enabled: cs.enabled, running: getFlag(id) === '1', custom: true };
-      });
-      sendResponse({ state });
       return;
     }
 

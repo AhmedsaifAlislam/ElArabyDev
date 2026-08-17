@@ -12,12 +12,6 @@
 (function () {
   'use strict';
 
-  // 🛑 بروتوكول Tampermonkey Lifecycle: إيقاف دائم يبقى حتى بعد تحديث الصفحة
-  try {
-    if (localStorage.getItem('tm_running_report-processor') === '0') return;
-    localStorage.setItem('tm_running_report-processor', '1');
-  } catch(e) {}
-
   const SLEEP = ms => new Promise(r => setTimeout(r, ms));
   const ORDERS_URL = 'https://elarabyportalpfs.powerappsportals.com/en-US/Orders/';
 
@@ -376,7 +370,7 @@
     if (!document.getElementById('rp-mini-menu')) document.documentElement.appendChild(miniMenu);
   }
   injectUI();
-  window.__RP_INTERVAL = setInterval(injectUI, 2000);
+  setInterval(injectUI, 2000);
 
   // ══════════════════════════════════════════════════════════════════
   //  Log & Status
@@ -681,17 +675,6 @@
     overlay.classList.remove('visible');
     settingsModal.classList.remove('visible');
   }
-
-  // فتح مباشر من اللوحة/مركز الأوامر (عبر الـ runner — OPEN_SCRIPT_PANEL)
-  window.__elarabyReportProcessorOpen = function () {
-    try {
-      if (typeof showSettings === 'function') { showSettings(); return; }
-      console.warn('[RP] showSettings not ready — retrying in 300ms');
-      setTimeout(() => {
-        try { if (typeof showSettings === 'function') showSettings(); } catch (e2) { console.error('[RP] retry open error:', e2); }
-      }, 300);
-    } catch (e) { console.error('[RP] open error:', e); }
-  };
 
   function extractDates() {
     const dates = new Set();
@@ -1096,13 +1079,5 @@
     miniMenu.classList.remove('visible');
     fab.classList.remove('hidden');
   });
-
-  // 🛑 hook الإيقاف الدائم (بروتوكول Tampermonkey Lifecycle)
-  window['__TM_STOP_report-processor'] = () => {
-    try { localStorage.setItem('tm_running_report-processor', '0'); } catch(e) {}
-    state.stopRequested = true;
-    if (window.__RP_INTERVAL) { clearInterval(window.__RP_INTERVAL); window.__RP_INTERVAL = null; }
-    ['rp-fab', 'rp-overlay', 'rp-settings', 'rp-mini-menu', 'rp-mini-stop'].forEach(id => { const el = document.getElementById(id); if (el) el.remove(); });
-  };
 
 })();

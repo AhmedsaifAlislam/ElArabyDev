@@ -1,0 +1,129 @@
+{
+  "_comment": "بروفايلات الزيارة التانية + المساحة",
+  "defaultComment": "زيارة ثانية قطع غيار",
+  "defaultAmount": "0",
+  "defaultWarranty": "753240001",
+  "defaultSpareParts": "963400002",
+  "defaultStatus": "Out warranty",
+  "profiles": [
+    {
+      "name": "تكييف",
+      "pattern": "تكييف|ac|air.?cond|split|شباك|inverter",
+      "problemCode": "*AC02",
+      "faultSearch": "*صيانة",
+      "faultSearchAlt": "*شحن",
+      "subFault": "first",
+      "hasDualUnits": true,
+      "page1Defaults": {
+        "brand": "تكييف - SHARP",
+        "model1": "AY-AP12UHEA _ (Sharp A/C Indoor Unit 12K(COOL/HEAT))",
+        "model2": "AE-A12UHEA _ (Sharp A/C Outdoor Unit 12K (COOL/HEAT))",
+        "serial": "0",
+        "serial2": "0"
+      }
+    },
+    {
+      "name": "غسالة TOSHIBA",
+      "pattern": "غسال(?!.*(اطباق|أطباق)).*toshiba|toshiba.*غسال",
+      "problemCode": "*WM05",
+      "faultSearch": "*صيانة",
+      "subFault": "first",
+      "page1Defaults": {
+        "brand": "غساله - TOSHIBA",
+        "model1": "AEW-8460SP _ (TOSHIBA TLWM 8KG - White)",
+        "serial": "0"
+      }
+    },
+    {
+      "name": "غسالة",
+      "pattern": "غسال(?!.*(اطباق|أطباق))",
+      "problemCode": "*WM05",
+      "faultSearch": "*صيانة",
+      "subFault": "first",
+      "page1Defaults": { "brand": "", "model1": "", "serial": "0" }
+    },
+    {
+      "name": "ثلاجة",
+      "pattern": "ثلاج|مبرد|fridge|refrigerator",
+      "problemCode": "*GR01",
+      "faultSearch": "*ضبط",
+      "subFault": "first",
+      "page1Defaults": { "brand": "", "model1": "", "serial": "0" }
+    },
+    {
+      "name": "بوتوجاز",
+      "pattern": "بوتوجاز|طباخ|cooker|فرن",
+      "problemCode": "*GS04",
+      "faultSearch": "*صيانه",
+      "subFault": "first",
+      "page1Defaults": { "brand": "", "model1": "", "serial": "0" }
+    },
+    {
+      "name": "غسالة أطباق",
+      "pattern": "اطباق|أطباق|dish",
+      "problemCode": "*DW06",
+      "faultSearch": "*صيانه",
+      "subFault": "first",
+      "page1Defaults": { "brand": "", "model1": "", "serial": "0" }
+    },
+    {
+      "name": "سخان",
+      "pattern": "سخان|heater|water.?heater",
+      "problemCode": "*HT01",
+      "faultSearch": "*صيانه",
+      "subFault": "first",
+      "page1Defaults": { "brand": "", "model1": "", "serial": "0" }
+    }
+  ],
+  "masahaProfiles": [
+    {
+      "name": "تكييف",
+      "problemCode": "*AC15",
+      "faultSearch": "*AC076",
+      "subFaultCode": "I37",
+      "hasDualUnits": true,
+      "page1Defaults": {
+        "brand": "تكييف - SHARP",
+        "model1": "AY-AP12UHEA _ (Sharp A/C Indoor Unit 12K(COOL/HEAT))",
+        "model2": "AE-A12UHEA _ (Sharp A/C Outdoor Unit 12K (COOL/HEAT))",
+        "serial": "0",
+        "serial2": "0"
+      }
+    },
+    {
+      "name": "غسالة",
+      "problemCode": "*AC15",
+      "faultSearch": "*AC076",
+      "subFaultCode": "I37",
+      "page1Defaults": { "brand": "", "model1": "", "serial": "0" }
+    },
+    {
+      "name": "ثلاجة",
+      "problemCode": "*AC15",
+      "faultSearch": "*AC076",
+      "subFaultCode": "I37",
+      "page1Defaults": { "brand": "", "model1": "", "serial": "0" }
+    },
+    {
+      "name": "بوتوجاز",
+      "problemCode": "*AC15",
+      "faultSearch": "*AC076",
+      "subFaultCode": "I37",
+      "page1Defaults": { "brand": "", "model1": "", "serial": "0" }
+    },
+    {
+      "name": "غسالة أطباق",
+      "problemCode": "*AC15",
+      "faultSearch": "*AC076",
+      "subFaultCode": "I37",
+      "page1Defaults": { "brand": "", "model1": "", "serial": "0" }
+    },
+    {
+      "name": "سخان",
+      "problemCode": "*AC15",
+      "faultSearch": "*AC076",
+      "subFaultCode": "I37",
+      "page1Defaults": { "brand": "", "model1": "", "serial": "0" }
+    }
+  ]
+}

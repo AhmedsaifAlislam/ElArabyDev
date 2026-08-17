@@ -20,12 +20,6 @@
 (function () {
   'use strict';
 
-  // 🛑 بروتوكول Tampermonkey Lifecycle: إيقاف دائم يبقى حتى بعد تحديث الصفحة
-  try {
-    if (localStorage.getItem('tm_running_messenger-sender') === '0') return;
-    localStorage.setItem('tm_running_messenger-sender', '1');
-  } catch(e) {}
-
   const isMessagingSite = /facebook\.com|messenger\.com|instagram\.com|whatsapp\.com/i.test(location.hostname);
 
   let SERVICES = [];
@@ -270,7 +264,7 @@
       if (!document.getElementById('msq-panel')) document.documentElement.appendChild(panel);
     }
     injectPanel();
-    window.__MS_INTERVAL = setInterval(injectPanel, 2000);
+    setInterval(injectPanel, 2000);
 
     let msgLines = [], isRunning = false, stopReq = false;
     const sleep = ms => new Promise(r => setTimeout(r, ms));
@@ -676,13 +670,6 @@
     });
     document.addEventListener('mouseup', () => { dragging = false; panel.classList.remove('dragging'); });
   }
-
-  // 🛑 hook الإيقاف الدائم (بروتوكول Tampermonkey Lifecycle)
-  window['__TM_STOP_messenger-sender'] = () => {
-    try { localStorage.setItem('tm_running_messenger-sender', '0'); } catch(e) {}
-    if (window.__MS_INTERVAL) { clearInterval(window.__MS_INTERVAL); window.__MS_INTERVAL = null; }
-    ['msq-panel', 'msq-fab'].forEach(id => { const el = document.getElementById(id); if (el) el.remove(); });
-  };
 
   loadData();
 })();

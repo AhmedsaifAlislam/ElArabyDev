@@ -5,8 +5,6 @@
     try {
         // Respect toggle from localStorage (set by tampermonkey-runner on toggle)
         if (localStorage.getItem('elaraby_phone_reveal_disabled') === '1') return;
-        // بروتوكول الإيقاف الدائم: tm_running_<id> = '0' يوقف الكشف حتى بعد تحديث الصفحة
-        if (localStorage.getItem('tm_running_elaraby-phone-reveal') === '0') return;
 
         let _crmAccount = null;
         Object.defineProperty(window, 'crmAccount', {
