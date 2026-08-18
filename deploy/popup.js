@@ -473,7 +473,7 @@ btnSearchSingle.addEventListener('click', async () => {
     finalLine = generateSecondVisitLine(orderId, productType, profiles);
   }
 
-  const task = { taskId: generateTaskId(), orderId, line: finalLine, data: { forceDrainCleaning, shahnEnabled, forceOverwrite } };
+  const task = { taskId: generateTaskId(), orderId, line: finalLine, data: { forceDrainCleaning, shahnEnabled, forceOverwrite, secondVisitMode: isSecondVisit, masahaMode: isMasaha } };
   buildTaskItems([task]);
 
   // Clear previous results
@@ -534,13 +534,13 @@ btnSearchBatch.addEventListener('click', async () => {
     tasks = lines.map(line => {
       const oid = extractOrderId(line) || line.trim();
       const finalLine = generateMasahaLine(oid, masahaProdType, profiles);
-      return { taskId: generateTaskId(), orderId: oid, line: finalLine, data: { forceDrainCleaning, shahnEnabled: shahnForTasks, forceOverwrite } };
+      return { taskId: generateTaskId(), orderId: oid, line: finalLine, data: { forceDrainCleaning, shahnEnabled: shahnForTasks, forceOverwrite, secondVisitMode: false, masahaMode: true } };
     }).filter(t => t.orderId);
   } else if (isSecondVisit) {
     tasks = lines.map(line => {
       const oid = extractOrderId(line) || line.trim();
       const finalLine = generateSecondVisitLine(oid, productType, profiles);
-      return { taskId: generateTaskId(), orderId: oid, line: finalLine, data: { forceDrainCleaning, shahnEnabled: shahnForTasks, forceOverwrite } };
+      return { taskId: generateTaskId(), orderId: oid, line: finalLine, data: { forceDrainCleaning, shahnEnabled: shahnForTasks, forceOverwrite, secondVisitMode: true, masahaMode: false } };
     }).filter(t => t.orderId);
   } else {
     // Normal mode

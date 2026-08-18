@@ -57,6 +57,14 @@
       <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m8 21-1 1m8-1-1 1M12 3a9 9 0 0 1 9 9c0 4-3 7-6.5 8.5a1.5 1.5 0 0 1-2-1.4V16"/><path d="M9 11a3 3 0 1 0 6 0 3 3 0 0 0-6 0"/></svg>
       سكريبتات
     </button>
+    <button class="tab-btn" data-tab="search-report" id="tab-search-report" role="tab">
+      <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="M12 18v-6"/><path d="m9 15 3 3 3-3"/></svg>
+      بحث بلاغات
+    </button>
+    <button class="tab-btn" data-tab="financial" id="tab-financial" role="tab">
+      <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="m19 9-5 5-4-4-3 3"/></svg>
+      آخرى
+    </button>
   </nav>
 
   <!-- ══════════════════════════════════════════════════════ -->
@@ -349,11 +357,133 @@
 
   </div>
 
+  <!-- ══════════════════════════════════════════════════════ -->
+  <!-- TAB 6: بحث بلاغات (Search Report — CRM)               -->
+  <!-- ══════════════════════════════════════════════════════ -->
+  <div class="tab-panel" id="panel-search-report" role="tabpanel">
+
+    <div class="format-hint">
+      <span class="hint-title">البحث عن بلاغ — بوابة CRM</span>
+      <span class="hint-note">افتح صفحة البحث في البورتال، ارفع ملف Excel بأرقام البلاغات، واستخرج تقارير الإصلاح</span>
+    </div>
+
+    <div class="sr-status-card" id="sr-status-card">
+      <div class="sr-status-icon" id="sr-status-icon">⏳</div>
+      <div class="sr-status-body">
+        <div class="sr-status-text" id="sr-status-text">جاهز</div>
+        <div class="sr-status-detail" id="sr-status-detail">افتح صفحة البورتال وارفع ملف Excel</div>
+      </div>
+    </div>
+
+    <div class="btn-row">
+      <button class="btn btn-primary" id="sr-open-page">
+        <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h6v6"/><path d="M10 14 21 3"/><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/></svg>
+        فتح صفحة البحث
+      </button>
+      <button class="btn btn-danger" id="sr-reset-btn" style="display:none">إعادة تعيين</button>
+    </div>
+
+    <div class="info-card">
+      <b>ملاحظات:</b>
+      <ul>
+        <li>لوحة البحث تظهر تلقائياً داخل صفحة SelectReport.aspx</li>
+        <li>يدعم دفعات (Batch) من 25 بلاغاً في المرة</li>
+        <li>النتائج تُصدَّر إلى ملف Excel مع تقارير الإصلاح</li>
+      </ul>
+    </div>
+
+  </div>
+
+  <!-- ══════════════════════════════════════════════════════ -->
+  <!-- TAB 7: آخرى (Financial Analytics)                     -->
+  <!-- ══════════════════════════════════════════════════════ -->
+  <div class="tab-panel" id="main-panel-financial" role="tabpanel">
+
+    <div class="format-hint">
+      <span class="hint-title">التحليلات المالية</span>
+      <span class="hint-note">افتح صفحة مالية في بوابة CRM (حركات الحساب، الفواتير، إلخ) ثم اضغط تحديث</span>
+    </div>
+
+    <div id="f-status-bar">
+      <div class="status-msg info" id="f-status">
+        <span>جاهز — افتح صفحة مالية في بوابة CRM</span>
+      </div>
+    </div>
+
+    <div class="btn-row">
+      <button class="btn btn-secondary btn-teal" id="f-btn-refresh">
+        <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-9-9c2.5 0 4.8 1 6.5 2.6L21 8"/><path d="M21 3v5h-5"/></svg>
+        تحديث البيانات
+      </button>
+      <button class="btn btn-primary" id="f-btn-analyze" disabled>
+        <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="m19 9-5 5-4-4-3 3"/></svg>
+        تحليل
+      </button>
+      <button class="btn btn-secondary btn-purple" id="f-btn-ai">
+        <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M18.4 5.6l-2.1 2.1M7.7 16.3l-2.1 2.1"/><circle cx="12" cy="12" r="4"/></svg>
+        تحليل AI
+      </button>
+    </div>
+
+    <div class="f-autofill-box">
+      <div class="f-autofill-title">تعبئة تلقائية (حقول صفحة CRM)</div>
+      <div class="f-autofill-row">
+        <input type="text" id="f-accno" placeholder="رقم الحساب" dir="ltr" />
+        <input type="password" id="f-pass" placeholder="كلمة السر (لن تُحفظ)" dir="ltr" />
+        <button class="btn btn-secondary" id="f-btn-autofill">تعبئة</button>
+      </div>
+    </div>
+
+    <div class="btn-row btn-row-narrow">
+      <button class="btn btn-secondary" id="f-btn-copy">نسخ التقرير</button>
+      <button class="btn btn-secondary" id="f-btn-csv">تصدير CSV</button>
+      <button class="btn btn-secondary" id="f-btn-json">تصدير JSON</button>
+    </div>
+
+    <div id="f-overview"></div>
+
+    <div class="f-section" id="f-summary">
+      <div class="empty-state">اضغط تحديث ثم تحليل لعرض النتائج</div>
+    </div>
+    <div class="f-section-title">التحويلات البنكية</div>
+    <div class="f-section" id="f-bank-transfers">
+      <div class="empty-state">لا توجد بيانات</div>
+    </div>
+    <div class="f-section-title">فواتير التالف</div>
+    <div class="f-section" id="f-damaged">
+      <div class="empty-state">لا توجد بيانات</div>
+    </div>
+    <div class="f-section-title">تحليل القطع</div>
+    <div class="f-section" id="f-parts">
+      <div class="empty-state">لا توجد بيانات</div>
+    </div>
+    <div class="f-section-title">التنبيهات</div>
+    <div class="f-section" id="f-alerts">
+      <div class="empty-state">لا توجد بيانات</div>
+    </div>
+    <div class="f-section-title">الاتجاه الشهري</div>
+    <div class="f-section" id="f-monthly">
+      <div class="empty-state">لا توجد بيانات</div>
+    </div>
+    <div class="f-section-title">تحليل AI المحلي</div>
+    <div class="f-section" id="f-ai-insights">
+      <div class="empty-state">اضغط "تحليل AI" لتوليد ملاحظات من Ollama المحلي</div>
+    </div>
+
+  </div>
+
   <footer class="popup-footer">
     <span>مساعد التقفيلات — جلسة آمنة محلية 100%</span>
   </footer>
 
   <script src="lib/xlsx.full.min.js"></script>
   <script src="popup.js"></script>
+  <script src="features/financial/page-registry.js"></script>
+  <script src="features/financial/page-data-extractor.js"></script>
+  <script src="features/financial/local-analyzer.js"></script>
+  <script src="features/financial/page-auto-filler.js"></script>
+  <script src="features/financial/ai-insights.js"></script>
+  <script src="financial-tab.js"></script>
+  <script src="content/search/search-panel.js"></script>
 </body>
 </html>

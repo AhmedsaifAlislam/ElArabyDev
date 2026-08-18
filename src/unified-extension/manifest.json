@@ -6,6 +6,7 @@
   "permissions": ["activeTab", "scripting", "storage", "notifications", "tabs", "clipboardRead"],
   "host_permissions": [
     "https://elarabyportalpfs.powerappsportals.com/*",
+    "https://elarabyiscrm2.azurewebsites.net/*",
     "http://localhost:11434/*"
   ],
   "action": {
@@ -86,6 +87,12 @@
         "https://*.messenger.com/*"
       ],
       "js": ["tampermonkey-runner.js"],
+      "run_at": "document_idle"
+    },
+    {
+      "matches": ["https://elarabyiscrm2.azurewebsites.net/ASPPage/SelectReport.aspx*"],
+      "js": ["content/search/search-content.js"],
+      "css": ["content/search/search-styles.css"],
       "run_at": "document_idle"
     }
   ],

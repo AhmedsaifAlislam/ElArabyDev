@@ -1595,6 +1595,12 @@ async function _runSingleLineWithRouterInner(task) {
   if (task.data && task.data.forceOverwrite) {
     data.forceOverwrite = true;
   }
+  if (task.data && task.data.secondVisitMode) {
+    data.secondVisitMode = true;
+  }
+  if (task.data && task.data.masahaMode) {
+    data.masahaMode = true;
+  }
 
   log('ðŸ“„ Router started. forceDrainCleaning=' + !!data.forceDrainCleaning + ' shahnEnabled=' + !!data.shahnEnabled + ' forceOverwrite=' + !!data.forceOverwrite + ' reportType=' + (data.reportType || 'N/A') + ' problemCode=' + (data.problemCode || 'N/A') + ' faultCode=' + (data.faultCode || 'N/A'));
   let resFR = {}, saveResult = { ok: false };
