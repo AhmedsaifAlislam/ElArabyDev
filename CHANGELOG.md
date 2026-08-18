@@ -80,6 +80,15 @@
 
 ---
 
+## [2026-08-16] — هوية الإضافة الجديدة: "العربي ديف — مساعد البوابة" + أيقونات جديدة
+
+- **manifest.json**: `name` → "العربي ديف — مساعد البوابة" + `default_title` محدّث + `description` شامل (ملء تلقائي، كشف الأرقام، التقفيلات، الفلترة، التحليلات)
+- **أيقونات جديدة** (16/48/128): خلفية متدرجة زرقاء بهوية El Araby (#005A9C→#0078D4) + إطار فاتح + حرف "ع" أبيض — أُنشئت برمجياً (System.Drawing)
+- التحقق: JSON سليم + deploy SHA256 MATCH (manifest + icons) ✅
+- Refresh الإضافة لتظهر الهوية الجديدة
+
+---
+
 ## [2026-08-16] — نظام النسخ الاحتياطي التلقائي (GitHub + Task Scheduler)
 
 - **GitHub Private repo**: `https://github.com/AhmedsaifAlislam/ElArabyDev.git` (branch `main`) — أول push ناجح

@@ -15,7 +15,7 @@
       "48": "icons/icon48.png",
       "128": "icons/icon128.png"
     },
-    "default_title": "Portal AutoFiller"
+    "default_title": "العربي ديف — مساعد البوابة"
   },
   "background": {
     "service_worker": "background.js"
