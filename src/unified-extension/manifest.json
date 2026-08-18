@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
-  "name": "Portal AutoFiller — مساعد التقفيلات",
+  "name": "العربي ديف — مساعد البوابة",
   "version": "1.0.0",
-  "description": "ملء تلقائي لحقول Work Order Review في بوابة El Araby Partner Portal مع دعم Batch وتقارير مخزنة",
+  "description": "أدوات El Araby الموحدة: ملء تلقائي، كشف الأرقام، التقفيلات، الفلترة، والتحليلات — بوابة واحدة",
   "permissions": ["activeTab", "scripting", "storage", "notifications", "tabs", "clipboardRead"],
   "host_permissions": [
     "https://elarabyportalpfs.powerappsportals.com/*",
