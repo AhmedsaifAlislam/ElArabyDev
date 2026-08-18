@@ -1,7 +1,7 @@
 # المعرفة المشتركة — Shared Knowledge
 # El Araby System — Common Patterns & Reference
 
-> **آخر تحديث:** 2026-08-16
+> **آخر تحديث:** 2026-08-18
 
 ---
 
@@ -38,6 +38,111 @@
 - **`isRealSerialValue(v)`** في `content-script.js`: القيمة تعتبر **حقيقية محمية** فقط إذا احتوت أكثر من 5 أحرف/أرقام إنجليزية (مثل `20C01#010171HA2C`).
 - القيم القصيرة/الوهمية (`"0"`, `"AB"`, `"123"`, `"12345"`) → ليست حقيقية → يسمح بالكتابة فوقها (كان هذا سبب مشكلة بلاغ Sharp: `serial2 = "0"`).
 - تُستخدم في: `fillAndVerifyProtected` (معامل `realValueFn`) لحقلي `Serial1`/`Serial2`، وداخل `clearModel2Serial2Fields` (سيريال 2 حقيقي لا يُمسح لغير AC إلا بـ `forceOverwrite`).
+
+---
+
+## صفحة Work Order Review — الصفحة الثالثة (PAGE_3) — بنية قطع الغيار
+
+> **اكتُشفت 2026-08-17** من HTML حي + فحص DOM. الصفحة: `https://elarabyportalpfs.powerappsportals.com/en-US/workorderreview/?id=...&stepid=...&sessionid=...`
+
+### قيم الحقول المنسدلة (options)
+
+**`ats_sparepartsstatus` — حالة قطع الغيار** (select، required):
+
+| القيمة | النص | المعنى |
+|--------|------|--------|
+| (فاضي) | Select | — |
+| `963400000` | مستعمل | القطع رُكّبت فعلاً |
+| `963400001` | منتظر | القطع مطلوبة ولم تُركّب بعد |
+| `963400002` | بدون قطع غيار | لا قطع |
+| `963400003` | سحب | سحب قطع من العهدة |
+| `963400004` | استبدال | استبدال قطعة |
+
+**`ats_warrantystatus` — داخل/خارج الضمان** (select، required):
+
+| القيمة | النص |
+|--------|------|
+| `963400000` | داخل (label: In) |
+| `963400001` | خارج (label: Out) |
+
+> ⚠️ القيم `963400xxx` هنا **مختلفة** عن `753240001` (Out warranty) المذكور في حالات البلاغ. لا تخلط بينهما.
+
+### الـ Subgrid لقطع الغيار — مباشرة في الصفحة (ليس modal)
+
+- **`#InventoryAdjustmentProduct_Subgrid`** — للـ non-LSC (الافتراضي).
+- **`#InventoryAdjustmentProductIsLscYes_Subgrid`** — عند `ldv_islsc` = نعم/1.
+- أزرار الإضافة عناوينها: `title='اضافة قطعة غيار للصيانة'` / `title='اضافة قطعة غيار للتركيبات'` (تُظهر/تُخفى حسب `ldv_workordertype`: 0=تركيبات، 1=صيانة).
+- **الصفوف تُحمَّل عبر AJAX** من `/_services/entity-subgrid-data.json/{guid}` — غير موجودة في HTML المصدر. انتظر تحميل الصفوف قبل قراءتها.
+- **الأعمدة** (عبر `data-attribute`): `msdyn_product` (اسم القطعة)، `ats_quantity`، `ats_availablequantity`، `ats_price`، `ats_totalprice`، `ats_inventorystatus`، `ats_warrantystatus`، `ats_plantid`.
+- **الأسعار** في خلايا `[data-attribute="ats_totalprice"]` — `data-value` عبارة عن **JSON** مثل `{"Value": 1500.0}` (لا تقرأها كنص رقمي مباشر).
+
+### حقول التكلفة والتعليق (كلها في نفس الصفحة)
+
+| الحقل | id / data-logical-name | النوع | ملاحظات |
+|-------|------------------------|-------|---------|
+| تكلفة قطع الغيار المستخدمة | `ldv_originaltotalusedsparepartscost` | money readonly | يُحسب تلقائياً بـ `calculateTotalSparePartsPrice()` **فقط** لو الحالة = `963400000` (مستعمل) |
+| المبلغ المحصل | `ldv_actualcollectedamount` | money | للمدفوعات/التحصيل |
+| التكلفة الإجمالية | `ldv_originaltotalvisitcost` | money readonly | visit + spare parts |
+| **آخر تعليق** | `ldv_resourcelastcomment` | text (maxlength 2000) | **required** — حقل التعليق في PAGE_3 |
+
+### دالة حساب التكلفة في البورتال
+
+```javascript
+// من HTML الصفحة — تفهم كيف يُحسب السعر تلقائياً
+function calculateTotalSparePartsPrice() {
+  if (ats_sparepartsstatus != null && ats_sparepartsstatus.value != 963400000) {
+    $('#ldv_originaltotalusedsparepartscost').val(0);
+    return;
+  }
+  // subgrid = InventoryAdjustmentProduct_Subgrid أو ...IsLscYes_Subgrid حسب ldv_islsc
+  var sparePartPrice = subgrid.querySelectorAll('[data-attribute="ats_totalprice"]');
+  var total = 0;
+  for (i = 0; i < sparePartPrice.length; i++) {
+    total += parseFloat(JSON.parse(sparePartPrice[i].dataset.value).Value);
+  }
+  $('#ldv_originaltotalusedsparepartscost').val(total);
+}
+```
+
+### الكيان Dataverse والعلاقة
+
+- الكيان: `msdyn_inventoryadjustmentproduct` — المفتاح: `msdyn_inventoryadjustmentproductid`.
+- العلاقة بالبلاغ: `ats_incident_msdyn_inventoryadjustmentproduct_Caseid` (المرجع `ats_caseid`).
+- الفلاتر في fetch XML: `ats_spareturn = 1` و `ats_islsc` حسب الحالة.
+
+### التنفيذ في content-script.js (ميزة التعليق التلقائي لقطع الغيار)
+
+دوال جديدة (2026-08-17): `handleSparePartsComment` + `waitForSparePartsGrid` + `extractSparePartRows` + `readSparePartsTotalFromField` + `readCollectedAmount` + `findCommentField` + `readIsLscFromPage`.
+
+المنطق: حسب `ats_sparepartsstatus` + `ats_warrantystatus` يُكتب تعليق في `ldv_resourcelastcomment`:
+
+| حالة القطع | حالة الضمان | التعليق |
+|------------|-------------|---------|
+| منتظر (963400001) | أي | `يحتاج [القطع] بالتكلفة [السعر]` |
+| مستعمل (963400000) | داخل | `تم تغير [القطع]` — بدون أسعار |
+| مستعمل (963400000) | خارج | `تم تغير [القطع] بالتكلفة وتم تحصيل [المبلغ] جنية` |
+| بدون/سحب/استبدال | — | لا تعليق |
+
+أسماء القطع تُفصل بـ "و". المبالغ بلا فاصلة آلاف (`formatMoney` → `useGrouping: false`).
+
+---
+
+## تسجيل الجلسة لحظة بلحظة (Session Capture Recorder)
+
+أُضيف 2026-08-17 في `content-script.js` (آخر الملف) لالتقاط حالة صفحات أمر الشغل
+مرتبطة بمعرّف الأمر، لتتبع البيانات قبل أي انتقال/تحديث بين الصفحات:
+
+- **المفتاح:** `autofiller_sessionCaptures` في storage (عبر `storageGet`/`storageSet` — Edge Tracking Prevention).
+- **البنية:** `byOrder[orderId] = { orderId, firstSeen, lastSeen, pages[], events[] }`.
+- **اللقطات (`capturePageState`):** عند التحميل (1500ms) + كل 5 ثوانٍ (لو الصفحة visible).
+  كل لقطة = `{ ts, iso, url, orderId, stepId, pageType, reason, selects[], inputs[], buttons[], title }`.
+  الحقول تُجمع من `document` + كل الـ iframes (`collectAllDocs`) — حد 60 لقطة/أمر.
+- **الأحداث (`hookCaptureClicks`):** capture-phase على الكليكات المهمة (أزرار/روابط تنقل/selects)
+  → `{ ts, iso, type:'click', tag, id, text, url }` — حد 200/أمر.
+- **`getOrderIdFromUrl`:** من `?id=` في query string. **`getStepIdFromUrl`:** من `?stepid=`.
+- يعمل فقط على `/workorderreview|followup|review/` في الـ URL.
+- **العرض:** تبويب "📸 الجلسة" في `popup.html`/`popup.js` (`loadSessionCaptures`/`renderSessionCaptures`) —
+  بحث بمعرّف الأمر، تصدير JSON (`btn-export-session`)، مسح (`btn-clear-session`).
 
 ---
 

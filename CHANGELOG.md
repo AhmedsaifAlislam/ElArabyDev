@@ -5,6 +5,31 @@
 > **الإصدار:** يتبع [Semantic Versioning](https://semver.org/)
 ---
 
+## [2026-08-18] — v1.1.0: تعليق قطع الغيار التلقائي + تبويب "الجلسة" + تراجع صافي للمرجع
+
+### ميزة التعليق التلقائي لقطع الغيار (PAGE_3 / workorderreview)
+- **سحب:** `waitForSparePartsGrid` + `extractSparePartRows` (قراءة صفوف الـ subgrid بعد تحميلها AJAX من `/_services/entity-subgrid-data.json`) + `readSparePartsTotalFromField` + `readCollectedAmount` + `readIsLscFromPage`.
+- **حقن:** `handleSparePartsComment` يكتب في `ldv_resourcelastcomment` حسب `ats_sparepartsstatus` + `ats_warrantystatus`:
+  - منتظر → `يحتاج [القطع] بالتكلفة [السعر]`
+  - مستعمل + داخل → `تم تغير [القطع]` (بلا أسعار)
+  - مستعمل + خارج → `تم تغير [القطع] بالتكلفة وتم تحصيل [المبلغ] جنية`
+  - بدون/سحب/استبدال → لا تعليق
+- أسماء القطع تُفصل بـ "و"، المبالغ بلا فاصلة آلاف (`formatMoney` → `useGrouping: false`).
+- **جديد في الملف:** `collectAllDocs` + `formatMoney` (لم تكن موجودة في ElArabyDev).
+
+### تبويب "📸 الجلسة" (Session Capture Viewer) في popup
+- Recorder في `content-script.js` (آخر الملف): لقطات دورية كل 5 ثوانٍ + كليكات مهمة، مرتبطة بمعرّف الأمر، عبر `autofiller_sessionCaptures` في storage.
+- عارض في `popup.html`/`popup.js`: إحصائيات (أوامر/لقطات/أحداث)، بحث بمعرّف الأمر، تصدير JSON، مسح.
+- يعمل فقط على `/workorderreview|followup|review/`.
+
+### تراجع صافي
+- نُفّذت الميزتان أصلاً في مجلد المرجع `مساعد التقفيلات` (خطأ — مجلد قراءة فقط) ثم **رُجعت منه بالكامل** (popup.html/popup.js/manifest 1.0.0/content-script.js: Tab Lock مستعاد، بلا أي بقايا — SYNTAX OK) وأُعيد تطبيقهما هنا في ElArabyDev فقط.
+
+### التحقق
+- `node --check` نظيف على content-script.js (2607 سطراً، BOM محفوظ) و popup.js ✅ | manifest.json صالح، version=1.1.0 ✅ | إدراج block_a قبل لوغ PAGE 3 DONE، block_b قبل "Specialized function for Page 3 fault code modal"، block_c في آخر الملف ✅
+
+---
+
 ## [2026-08-17] — حماية السيريال + إصلاح "البيانات بتتحذف عند الريفريش"
 
 ### المشكلة (بلاغ حي)

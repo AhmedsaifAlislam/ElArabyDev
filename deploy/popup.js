@@ -90,6 +90,7 @@ document.querySelectorAll('.tab-btn').forEach(btn => {
     if (btn.dataset.tab === 'logs') loadSmartLog();
     if (btn.dataset.tab === 'smart-log') { loadSmartLogDashboard(); }
     if (btn.dataset.tab === 'tampermonkey') loadTampermonkeyScripts();
+    if (btn.dataset.tab === 'session') loadSessionCaptures();
   });
 });
 
@@ -1632,6 +1633,123 @@ async function refreshConnStrip() {
 document.addEventListener('DOMContentLoaded', refreshConnStrip);
 chrome.tabs.onActivated && chrome.tabs.onActivated.addListener(refreshConnStrip);
 chrome.tabs.onUpdated   && chrome.tabs.onUpdated.addListener((_id, info) => { if (info.status === 'complete') refreshConnStrip(); });
+
+// ══════════════════════════════════════════════════════════
+// ══════════════════════════════════════════════════════════
+// SESSION CAPTURE TAB — الجلسة (لقطات الصفحات لحظة بلحظة)
+// ══════════════════════════════════════════════════════════
+
+const SESSION_CAPTURE_KEY = 'autofiller_sessionCaptures';
+
+function fmtTime(ts) {
+  if (!ts) return '';
+  try { return new Date(ts).toLocaleString('ar-EG', { hour: '2-digit', minute: '2-digit', second: '2-digit' }); }
+  catch (_) { return String(ts); }
+}
+
+async function loadSessionCaptures() {
+  const { [SESSION_CAPTURE_KEY]: all = {} } = await chrome.storage.local.get({ [SESSION_CAPTURE_KEY]: {} });
+  const q = (document.getElementById('search-session')?.value || '').trim().toLowerCase();
+  renderSessionCaptures(all || {}, q);
+}
+
+function renderSessionCaptures(byOrder, q = '') {
+  const list = document.getElementById('session-list');
+  const orders = Object.values(byOrder || {}).filter(o => o && o.orderId);
+  let totalPages = 0, totalEvents = 0;
+  orders.forEach(o => { totalPages += (o.pages || []).length; totalEvents += (o.events || []).length; });
+
+  document.getElementById('session-stat-orders').textContent = `أوامر: ${orders.length}`;
+  document.getElementById('session-stat-pages').textContent  = `لقطات صفحات: ${totalPages}`;
+  document.getElementById('session-stat-events').textContent = `أحداث: ${totalEvents}`;
+
+  if (!orders.length) {
+    list.innerHTML = '<div class="empty-state"><div class="icon">📸</div><div>لا توجد جلسات مسجلة بعد — افتح صفحة أمر شغل (workorderreview) لتسجيل لحظاتها</div></div>';
+    return;
+  }
+
+  const filtered = q ? orders.filter(o =>
+    (o.orderId || '').toLowerCase().includes(q) ||
+    (o.pages || []).some(p => (p.url || '').toLowerCase().includes(q) || (p.pageType || '').toLowerCase().includes(q))
+  ) : orders;
+
+  if (!filtered.length) {
+    list.innerHTML = '<div class="empty-state"><div class="icon">🔍</div><div>لا نتائج مطابقة</div></div>';
+    return;
+  }
+
+  const html = filtered.map(o => {
+    const pages = o.pages || [];
+    const events = o.events || [];
+    const first = fmtTime(o.firstSeen);
+    const last  = fmtTime(o.lastSeen);
+    const oid = escapeHtml(o.orderId);
+
+    const pagesHtml = pages.slice().reverse().map((p, i) => {
+      const selRows = (p.selects || []).map(s =>
+        `<li style="margin:0 0 1px 0;"><b>${escapeHtml(s.label || s.name || s.id || '؟')}</b>: <span style="color:${s.selectedValue ? '#ffb74d' : 'var(--muted)'}">${escapeHtml(s.selectedText || s.selectedValue || '(فارغ)')}</span>${s.selectedText ? ` <span style="color:var(--muted)">[${escapeHtml(s.selectedValue)}]</span>` : ''}</li>`
+      ).join('');
+      const inpRows = (p.inputs || []).map(x =>
+        `<li style="margin:0 0 1px 0;"><b>${escapeHtml(x.label || x.name || x.id || '؟')}</b>: <span style="color:${x.value ? '#a8c7fa' : 'var(--muted)'}">${escapeHtml(x.value || '(فارغ)')}</span></li>`
+      ).join('');
+      const btnList = (p.buttons || []).map(b => b.text).join('، ');
+      return `<details ${i === 0 ? 'open' : ''} style="margin-bottom:4px;">
+        <summary style="cursor:pointer;font-size:11px;color:#64b5f6;padding:2px 4px;background:#0f1a2e;border-radius:4px;">🕐 ${fmtTime(p.ts)} — <b>${escapeHtml(p.pageType || '')}</b> ${escapeHtml(p.reason || '')} <span style="color:var(--muted)">(${(p.selects || []).length} selects / ${(p.inputs || []).length} inputs / ${(p.buttons || []).length} buttons)</span></summary>
+        <div style="padding:4px 6px;font-size:10px;background:#0d1b2a;border-radius:4px;line-height:1.5;">
+          <div style="color:var(--muted);word-break:break-all;margin-bottom:4px;">${escapeHtml(p.url || '')}</div>
+          ${selRows ? `<div style="color:#ffcc80;margin-top:2px;">🔻 القوائم المنسدلة:</div><ul style="margin:2px 0 0 14px;padding:0;list-style:none;">${selRows}</ul>` : ''}
+          ${inpRows ? `<div style="color:#90caf9;margin-top:2px;">✏️ الحقول:</div><ul style="margin:2px 0 0 14px;padding:0;list-style:none;">${inpRows}</ul>` : ''}
+          ${btnList ? `<div style="color:#a5d6a7;margin-top:2px;">🔘 الأزرار: <span style="color:var(--muted)">${escapeHtml(btnList.slice(0, 300))}</span></div>` : ''}
+        </div>
+      </details>`;
+    }).join('');
+
+    const eventsHtml = events.slice().reverse().map(e => {
+      const icon = e.type === 'click' ? '👆' : '⚙️';
+      return `<div style="padding:2px 4px;font-size:10px;border-bottom:1px solid #13253d;">${icon} <b style="color:#ffb74d;">${escapeHtml(e.tag || '')}</b> ${escapeHtml(e.text || '')} <span style="color:var(--muted)">— ${fmtTime(e.ts)}</span></div>`;
+    }).join('') || '<div style="color:var(--muted);padding:2px;">لا أحداث كليك مسجلة</div>';
+
+    return `<div style="background:var(--surface-2);border:1px solid var(--border);border-radius:6px;margin-bottom:8px;padding:6px 8px;">
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:6px;flex-wrap:wrap;">
+        <span style="font-weight:700;font-size:12px;color:#ffb74d;">🆔 ${oid}</span>
+        <span style="font-size:10px;color:var(--muted);">أول: ${first} • آخر: ${last}</span>
+      </div>
+      <div style="font-size:10px;color:#a8c7fa;margin:2px 0 4px;">📄 ${pages.length} لقطة • 👆 ${events.length} كليك</div>
+      <details open style="margin-bottom:2px;">
+        <summary style="cursor:pointer;font-size:10px;font-weight:700;color:#64b5f6;padding:2px 4px;background:#0f1a2e;border-radius:4px;">🖼️ لقطات الصفحات</summary>
+        <div style="padding:4px 2px;">${pagesHtml}</div>
+      </details>
+      <details>
+        <summary style="cursor:pointer;font-size:10px;font-weight:700;color:#ffb74d;padding:2px 4px;background:#2e2a1a;border-radius:4px;">👆 أحداث الكليك</summary>
+        <div style="padding:4px 2px;">${eventsHtml}</div>
+      </details>
+    </div>`;
+  }).join('');
+
+  list.innerHTML = html;
+}
+
+function exportSessionCaptures() {
+  chrome.storage.local.get({ [SESSION_CAPTURE_KEY]: {} }).then(({ [SESSION_CAPTURE_KEY]: all }) => {
+    const blob = new Blob([JSON.stringify(all || {}, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'session-captures-' + new Date().toISOString().slice(0, 10) + '.json';
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(url), 2000);
+  });
+}
+
+function clearSessionCaptures() {
+  if (!confirm('مسح كل لقطات الجلسة المسجلة؟')) return;
+  chrome.storage.local.remove(SESSION_CAPTURE_KEY).then(loadSessionCaptures);
+}
+
+document.getElementById('btn-refresh-session')?.addEventListener('click', loadSessionCaptures);
+document.getElementById('btn-export-session')?.addEventListener('click', exportSessionCaptures);
+document.getElementById('btn-clear-session')?.addEventListener('click', clearSessionCaptures);
+document.getElementById('search-session')?.addEventListener('input', loadSessionCaptures);
 
 // ══════════════════════════════════════════════════════════
 // END OF FILE

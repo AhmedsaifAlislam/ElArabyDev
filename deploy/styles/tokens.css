@@ -1,0 +1,261 @@
+/* ============================================================
+   tokens.css — El Araby Unified Design System v2.0
+   Single Source of Truth — يعتمد من popup.css وكل واجهات مستقبلية
+   Color space: OKLCH (perceptual) مع تعليقات Hex مكافئة
+   Themes: Dark (افتراضي) + Light عبر [data-theme]
+   Aliases: كل الأسماء القديمة محفوظة لصفر كسر للكود الحالي
+   ============================================================ */
+
+/* ════════════════════════════════════════════════════════════
+   DARK — الافتراضي (هوية العربي/البورتال)
+   ════════════════════════════════════════════════════════════ */
+:root,
+[data-theme="dark"] {
+  /* ── Color: Brand (Accent) ── */
+  --ea-brand:            oklch(0.64 0.17 240);        /* #1f8feb */
+  --ea-brand-dark:       oklch(0.54 0.18 240);        /* #1472cc */
+  --ea-brand-glow:       oklch(0.64 0.17 240 / 0.25);
+  --ea-brand-bg:         oklch(0.64 0.17 240 / 0.08);
+  --ea-indigo:           oklch(0.54 0.26 293);        /* #7c3aed */
+  --ea-indigo-glow:      oklch(0.54 0.26 293 / 0.25);
+
+  /* Header / gradients (theme-aware) */
+  --ea-header-grad-a:    oklch(0.20 0.05 250);        /* #0f1e35 */
+  --ea-header-grad-b:    oklch(0.19 0.05 250);        /* #0d2040 */
+  --ea-icon-grad-a:      oklch(0.64 0.17 240);        /* #1f8feb */
+  --ea-icon-grad-b:      oklch(0.54 0.26 293);        /* #7c3aed */
+  --ea-progress-end:     oklch(0.75 0.19 165);        /* #34d399 */
+  --ea-indigo-text:      oklch(0.76 0.12 276);        /* #a5b4fc */
+  --ea-indigo-bg:        oklch(0.55 0.22 280 / 0.15);
+  --ea-indigo-border:    oklch(0.55 0.22 280 / 0.4);
+  --ea-tab-active-grad:  linear-gradient(180deg, oklch(0.64 0.17 240 / 0.18), transparent);
+
+  /* ── Color: Surfaces ── */
+  --ea-bg:               oklch(0.15 0.03 250);        /* #0b1220 */
+  --ea-surface:          oklch(0.19 0.03 250);        /* #101c2e */
+  --ea-surface-2:        oklch(0.22 0.04 250);        /* #152236 */
+  --ea-surface-3:        oklch(0.26 0.05 250);        /* #1a2a44 */
+  --ea-border:           oklch(0.29 0.05 250);        /* #1e3450 */
+  --ea-border-strong:    oklch(0.37 0.07 250);        /* #2a4a70 */
+
+  /* ── Color: Semantic / Status ── */
+  --ea-success:          oklch(0.68 0.19 152);        /* #22c55e */
+  --ea-success-bg:       oklch(0.68 0.19 152 / 0.12);
+  --ea-error:            oklch(0.63 0.24 25);         /* #ef4444 */
+  --ea-error-bg:         oklch(0.63 0.24 25 / 0.12);
+  --ea-warn:             oklch(0.77 0.16 70);         /* #f59e0b */
+  --ea-warn-bg:          oklch(0.77 0.16 70 / 0.12);
+  --ea-info:             oklch(0.68 0.15 235);        /* #0ea5e9 */
+  --ea-info-bg:          oklch(0.64 0.17 240 / 0.08);
+
+  /* ── Color: Text ── */
+  --ea-text:             oklch(0.91 0.02 250);        /* #e2eaf5 */
+  --ea-text-strong:      oklch(1 0 0);                /* #ffffff */
+  --ea-muted:            oklch(0.63 0.06 250);        /* #6b84a3 */
+  --ea-muted-2:          oklch(0.49 0.06 250);        /* #4a6080 */
+
+  /* ── Color: Status borders & fills (light-safe) ── */
+  --ea-success-border:   oklch(0.68 0.19 152 / 0.25);
+  --ea-success-strong:   oklch(0.68 0.19 152 / 0.35);
+  --ea-error-border:     oklch(0.63 0.24 25 / 0.25);
+  --ea-error-strong:     oklch(0.63 0.24 25 / 0.3);
+  --ea-warn-border:      oklch(0.77 0.16 70 / 0.25);
+  --ea-warn-strong:      oklch(0.77 0.16 70 / 0.35);
+  --ea-info-border:      oklch(0.64 0.17 240 / 0.25);
+  --ea-info-strong:      oklch(0.64 0.17 240 / 0.4);
+  --ea-on-brand:         oklch(1 0 0);                /* #ffffff */
+  --ea-code-bg:          oklch(0 0 0 / 0.15);
+  --ea-code-text:        oklch(0.78 0.11 240);        /* #a0c4ff */
+  --ea-link-text:        oklch(0.78 0.11 240);        /* #a0c4ff */
+
+  /* ── Typography ── */
+  --ea-font-family: 'Cairo', 'Segoe UI', Tahoma, Arial, sans-serif;
+  --ea-fs-xs:   10.5px;
+  --ea-fs-sm:   11px;
+  --ea-fs-md:   13px;
+  --ea-fs-lg:   15px;
+  --ea-fs-xl:   16px;
+  --ea-fw-400:  400;
+  --ea-fw-600:  600;
+  --ea-fw-700:  700;
+  --ea-fw-800:  800;
+
+  /* ── Spacing scale (4px grid) ── */
+  --ea-space-1:   4px;
+  --ea-space-2:   8px;
+  --ea-space-3:   12px;
+  --ea-space-4:   16px;
+  --ea-space-5:   20px;
+  --ea-space-6:   24px;
+
+  /* ── Radius ── */
+  --ea-radius:       10px;
+  --ea-radius-sm:    6px;
+  --ea-radius-md:    8px;
+  --ea-radius-full:  20px;
+
+  /* ── Elevation / Focus / Motion ── */
+  --ea-shadow-1:        0 2px 8px oklch(0 0 0 / 0.35);
+  --ea-shadow-2:        0 4px 16px oklch(0 0 0 / 0.45);
+  --ea-focus-ring:      0 0 0 3px var(--ea-brand-glow);
+  --ea-transition:      all 0.18s cubic-bezier(0.2, 0.8, 0.2, 1);
+
+  /* ── Neutral / Input / Component surfaces (dark) ── */
+  --ea-neutral:            oklch(0.7 0.03 250);       /* #94a3b8 */
+  --ea-neutral-2:          oklch(0.8 0.02 250);       /* #cbd5e1 */
+  --ea-faint:              oklch(1 0 0 / 0.05);
+  --ea-faint-2:            oklch(1 0 0 / 0.1);
+  --ea-input-disabled:     oklch(1 0 0 / 0.07);
+  --ea-input-disabled-text:oklch(0.53 0.06 250);      /* #5b7394 */
+  --ea-icon-fill:          oklch(0.63 0.06 250);      /* #6b84a3 */
+  --ea-track:              oklch(1 0 0 / 0.12);
+  --ea-stripe:             oklch(1 0 0 / 0.15);
+  --ea-modal:              oklch(0.15 0.03 250 / 0.7);
+  --ea-row-selected:       oklch(0.64 0.17 240 / 0.2);
+
+  /* ── Scrollbar (dark) ── */
+  --ea-scroll-track:       oklch(0.15 0.03 250);      /* #0b1220 */
+  --ea-scroll-thumb:       oklch(0.37 0.07 250);      /* #2a4a70 */
+  --ea-scroll-thumb-hover: oklch(0.45 0.08 250);      /* #3b5f8f */
+
+  /* ── Badge variants (dark) ── */
+  --ea-badge-default-bg:   oklch(1 0 0 / 0.12);
+  --ea-badge-default-text: oklch(0.8 0.02 250);       /* #cbd5e1 */
+  --ea-badge-primary-bg:   oklch(0.64 0.17 240 / 0.2);
+  --ea-badge-primary-text: oklch(0.8 0.12 240);       /* #7dc0ff */
+  --ea-badge-success-bg:   oklch(0.68 0.19 152 / 0.2);
+  --ea-badge-success-text: oklch(0.82 0.17 152);      /* #6ee7a0 */
+  --ea-badge-warn-bg:      oklch(0.77 0.16 70 / 0.2);
+  --ea-badge-warn-text:    oklch(0.87 0.12 80);       /* #fcd08a */
+  --ea-badge-danger-bg:    oklch(0.63 0.24 25 / 0.22);
+  --ea-badge-danger-text:  oklch(0.8 0.14 25);        /* #fca5a5 */
+  --ea-badge-info-bg:      oklch(0.68 0.15 235 / 0.22);
+  --ea-badge-info-text:    oklch(0.82 0.12 235);      /* #7dd3fc */
+
+  /* ── Component aliases (deprecated names kept for grace) ── */
+  --bg: var(--ea-bg);
+  --surface: var(--ea-surface);
+  --surface-2: var(--ea-surface-2);
+  --surface-3: var(--ea-surface-3);
+  --border: var(--ea-border);
+  --border-soft: oklch(0.7 0.03 250 / 0.14);
+  --accent: var(--ea-brand);
+  --accent-hover: var(--ea-brand-dark);
+  --accent-soft: var(--ea-brand-bg);
+  --accent-glow: var(--ea-brand-glow);
+  --blue: oklch(0.68 0.15 235);                       /* #0ea5e9 */
+  --purple: var(--ea-indigo);
+  --teal: oklch(0.75 0.19 165);                       /* #34d399 */
+  --success: var(--ea-success);
+  --success-bg: var(--ea-success-bg);
+  --error: var(--ea-error);
+  --error-bg: var(--ea-error-bg);
+  --warn: var(--ea-warn);
+  --warn-bg: var(--ea-warn-bg);
+  --info-bg: var(--ea-info-bg);
+  --text: var(--ea-text);
+  --text-strong: var(--ea-text-strong);
+  --muted: var(--ea-muted);
+  --muted2: var(--ea-muted-2);
+  --success-border: var(--ea-success-border);
+  --success-strong: var(--ea-success-strong);
+  --error-border: var(--ea-error-border);
+  --error-strong: var(--ea-error-strong);
+  --warn-border: var(--ea-warn-border);
+  --warn-strong: var(--ea-warn-strong);
+  --info-border: var(--ea-info-border);
+  --info-strong: var(--ea-info-strong);
+  --on-brand: var(--ea-on-brand);
+  --code-bg: var(--ea-code-bg);
+  --code-text: var(--ea-code-text);
+  --link-text: var(--ea-link-text);
+  --header-grad-a: var(--ea-header-grad-a);
+  --header-grad-b: var(--ea-header-grad-b);
+  --icon-grad-a: var(--ea-icon-grad-a);
+  --icon-grad-b: var(--ea-icon-grad-b);
+  --progress-end: var(--ea-progress-end);
+  --indigo-text: var(--ea-indigo-text);
+  --indigo-bg: var(--ea-indigo-bg);
+  --indigo-border: var(--ea-indigo-border);
+  --tab-active-grad: var(--ea-tab-active-grad);
+  --radius: var(--ea-radius);
+  --radius-sm: var(--ea-radius-sm);
+  --shadow: var(--ea-shadow-1);
+  --danger: var(--ea-error);
+  --danger-bg: var(--ea-error-bg);
+}
+
+/* ════════════════════════════════════════════════════════════
+   LIGHT — [data-theme="light"] على <html>
+   ════════════════════════════════════════════════════════════ */
+[data-theme="light"] {
+  --ea-bg:             oklch(0.97 0.005 250);         /* #f4f7fb */
+  --ea-surface:        oklch(1 0 0);                  /* #ffffff */
+  --ea-surface-2:      oklch(0.95 0.008 250);         /* #eef3f9 */
+  --ea-surface-3:      oklch(0.9 0.02 250);           /* #e2eaf5 */
+  --ea-border:         oklch(0.89 0.015 250);         /* #d5e0ee */
+  --ea-border-strong:  oklch(0.8 0.03 250);           /* #b6c8dd */
+  --ea-text:           oklch(0.3 0.05 250);           /* #1a2a44 */
+  --ea-text-strong:    oklch(0.15 0.03 250);          /* #0b1220 */
+  --ea-muted:          oklch(0.52 0.05 250);          /* #5b7394 */
+  --ea-muted-2:        oklch(0.65 0.04 250);          /* #8299b8 */
+  --ea-header-grad-a:  oklch(0.94 0.01 250);          /* #eaf1fa */
+  --ea-header-grad-b:  oklch(0.9 0.02 250);           /* #dfebf8 */
+  --ea-indigo-text:    oklch(0.48 0.2 280);           /* #4b4fc9 */
+
+  /* Light-safe status borders & fills */
+  --ea-success-border: oklch(0.68 0.19 152 / 0.4);
+  --ea-success-strong: oklch(0.68 0.19 152 / 0.6);
+  --ea-error-border:   oklch(0.63 0.24 25 / 0.4);
+  --ea-error-strong:   oklch(0.63 0.24 25 / 0.6);
+  --ea-warn-border:    oklch(0.77 0.16 70 / 0.4);
+  --ea-warn-strong:    oklch(0.77 0.16 70 / 0.6);
+  --ea-info:           oklch(0.55 0.15 240);          /* #0284c7 */
+  --ea-info-border:    oklch(0.64 0.17 240 / 0.35);
+  --ea-info-strong:    oklch(0.64 0.17 240 / 0.5);
+  --ea-on-brand:       oklch(1 0 0);                  /* #ffffff */
+  --ea-code-bg:        oklch(0.15 0.03 250 / 0.06);
+  --ea-code-text:      oklch(0.42 0.15 240);          /* #1a56a0 */
+  --ea-link-text:      oklch(0.54 0.18 240);          /* #1472cc */
+
+  /* ── Neutral / Input / Component surfaces (light) ── */
+  --ea-neutral:            oklch(0.6 0.03 250);       /* #64748b */
+  --ea-neutral-2:          oklch(0.44 0.03 250);      /* #475569 */
+  --ea-faint:              oklch(0.98 0.003 250);     /* #f8fafc */
+  --ea-faint-2:            oklch(0.95 0.005 250);     /* #f1f5f9 */
+  --ea-input-disabled:     oklch(0.95 0.005 250);     /* #f1f5f9 */
+  --ea-input-disabled-text:oklch(0.7 0.03 250);       /* #94a3b8 */
+  --ea-icon-fill:          oklch(0.7 0.03 250);       /* #94a3b8 */
+  --ea-track:              oklch(0.9 0.02 250);       /* #e2e8f0 */
+  --ea-stripe:             oklch(1 0 0 / 0.7);
+  --ea-modal:              oklch(0.3 0.04 250 / 0.55);
+  --ea-row-selected:       oklch(0.94 0.04 240);      /* #eff6ff */
+
+  /* ── Scrollbar (light) ── */
+  --ea-scroll-track:       oklch(0.95 0.005 250);     /* #f1f5f9 */
+  --ea-scroll-thumb:       oklch(0.85 0.02 250);      /* #cbd5e1 */
+  --ea-scroll-thumb-hover: oklch(0.7 0.03 250);       /* #94a3b8 */
+
+  /* ── Badge variants (light) ── */
+  --ea-badge-default-bg:   oklch(0.9 0.02 250);       /* #e2e8f0 */
+  --ea-badge-default-text: oklch(0.44 0.03 250);      /* #475569 */
+  --ea-badge-primary-bg:   oklch(0.92 0.04 240);      /* #dbeafe */
+  --ea-badge-primary-text: oklch(0.38 0.14 250);      /* #1e40af */
+  --ea-badge-success-bg:   oklch(0.94 0.08 152);      /* #dcfce7 */
+  --ea-badge-success-text: oklch(0.42 0.12 152);      /* #166534 */
+  --ea-badge-warn-bg:      oklch(0.94 0.06 80);       /* #fef3c7 */
+  --ea-badge-warn-text:    oklch(0.55 0.1 60);        /* #92400e */
+  --ea-badge-danger-bg:    oklch(0.95 0.03 25);       /* #fee2e2 */
+  --ea-badge-danger-text:  oklch(0.44 0.15 25);       /* #991b1b */
+  --ea-badge-info-bg:      oklch(0.94 0.04 235);      /* #e0f2fe */
+  --ea-badge-info-text:    oklch(0.5 0.13 235);       /* #0369a1 */
+}
+
+/* Smooth theme transitions */
+body, .header, .conn-strip, .tabs, .tab-panel,
+.btn, .btn-secondary, .btn-primary, .btn-purple, .btn-teal, .btn-danger,
+.status-msg, .progress-wrap, .task-item, .card, .sl-stat,
+.f-section, .f-overview, .f-autofill-box, .sr-status-card {
+  transition: background-color 0.2s ease, color 0.2s ease,
+              border-color 0.2s ease, box-shadow 0.2s ease;
+}

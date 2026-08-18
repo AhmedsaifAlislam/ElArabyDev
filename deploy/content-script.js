@@ -1293,10 +1293,195 @@ async function executePage3_Resolution(data, cfg) {
     FR.fault = await addFaultCodePage3(data.faultCode, data.subFaultCode);
   }
 
+  // Spare Parts Comment Logic
+  FR.sparePartsComment = await handleSparePartsComment(data, cfg);
+
   log('â”â”â” PAGE 3 DONE â”â”â”', FR);
   return { report: { fieldResults: FR } };
 }
 
+// Handle spare parts comment logic on PAGE_3 based on spare parts status + warranty status
+async function handleSparePartsComment(data, cfg) {
+  const SPA_STATUS = { Used: 963400000, Waiting: 963400001, Without: 963400002, Withdrawal: 963400003, Replace: 963400004 };
+  const WAR_STATUS = { In: 963400000, Out: 963400001 };
+
+  // 1) Read spare parts status + warranty status from the page
+  const allDocs = collectAllDocs(document);
+  let spareEl = null, warrantyEl = null;
+  for (const doc of allDocs) {
+    if (!doc) continue;
+    if (!spareEl) spareEl = doc.getElementById('ats_sparepartsstatus') || doc.querySelector('select[data-logical-name="ats_sparepartsstatus"], select[name*="sparepartsstatus"]');
+    if (!warrantyEl) warrantyEl = doc.getElementById('ats_warrantystatus') || doc.querySelector('select[data-logical-name="ats_warrantystatus"], select[name*="warrantystatus"]');
+    if (spareEl && warrantyEl) break;
+  }
+  if (!spareEl) { warn('Spare parts status select not found on PAGE 3 — skipping spare parts comment'); return { ok: false, reason: 'no-status-select' }; }
+
+  const spareValue = spareEl.value || '';
+  const spareText = (Array.from(spareEl.options || []).find(o => o.value === spareValue) || {}).text || '';
+  const warrantyValue = warrantyEl ? (warrantyEl.value || '') : '';
+  const warrantyText = warrantyEl ? ((Array.from(warrantyEl.options || []).find(o => o.value === warrantyValue) || {}).text || '') : '';
+  log(`🔧 SparePartsStatus=${spareValue}(${spareText}) | Warranty=${warrantyValue}(${warrantyText})`);
+
+  // 2) Wait for the spare parts subgrid to load rows (AJAX), then extract part names + total
+  const isLsc = await readIsLscFromPage();
+  const subgridId = isLsc ? 'InventoryAdjustmentProductIsLscYes_Subgrid' : 'InventoryAdjustmentProduct_Subgrid';
+  const parts = await waitForSparePartsGrid(subgridId, null, 15000);
+  const partsTotal = readSparePartsTotalFromField() || parts.reduce((s, p) => s + (p.price || 0), 0);
+
+  // 3) Build comment text per business rules
+  let comment = '';
+  const isOutOfWarranty = String(warrantyValue) === String(WAR_STATUS.Out) || /خارج/.test(warrantyText);
+
+  if (String(spareValue) === String(SPA_STATUS.Waiting)) {
+    // منتظر: قطع مطلوبة → "يحتاج [القطع] بالتكلفة [السعر]"
+    if (parts.length === 0) { warn('Waiting spare parts but subgrid empty — skipping comment'); return { ok: false, reason: 'empty-grid-waiting' }; }
+    comment = `يحتاج ${parts.map(p => p.name).join(' و ')} بالتكلفة ${formatMoney(partsTotal)}`;
+  } else if (String(spareValue) === String(SPA_STATUS.Used)) {
+    if (parts.length === 0) { warn('Used spare parts but subgrid empty — skipping comment'); return { ok: false, reason: 'empty-grid-used' }; }
+    if (isOutOfWarranty) {
+      // مستعمل + خارج الضمان → "تم تغير [القطع] بالتكلفة وتم تحصيل [المبلغ] جنية"
+      const collected = await readCollectedAmount() || partsTotal;
+      comment = `تم تغير ${parts.map(p => p.name).join(' و ')} بالتكلفة وتم تحصيل ${formatMoney(collected)} جنية`;
+    } else {
+      // مستعمل + داخل الضمان → "تم تغير [القطع]" بدون أسعار
+      comment = `تم تغير ${parts.map(p => p.name).join(' و ')}`;
+    }
+  } else {
+    // بدون / سحب / استبدال / غير محدد → no comment needed
+    log(`Spare parts status "${spareText}" (${spareValue}) requires no comment`);
+    return { ok: false, reason: 'no-comment-needed' };
+  }
+
+  // 4) Write comment into the required comment field
+  const commentEl = findCommentField();
+  if (!commentEl) { warn('Comment field (ldv_resourcelastcomment) not found'); return { ok: false, reason: 'no-comment-field', comment }; }
+  await emulateUserInput(commentEl, comment);
+  log('✅ Spare parts comment written: ' + comment);
+  return { ok: true, comment, parts, partsTotal, spareStatus: spareText, warrantyStatus: warrantyText };
+}
+
+// Wait for the spare parts subgrid to load its rows (AJAX), returning extracted part rows
+async function waitForSparePartsGrid(subgridId, extractor, timeoutMs) {
+  const deadline = Date.now() + (timeoutMs || 15000);
+  let lastResult = [];
+  while (Date.now() < deadline) {
+    for (const doc of collectAllDocs(document)) {
+      if (!doc) continue;
+      const grid = doc.getElementById(subgridId) || doc.querySelector(`[id$="${subgridId}"], [id="InventoryAdjustmentProduct_Subgrid"], [id="InventoryAdjustmentProductIsLscYes_Subgrid"]`);
+      if (!grid) continue;
+      const rows = extractSparePartRows(grid);
+      if (rows.length) {
+        lastResult = rows;
+        if (!extractor) return rows;
+        const extracted = extractor(rows);
+        if (extracted) return rows;
+      }
+      lastResult = rows;
+    }
+    await sleep(700);
+  }
+  warn(`Spare parts subgrid ${subgridId} didn't load rows within timeout`);
+  return lastResult;
+}
+
+// Extract part rows from a loaded subgrid DOM
+function extractSparePartRows(grid) {
+  const rows = [];
+  const table = grid.querySelector('table') || grid;
+  const trs = Array.from(table.querySelectorAll('tbody tr, tr[data-id], tr[data-rowid]'));
+  for (const tr of trs) {
+    const cells = Array.from(tr.querySelectorAll('td[data-attribute], td'));
+    const nameCell = cells.find(c => /product/i.test(c.getAttribute('data-attribute') || '') && !/total/i.test(c.getAttribute('data-attribute') || ''));
+    const qtyCell = cells.find(c => /quantity/i.test(c.getAttribute('data-attribute') || ''));
+    const priceCell = cells.find(c => /totalprice/i.test(c.getAttribute('data-attribute') || '') || /price/i.test(c.getAttribute('data-attribute') || ''));
+    const name = nameCell ? (nameCell.getAttribute('data-value') || nameCell.textContent || '').trim() : (tr.textContent || '').trim();
+    if (!name && !priceCell) continue;
+    let price = 0;
+    if (priceCell) {
+      const raw = priceCell.getAttribute('data-value') || priceCell.textContent || '';
+      try { const parsed = JSON.parse(raw); price = parseFloat(parsed.Value) || 0; } catch (_) { price = parseFloat(String(raw).replace(/[^\d.-]/g, '')) || 0; }
+    }
+    rows.push({ name, qty: qtyCell ? (qtyCell.getAttribute('data-value') || qtyCell.textContent || '').trim() : '', price });
+  }
+  return rows;
+}
+
+// Read the total spare parts cost from the readonly calculated field
+function readSparePartsTotalFromField() {
+  for (const doc of collectAllDocs(document)) {
+    if (!doc) continue;
+    const el = doc.getElementById('ldv_originaltotalusedsparepartscost') || doc.querySelector('input[data-logical-name="ldv_originaltotalusedsparepartscost"], input[name*="originaltotalusedsparepartscost"]');
+    if (el) {
+      const v = parseFloat(String(el.value || '').replace(/[^\d.-]/g, '')) || 0;
+      return v;
+    }
+  }
+  return 0;
+}
+
+// Read the collected amount (المبلغ المحصل) if present
+async function readCollectedAmount() {
+  for (const doc of collectAllDocs(document)) {
+    if (!doc) continue;
+    const el = doc.getElementById('ldv_actualcollectedamount') || doc.querySelector('input[data-logical-name="ldv_actualcollectedamount"], input[name*="actualcollectedamount"]');
+    if (el) return parseFloat(String(el.value || '').replace(/[^\d.-]/g, '')) || 0;
+  }
+  return 0;
+}
+
+// Find the comment / notes field on PAGE_3
+function findCommentField() {
+  const selectors = [
+    '#ldv_resourcelastcomment',
+    'input[data-logical-name="ldv_resourcelastcomment"]',
+    'input[name*="resourcelastcomment"]',
+    'input[id*="resourcelastcomment"]',
+    'textarea[aria-label*="comment" i]',
+    'textarea[name*="comment" i]',
+    'textarea[id*="comment" i]',
+    ...getHardcodedDefaults().notes
+  ];
+  for (const doc of collectAllDocs(document)) {
+    if (!doc) continue;
+    for (const sel of selectors) {
+      const el = doc.querySelector(sel);
+      if (el) return el;
+    }
+  }
+  return null;
+}
+
+// Format a number as money for the Arabic comment (e.g. 1500, not 1,500)
+function formatMoney(v) {
+  const n = parseFloat(v) || 0;
+  return n.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0, useGrouping: false });
+}
+
+// Read isLsc flag from the page to pick the correct subgrid
+async function readIsLscFromPage() {
+  for (const doc of collectAllDocs(document)) {
+    if (!doc) continue;
+    const el = doc.getElementById('ldv_islsc') || doc.querySelector('select[data-logical-name="ldv_islsc"], select[name*="islsc"], input[name*="islsc"]');
+    if (el) return String(el.value || '') !== '0' && String(el.value || '') !== '963400000';
+  }
+  return false;
+}
+
+// Collect all documents: root + every nested iframe document
+function collectAllDocs(root) {
+  const docs = [];
+  const seen = new Set();
+  const visit = (node) => {
+    if (!node || seen.has(node)) return;
+    seen.add(node);
+    docs.push(node);
+    node.querySelectorAll('iframe').forEach(f => {
+      try { const d = f.contentDocument || f.contentWindow?.document; if (d) visit(d); } catch(e) {}
+    });
+  };
+  visit(root);
+  return docs;
+}
 // Specialized function for Page 3 fault code modal (two-step lookup)
 async function addFaultCodePage3(faultCode, subFaultCode = null, excludeTexts = []) {
   document.body.dataset.isAutofilling = 'true';
@@ -2253,3 +2438,169 @@ async function performExtractionAndLog(attempt = 1) {
 
   setTimeout(() => overlay.remove(), 15000);
 }
+// ═══════════════════════════════════════════════════════════
+// SESSION CAPTURE RECORDER — تسجيل الجلسة لحظة بلحظة
+// لقطات دورية لصفحات workorderreview + الأزرار + الحقول + الكليكات
+// مرتبطة بمعرّف أمر الشغل لتتبع البيانات قبل أي انتقال للصفحة.
+// ═══════════════════════════════════════════════════════════
+const SESSION_CAPTURE_KEY = 'autofiller_sessionCaptures';
+const MAX_SESSION_CAPTURES = 500;
+
+function getOrderIdFromUrl() {
+  return (window.location.search.match(/[?&]id=([^&]+)/) || [])[1] || 'unknown';
+}
+function getStepIdFromUrl() {
+  return (window.location.search.match(/[?&]stepid=([^&]+)/) || [])[1] || 'none';
+}
+
+// جمع كل الحقول المنسدلة مع القيمة المختارة + الخيارات
+function captureSelects(root = document) {
+  const out = [];
+  const selects = Array.from(root.querySelectorAll('select')).filter(s => s.offsetParent !== null || s.id);
+  for (const sel of selects) {
+    const labelEl = root.querySelector(`label[for="${sel.id}"]`);
+    const label = labelEl ? (labelEl.textContent || '').trim() : (sel.getAttribute('aria-label') || sel.getAttribute('data-logical-name') || sel.name || sel.id);
+    out.push({
+      id: sel.id,
+      name: sel.name || '',
+      label,
+      selectedValue: sel.value || '',
+      selectedText: (Array.from(sel.options).find(o => o.value === sel.value) || {}).text || '',
+      options: Array.from(sel.options).map(o => ({ value: o.value, text: (o.text || '').trim() }))
+    });
+  }
+  return out;
+}
+
+// جمع كل الحقول النصية المرئية
+function captureInputs(root = document) {
+  const out = [];
+  const els = Array.from(root.querySelectorAll('input:not([type=hidden]):not([type=submit]):not([type=button]):not([type=file]), textarea')).filter(el => el.offsetParent !== null);
+  for (const el of els) {
+    const labelEl = root.querySelector(`label[for="${el.id}"]`);
+    const label = labelEl ? (labelEl.textContent || '').trim() : (el.getAttribute('aria-label') || el.getAttribute('data-logical-name') || el.name || el.id);
+    out.push({
+      id: el.id,
+      name: el.name || '',
+      label,
+      tag: el.tagName.toLowerCase(),
+      value: (el.value || '').slice(0, 500)
+    });
+  }
+  return out;
+}
+
+// جمع الأزرار والروابط القابلة للنقر مع عنوانها
+function captureButtons(root = document) {
+  const out = [];
+  const btns = Array.from(root.querySelectorAll('button, input[type=button], input[type=submit], a.btn, a[role=button]')).filter(el => el.offsetParent !== null);
+  for (const b of btns) {
+    const txt = (b.textContent || b.value || b.getAttribute('aria-label') || b.getAttribute('title') || '').trim().replace(/\s+/g, ' ');
+    if (!txt) continue;
+    out.push({
+      tag: b.tagName.toLowerCase(),
+      id: b.id || '',
+      text: txt.slice(0, 120),
+      title: (b.getAttribute('title') || '').slice(0, 120)
+    });
+  }
+  return out;
+}
+
+// تسجيل لحظة حالية من الصفحة
+async function capturePageState(pageType, reason) {
+  try {
+    const orderId = getOrderIdFromUrl();
+    const stepId = getStepIdFromUrl();
+    const url = location.href;
+    if (!/workorderreview|followup|review/i.test(url) && !pageType) return;
+
+    // جمع من document + كل الـ iframes
+    const selects = [];
+    const inputs = [];
+    const buttons = [];
+    const seen = new Set();
+    for (const doc of collectAllDocs(document)) {
+      if (!doc || seen.has(doc)) continue;
+      seen.add(doc);
+      selects.push(...captureSelects(doc));
+      inputs.push(...captureInputs(doc));
+      buttons.push(...captureButtons(doc));
+    }
+
+    const feature = pageType || (await getActivePageFeature().catch(() => ''));
+    const capture = {
+      ts: Date.now(),
+      iso: new Date().toISOString(),
+      url,
+      orderId,
+      stepId,
+      pageType: feature,
+      reason: reason || 'page-load',
+      selects,
+      inputs,
+      buttons,
+      title: document.title || ''
+    };
+
+    // حفظ مجمّعة: captureByOrderId[orderId].pages[]
+    const { [SESSION_CAPTURE_KEY]: all } = await storageGet({ [SESSION_CAPTURE_KEY]: {} });
+    const byOrder = all || {};
+    if (!byOrder[orderId]) byOrder[orderId] = { orderId, firstSeen: Date.now(), pages: [] };
+    byOrder[orderId].lastSeen = Date.now();
+    byOrder[orderId].pages.push(capture);
+    // حد أقصى للصفحات المخزنة لكل أمر
+    if (byOrder[orderId].pages.length > 60) byOrder[orderId].pages = byOrder[orderId].pages.slice(-60);
+    await storageSet({ [SESSION_CAPTURE_KEY]: byOrder });
+
+    log(`📸 SessionCapture [${feature}] order=${orderId.slice(0,8)} selects=${selects.length} inputs=${inputs.length} buttons=${buttons.length} reason=${reason}`);
+    return capture;
+  } catch (e) {
+    warn('SessionCapture error: ' + e.message);
+  }
+}
+
+// تسجيل كليك المستخدم على عناصر مهمة
+function hookCaptureClicks() {
+  try {
+    document.addEventListener('click', (e) => {
+      try {
+        const t = e.target;
+        const el = t.closest ? (t.closest('button, input[type=button], input[type=submit], a.btn, select, [role=button], a[href*="workorderreview"], a[href*="followup"]') || t) : t;
+        if (!el) return;
+        const txt = (el.textContent || el.value || el.getAttribute('aria-label') || el.getAttribute('title') || '').trim().replace(/\s+/g, ' ').slice(0, 150);
+        const tag = el.tagName.toLowerCase();
+        const id = el.id || '';
+        // سجل فقط الكليكات المهمة (أزرار/روابط تنقل/selects) لتقليل الضوضاء
+        const isImportant = ['button', 'a', 'input[type=button]', 'input[type=submit]'].includes(tag) || tag === 'select' ||
+          /اضافة|حفظ|save|submit|التالي|next|كود عطل|قطعة غيار|تعديل|إلغاء|cancel/i.test(txt);
+        if (!isImportant) return;
+        setTimeout(async () => {
+          try {
+            const orderId = getOrderIdFromUrl();
+            const { [SESSION_CAPTURE_KEY]: all } = await storageGet({ [SESSION_CAPTURE_KEY]: {} });
+            const byOrder = all || {};
+            if (!byOrder[orderId]) byOrder[orderId] = { orderId, firstSeen: Date.now(), pages: [] };
+            if (!byOrder[orderId].events) byOrder[orderId].events = [];
+            byOrder[orderId].events.push({ ts: Date.now(), iso: new Date().toISOString(), type: 'click', tag, id, text: txt, url: location.href });
+            if (byOrder[orderId].events.length > 200) byOrder[orderId].events = byOrder[orderId].events.slice(-200);
+            await storageSet({ [SESSION_CAPTURE_KEY]: byOrder });
+          } catch (_) {}
+        }, 0);
+      } catch (_) {}
+    }, true);
+  } catch (_) {}
+}
+
+// الربط بين captureByOrderId الحالي في كل صفحة والصفحات التالية
+// يُستدعى عند تحميل كل صفحة بعد ثانية من الجاهزية
+async function initSessionCapture() {
+  if (!/workorderreview|followup|review/i.test(location.href)) return;
+  hookCaptureClicks();
+  setTimeout(() => capturePageState('', 'page-load'), 1500);
+  // استمر بالتقاط لقطات دورية (5ث) للصفحات التي لا تعيد التحميل (SPA)
+  setInterval(() => {
+    if (document.visibilityState === 'visible') capturePageState('', 'interval');
+  }, 5000);
+}
+initSessionCapture();
