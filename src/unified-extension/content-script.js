@@ -2546,8 +2546,10 @@ async function capturePageState(pageType, reason) {
     // حفظ مجمّعة: captureByOrderId[orderId].pages[]
     const { [SESSION_CAPTURE_KEY]: all } = await storageGet({ [SESSION_CAPTURE_KEY]: {} });
     const byOrder = all || {};
-    if (!byOrder[orderId]) byOrder[orderId] = { orderId, firstSeen: Date.now(), pages: [] };
+    if (!byOrder[orderId]) byOrder[orderId] = { orderId, firstSeen: Date.now(), pages: [], events: [] };
     byOrder[orderId].lastSeen = Date.now();
+    capture.seq = (byOrder[orderId].pages.length || 0) + (byOrder[orderId].events.length || 0) + 1;
+    capture.delta = capture.ts - byOrder[orderId].firstSeen;
     byOrder[orderId].pages.push(capture);
     // حد أقصى للصفحات المخزنة لكل أمر
     if (byOrder[orderId].pages.length > 60) byOrder[orderId].pages = byOrder[orderId].pages.slice(-60);
@@ -2581,8 +2583,11 @@ function hookCaptureClicks() {
             const { [SESSION_CAPTURE_KEY]: all } = await storageGet({ [SESSION_CAPTURE_KEY]: {} });
             const byOrder = all || {};
             if (!byOrder[orderId]) byOrder[orderId] = { orderId, firstSeen: Date.now(), pages: [] };
-            if (!byOrder[orderId].events) byOrder[orderId].events = [];
-            byOrder[orderId].events.push({ ts: Date.now(), iso: new Date().toISOString(), type: 'click', tag, id, text: txt, url: location.href });
+if (!byOrder[orderId].events) byOrder[orderId].events = [];
+            const ev = { ts: Date.now(), iso: new Date().toISOString(), type: 'click', tag, id, text: txt, url: location.href };
+            ev.seq = (byOrder[orderId].pages.length || 0) + (byOrder[orderId].events.length || 0) + 1;
+            ev.delta = ev.ts - byOrder[orderId].firstSeen;
+            byOrder[orderId].events.push(ev);
             if (byOrder[orderId].events.length > 200) byOrder[orderId].events = byOrder[orderId].events.slice(-200);
             await storageSet({ [SESSION_CAPTURE_KEY]: byOrder });
           } catch (_) {}
