@@ -14,7 +14,7 @@
 |----------|--------|
 | **إجمالي المهام المكتشفة** | 52+ مهمة |
 | **مكتمل (✅)** | 36 مهمة |
-| **قيد التنفيذ / جزئي (🔄)** | 4 مهام (3.8 E2E، Performance، Second Visit دمج، Excel Test) |
+| **قيد التنفيذ / جزئي (🔄)** | 3 مهام (3.8 E2E، Performance، Excel Test) |
 | **لم يبدأ (❌)** | 12+ مهمة (معظمها Phase 4 + تحسينات) |
 | **مشاريع فرعية** | 4 مشاريع (المساعد الذكي، البحث عن بلاغ، حجز/DateFilter، تحليلات مالية) |
 | **أحدث إنجاز (14-08)** | **إصلاح الجدول الفارغ في التقفيلات (v1.5 — إزالة تطبيق الفلتر التلقائي) — ✅ تحقق حي من المستخدم** + second-visit.js + SMART_ASSISTANT_ARCHITECTURE.md + Security re-verify |
@@ -35,7 +35,7 @@ ElArabyDev/
 │   │   ├── spare-parts/dashboard/    # قطع الغيار/البحث: dashboard.html + dashboard.js
 │   │   ├── financial/                # التحليلات المالية: scraper, analyzer, financial-boot
 │   │   └── crm/                      # CRM: crm-content
-│   ├── content/second-visit.js       # جديد (14-08): "زيارة تانية" مستقل + مسجل في manifest
+│   ├── (second-visit.js أُلغي 19-08 — مدمج في content-script.js عبر data.secondVisitMode) |
 │   ├── shared/                       # مكتبات موحدة (ai-client, frame-walker, table-scraper, excel-exporter, portal-config, ...)
 │   ├── Tempermonky/                  # سكريبتات مدمجة (DateFilter, Phone Reveal, Messenger, Report, Booking)
 │   ├── scripts/booking/              # أدوات مساعدة
@@ -43,7 +43,7 @@ ElArabyDev/
 │   ├── background.js  popup.*  *.tab.js  content-script.js  tampermonkey-runner.js
 │   ├── order-extractor.js  control-panel.js  unified-dock.js  dock-fab-hider.js
 │   ├── elaraby-phone-reveal-layer0.js
-│   └── manifest.json                 # 16 content_scripts (مع second-visit.js)
+│   └── manifest.json                 # content_scripts (بدون second-visit.js — مدمج 19-08)
 ├── deploy/                           # ★ مجلد النشر (يُبنى من src عبر tools/deploy.ps1)
 ├── tools/                            # deploy.ps1, sync-shared.ps1, excel_autofix/
 ├── backups/                          # نسخ احتياطية تلقائية بتاريخ
@@ -82,7 +82,7 @@ ElArabyDev/
 | 17 | Force Page 2 transition | `task.md` | ✅ |
 | 18 | Support subFault matching for Page 3 | `task.md` | ✅ |
 
-> **ملاحظة:** المهمة السابعة (اختبار شامل + دمج) **تم إنشاء second-visit.js (14-08)** — يحتاج تحقق حي فقط.
+> **ملاحظة (19-08):** المهمة السابعة (اختبار شامل + دمج) **مكتملة نهائياً** — قرار Zain: **لا ملف `second-visit.js` منفصل**. "زيارة تانية" مدمجة بالكامل في `content-script.js` الحالي عبر flag `data.secondVisitMode` + `popup.js` (`generateSecondVisitLine`) — تم شطب ملف content script المستقل من التخطيط.
 
 ---
 
@@ -107,7 +107,7 @@ ElArabyDev/
 | المهمة | الوكيل | التفاصيل | الحالة |
 |--------|--------|-----------|---------|
 | **3.8.3 Security Re-verify** | Agent-SEC | فحص secrets/CSP/eval/storage بعد Reorg — صفر secrets، كل شيء موثق | ✅ تقرير جاهز |
-| **second-visit.js** (المهمة 7) | Agent-TAMPER | Content script مستقل كامل (queue → Page1 fake → Page2 force → Page3 subFault) + مسجل في manifest (16 content_scripts) | ✅ منشور + node --check OK |
+| **second-visit.js** (المهمة 7) | Agent-TAMPER | ~~Content script مستقل~~ **قرار 19-08: أُلغي — دمج في `content-script.js` عبر `data.secondVisitMode`** (Page1 عادي بالكود المعتمد lookups/verification، Page2 force، Page3 subFault) — المسار الحي: `popup.js generateSecondVisitLine()` → `START_QUEUE` → router | ✅ مدمج + منشور |
 | **Phone-Reveal UI/UX** | Agent-UI | خطة شاملة: design tokens (الألوان/مسافات/خطوط/ظلال) + component specs (Tabs/FAB/Modal/Buttons) + RTL logical properties + accessible states | ✅ منفذ (15-08): tokens CSS + .erp-btn classes + focus-visible/aria + reduced-motion — منشور (SHA256 MATCH) |
 | **SMART_ASSISTANT_ARCHITECTURE.md** | Agent-ARCH | وثيقة تصميم كاملة: IndexedDB schema + Cascade Filters flow + Message Protocol + هيكل ملفات + قرارات | ✅ `docs/SMART_ASSISTANT_ARCHITECTURE.md` |
 | **E2E Checklist** | Agent-QA | سيناريوهات 7 مفصلة + Pre-conditions + نتائج متوقعة + جداول تسجيل | ✅ جاهز (يتطلب تحديث شامل للنسخة القديمة) |
@@ -120,7 +120,7 @@ ElArabyDev/
 |---|---------|----------------|-------|----------|
 | 1 | **3.8.1 E2E Live Test** | الاختبار الحي على البورتال (7 سيناريوهات) — يتطلب المستخدم | `E2E_CHECKLIST.md` | 🔴 حرجة |
 | 2 | **3.8.2 Performance Report** | قياسات أداء (popup load، AI response، memory) — لم تُنفَّذ | — | 🟡 متوسطة |
-| 3 | **Second Visit Integration Test** | second-visit.js أنشئ (14-08) لكن الربط الحي مع content-script غير مختبر | `content/second-visit.js` | 🟡 عالية |
+| 3 | ~~Second Visit Integration Test~~ ✅ | ~~second-visit.js منفصل~~ — **قرار 19-08: أُلغي. "زيارة تانية" تعمل داخل `content-script.js` عبر `secondVisitMode`** (popup → START_QUEUE → router) — يحتاج تحقق حي ببلاغ فقط | `content-script.js` (مدمج) | ~~🟡 عالية~~ ✅ |
 | 4 | **Excel Export Live Test** | exportXLSX يعمل نظرياً، لم يُختبر بملف حقيقي | `order-extractor.js` | 🟡 متوسطة |
 
 ---
@@ -191,12 +191,12 @@ ElArabyDev/
 | Fetch/XHR Interception | استخراج بيانات من الطلبات | `PROJECT_STATUS.md` |
 | GM_getValue/GM_setValue | تخزين Tampermonkey | `PROJECT_STATUS.md` |
 
-### و) خطة "زيارة تانية" - المهمة المتبقية
-| المهمة | التفاصيل | المصدر |
-|----------|-----------|--------|
-| اختبار شامل + دمج نهائي | المهمة 7 في `task.md` | `task.md` |
-| ملف `second-visit.js` منفصل | لم يُنشأ بعد | `implementation_plan.md` |
-| تسجيل في Manifest | `second-visit.js` ك content script | `implementation_plan.md` |
+### و) خطة "زيارة تانية" - ✅ مكتملة (19-08)
+| المهمة | التفاصيل | المصدر | الحالة |
+|----------|-----------|--------|-------|
+| اختبار شامل + دمج نهائي | المهمة 7 في `task.md` | `task.md` | ✅ دمج (19-08) |
+| ~~ملف `second-visit.js` منفصل~~ | ~~لم يُنشأ~~ — **أُلغي: مدمج في `content-script.js`** | `implementation_plan.md` | ✅ شطب |
+| ~~تسجيل في Manifest~~ | ~~`second-visit.js` ك content script~~ — **غير مطلوب (لا ملف منفصل)** | `implementation_plan.md` | ✅ شطب |
 
 ---
 

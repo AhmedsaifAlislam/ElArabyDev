@@ -42,41 +42,61 @@
     <span id="conn-text">فحص التبويب النشط...</span>
   </div>
 
-  <!-- ── Tab Navigation ── -->
-  <nav class="tabs" role="tablist">
-    <button class="tab-btn active" data-tab="search" id="tab-search" role="tab">
-      <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
-      بحث وتعبئة
+  <!-- ── Top-Level Tab Navigation (Big Buttons) ── -->
+  <nav class="main-tabs" id="main-tabs" role="tablist">
+    <button class="tab-btn main-tab-btn active" data-tab="search" id="tab-search" role="tab">
+      <span class="main-tab-icon">
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+      </span>
+      <span class="main-tab-label">بحث وتعبئة</span>
     </button>
-    <button class="tab-btn" data-tab="extract" id="tab-extract" role="tab">
-      <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m7 10 5 5 5-5"/><path d="M12 15V3"/></svg>
-      الاستخراج
+    <button class="tab-btn main-tab-btn" data-tab="extract" id="tab-extract" role="tab">
+      <span class="main-tab-icon">
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m7 10 5 5 5-5"/><path d="M12 15V3"/></svg>
+      </span>
+      <span class="main-tab-label">الاستخراج</span>
     </button>
-    <button class="tab-btn" data-tab="logs" id="tab-logs" role="tab">
-      <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="M16 13H8M16 17H8M10 9H8"/></svg>
-      التقارير
+    <button class="tab-btn main-tab-btn" data-tab="search-report" id="tab-search-report" role="tab">
+      <span class="main-tab-icon">
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="M12 18v-6"/><path d="m9 15 3 3 3-3"/></svg>
+      </span>
+      <span class="main-tab-label">بحث بلاغات</span>
     </button>
-    <button class="tab-btn" data-tab="smart-log" id="tab-smart-log" role="tab">
-      <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="m19 9-5 5-4-4-3 3"/></svg>
-      اللوج الذكي
+    <button class="tab-btn main-tab-btn" data-tab="financial" id="tab-financial" role="tab">
+      <span class="main-tab-icon">
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="m19 9-5 5-4-4-3 3"/></svg>
+      </span>
+      <span class="main-tab-label">آخرى</span>
     </button>
-    <button class="tab-btn" data-tab="tampermonkey" id="tab-tampermonkey" role="tab">
-      <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m8 21-1 1m8-1-1 1M12 3a9 9 0 0 1 9 9c0 4-3 7-6.5 8.5a1.5 1.5 0 0 1-2-1.4V16"/><path d="M9 11a3 3 0 1 0 6 0 3 3 0 0 0-6 0"/></svg>
-      سكريبتات
+  </nav>
+
+  <!-- ── Quick Tools Row (أزرار سريعة تحت القائمة الرئيسية) ── -->
+  <div class="quick-tools" id="quick-tools" role="tablist">
+    <button class="tab-btn quick-tool-btn" data-tab="logs" id="tab-logs" role="tab" title="التقارير">
+      <span class="qt-icon">
+        <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="M16 13H8M16 17H8M10 9H8"/></svg>
+      </span>
+      <span class="qt-label">التقارير</span>
     </button>
-    <button class="tab-btn" data-tab="search-report" id="tab-search-report" role="tab">
-      <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="M12 18v-6"/><path d="m9 15 3 3 3-3"/></svg>
-      بحث بلاغات
+    <button class="tab-btn quick-tool-btn" data-tab="smart-log" id="tab-smart-log" role="tab" title="اللوج الذكي">
+      <span class="qt-icon">
+        <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="m19 9-5 5-4-4-3 3"/></svg>
+      </span>
+      <span class="qt-label">اللوج الذكي</span>
     </button>
-    <button class="tab-btn" data-tab="financial" id="tab-financial" role="tab">
-      <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="m19 9-5 5-4-4-3 3"/></svg>
-      آخرى
+    <button class="tab-btn quick-tool-btn" data-tab="tampermonkey" id="tab-tampermonkey" role="tab" title="سكريبتات">
+      <span class="qt-icon">
+        <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m8 21-1 1m8-1-1 1M12 3a9 9 0 0 1 9 9c0 4-3 7-6.5 8.5a1.5 1.5 0 0 1-2-1.4V16"/><path d="M9 11a3 3 0 1 0 6 0 3 3 0 0 0-6 0"/></svg>
+      </span>
+      <span class="qt-label">سكريبتات</span>
     </button>
-      <button class="tab-btn" data-tab="session" id="tab-session" role="tab">
-      <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
-      الجلسة
+    <button class="tab-btn quick-tool-btn" data-tab="session" id="tab-session" role="tab" title="الجلسة">
+      <span class="qt-icon">
+        <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+      </span>
+      <span class="qt-label">الجلسة</span>
     </button>
-</nav>
+  </div>
 
   <!-- ══════════════════════════════════════════════════════ -->
   <!-- TAB 1: بحث وتعبئة (Search + Fill)                    -->
@@ -408,7 +428,7 @@
   <!-- ══════════════════════════════════════════════════════ -->
   <!-- TAB 7: آخرى (Financial Analytics)                     -->
   <!-- ══════════════════════════════════════════════════════ -->
-  <div class="tab-panel" id="main-panel-financial" role="tabpanel">
+  <div class="tab-panel" id="panel-financial" role="tabpanel">
 
     <div class="format-hint">
       <span class="hint-title">التحليلات المالية</span>
