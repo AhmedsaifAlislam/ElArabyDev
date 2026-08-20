@@ -32,6 +32,42 @@
 | **المراجعة الفنية** | `/en-US/technicalreviewdetails/?id=...` | تفاصيل المراجعة الفنية | مساعد التقفيلات |
 | **العهد المتاحة** | `/en-US/ProductInventoryList/` | جرد العهدة والمخزون | — |
 
+### نماذج الإضافة (Modal Form Template Path) — اكتشاف 2026-08-19
+
+أزرار الإضافة في الـ subgrids (مشاكل فعلية / فنيين / أكواد أعطال) تفتح نموذج Create عبر `window.open`:
+
+```
+/_portal/modal-form-template-path/{modalFormId}?entityformid={entityFormId}&languagecode=1033&refentity=incident&refid={orderId}&refrel={relationship}
+```
+
+| الاستخدام | modalFormId | entityformid | refrel (العلاقة) |
+|-----------|-------------|--------------|------------------|
+| إضافة **مشاكل فعلية** | `6d6b3012-e709-4c45-a00d-df4b3befc518` | `4b0af62b-cc4f-ea11-a812-000d3ab95cbc` | `ldv_incident_ldv_case_problem_workorder` |
+| إضافة **فني** | `6d6b3012-e709-4c45-a00d-df4b3befc518` | `29c3971e-b745-ea11-a812-000d3ab95431` | `ats_incident_ats_caseresource_Case` |
+
+- حقول النموذج باسم كامل يبدأ بـ `ctl00$ContentContainer$MainContent$EntityFormControl$EntityFormControl_EntityFormView$` ثم `ldv_producttype_name` (نوع المنتج) ونظائره.
+- زر الحفظ: `#InsertButton` (نص "حفظ").
+- lookup الحقول: قوالب `div.lookup-modal` مخفية في DOM (7 قوالب — lookup-field واحد لكل حقل)، حقل بحث `input.query`، صفوف `tr[data-entity="contact"]` للفنيين، أزرار `button.primary[aria-label="Select"]` / `button[aria-label="Cancel"]` / إزالة القيمة / بحث `fa-search`.
+- بنية lookup المشاكل: حقل بحث `input` في `.modal-body` (placeholder="Search"، يدعم wildcard `*`)، نتائج `table tr` (نص `CODE - (الوصف)`)، ترقيم `li` أو `a[data-page="N"]` (حتى 120 صفحة).
+- **قيد:** النقر الآلي على صف lookup الفني لا يُفعّل الاختيار (زر Select يبقى disabled) — يلزم تعامل خاص في الأتمتة.
+- الأكواد في القائمة كتالوج كامل غير مفلتر حسب المنتج (~1200 كود، يبدأ بـ AC ثم AF ثم AL).
+
+### أكواد المشاكل الفعلية (مثال فئة AC)
+
+| الكود | الوصف | الكود | الوصف |
+|-------|-------|-------|-------|
+| AC01 | البلازما لا تعمل | AC20 | رائحة كريهه |
+| AC02 | التبريد ضعيف | AC22 | صوت عالى من الوحدة الخارجية |
+| AC03 | التبريد منعدم | AC26 | يلزم تغيير الفلاتر |
+| AC05 | الجهاز لا يعمل | AC33 | توريد غطاء خارجى - صيانة دورية |
+| AC06 | الجهاز يفصل بعد فتره | AC34 | صيانة - تكييف - خارج الضمان |
+| AC14 | الوضع الساخن لا يعمل | AC99 | تكرار أعطال |
+| AC16 | تسريب فريون | ACK0 | دفع خزنة |
+| AC17 | تسريب مياه من الوحدة الخارجية | ACZ0 | صيانة خدمة تجار |
+| AC18 | تسريب مياه من الوحدة الداخليه | ACIC/ACPC | صيانة شركات شقيقة |
+
+> القائمة الكاملة والمنتجات في `SHARED_KNOWLEDGE.md` — قسم "أكواد المشاكل الفعلية".
+
 ### حقول صفحة Work Order Review
 
 | الحقل | المحدد | مثال |

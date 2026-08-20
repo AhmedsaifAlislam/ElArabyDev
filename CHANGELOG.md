@@ -5,6 +5,28 @@
 > **الإصدار:** يتبع [Semantic Versioning](https://semver.org/)
 ---
 
+## [2026-08-19] — اكتشاف بنية أزرار الإضافة في workorderreview + ترقية تبويب الجلسة (Timeline)
+
+### اكتشاف حي (جلسة متصفح على البوابة) — صفحة Work Order Review
+- توثيق بنية **"إضافة المشاكل الفعلية المستخدمة"** و**"اضافة فنى"** و**"اضافة كود عطل"**: كلها تفتح نموذج Create عبر `window.open` إلى `/_portal/modal-form-template-path/{modalFormId}?entityformid=...&refentity=incident&refid={orderId}&refrel={relation}`.
+- العلاقات: المشاكل = `ldv_incident_ldv_case_problem_workorder` | الفنيين = `ats_incident_ats_caseresource_Case`.
+- entityformids: المشاكل `4b0af62b-cc4f-ea11-a812-000d3ab95cbc` | الفني `29c3971e-b745-ea11-a812-000d3ab95431`.
+- بنية lookup: `div.lookup-modal` (7 قوالب مخفية)، حقل بحث `input.query`، صفوف `tr[data-entity="contact"]`، أزرار `button.primary[aria-label="Select"]`/`button[aria-label="Cancel"]`، ترقيم `li`/`a[data-page]` حتى 120 صفحة.
+- **قيد:** النقر الآلي على صف lookup الفني لا يُفعّل الاختيار (Select يبقى disabled).
+- جمع أكواد المشاكل الفعلية (~50 كود عبر 5 صفحات) — فئة AC كاملة (AC01–AC99) + ACK0/ACZ0/ACIC/ACPC + AF01–05 + AL01–04. القائمة **غير مفلترة حسب المنتج** (كتالوج كامل ~1200 كود).
+- خطأ السيريال (PAGE_1): `الرقم المسلسل رقم 1 الذي قمت بأدخاله غير صحيح...`.
+- مثال حي: صيانة تكييف SHARP 12K، السيريال `25G120027408AHA2ZH`، البلاغ المبدئي `AC22`.
+- التوثيق الكامل في `SHARED_KNOWLEDGE.md` + `PORTAL_MAP.md`.
+
+### ترقية تبويب "📸 الجلسة" إلى Timeline
+- Recorder في `content-script.js`: كل لقطة/حدث يحمل `seq` (رقم تسلسلي شامل) + `delta` (مللي ثانية منذ `firstSeen`).
+- العارض في `popup.js`: "الخط الزمني بالترتيب الفعلي + التوقيتات" — يجمع لقطات الصفحات + أحداث الكليكات في ترتيب زمني واحد، كل عنصر بعلامة `#seq` و `+delta` (صيغة `2m5s`) ونوع (🖼️ لقطة / 👆 كليك).
+
+### التحقق
+- `node --check` نظيف على `content-script.js` و `popup.js` ✅ | التوثيق مُحدّث (2026-08-19).
+
+---
+
 ## [2026-08-18] — v1.1.0: تعليق قطع الغيار التلقائي + تبويب "الجلسة" + تراجع صافي للمرجع
 
 ### ميزة التعليق التلقائي لقطع الغيار (PAGE_3 / workorderreview)

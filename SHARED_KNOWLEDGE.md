@@ -1,7 +1,7 @@
 # المعرفة المشتركة — Shared Knowledge
 # El Araby System — Common Patterns & Reference
 
-> **آخر تحديث:** 2026-08-18
+> **آخر تحديث:** 2026-08-19
 
 ---
 
@@ -135,14 +135,103 @@ function calculateTotalSparePartsPrice() {
 - **المفتاح:** `autofiller_sessionCaptures` في storage (عبر `storageGet`/`storageSet` — Edge Tracking Prevention).
 - **البنية:** `byOrder[orderId] = { orderId, firstSeen, lastSeen, pages[], events[] }`.
 - **اللقطات (`capturePageState`):** عند التحميل (1500ms) + كل 5 ثوانٍ (لو الصفحة visible).
-  كل لقطة = `{ ts, iso, url, orderId, stepId, pageType, reason, selects[], inputs[], buttons[], title }`.
+  كل لقطة = `{ ts, iso, seq, delta, url, orderId, stepId, pageType, reason, selects[], inputs[], buttons[], title }`.
   الحقول تُجمع من `document` + كل الـ iframes (`collectAllDocs`) — حد 60 لقطة/أمر.
 - **الأحداث (`hookCaptureClicks`):** capture-phase على الكليكات المهمة (أزرار/روابط تنقل/selects)
-  → `{ ts, iso, type:'click', tag, id, text, url }` — حد 200/أمر.
+  → `{ ts, iso, seq, delta, type:'click', tag, id, text, url }` — حد 200/أمر.
+- **`seq`:** رقم تسلسلي شامل داخل الأمر (لقطات + أحداث معاً). **`delta`:** مللي ثانية منذ `firstSeen` — لترتيب الأحداث كما حدثت فعلياً.
 - **`getOrderIdFromUrl`:** من `?id=` في query string. **`getStepIdFromUrl`:** من `?stepid=`.
 - يعمل فقط على `/workorderreview|followup|review/` في الـ URL.
 - **العرض:** تبويب "📸 الجلسة" في `popup.html`/`popup.js` (`loadSessionCaptures`/`renderSessionCaptures`) —
+  **"الخط الزمني بالترتيب الفعلي + التوقيتات"**: يجمع اللقطات + الأحداث في Timeline واحد مرتّب بـ `ts`، كل عنصر بعلامة `#seq` و `+delta` (صيغة `2m5s`) ونوع (🖼️ لقطة صفحة / 👆 كليك) — داخل كل لقطة تُعرض selects/inputs/buttons.
   بحث بمعرّف الأمر، تصدير JSON (`btn-export-session`)، مسح (`btn-clear-session`).
+
+---
+
+## صفحة Work Order Review — أزرار الإضافة (مشاكل/فنيين/أكواد أعطال) — اكتشاف حي 2026-08-19
+
+> هذا القسم يوثّق بنية النوافذ والأكواد التي اكتُشفت بجلسة حية على البوابة — **مطلوب لأتمتة**
+> "المشاكل الفعلية" و"الفنيين" في AutoFiller ولوحة التحكم (control-panel). البيانات أصلية من البوابة.
+
+### المنتجات (فئات) — من النظام
+
+| الرمز | المنتج | ملاحظات |
+|-------|--------|---------|
+| AC | تكييف | صيانة / تركيب |
+| WM | غسالة | |
+| RF | ثلاجة | |
+| DW | غسالة أطباق | |
+| RG | بوتجاز ومسطح وفرن | |
+| WH | سخانات مياه | |
+| MR | مبرد مياه | |
+
+### أكواد المشاكل الفعلية — فئة AC (تكييف) — (مثال موثّق لصيانة SHARP 12K)
+
+| الكود | الوصف | الكود | الوصف |
+|-------|-------|-------|-------|
+| AC01 | البلازما لا تعمل | AC20 | رائحة كريهه |
+| AC02 | التبريد ضعيف | AC21 | صوت زنه |
+| AC03 | التبريد منعدم | AC22 | صوت عالى من الوحدة الخارجية |
+| AC04 | التسخين ضعيف | AC23 | صوت عالى من الوحدة الداخليه |
+| AC05 | الجهاز لا يعمل | AC24 | Premium care |
+| AC06 | الجهاز يفصل بعد فتره | AC25 | يفصل تلقائيا |
+| AC07 | الريموت كنترول لا يعمل | AC26 | يلزم تغيير الفلاتر |
+| AC08 | المروحة لا تعمل | AC33 | توريد غطاء خارجى - صيانة دورية |
+| AC09 | المروحة لا تفصل | AC34 | صيانة - تكييف - خارج الضمان |
+| AC10 | الموجهات الأفقيه لا تعمل | AC35 | اجزاء مكسورة |
+| AC11 | الموجهات الرأسيه لا تعمل | AC37 | Premium care |
+| AC12 | الوضع البارد لا يعمل | AC99 | تكرار أعطال |
+| AC13 | الوضع الجاف لا يعمل | ACIC | صيانة شركات شقيقة |
+| AC14 | الوضع الساخن لا يعمل | ACK0 | دفع خزنة |
+| AC16 | تسريب فريون | ACPC | صيانة شركات شقيقة |
+| AC17 | تسريب مياه من الوحدة الخارجية | ACX0 | عقود صيانة |
+| AC18 | تسريب مياه من الوحدة الداخليه | ACZ0 | صيانة خدمة تجار |
+| AC19 | رائحة تراب | | |
+
+> **ملاحظة:** الفجوات في التسلسل (AC15, AC27–32, AC36) أكواد محذوفة/مخلّفة في النظام — ليست خطأ.
+> أكواد `AF01–05` (قلاية هوائية بدون زيت)، `AL01–04` (تلف الوحدة الخارجية: بصمة/لوحة لمس/قارئ كارت/بوردة) تظهر في القائمة الكاملة.
+> **مهم:** أكواد "صيانة" غالباً تبدأ بـ `AC` مباشرة، بينما كود توريد مثل `AC33` يشير لصيانة دورية.
+
+### بنية "إضافة المشاكل الفعلية المستخدمة" (نموذج Create)
+
+- الزر في subgrid الصفحة: `a[title="اضافة المشاكل الفعلية للصيانة"]` (أو نص `اضافة المشاكل الفعلية المستخدمة`).
+- يفتح **نموذج إضافة (Create)** عبر `window.open` إلى مسار Modal Form Template:
+  ```
+  /_portal/modal-form-template-path/{modalFormId}
+    ?entityformid={entityFormId}
+    &languagecode=1033
+    &refentity=incident
+    &refid={orderId}
+    &refrel={relationship}
+  ```
+- العلاقات المكتشفة: المشاكل = `ldv_incident_ldv_case_problem_workorder` | الفنيين = `ats_incident_ats_caseresource_Case`.
+- حقول النموذج (الاسم الكامل يبدأ بـ `ctl00$ContentContainer$MainContent$EntityFormControl$EntityFormControl_EntityFormView$`):
+  - **نوع المنتج:** `ldv_producttype_name` (lookup)
+  - **المشاكل الفعلية المستخدمة:** lookup بزر "Launch lookup modal"
+  - زر الحفظ: `#InsertButton` (نصه "حفظ").
+- **lookup المشاكل/الفنيين ("Lookup records"):**
+  - حقل البحث: `input` داخل `.modal-body` (placeholder="Search"، يدعم wildcard `*`).
+  - النتائج: `table tr` داخل `.modal-body` (نص الصف = `CODE - (الوصف)`).
+  - أزرار: `.modal-footer` → Close / Select / Cancel. زر الاختيار `aria-label="Select"`، الإلغاء `aria-label="Cancel"`.
+  - ترقيم: `li` (`1 2 3 … 120`) أو `a[data-page="N"][aria-label="page N"]`.
+  - طريقة الاختيار: نقر الصف ثم زر Select. **(قيد:** النقر الآلي على صف lookup الفني لا يُفعّل الاختيار — زر Select يبقى disabled؛ يلزم تعامل خاص).**
+- **قيد مهم:** CSS/`browser_query` لا تخترق iframe — للفحص الآلي يفتح الـ URL في تبويب أو يقرأ من `collectAllDocs`.
+- **التحقق من الفلترة:** القائمة تعرض **كل** أكواد المشاكل (كل الفئات، ~1200 كود/120 صفحة) مرتبة أبجديًا — **ليست مفلترة حسب المنتج**. الأكواد تبدأ بـ `AC*` ثم `AF*` ثم `AL*`.
+
+### قسم "أكواد الأعطال" (يظهر في أوامر معينة — subgrid في الصفحة)
+
+- زر: `اضافة كود عطل`. صفوف مثل `RF1800 - (مروحة)` / `RF1804` مع عمودي "كود العطل الرئيسي" + "وصف كود العطل".
+- يتم التحميل عبر AJAX من `/_services/entity-subgrid-data.json/...` (مثل بقية الـ subgrids).
+
+### أخطاء معروفة (رسائل حرفية)
+
+- **خطأ السيريال (PAGE_1):** `الرقم المسلسل رقم 1 الذي قمت بأدخاله غير صحيح برجاء التأكد من صحته و اعادة المحاوله مره اخري` — تظهر أعلى الصفحة عند إدخال سيريال غير صحيح في Serial1.
+
+### مثال بيانات حية (أمر صيانة)
+
+- نوع البلاغ: **صيانة** | فئة المنتج: **AC** | العلامة: **SHARP** | الموديل: `AH-AP12ZHE`/`AU-A12ZHE` (SHARP A/C 12K) | السيريال: `25G120027408AHA2ZH` | البلاغ المبدئي: `AC22 - (صوت عالى من الوحدة الخارجية)` | العميل: ندي محمد احمد محمد (حساب 2012550696، الإسماعيلية).
+
+---
 
 ---
 
