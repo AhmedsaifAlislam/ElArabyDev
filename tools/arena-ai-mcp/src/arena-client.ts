@@ -21,35 +21,100 @@ export class ArenaClient {
   async initialize(headless: boolean = true): Promise<void> {
     if (this.initialized) return;
 
-    this.browser = await chromium.launch({
-      headless,
-      args: [...this.config.browser.args],
-    });
+    // إذا كان useChromeProfile مفعّل، استخدم بروفايل Chrome الحقيقي (يحتوي Google login)
+    const useChromeProfile = (this.config.browser as unknown as { useChromeProfile?: boolean }).useChromeProfile;
+    const chromeUserDataDir = (this.config.browser as unknown as { chromeUserDataDir?: string }).chromeUserDataDir;
+    const chromeChannel = (this.config.browser as unknown as { chromeChannel?: string }).chromeChannel;
 
-    // حاول تحميل storageState المحفوظ
-    let storageState: string | undefined;
-    if (this.config.session.persistCookies) {
-      const p = join(this.sessionManager.getStorageDir(), 'browser-state.json');
+    if (useChromeProfile && chromeUserDataDir) {
+      console.error(`[ArenaClient] trying Chrome profile ${chromeUserDataDir} channel=${chromeChannel}`);
       try {
-        const { promises: fs } = await import('fs');
-        await fs.access(p);
-        storageState = p;
-        console.error(`[ArenaClient] loading storageState from ${p}`);
-      } catch {}
-    }
+        this.context = await chromium.launchPersistentContext(chromeUserDataDir, {
+          headless,
+          channel: (chromeChannel as 'chrome') || 'chrome',
+          args: [...this.config.browser.args, '--disable-background-timer-throttling', '--disable-renderer-backgrounding'],
+          viewport: { width: 1280, height: 800 },
+          locale: 'en-US',
+          timezoneId: 'UTC',
+        });
+        this.browser = this.context.browser() as unknown as import('playwright').Browser;
+        if (!this.browser) this.browser = null as unknown as import('playwright').Browser;
+        console.error('[ArenaClient] Chrome profile launched');
+      } catch (e) {
+        console.error(`[ArenaClient] Chrome profile failed (is Chrome open? close it): ${String(e).slice(0,300)} — fallback to isolated`);
+        // fallback to isolated
+        this.browser = await chromium.launch({ headless, args: [...this.config.browser.args] });
+        let storageState: string | undefined;
+        if (this.config.session.persistCookies) {
+          const p = join(this.sessionManager.getStorageDir(), 'browser-state.json');
+          try { const { promises: fs } = await import('fs'); await fs.access(p); storageState = p; console.error(`[ArenaClient] loading storageState fallback ${p}`);} catch {}
+        }
+        this.context = await this.browser.newContext({
+          userAgent: this.config.browser.userAgent,
+          viewport: { width: 1280, height: 800 },
+          locale: 'en-US',
+          timezoneId: 'UTC',
+          permissions: ['clipboard-read', 'clipboard-write'],
+          ...(storageState ? { storageState } : {}),
+        });
+        // تخطى باقي المنطق
+        this.page = await this.context.newPage();
+        this.page.setDefaultTimeout(this.config.timeouts.element);
+        this.page.setDefaultNavigationTimeout(this.config.timeouts.navigation);
+        this.page.on('request', req => { const u=req.url(); if(u.includes('arena.ai')||u.includes('submitPrompt')||u.includes('/api/')||req.method()==='POST') console.error(`[REQ] ${req.method()} ${u.slice(0,180)}`); });
+        this.page.on('response', res => { const u=res.url(); if(u.includes('arena.ai')&&(u.includes('submit')||u.includes('/api/'))) console.error(`[RES] ${res.status()} ${u.slice(0,180)}`); });
+        this.page.on('console', msg => { if(msg.type()==='error') console.error(`[PAGE CONSOLE ERROR] ${msg.text().slice(0,300)}`); });
+        this.initialized = true;
+        console.error('[ArenaClient] Initialized (fallback)');
+        return;
+      }
+    } else {
+      this.browser = await chromium.launch({
+        headless,
+        args: [...this.config.browser.args],
+      });
 
-    this.context = await this.browser.newContext({
-      userAgent: this.config.browser.userAgent,
-      viewport: { width: 1280, height: 800 },
-      locale: 'en-US',
-      timezoneId: 'UTC',
-      permissions: ['clipboard-read', 'clipboard-write'],
-      ...(storageState ? { storageState } : {}),
-    });
+      // حاول تحميل storageState المحفوظ
+      let storageState: string | undefined;
+      if (this.config.session.persistCookies) {
+        const p = join(this.sessionManager.getStorageDir(), 'browser-state.json');
+        try {
+          const { promises: fs } = await import('fs');
+          await fs.access(p);
+          storageState = p;
+          console.error(`[ArenaClient] loading storageState from ${p}`);
+        } catch {}
+      }
+
+      this.context = await this.browser.newContext({
+        userAgent: this.config.browser.userAgent,
+        viewport: { width: 1280, height: 800 },
+        locale: 'en-US',
+        timezoneId: 'UTC',
+        permissions: ['clipboard-read', 'clipboard-write'],
+        ...(storageState ? { storageState } : {}),
+      });
+    }
 
     this.page = await this.context.newPage();
     this.page.setDefaultTimeout(this.config.timeouts.element);
     this.page.setDefaultNavigationTimeout(this.config.timeouts.navigation);
+    // سجل الشبكة للتشخيص
+    this.page.on('request', req => {
+      const u = req.url();
+      if (u.includes('arena.ai') || u.includes('submitPrompt') || u.includes('/api/') || req.method() === 'POST') {
+        console.error(`[REQ] ${req.method()} ${u.slice(0,180)}`);
+      }
+    });
+    this.page.on('response', res => {
+      const u = res.url();
+      if (u.includes('arena.ai') && (u.includes('submit') || u.includes('/api/'))) {
+        console.error(`[RES] ${res.status()} ${u.slice(0,180)}`);
+      }
+    });
+    this.page.on('console', msg => {
+      if (msg.type() === 'error') console.error(`[PAGE CONSOLE ERROR] ${msg.text().slice(0,300)}`);
+    });
 
     // لا نمنع أي مورد الآن - arena.ai يحتاج كل شيء للـ hydration
     // await this.page.route('**/*', ... ) معطل مؤقتاً للتشخيص
@@ -272,23 +337,60 @@ export class ArenaClient {
     await this.page.waitForTimeout(1500);
     const afterBody = await this.page.evaluate(() => document.body.innerText.slice(0, 1500)).catch(()=> '');
     console.error(`[ArenaClient] after send body snippet: ${afterBody.slice(0,900).replace(/\n/g,' | ')}`);
-    // كشف مودال تسجيل الدخول
+    // كشف مودال تسجيل الدخول — نميز بين غير مسجل vs مسجل لكن يطلب حفظ المحادثة
     const needsLogin = afterBody.includes('Log In or Create Account') || afterBody.includes('Continue with Google');
+    // مسجل دخول إذا وجد avatar أو email في الـ body/الأزرار
+    const hasAvatar = await this.page.evaluate(() => {
+      const body = document.body.innerText;
+      const hasEmail = /[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}/i.test(body);
+      const hasProfileBtn = !!document.querySelector('button[aria-label="User profile"]');
+      const hasAvatarImg = !!document.querySelector('img[src*="avatars"]');
+      const hasEmailBtn = Array.from(document.querySelectorAll('button')).some(b => (b.textContent||'').includes('@'));
+      return hasEmail || hasProfileBtn || hasAvatarImg || hasEmailBtn;
+    }).catch(()=>false);
+    console.error(`[ArenaClient] needsLogin=${needsLogin} hasAvatar=${hasAvatar} (email/profile)`);
     if (needsLogin) {
-      console.error('[ArenaClient] ⚠️ arena.ai يتطلب تسجيل دخول - سيُحفظ الـ storageState بعد تسجيلك اليدوي');
-      // احفظ state الحالي
-      try {
-        const p = join(this.sessionManager.getStorageDir(), 'browser-state.json');
-        await this.context!.storageState({ path: p });
-        console.error(`[ArenaClient] saved storageState to ${p}`);
-      } catch {}
-      // حاول إغلاق المودال للسماح برؤية المشكلة
-      const closeBtn = this.page.locator('button:has-text("Close")').first();
-      if (await closeBtn.isVisible({ timeout: 1000 }).catch(()=>false)) {
-        await closeBtn.click().catch(()=>{});
+      if (hasAvatar) {
+        console.error('[ArenaClient] Modal حفظ المحادثة رغم تسجيل الدخول — محاولة إغلاقه ومتابعة الرد');
+        // جرب كل أزرار الإغلاق المحتملة
+        const closeSelectors = ['button:has-text("Close")', 'button:has-text("Merge")', '[aria-label="Close"]', 'button:has-text("Not now")', 'button:has-text("Skip")'];
+        for (const sel of closeSelectors) {
+          const btn = this.page.locator(sel).first();
+          if (await btn.isVisible({ timeout: 800 }).catch(()=>false)) {
+            console.error(`[ArenaClient] closing modal via ${sel}`);
+            await btn.click({ force: true }).catch(()=>{});
+            await this.page.waitForTimeout(700);
+            break;
+          }
+        }
+        // أيضاً جرب Escape
+        await this.page.keyboard.press('Escape').catch(()=>{});
+        await this.page.waitForTimeout(700);
+        // اضغط X إن وجد
+        await this.page.locator('[data-state="open"] button').first().click({ force: true }).catch(()=>{});
         await this.page.waitForTimeout(500);
+        // تحقق هل اختفى
+        const stillLogin = await this.page.evaluate(()=>document.body.innerText.includes('Continue with Google')).catch(()=>false);
+        console.error(`[ArenaClient] stillLogin after close attempt: ${stillLogin}`);
+        if (stillLogin) {
+          console.error('[ArenaClient] Modal لم يغلق — قد يحتاج موافقة Merge');
+          // جرب النقر على Merge
+          const mergeBtn = this.page.locator('button:has-text("Merge")').first();
+          if (await mergeBtn.isVisible({ timeout: 800 }).catch(()=>false)) {
+            await mergeBtn.click({ force: true }).catch(()=>{});
+            await this.page.waitForTimeout(1000);
+          }
+        }
+        // لا نرمي خطأ — نتابع انتظار الرد
+      } else {
+        console.error('[ArenaClient] ⚠️ arena.ai يتطلب تسجيل دخول - سيُحفظ الـ storageState');
+        try {
+          const p = join(this.sessionManager.getStorageDir(), 'browser-state.json');
+          await this.context!.storageState({ path: p });
+          console.error(`[ArenaClient] saved storageState to ${p}`);
+        } catch {}
+        throw new Error('arena.ai requires login: افتح ARENA_HEADLESS=false وسجّل دخولك مرة واحدة ثم أعد التشغيل');
       }
-      throw new Error('arena.ai requires login: افتح ARENA_HEADLESS=false وسجّل دخولك مرة واحدة (Google/email) ثم أعد التشغيل مع ARENA_HEADLESS=true وسيُستخدم الـ storageState المحفوظ');
     }
     // احفظ storageState بعد إرسال ناجح
     try {
@@ -523,11 +625,15 @@ export class ArenaClient {
   }
 
   async close(): Promise<void> {
-    if (this.context && this.config.session.persistCookies) {
+    const useChromeProfile = (this.config.browser as unknown as { useChromeProfile?: boolean }).useChromeProfile;
+    if (this.context && this.config.session.persistCookies && !useChromeProfile) {
       await this.context.storageState({ path: join(this.sessionManager.getStorageDir(), 'browser-state.json') }).catch(() => {});
     }
-    await this.context?.close();
-    await this.browser?.close();
+    // في وضع Chrome profile، لا نحفظ storageState (البروفايل نفسه محفوظ) ولا نغلق بعنف
+    try { await this.context?.close(); } catch {}
+    if (!useChromeProfile) {
+      try { await this.browser?.close(); } catch {}
+    }
     this.initialized = false;
     console.error('[ArenaClient] Closed');
   }

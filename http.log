@@ -1,0 +1,6 @@
+[ArenaAI HTTP] http://127.0.0.1:8787
+  POST /api/chat  {prompt, model?, systemPrompt?, sessionId?, newSession?, stream?}
+  GET  /api/models?refresh=true
+  GET  /api/sessions
+  GET  /api/history/:sessionId?limit=20
+  GET  /health

@@ -4,9 +4,12 @@ import { ARENA_CONFIG } from './dist/config.js';
 const sm = new SessionManager(ARENA_CONFIG.session.storageDir);
 const client = new ArenaClient(sm, ARENA_CONFIG);
 await client.initialize(true);
-try {
-  console.log('send');
-  const r = await client.sendMessage({ prompt: 'Hello, reply with just OK', newSession: true, stream: false });
-  console.log('RESULT', JSON.stringify(r,null,2));
-} catch(e){ console.error('ERR', e.message); console.error(e.stack); }
+console.log('init done, goto');
+await client['page'].goto('https://arena.ai/text/direct', {waitUntil:'domcontentloaded'});
+await client['page'].waitForTimeout(3000);
+console.log('url', client['page'].url());
+const body = await client['page'].evaluate(()=>document.body.innerText.slice(0,1200));
+console.log('body', body.slice(0,800).replace(/\n/g,' | '));
+const hasLogin = body.includes('Log In') || body.includes('Sign in');
+console.log('hasLogin', hasLogin);
 await client.close();

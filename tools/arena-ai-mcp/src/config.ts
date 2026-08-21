@@ -33,6 +33,10 @@ export const ARENA_CONFIG = {
       '--window-size=1280,800',
     ],
     userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36',
+    // استخدم بروفايل Chrome الحقيقي للمستخدم لتجاوز تسجيل الدخول
+    useChromeProfile: true,
+    chromeUserDataDir: 'C:\\Users\\Zain\\AppData\\Local\\Google\\Chrome\\User Data',
+    chromeChannel: 'chrome' as const,
   },
   session: {
     storageDir: '.arena-session',

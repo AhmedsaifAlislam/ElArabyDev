@@ -7,12 +7,31 @@ const client = new ArenaClient(sm, { ...ARENA_CONFIG, session: { ...ARENA_CONFIG
 
 // شغّل headful ليتمكن المستخدم من تسجيل الدخول يدوياً
 console.log('Opening arena.ai in headed mode for login...');
-console.log('  1) سجّل دخولك عبر Google/email في النافذة التي ستظهر');
-console.log('  2) بعد التأكد أنك تستطيع إرسال رسالة، اضغط Enter هنا لحفظ الجلسة');
+console.log('  سيُحاول إرسال رسالة تجريبية لتفعيل Google OAuth تلقائياً');
+console.log('  1) في النافذة التي ستظهر، اكتب أي شيء أو انتظر حتى يظهر Google Sign-in');
+console.log('  2) أكمل تسجيل الدخول عبر Google ثم تأكد أنك تستطيع إرسال رسالة');
+console.log('  3) بعد التأكد، ارجع هنا واضغط Enter لحفظ الجلسة');
 await client.initialize(false);
 await client['page'].goto(ARENA_CONFIG.baseUrl, { waitUntil: 'domcontentloaded' });
+await client['page'].waitForTimeout(2500);
 console.log('  URL:', client['page'].url());
-console.log('  انتظر حتى تكتمل الصفحة ثم سجّل الدخول...');
+// حاول إرسال رسالة لتفعيل OAuth
+try {
+  const ta = client['page'].locator('textarea[placeholder="Ask anything…"]').first();
+  if (await ta.isVisible({ timeout: 3000 }).catch(()=>false)) {
+    await ta.click();
+    await ta.pressSequentially('Hello', { delay: 50 });
+    await client['page'].waitForTimeout(400);
+    const btn = client['page'].locator('button[type="submit"]').last();
+    if (await btn.isEnabled().catch(()=>false)) {
+      console.log('  -> محاولة إرسال لتفعيل تسجيل الدخول...');
+      await btn.click({ force: true }).catch(()=>{});
+      await client['page'].waitForTimeout(1500);
+      console.log('  -> إذا ظهر Google Sign-in، أكمله الآن');
+    }
+  }
+} catch {}
+console.log('  انتظر حتى تكتمل عملية تسجيل الدخول...');
 
 // انتظر حتى يضغط المستخدم Enter
 process.stdin.resume();
