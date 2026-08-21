@@ -3,11 +3,11 @@ export const ARENA_CONFIG = {
   selectors: {
     // Actual selectors from arena.ai DOM (from debug)
     newChatButton: 'button:has-text("New Chat"), a:has-text("New Chat"), [data-testid*="new-chat"]',
-    modelSelector: 'button[role="combobox"]:has-text("Max"), button:has-text("Model"), select:has(option), [data-testid*="model"]',
+    modelSelector: 'button[aria-label*="Model" i], button:has-text("Model"), select:has(option), [data-testid*="model"], [data-radix-select-trigger]',
     modelOptions: '[role="option"], [data-value], [cmdk-item]',
     chatInput: 'textarea[placeholder="Ask anything…"], textarea[placeholder*="Ask" i], textarea.body-base',
     sendButton: 'button[type="submit"].text-interactive-active, button[type="submit"]:has(svg), footer button[type="submit"]',
-    responseContainer: '#chat-area [data-message-id], #chat-area .prose, #chat-area [role="article"], #chat-area .message',
+    responseContainer: '#chat-area [data-message-id], #chat-area .prose, #chat-area [role="article"], #chat-area .message, #chat-area div[class*="prose"], #chat-area div[class*="markdown"]',
     responseText: '.prose, .markdown, [data-testid*="content"], .message-content',
     streamingIndicator: '.streaming, .typing, [data-testid*="stream"], .animate-pulse',
     chatHistory: '.chat-history, .conversation-list, [data-testid*="history"], nav, aside',
@@ -25,7 +25,7 @@ export const ARENA_CONFIG = {
     streamingChunk: 10000,
   },
   browser: {
-    headless: false,
+    headless: true,
     args: [
       '--disable-blink-features=AutomationControlled',
       '--disable-web-security',
