@@ -1,5 +1,5 @@
 ﻿// =========================================================
-// content-script.js â€” Portal AutoFiller v3.0
+// content-script.js — Portal AutoFiller v3.0
 // TARGET: Modular Architecture (Page1 & Page 2) + ClearBtn Verifier
 // =========================================================
 'use strict';
@@ -8,7 +8,7 @@ const LOG_PREFIX = '[AutoFiller v3.0]';
 const PORTAL_BASE = 'https://elarabyportalpfs.powerappsportals.com';
 const ORDERS_URL  = PORTAL_BASE + '/en-US/Orders/';
 
-// â”€â”€ Storage proxy (Edge Tracking Prevention bypass) â”€â”€
+// ── Storage proxy (Edge Tracking Prevention bypass) ──
 async function storageGet(keys) {
   try {
     const resp = await chrome.runtime.sendMessage({ type: 'STORAGE_GET', keys });
@@ -31,7 +31,7 @@ function sendSmartLog(eventType, details) {
 }
 
 async function sysLog(msg, type='info') {
-  const symbol = type === 'error' ? 'âŒ' : type === 'success' ? 'âœ…' : type === 'warn' ? 'âš ï¸' : 'â„¹ï¸';
+  const symbol = type === 'error' ? 'âŒ' : type === 'success' ? '✅' : type === 'warn' ? '⚠ï¸' : 'ℹï¸';
   const text = `[${new Date().toLocaleTimeString('en-US', {hour12:false})}] ${symbol} ${msg}`;
   console.log(LOG_PREFIX, text);
   try {
@@ -48,7 +48,7 @@ const log  = (...a) => sysLog(a.join(' '), 'info');
 const warn = (...a) => sysLog(a.join(' '), 'warn');
 const err  = (...a) => sysLog(a.join(' '), 'error');
 
-// â”€â”€ Utility: Safe Click to catch and log silent UI errors â”€â”€
+// ── Utility: Safe Click to catch and log silent UI errors ──
 function safeClick(element, description = 'element') {
   if (!element) { warn(`safeClick: ${description} is null or undefined.`); return false; }
   try {
@@ -71,7 +71,7 @@ function getPageType() {
   return 'OTHER';
 }
 
-// â”€â”€ Page Toast notification â”€â”€
+// ── Page Toast notification ──
 function showPageToast(msg, type = 'info') {
   const toast = document.createElement('div');
   const colors = { info: '#4fc3f7', success: '#66bb6a', error: '#ef5350', warn: '#ffa726' };
@@ -132,7 +132,7 @@ function findFirst(list) {
 }
 function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
 
-// â”€â”€ Dynamic Resilience Wait for PowerApps Loading Overlay â”€â”€
+// ── Dynamic Resilience Wait for PowerApps Loading Overlay ──
 async function waitForSaveComplete(startUrl, cfg, maxWaitMs = 15000) {
   log('â³ Waiting for PowerApps to process (Dynamic Wait)...');
   await sleep(1000); // Give UI time to show loading overlay
@@ -147,7 +147,7 @@ async function waitForSaveComplete(startUrl, cfg, maxWaitMs = 15000) {
     const hasError = !!document.querySelector('.alert-danger, .validation-summary-errors');
     
     if (!isBlocked && hasError) {
-      warn('âš ï¸ Validation error appeared during wait. Aborting wait.');
+      warn('⚠ï¸ Validation error appeared during wait. Aborting wait.');
       break;
     }
     await sleep(1000);
@@ -194,9 +194,9 @@ function findFieldByLabel(labelTexts, tagName = null) {
   } return null;
 }
 
-// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+// ═══════════════════════════════════════════════════════════
 // UI INTERACTIONS & MODALS
-// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+// ═══════════════════════════════════════════════════════════
 async function fillElement(el, value) {
   if (!el || !value) return { ok: false };
   el.scrollIntoView({ block: 'center', behavior: 'auto' });
@@ -224,7 +224,7 @@ async function fillLookupModal(btn, searchValue, rootDoc) {
 
   log('Opening Modal for:', searchValue); btn.click(); await sleep(1800);
 
-  // â”€â”€ Try direct pick first (single-page list like Brand) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ── Try direct pick first (single-page list like Brand) ──────────
   const itemsSelectors = Array.isArray(CFG.lookupModalItem) ? [...CFG.lookupModalItem] : [CFG.lookupModalItem];
   itemsSelectors.push('.modal table tbody tr');
 
@@ -249,7 +249,7 @@ async function fillLookupModal(btn, searchValue, rootDoc) {
   // Also keep a "raw" version that preserves hyphens for strict boundary matching
   const rawTarget = (searchValue||'').replace(/[\s\(\)\[\]_#\*]/g,'').toLowerCase();
   // Extract just the model code part (before " _ " or "(") for better matching
-  const modelCodeOnly = (searchValue||'').split(/\s*[_â€“â€”]\s*/)[0].split('(')[0].trim();
+  const modelCodeOnly = (searchValue||'').split(/\s*[_–—]\s*/)[0].split('(')[0].trim();
   const targetCode = normalize(modelCodeOnly);
   const rawTargetCode = modelCodeOnly.replace(/[\s\(\)\[\]_#\*]/g,'').toLowerCase();
 
@@ -271,7 +271,7 @@ async function fillLookupModal(btn, searchValue, rootDoc) {
       const getRowCode = (row) => {
         const txt = row.innerText.trim();
         // Model code is typically the first segment before " _ " or before Arabic text
-        const codePart = txt.split(/\s*[_â€“â€”]\s*/)[0].trim();
+        const codePart = txt.split(/\s*[_–—]\s*/)[0].trim();
         return codePart;
       };
 
@@ -293,13 +293,13 @@ async function fillLookupModal(btn, searchValue, rootDoc) {
         const searchTarget = targetCode.length > target.length / 2 ? targetCode : target;
         return (norm.startsWith(searchTarget) && (norm.length === searchTarget.length || !/[a-z0-9]/.test(norm[searchTarget.length])));
       }) : null;
-      // Priority 3: Code-part includes match only (NOT full row text â€” prevents Arabic description false positives)
+      // Priority 3: Code-part includes match only (NOT full row text — prevents Arabic description false positives)
       const includesMatch = (!exactMatch && !startsMatch) ? items.find(i => {
         const code = normalize(getRowCode(i));
         return code.includes(targetCode) || code.includes(target);
       }) : null;
       const match = exactMatch || startsMatch || includesMatch || null;
-      log(`Model pick â€” exact:${!!exactMatch} starts:${!!startsMatch} includes:${!!includesMatch} â†’ "${match?.innerText?.trim().slice(0,60)}"`);
+      log(`Model pick — exact:${!!exactMatch} starts:${!!startsMatch} includes:${!!includesMatch} → "${match?.innerText?.trim().slice(0,60)}"`);
       if (!match) return { ok: false, reason: 'no-match' };
       const radio = match.querySelector('input[type="radio"]');
       if (radio) radio.click(); else { const chk = match.querySelector('input[type="checkbox"]'); if (chk) chk.click(); else match.click(); }
@@ -319,7 +319,7 @@ async function fillLookupModal(btn, searchValue, rootDoc) {
     log('No exact match in direct list, falling back to search...');
   }
 
-  // â”€â”€ Fallback: search mode â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ── Fallback: search mode ─────────────────────────────────────────
   const searchSelectors = Array.isArray(CFG.lookupSearchInput) ? [...CFG.lookupSearchInput] : [CFG.lookupSearchInput];
   searchSelectors.push('.modal input[type="search"]', '.modal input[type="text"]', '.modal input.query', 'input[placeholder*="Search"]');
   let si = Array.from(rootDoc.querySelectorAll(searchSelectors.join(','))).find(i => i.offsetParent !== null);
@@ -351,7 +351,7 @@ async function fillLookupModal(btn, searchValue, rootDoc) {
   return await pickAndConfirm(visibleItems) || { ok: false };
 }
 
-// â”€â”€ Modal guard: wait for any open modal to close before proceeding â”€â”€
+// ── Modal guard: wait for any open modal to close before proceeding ──
 async function waitForModalCloseIfOpen(timeoutMs = 20000) {
   const modal = document.querySelector('.modal.show, .modal-backdrop.show');
   if (!modal) return;
@@ -359,7 +359,7 @@ async function waitForModalCloseIfOpen(timeoutMs = 20000) {
   const start = Date.now();
   while (Date.now() - start < timeoutMs) {
     if (!document.querySelector('.modal.show, .modal-backdrop.show')) {
-      log('âœ… Existing modal closed');
+      log('✅ Existing modal closed');
       await sleep(1000);
       return;
     }
@@ -367,7 +367,7 @@ async function waitForModalCloseIfOpen(timeoutMs = 20000) {
   }
 }
 
-// â”€â”€ Find the iframe document inside a modal (PowerApps subgrid modals) â”€â”€
+// ── Find the iframe document inside a modal (PowerApps subgrid modals) ──
 async function waitForModalIframe(modal, timeoutMs = 15000) {
   const start = Date.now();
   while (Date.now() - start < timeoutMs) {
@@ -389,7 +389,7 @@ async function waitForModalIframe(modal, timeoutMs = 15000) {
   return null;
 }
 
-// Handle Page 2 modals (Problems & Technicians) â€” PowerApps modal with iframe inside
+// Handle Page 2 modals (Problems & Technicians) — PowerApps modal with iframe inside
 async function handlePage2Modal(btnRegex, searchValue) {
   // Guard: wait for any existing modal to close before clicking add
   await waitForModalCloseIfOpen();
@@ -399,7 +399,7 @@ async function handlePage2Modal(btnRegex, searchValue) {
     .find(b => btnRegex.test((b.innerText || b.title || b.value || '').trim()));
   if (!addBtn) { warn(`handlePage2Modal: Add button not found`); return { ok: false, reason: 'button-not-found' }; }
   if (!searchValue) searchValue = '*';
-  log(`â–¶ï¸ Opening Page2 modal for: ${searchValue}`);
+  log(`▶ï¸ Opening Page2 modal for: ${searchValue}`);
   safeClick(addBtn, 'Page2 Add button');
 
   // Wait for modal to appear
@@ -493,9 +493,9 @@ async function fillPowerAppsLookup(inputEl, labelText, value, cfgBtnSelectors) {
   const btn = findSafeLookupButton(inputEl, cfgBtnSelectors); if (btn) return await fillLookupModal(btn, value); return { ok: true };
 }
 
-// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+// ═══════════════════════════════════════════════════════════
 // SUPERVISORY VERIFICATION ENGINE
-// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+// ═══════════════════════════════════════════════════════════
 function createLookupVerifier(elFinder) {
   return () => {
     const el = elFinder(); if (!el) return false;
@@ -511,10 +511,48 @@ function createInputVerifier(elFinder) {
     const val = el.value || el.getAttribute('value') || el.innerText || ''; return val.trim().length > 0; 
   };
 }
+function verifyBySnapshot(elFinder, expectedValue) {
+  const el = typeof elFinder === 'function' ? elFinder() : elFinder;
+  if (!el || !expectedValue) return false;
+  const exp = String(expectedValue).trim().toLowerCase();
+  const elTxt = (el.value || el.getAttribute('value') || el.innerText || el.textContent || '').trim().toLowerCase();
+  if (elTxt.includes(exp)) return true;
+  const container = el.closest('.form-group,.field,.control,.input-group,.row,[class*="field"],[class*="form-"]') || el.parentElement;
+  if (container) {
+    const contTxt = (container.innerText || container.textContent || '').toLowerCase();
+    if (contTxt.includes(exp)) return true;
+  }
+  const label = el.id ? document.querySelector(`label[for="${el.id}"]`) : null;
+  if (label) {
+    const lblParent = label.closest('.form-group,.field,.row,tr,[class*="field"]') || label.parentElement;
+    if (lblParent && (lblParent.innerText || '').toLowerCase().includes(exp)) return true;
+  }
+  return false;
+}
+function createSnapshotVerifier(elFinder, expectedValue) {
+  return () => verifyBySnapshot(elFinder, expectedValue);
+}
+async function waitForModalStable(rootDoc, timeoutMs = 3000) {
+  const doc = rootDoc || document;
+  const start = Date.now();
+  while (Date.now() - start < timeoutMs) {
+    const modal = doc.querySelector('.modal.show, .modal[style*="display: block"], [role="dialog"]');
+    if (modal && modal.offsetParent !== null) {
+      const rows = modal.querySelectorAll('table tbody tr, [role="option"], .result-item');
+      const visible = Array.from(rows).filter(r => r.offsetParent !== null).length;
+      if (visible > 0) {
+        await sleep(400);
+        return true;
+      }
+    }
+    await sleep(300);
+  }
+  return false;
+}
 
 async function fillAndVerify(fieldLabel, targetValue, actionFn, verifyFn, maxRetries = 2) {
   if (!targetValue) return null;
-  log(`â–¶ï¸ Filling ${fieldLabel}: "${targetValue}"`);
+  log(`▶ï¸ Filling ${fieldLabel}: "${targetValue}"`);
   
   // Real-time notification updates
   try {
@@ -526,20 +564,20 @@ async function fillAndVerify(fieldLabel, targetValue, actionFn, verifyFn, maxRet
     const result = await actionFn(); let verified = false; const start = Date.now();
     while (Date.now() - start < 4500) { if (verifyFn()) { verified = true; break; } await sleep(350); }
     if (verified) {
-      log(`âœ… [Success] ${fieldLabel}`);
+      log(`✅ [Success] ${fieldLabel}`);
       sendSmartLog('FIELD_FILLED', { field: fieldLabel, value: targetValue, method: 'fillAndVerify' });
       return { ok: true, result };
     }
-    warn(`âš ï¸ [Retry] ${fieldLabel} failed on attempt ${attempt}.`);
+    warn(`⚠ï¸ [Retry] ${fieldLabel} failed on attempt ${attempt}.`);
     const closeBtn = document.querySelector('.modal.show [data-dismiss="modal"], .modal.show button.close');
     if (closeBtn && closeBtn.offsetParent !== null) { closeBtn.click(); await sleep(800); }
   }
   err(`âŒ [Failed] ${fieldLabel} after ${maxRetries} attempts.`); return { ok: false };
 }
 
-// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-// â–¼â–¼â–¼  PAGE 2 HELPER FUNCTIONS (DETECTION)  â–¼â–¼â–¼
-// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+// ═══════════════════════════════════════════════════════════
+// ▼▼▼  PAGE 2 HELPER FUNCTIONS (DETECTION)  ▼▼▼
+// ═══════════════════════════════════════════════════════════
 function readDeviceTypeFromPage() {
   const labels = ['Product Category','Product Type','Device Type','نوع المنتج','فئة المنتج'];
   for (const lab of labels) {
@@ -560,7 +598,7 @@ function readDeviceTypeFromPage() {
   } return null;
 }
 
-// â”€â”€ Read Customer Complaint Code from page â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ── Read Customer Complaint Code from page ──────────────────
 function readComplaintCodeFromPage() {
   // Try common complaint/symptom field labels
   const labels = [
@@ -600,7 +638,7 @@ function readComplaintCodeFromPage() {
   return null;
 }
 
-// â”€â”€ Scrape full order details from current page â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ── Scrape full order details from current page ──────────────
 async function scrapeFullOrderDetails(injectedData = {}) {
   const details = {};
   // Customer address
@@ -719,9 +757,9 @@ function isInstallationReport() {
   return false;
 }
 
-// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+// ═══════════════════════════════════════════════════════════
 // INSTALLATION & COMMISSIONING - SPECIAL FLOW
-// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+// ═══════════════════════════════════════════════════════════
 async function performInstallationAndCommissioning(data = {}) {
   try { await sleep(1500); } catch(e) {}
   let filledService = false;
@@ -780,7 +818,7 @@ async function handleSubgridIframeModal(btnRegex, targetName, pickRandomIfTarget
 
   if (!addBtn) return null;
 
-  log(`â–¶ï¸ Opening subgrid modal for: ${btnRegex.source}...`);
+  log(`▶ï¸ Opening subgrid modal for: ${btnRegex.source}...`);
   addBtn.click();
   
   let iframeDoc = null, targetIframe = null, lookupBtn = null;
@@ -859,7 +897,7 @@ async function handleSubgridIframeModal(btnRegex, targetName, pickRandomIfTarget
       let priorityMatch = null;
       if (priorityPattern) {
         priorityMatch = items.find(i => priorityPattern.test(i.innerText));
-        if (priorityMatch) log('â­ Priority match found: "' + priorityMatch.innerText.trim().slice(0,60) + '"');
+        if (priorityMatch) log('⭐ Priority match found: "' + priorityMatch.innerText.trim().slice(0,60) + '"');
       }
 
       // Smart matching: separate installation vs regular
@@ -875,7 +913,7 @@ async function handleSubgridIframeModal(btnRegex, targetName, pickRandomIfTarget
       const rand = exactMatch || (pickRandomIfTargetMissing ? items[Math.floor(Math.random() * items.length)] : null);
       
       if (!rand) {
-        log('âš ï¸ No match for "' + cleanTarget + '" in ' + items.length + ' items â€” skipping');
+        log('⚠ï¸ No match for "' + cleanTarget + '" in ' + items.length + ' items — skipping');
         const cBtn = Array.from(iframeDoc.querySelectorAll('[data-dismiss="modal"]')).filter(b => b.offsetParent !== null).reverse()[0];
         if (cBtn) cBtn.click();
         await sleep(1000);
@@ -944,18 +982,18 @@ async function selectRandomTechnician(targetName = null) {
   // Skip if technician subgrid already has records
   const existing = await hasExistingSubgridRow(/الفنيين|Technicians/i);
   if (existing) {
-    log('â„¹ï¸ Technician subgrid already has rows â€” skipping');
+    log('ℹï¸ Technician subgrid already has rows — skipping');
     return { ok: true, name: '(موجود مسبقاً)' };
   }
 
-  log('â–¶ï¸ Looking for Technician button...');
+  log('▶ï¸ Looking for Technician button...');
   const allBtns = Array.from(document.querySelectorAll('a, button, input[type="button"]')).filter(b => b.offsetParent !== null);
   const techBtns = allBtns.filter(b => /فن|tech/i.test((b.innerText||b.title||b.value||'').trim()));
   log(`Found ${techBtns.length} tech-related buttons: ${techBtns.map(b=>'"'+(b.innerText||b.title||b.value||'').trim().slice(0,30)+'"').join(', ')}`);
 
   let res = await handlePage2Modal(/[اإأ]ضاف[ةه]\s*فن|Add.*Tech/i, targetName);
   if (res && res.ok) return res;
-  if (res && !res.ok) log('âš ï¸ Technician handlePage2Modal failed');
+  if (res && !res.ok) log('⚠ï¸ Technician handlePage2Modal failed');
 
   log('Trying inline technician lookup...');
   const lab = findFieldByLabel(['الفنيين','الفني','Technician','Technicians']);
@@ -992,7 +1030,7 @@ function getProblemCode(deviceName, isInstallRow) {
 
   // Special case: Premium Care
   if (complaintCode && /premium.?care|بريميم.?كير|بريميم كير/i.test(complaintCode)) {
-    log('â­ Premium Care detected from complaint code');
+    log('⭐ Premium Care detected from complaint code');
     return complaintCode; // Return the complaint code itself to search for Premium Care
   }
 
@@ -1004,7 +1042,7 @@ function getProblemCode(deviceName, isInstallRow) {
 
   // If complaint code found AND matches problem code pattern, use it
   if (complaintCode && /^\*?\w{2}\d{2}$/i.test(complaintCode)) {
-    log('âœ… Using complaint code as problem search: ' + complaintCode);
+    log('✅ Using complaint code as problem search: ' + complaintCode);
     return complaintCode;
   }
 
@@ -1020,7 +1058,7 @@ function getProblemCode(deviceName, isInstallRow) {
           const codes = entry.codes;
           return codes[Math.floor(Math.random() * codes.length)];
         }
-      } catch(e) { /* invalid regex â€” skip */ }
+      } catch(e) { /* invalid regex — skip */ }
     }
   }
 
@@ -1060,9 +1098,9 @@ async function getSmartProblemCode(deviceName, isInstallRow) {
   return getProblemCode(deviceName, isInstallRow);
 }
 
-// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-// â–¼â–¼â–¼  MODULAR LOGIC: PAGE 1 (Review) vs PAGE 2 (FollowUp)
-// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+// ═══════════════════════════════════════════════════════════
+// ▼▼▼  MODULAR LOGIC: PAGE 1 (Review) vs PAGE 2 (FollowUp)
+// ═══════════════════════════════════════════════════════════
 
 function parseDataLine(line) {
   const obj = {}; const parts = line.includes('|') ? line.split('|') : line.split(',');
@@ -1084,31 +1122,31 @@ function parseDataLine(line) {
     try {
       const toDate = (d) => { const m = d.match(/(\d{1,2})\/(\d{1,2})\/(\d{4})/); return m ? new Date(m[3], m[2]-1, m[1]) : new Date(d); };
       const d1 = toDate(parsed.date), d2 = toDate(parsed.date2);
-      if (d2 > d1) { parsed.date = parsed.date2; sysLog('ðŸ“… Using newer date: ' + parsed.date2, 'info'); }
+      if (d2 > d1) { parsed.date = parsed.date2; sysLog('📅 Using newer date: ' + parsed.date2, 'info'); }
     } catch(e) { /* keep original date */ }
   }
   return parsed;
 }
 
-// â”€â”€ Check if Page 1 fields are already filled (skip already-processed orders) â”€â”€
+// ── Check if Page 1 fields are already filled (skip already-processed orders) ──
 function isPage1AlreadyFilled(cfg) {
   const serialEl = findFirst(cfg.serial) || findFieldByLabel(['الرقم المسلسل 1','الرقم المسلسل','Serial Number','Serial']);
   const serialVal = (serialEl?.value || '').trim();
 
-  // لو Serial فاضي أو "0" أو "لا يوجد" â†’ البيانات ناقصة/وهمية â†’ متخطاش
+  // لو Serial فاضي أو "0" أو "لا يوجد" → البيانات ناقصة/وهمية → متخطاش
   if (!serialVal || serialVal === '0' || serialVal.includes('لا يوجد')) {
-    log(`ðŸ” Serial is "${serialVal || '(empty)'}" â€” page not considered filled.`);
+    log(`ðŸ” Serial is "${serialVal || '(empty)'}" — page not considered filled.`);
     return false;
   }
 
-  // لو Serial مملوء وحقيقي (> 3 chars) â†’ شيك باقي الحقول
+  // لو Serial مملوء وحقيقي (> 3 chars) → شيك باقي الحقول
   const brandEl = findFirst(cfg.brandInput) || findFieldByLabel(['العلامة التجاريه','العلامة التجارية','Brand']);
   const brandVal = (brandEl?.value || brandEl?.innerText || '').trim();
   const modelEl = findFirst(cfg.modelInput) || findFieldByLabel(['الموديل الفعلي 1','Model']);
   const modelVal = (modelEl?.value || modelEl?.innerText || '').trim();
 
   if (serialVal.length > 3 && brandVal.length > 1 && modelVal.length > 1) {
-    log(`ðŸ” Page 1 already filled: Brand="${brandVal}", Model="${modelVal}", Serial="${serialVal}" â€” skipping.`);
+    log(`ðŸ” Page 1 already filled: Brand="${brandVal}", Model="${modelVal}", Serial="${serialVal}" — skipping.`);
     return true;
   }
   return false;
@@ -1116,7 +1154,7 @@ function isPage1AlreadyFilled(cfg) {
 
 async function executePage1_Review(data, cfg) {
   const FR = {};
-  log('ã€ PAGE 1 ã€‘ Waiting for form to load...');
+  log('ã€ PAGE 1 】 Waiting for form to load...');
   const startWait = Date.now();
   while (Date.now() - startWait < 15000) { 
     if (findFirst(cfg.brandInput || []) || findFieldByLabel(['العلامة التجاريه','العلامة التجارية','Brand'])) break; 
@@ -1189,7 +1227,7 @@ async function hasExistingSubgridRow(sectionRegex) {
 
 async function executePage2_FollowUp(data, cfg) {
   const FR = {};
-  log('ã€ PAGE 2 ã€‘ Preparing Actual Problems and Technicians...');
+  log('ã€ PAGE 2 】 Preparing Actual Problems and Technicians...');
   await sleep(1000); // Buffer for DOM render
 
   // Set Spare Parts to "بدون قطع غيار" (confirmed on live portal: id=ats_sparepartsstatus)
@@ -1201,12 +1239,12 @@ async function executePage2_FollowUp(data, cfg) {
          sparePartsEl.value = noneOpt.value;
          try { sparePartsEl.dispatchEvent(new Event('change', {bubbles:true})); } catch(e){}
          FR.spareParts = { ok: true, selected: noneOpt.text };
-         log('âœ… Spare Parts set to: ' + noneOpt.text);
+         log('✅ Spare Parts set to: ' + noneOpt.text);
       } else {
-         warn('âš ï¸ "بدون قطع غيار" option not found in spare parts dropdown');
+         warn('⚠ï¸ "بدون قطع غيار" option not found in spare parts dropdown');
       }
   } else {
-      log('â„¹ï¸ Spare Parts field not found â€” skipping');
+      log('ℹï¸ Spare Parts field not found — skipping');
   }
 
   const { autofiller_ProductType } = await chrome.storage.local.get('autofiller_ProductType');
@@ -1216,8 +1254,8 @@ async function executePage2_FollowUp(data, cfg) {
   // For Second Visit: use problemCode from profile directly
   const probCode = data.secondVisitMode && data.problemCode ? data.problemCode : getProblemCode(deviceName, isInstall);
   if (probCode) {
-    log('â–¶ï¸ Adding Actual Problem: ' + probCode);
-    // Exclude: ترصيد، ارضي، بلاغ â€” these are not valid actual problems
+    log('▶ï¸ Adding Actual Problem: ' + probCode);
+    // Exclude: ترصيد، ارضي، بلاغ — these are not valid actual problems
     const excludeActualProblems = /ترصيد|ارضي|أرضي|بلاغ/i;
     // Priority: Premium Care match
     const priorityActualProblem = /Premium\s*care|بريميم.?كير|تركيب وتشغيل/i;
@@ -1230,9 +1268,9 @@ async function executePage2_FollowUp(data, cfg) {
     );
     if (probRes && probRes.ok) {
        FR.problem = { ok: true, selected: probRes.name };
-       log('âœ… Problem added: ' + probRes.name);
+       log('✅ Problem added: ' + probRes.name);
     } else {
-       warn('âš ï¸ Problem modal failed or no match. probRes:', JSON.stringify(probRes));
+       warn('⚠ï¸ Problem modal failed or no match. probRes:', JSON.stringify(probRes));
        FR.problem = { ok: false };
     }
   } else { warn('Could not determine Problem Code for device:', deviceName); }
@@ -1242,23 +1280,23 @@ async function executePage2_FollowUp(data, cfg) {
   await sleep(2000);
 
   const targetTech = data.technicianName || data.technician || null;
-  log('â–¶ï¸ Adding Technician...');
+  log('▶ï¸ Adding Technician...');
   let techRes = await selectRandomTechnician(targetTech);
   // Retry once if failed
   if (!techRes || !techRes.ok) {
-    log('âš ï¸ Technician failed, retrying in 3s...');
+    log('⚠ï¸ Technician failed, retrying in 3s...');
     await sleep(3000);
     techRes = await selectRandomTechnician(targetTech);
   }
   FR.technician = { ok: techRes?.ok || false, selected: techRes?.name };
-  log(techRes?.ok ? 'âœ… Technician added: ' + techRes.name : 'âŒ Technician failed');
+  log(techRes?.ok ? '✅ Technician added: ' + techRes.name : 'âŒ Technician failed');
 
   log('â”â”â” PAGE 2 DONE â”â”â”', FR);
   return { report: { fieldResults: FR } };
 }
 async function executePage3_Resolution(data, cfg) {
   const FR = {};
-  log('ã€ PAGE 3 ã€‘ Preparing Resolution/Fault Codes...');
+  log('ã€ PAGE 3 】 Preparing Resolution/Fault Codes...');
   try {
     const { currentTask } = await storageGet({ currentTask: null });
     if (currentTask) notifyStatus(currentTask.taskId, 'filling', 'جاري تعبئة الصفحة الثالثة (الأعطال)...');
@@ -1272,16 +1310,16 @@ async function executePage3_Resolution(data, cfg) {
     log('ðŸš¿ Force صيانة دورية: adding 3 fault codes (صيانة دورية + صيانة دورية + شحن)...');
 
     FR.faultMaintenance = await addFaultCodePage3('AC001', 'AC00000005', ['تفريغ']);
-    log(FR.faultMaintenance?.ok ? 'âœ… صيانة دورية (AC001) added' : 'âš ï¸ صيانة دورية (AC001) failed');
+    log(FR.faultMaintenance?.ok ? '✅ صيانة دورية (AC001) added' : '⚠ï¸ صيانة دورية (AC001) failed');
 
     await sleep(2000);
     FR.faultDrain = await addFaultCodePage3('AC004', 'AC0300308A', ['تفريغ']);
-    log(FR.faultDrain?.ok ? 'âœ… صيانة دورية (AC004) added' : 'âš ï¸ صيانة دورية (AC004) failed');
+    log(FR.faultDrain?.ok ? '✅ صيانة دورية (AC004) added' : '⚠ï¸ صيانة دورية (AC004) failed');
 
     if (data.shahnEnabled) {
       await sleep(2000);
       FR.faultShahn = await addFaultCodePage3('AC003', 'AC9000L02B', ['تفريغ']);
-      log(FR.faultShahn?.ok ? 'âœ… شحن added' : 'âš ï¸ شحن failed');
+      log(FR.faultShahn?.ok ? '✅ شحن added' : '⚠ï¸ شحن failed');
     }
 
   } else if (isInstall) {
@@ -1491,7 +1529,7 @@ async function addFaultCodePage3(faultCode, subFaultCode = null, excludeTexts = 
   if (!addBtn) { warn('اضافة كود عطل button not found'); return { ok: false }; }
   
   addBtn.click();
-  log('â–¶ï¸ Opening fault code modal for: ' + faultCode + (subFaultCode ? ` + ${subFaultCode}` : ''));
+  log('▶ï¸ Opening fault code modal for: ' + faultCode + (subFaultCode ? ` + ${subFaultCode}` : ''));
   const cleanCode = faultCode.replace(/\*/g, ''); // Strip wildcard for matching
   
   // Wait for iframe to load
@@ -1599,7 +1637,7 @@ async function addFaultCodePage3(faultCode, subFaultCode = null, excludeTexts = 
   if (chk) chk.click(); else bestRow.querySelector('td')?.click() || bestRow.click();
   await sleep(600);
   
-  // Click اختر â€” search all docs
+  // Click اختر — search all docs
   let selectBtns = findSelectBtn(allDocs);
   if (selectBtns.length) selectBtns[selectBtns.length - 1].click();
   await sleep(2000);
@@ -1609,9 +1647,9 @@ async function addFaultCodePage3(faultCode, subFaultCode = null, excludeTexts = 
     if (iframeDoc.getElementById('ats_modeldefectmajor_name')?.value) break;
     await sleep(500);
   }
-  log('âœ… كود العطل الرئيسي selected: ' + iframeDoc.getElementById('ats_modeldefectmajor_name')?.value);
+  log('✅ كود العطل الرئيسي selected: ' + iframeDoc.getElementById('ats_modeldefectmajor_name')?.value);
   
-  // Step 3: Click second lookup (كود العطل) â€” search in iframeDoc + top doc
+  // Step 3: Click second lookup (كود العطل) — search in iframeDoc + top doc
   const faultBtns = (Array.from(iframeDoc.querySelectorAll('button.launchentitylookup'))
     .concat(Array.from(document.querySelectorAll('button.launchentitylookup'))))
     .filter(b => b.offsetParent !== null);
@@ -1621,7 +1659,7 @@ async function addFaultCodePage3(faultCode, subFaultCode = null, excludeTexts = 
     await sleep(1500);
     subFaultBtn.click();
     
-    // Wait for sub-fault rows â€” search all docs
+    // Wait for sub-fault rows — search all docs
     let subRowEntries = [];
     for (let j = 0; j < 16; j++) {
       await sleep(500);
@@ -1649,7 +1687,7 @@ async function addFaultCodePage3(faultCode, subFaultCode = null, excludeTexts = 
         if (iframeDoc.getElementById('ats_defectcodedefectmajor_name')?.value) break;
         await sleep(500);
       }
-      log('âœ… كود العطل selected: ' + iframeDoc.getElementById('ats_defectcodedefectmajor_name')?.value);
+      log('✅ كود العطل selected: ' + iframeDoc.getElementById('ats_defectcodedefectmajor_name')?.value);
     } else {
       warn('No sub-fault rows appeared');
     }
@@ -1674,9 +1712,9 @@ async function addFaultCodePage3(faultCode, subFaultCode = null, excludeTexts = 
 }
 
 
-// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+// ═══════════════════════════════════════════════════════════
 // ROUTER & QUEUE MANAGER
-// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+// ═══════════════════════════════════════════════════════════
 async function getActivePageFeature() {
   // Page 3: contains "أكواد الأعطال" or "اضافة كود عطل"
   const hasFaultSection = Array.from(document.querySelectorAll('label, h3')).some(el => 
@@ -1712,8 +1750,8 @@ function showOverlay(report) {
   document.getElementById('autofiller-overlay')?.remove();
   const div = document.createElement('div'); div.id = 'autofiller-overlay';
   Object.assign(div.style, { position:'fixed', bottom:'16px', left:'16px', background:'linear-gradient(135deg,#0b1220,#0f1e35)', border:'1px solid #1e3450', borderRadius:'12px', padding:'14px 18px', color:'#e2eaf5', fontFamily:"'Cairo', Tahoma, Arial, sans-serif", fontSize:'13px', zIndex:'2147483647', boxShadow:'0 8px 32px rgba(0,0,0,0.6)', maxWidth:'340px', direction:'rtl', pointerEvents:'none' });
-  const fr = report.fieldResults || {}; const summary = Object.keys(fr).map(k => fr[k] ? `${fr[k].ok ? 'âœ…':'âŒ'}${k}` : null).filter(Boolean).join(' | ');
-  div.innerHTML = `<div style="font-weight:700;color:#1f8feb;margin-bottom:6px">âš¡ Portal AutoFiller v3.0</div><div>âœ… اكتمل â€” <b>${report.customer || 'العميل'}</b></div><div style="color:#2bd46f;font-size:11px;margin-top:4px">${summary}</div>`;
+  const fr = report.fieldResults || {}; const summary = Object.keys(fr).map(k => fr[k] ? `${fr[k].ok ? '✅':'âŒ'}${k}` : null).filter(Boolean).join(' | ');
+  div.innerHTML = `<div style="font-weight:700;color:#1f8feb;margin-bottom:6px">âš¡ Portal AutoFiller v3.0</div><div>✅ اكتمل — <b>${report.customer || 'العميل'}</b></div><div style="color:#2bd46f;font-size:11px;margin-top:4px">${summary}</div>`;
   document.body.appendChild(div); setTimeout(() => div.remove(), 7000);
 }
 
@@ -1722,7 +1760,7 @@ function showMasahaOverlay() {
   const div = document.createElement('div'); div.id = 'autofiller-overlay';
   Object.assign(div.style, { position:'fixed', bottom:'16px', left:'16px', background:'linear-gradient(135deg,#1a237e,#0d47a1)', border:'2px solid #ff9800', borderRadius:'12px', padding:'16px 20px', color:'#e2eaf5', fontFamily:"'Cairo', Tahoma, Arial, sans-serif", fontSize:'14px', zIndex:'2147483647', boxShadow:'0 8px 32px rgba(0,0,0,0.6)', maxWidth:'380px', direction:'rtl' });
   div.innerHTML = `
-    <div style="font-weight:700;color:#ff9800;margin-bottom:8px;font-size:16px;">ðŸ“¸ مساحة â€” أرفق الصورة</div>
+    <div style="font-weight:700;color:#ff9800;margin-bottom:8px;font-size:16px;">ðŸ“¸ مساحة — أرفق الصورة</div>
     <div style="margin-bottom:8px;">تم تعبئة جميع البيانات بنجاح.</div>
     <div style="margin-bottom:8px;color:#ffcc80;">الآن أرفق صورة المساحة يدوياً ثم اضغط <b>حفظ</b>.</div>
     <button id="masaha-close-overlay" style="background:#ff9800;color:#000;border:none;padding:6px 16px;border-radius:6px;font-weight:700;cursor:pointer;font-size:13px;">فهمت</button>
@@ -1757,7 +1795,7 @@ async function startNextTask(queue) {
 async function runSingleLineWithRouter(task) {
   // Mutex: prevent parallel execution (race condition between processQueueOnLoad + RUN_SINGLE)
   if (_routerRunning) {
-    log('âš ï¸ Router already running â€” skipping duplicate call');
+    log('⚠ï¸ Router already running — skipping duplicate call');
     return { report: {}, isFullyDone: false, skipped: true };
   }
   _routerRunning = true;
@@ -1787,11 +1825,11 @@ async function _runSingleLineWithRouterInner(task) {
     data.masahaMode = true;
   }
 
-  log('ðŸ“„ Router started. forceDrainCleaning=' + !!data.forceDrainCleaning + ' shahnEnabled=' + !!data.shahnEnabled + ' forceOverwrite=' + !!data.forceOverwrite + ' reportType=' + (data.reportType || 'N/A') + ' problemCode=' + (data.problemCode || 'N/A') + ' faultCode=' + (data.faultCode || 'N/A'));
+  log('📄 Router started. forceDrainCleaning=' + !!data.forceDrainCleaning + ' shahnEnabled=' + !!data.shahnEnabled + ' forceOverwrite=' + !!data.forceOverwrite + ' reportType=' + (data.reportType || 'N/A') + ' problemCode=' + (data.problemCode || 'N/A') + ' faultCode=' + (data.faultCode || 'N/A'));
   let resFR = {}, saveResult = { ok: false };
 
   if (isInstallationReport()) {
-    log('ã€ INSTALLATION DETECTED ã€‘ By-passing Review/Problems and executing explicit setup.');
+    log('ã€ INSTALLATION DETECTED 】 By-passing Review/Problems and executing explicit setup.');
     const res = await performInstallationAndCommissioning(data);
     return { report: res.report, isFullyDone: true };
   }
@@ -1799,13 +1837,13 @@ async function _runSingleLineWithRouterInner(task) {
   let feature = await getActivePageFeature();
   
   if (feature === 'PAGE_1') {
-    // â”€â”€ Skip if page is already filled (order already processed) â”€â”€
+    // ── Skip if page is already filled (order already processed) ──
     await sleep(800); // Wait briefly so fields render before checking
     if (!data.forceOverwrite && isPage1AlreadyFilled(cfg)) {
-        warn('â­ï¸ Page 1 already has data â€” marking task as done and skipping to next order.');
+        warn('â­ï¸ Page 1 already has data — marking task as done and skipping to next order.');
         try {
           const { currentTask } = await storageGet({ currentTask: null });
-          if (currentTask) notifyStatus(currentTask.taskId, 'done', 'â­ï¸ مكتمل مسبقاً â€” تخطي');
+          if (currentTask) notifyStatus(currentTask.taskId, 'done', 'â­ï¸ مكتمل مسبقاً — تخطي');
         } catch(e){}
         const report = { timestamp: new Date().toISOString(), url: location.href, customer: findFirst(cfg.customer)?.innerText?.trim(), orderNumber: data.orderId, filled: data, fieldResults: { skipped: { ok: true } }, saveResult: { ok: true, skipped: true }, skippedReason: 'already-filled' };
         return { report, isFullyDone: true };
@@ -1847,7 +1885,7 @@ async function _runSingleLineWithRouterInner(task) {
     // Check if we need to proceed to Page 3
     const isInstall = /تركيب/.test(data.reportType) || isInstallationReport();
     let needsPage3 = data.forceDrainCleaning || data.faultCode || (/تنظيف|صرف/.test(data.reportType) || /تنظيف|صرف/.test(data.notes || '')) || isInstall;
-    log(`ðŸ“‹ needsPage3=${needsPage3} | forceDrain=${!!data.forceDrainCleaning} | faultCode=${data.faultCode||'N/A'} | isInstall=${isInstall}`);
+    log(`📋 needsPage3=${needsPage3} | forceDrain=${!!data.forceDrainCleaning} | faultCode=${data.faultCode||'N/A'} | isInstall=${isInstall}`);
     
     if (!needsPage3) {
         log('PAGE 3 is not needed. Clicking Save/Next to finalize order on Page 2.');
@@ -1900,7 +1938,7 @@ async function _runSingleLineWithRouterInner(task) {
     Object.assign(resFR, res3.report.fieldResults);
     
     if (data.notes === 'مساحة') {
-      // Masaha: DON'T auto-save â€” user must attach image manually
+      // Masaha: DON'T auto-save — user must attach image manually
       log('PAGE 3 filled (مساحة). Waiting for user to attach image and save manually.');
       showMasahaOverlay();
       saveResult = { ok: true, masahaPending: true };
@@ -1930,7 +1968,7 @@ async function _runSingleLineWithRouterInner(task) {
   return { report, isFullyDone: isDone };
 }
 
-// â”€â”€ JSON-Driven Workflow Engine (V4 Architecture) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ── JSON-Driven Workflow Engine (V4 Architecture) ──────────────────────────
 async function executeWorkflow(workflowName, context, cfg) {
   const steps = cfg.workflows?.[workflowName];
   if (!steps) return false;
@@ -1993,7 +2031,7 @@ async function executeWorkflow(workflowName, context, cfg) {
   return true;
 }
 
-// â”€â”€ Legacy wrapper using Engine for Page 1 â”€â”€
+// ── Legacy wrapper using Engine for Page 1 ──
 async function findOrderAndOpen(orderId, cfg) {
   try {
     const { currentTask } = await storageGet({ currentTask: null });
@@ -2036,11 +2074,34 @@ async function processQueueOnLoad() {
   const { currentTask, processingTabId } = await storageGet({ currentTask: null, processingTabId: null });
   if (!currentTask) return;
 
+  // ── Tab Lock with race-condition retry (fix: new tab may start before background updates processingTabId)
+  let myTabId = null;
   if (processingTabId) {
     const myTabIdResp = await new Promise(r => chrome.runtime.sendMessage({ type: 'GET_MY_TAB_ID' }, r));
-    if (myTabIdResp && myTabIdResp.tabId && myTabIdResp.tabId !== processingTabId) {
-        log(`â›” Tab Lock: This tab (${myTabIdResp.tabId}) is not the active processing tab (${processingTabId}). Ignoring.`);
-        return;
+    myTabId = myTabIdResp?.tabId || null;
+    if (myTabId && myTabId !== processingTabId) {
+        await sleep(1500);
+        const retry = await storageGet({ processingTabId: null });
+        const updatedId = retry.processingTabId;
+        if (updatedId && myTabId !== updatedId) {
+            const pCheck = getPageType();
+            if (pCheck === 'ORDERS') {
+                log(`⚠️ Tab Lock race on ORDERS: claiming lock for tab ${myTabId} (was ${updatedId})`);
+                await storageSet({ processingTabId: myTabId });
+            } else {
+                log(`⛔ Tab Lock: This tab (${myTabId}) is not the active processing tab (${updatedId}). Ignoring.`);
+                return;
+            }
+        } else if (updatedId) {
+            log(`✅ Tab Lock resolved after wait: ${myTabId} == ${updatedId}`);
+        }
+    }
+  } else {
+    // No lock yet — claim it for ORDERS page so queue can start
+    const myTabIdResp2 = await new Promise(r => chrome.runtime.sendMessage({ type: 'GET_MY_TAB_ID' }, r));
+    myTabId = myTabIdResp2?.tabId || null;
+    if (myTabId && getPageType() === 'ORDERS') {
+        await storageSet({ processingTabId: myTabId });
     }
   }
 
@@ -2068,7 +2129,7 @@ async function processQueueOnLoad() {
            const ok = routerRes.report?.saveResult?.ok;
            sendSmartLog('TASK_COMPLETE', { orderId: currentTask.orderId, success: ok, mode: currentTask.mode || 'search' });
            delete document.body.dataset.isAutofilling;
-           notifyStatus(currentTask.taskId, ok ? 'done' : 'save-failed', ok ? 'âœ… اكتمل' : 'âš ï¸ لم يتأكد');
+           notifyStatus(currentTask.taskId, ok ? 'done' : 'save-failed', ok ? '✅ اكتمل' : '⚠ï¸ لم يتأكد');
           await finalizeOrderInSession(currentTask, routerRes.report, ok ? 'done' : 'save-failed');
           
           await storageRemove(['taskRetryFlag']);
@@ -2089,15 +2150,15 @@ async function processQueueOnLoad() {
           // We intentionally do not call startNextTask() to stop the queue.
        } else {
           if (!taskRetryFlag) {
-            log('âš ï¸ Page 1 incomplete. Retrying once...');
-            notifyStatus(currentTask.taskId, 'filling', 'ðŸ”„ إعادة المحاولة...');
+            log('⚠ï¸ Page 1 incomplete. Retrying once...');
+            notifyStatus(currentTask.taskId, 'filling', '🔄 إعادة المحاولة...');
             await storageSet({ taskRetryFlag: true });
             location.reload();
           } else {
             warn('âŒ Retry failed. Skipping to next task.');
             sendSmartLog('TASK_COMPLETE', { orderId: currentTask.orderId, success: false, reason: 'retry-failed', mode: currentTask.mode || 'search' });
             delete document.body.dataset.isAutofilling;
-            notifyStatus(currentTask.taskId, 'error', 'âŒ فشل â€” تخطي للتالي');
+            notifyStatus(currentTask.taskId, 'error', 'âŒ فشل — تخطي للتالي');
             await finalizeOrderInSession(currentTask, routerRes.report, 'error');
             await storageRemove(['taskRetryFlag']);
             await clearCurrentTask();
@@ -2114,7 +2175,7 @@ async function processQueueOnLoad() {
        err('ðŸ’¥ Unexpected error in router: ' + e);
         if (currentTask) sendSmartLog('TASK_COMPLETE', { orderId: currentTask.orderId, success: false, reason: 'error', mode: currentTask.mode || 'search' });
         delete document.body.dataset.isAutofilling;
-        notifyStatus(currentTask?.taskId, 'error', 'âŒ خطأ غير متوقع â€” تخطي للتالي');
+        notifyStatus(currentTask?.taskId, 'error', 'âŒ خطأ غير متوقع — تخطي للتالي');
        if (currentTask) await finalizeOrderInSession(currentTask, { error: e.toString() }, 'error');
        await clearCurrentTask();
        const { taskQueue: qErr, taskDelay: td5 = 800 } = await storageGet({ taskQueue: [], taskDelay: 800 });
@@ -2128,7 +2189,7 @@ async function processQueueOnLoad() {
   } else { location.href = ORDERS_URL; }
 }
 
-// â”€â”€ SESSION ENGINE â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ── SESSION ENGINE ─────────────────────────────────────────────────────────────
 // Groups orders into sessions instead of single disjointed logs.
 
 async function openSession(batchId, tasks) {
@@ -2206,7 +2267,7 @@ async function finalizeSession() {
   } catch (e) { warn('finalizeSession error', e); }
 }
 
-// â”€â”€ Helper functions for QUICK_PASTE_BATCH â”€â”€
+// ── Helper functions for QUICK_PASTE_BATCH ──
 function extractOrderIdFromLine(line) {
   const m1 = line.match(/orderid\s*:\s*([^\s|,]+)/i);
   if (m1) return m1[1].trim();
@@ -2256,7 +2317,7 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
         });
         await storageRemove(['taskRetryFlag']);
         await clearCurrentTask();
-        // Respond BEFORE startNextTask â€” it may navigate away, killing this context
+        // Respond BEFORE startNextTask — it may navigate away, killing this context
         sendResponse({ ok: true });
         await startNextTask(tasks);
       }
@@ -2292,12 +2353,12 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
         setTimeout(async () => {
           let text = '';
           try { text = await navigator.clipboard.readText(); } catch(e) { text = ''; }
-          if (!text) { showPageToast('âš ï¸ الحافظة فارغة', 'error'); return; }
+          if (!text) { showPageToast('⚠ï¸ الحافظة فارغة', 'error'); return; }
           const lines = text.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
-          if (!lines.length) { showPageToast('âš ï¸ لا توجد بيانات في الحافظة', 'error'); return; }
+          if (!lines.length) { showPageToast('⚠ï¸ لا توجد بيانات في الحافظة', 'error'); return; }
           const tasks = buildTasksFromLines(lines);
-          if (!tasks.length) { showPageToast('âš ï¸ لم يتم التعرف على Order IDs', 'error'); return; }
-          showPageToast(`âœ… بدء التشغيل â€” ${tasks.length} مهمة`, 'success');
+          if (!tasks.length) { showPageToast('⚠ï¸ لم يتم التعرف على Order IDs', 'error'); return; }
+          showPageToast(`✅ بدء التشغيل — ${tasks.length} مهمة`, 'success');
           const batchId = 'batch-' + Date.now();
           await openSession(batchId, tasks);
           await storageSet({ taskQueue: tasks.slice(1), taskResults: [], taskDelay: 2000 });
@@ -2312,9 +2373,9 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
         } else if (currentUrl.includes('workorderreview')) {
           window.location.href = currentUrl.replace('workorderreview', 'technicalreviewdetails');
         } else if (currentUrl.includes('technicalreviewdetails')) {
-          showPageToast('âœ… أنت بالفعل في صفحة المراجعة الفنية', 'success');
+          showPageToast('✅ أنت بالفعل في صفحة المراجعة الفنية', 'success');
         } else {
-          showPageToast('âš ï¸ افتح بلاغ أولاً', 'warn');
+          showPageToast('⚠ï¸ افتح بلاغ أولاً', 'warn');
         }
         sendResponse({ ok: true });
       }
@@ -2379,7 +2440,7 @@ async function performExtractionAndLog(attempt = 1) {
     return;
   }
 
-  const extractCode = (s) => (s || '').split(/\s*[_â€“â€”]\s*/)[0].split('(')[0].trim();
+  const extractCode = (s) => (s || '').split(/\s*[_–—]\s*/)[0].split('(')[0].trim();
   const model1Code = extractCode(model1) || model1 || 'غير محدد';
   const model2Code = extractCode(model2) || model2 || '';
   const finalSerial2 = serial2.trim();
@@ -2420,8 +2481,8 @@ async function performExtractionAndLog(attempt = 1) {
   `;
   overlay.innerHTML = `
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
-      <span style="font-size:15px;font-family:Arial,sans-serif;">âœ… تم سحب بيانات الجهاز بنجاح!</span>
-      <button id="ext-copy-btn" style="background:#fff;color:#4caf50;border:none;padding:5px 12px;border-radius:5px;cursor:pointer;font-weight:bold;font-size:12px;">ðŸ“‹ نسخ</button>
+      <span style="font-size:15px;font-family:Arial,sans-serif;">✅ تم سحب بيانات الجهاز بنجاح!</span>
+      <button id="ext-copy-btn" style="background:#fff;color:#4caf50;border:none;padding:5px 12px;border-radius:5px;cursor:pointer;font-weight:bold;font-size:12px;">📋 نسخ</button>
     </div>
     <div style="background:rgba(0,0,0,0.15);padding:10px 12px;border-radius:6px;white-space:pre-wrap;line-height:1.8;">${copyText}</div>
   `;
@@ -2430,9 +2491,9 @@ async function performExtractionAndLog(attempt = 1) {
   overlay.querySelector('#ext-copy-btn').addEventListener('click', () => {
     navigator.clipboard.writeText(copyText).then(() => {
       const btn = overlay.querySelector('#ext-copy-btn');
-      btn.textContent = 'âœ… تم النسخ!';
+      btn.textContent = '✅ تم النسخ!';
       btn.style.color = '#4caf50';
-      setTimeout(() => { btn.textContent = 'ðŸ“‹ نسخ'; btn.style.color = '#4caf50'; }, 1500);
+      setTimeout(() => { btn.textContent = '📋 نسخ'; btn.style.color = '#4caf50'; }, 1500);
     });
   });
 
