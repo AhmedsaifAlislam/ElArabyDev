@@ -21,8 +21,10 @@ body {
   color: var(--ea-text);
   direction: rtl;
   width: 460px;
-  min-height: 420px;
-  border: 1px solid var(--ea-border); /* إطار خفيف كالبورتال #bcbcbc */
+  height: 600px; max-height: 600px;
+  display: flex; flex-direction: column;
+  overflow: hidden;
+  border: 1px solid var(--ea-border);
 }
 
 /* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
@@ -37,6 +39,53 @@ body {
   min-height: 60px; /* مطابقة ارتفاع navbar البورتال */
 }
 .header::after { display: none; }
+
+/* ── Araby Cover — مطابقة .coverBox/.araby-cover في البورتال ── */
+.araby-cover {
+  margin: 10px 12px 8px;
+  background: linear-gradient(135deg, #135ea2 0%, #17334c 100%); /* مطابقة navbar + news */
+  border: 1px solid rgba(255,255,255,0.12);
+  border-radius: 8px;
+  padding: 10px 14px;
+  display: flex; align-items: center; justify-content: center;
+  min-height: 56px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.25);
+  position: relative;
+  overflow: hidden;
+}
+.araby-cover::before {
+  content: '';
+  position: absolute; inset: 0;
+  background: radial-gradient(300px 120px at 85% 0%, rgba(47,95,239,0.18), transparent 60%);
+  pointer-events: none;
+}
+.araby-cover-inner {
+  display: flex; align-items: center; gap: 10px;
+  position: relative; z-index: 1;
+}
+.araby-cover-logo {
+  height: 22px; width: auto; flex-shrink: 0;
+  filter: drop-shadow(0 1px 2px rgba(0,0,0,0.3));
+}
+.araby-cover-text { text-align: right; line-height: 1.2; }
+.araby-cover-title {
+  font-family: 'Segoe UI Semibold', 'Cairo', sans-serif;
+  font-size: 13px; font-weight: 700; color: #ffffff; letter-spacing: 0.02em;
+}
+.araby-cover-sub {
+  font-size: 10px; font-weight: 600; color: rgba(255,255,255,0.85); margin-top: 1px;
+}
+/* لايت مود — نفس الألوان (الكحلي ثابت كهوية) مع حدود أفتح */
+[data-theme="light"] .araby-cover {
+  border-color: #bcbcbc;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.12);
+}
+/* ── Footer variant — تحت خالص في فوتر النوافذ (ثابت أسفل بدون مساحة) ── */
+.araby-cover.ar--footer {
+  margin: 8px -16px 0;
+  border-radius: 0 0 8px 8px;
+  border-left: none; border-right: none; border-bottom: none;
+}
 .brand-mark {
   width: 36px; height: 36px; flex-shrink: 0;
   display: flex; align-items: center; justify-content: center;
@@ -231,7 +280,7 @@ body {
    Tab Panels
    ════════════════════════════════════════════════════════════ */
 .tab-panel { display: none; padding: 14px 16px 12px; }
-.tab-panel.active { display: block; animation: fadeIn 0.22s var(--ea-transition); }
+.tab-panel.active { display: block; flex: 1; overflow-y: auto; min-height: 0; animation: fadeIn 0.22s var(--ea-transition); }
 
 /* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
    Format Hint
@@ -783,12 +832,15 @@ textarea::placeholder { color: var(--ea-muted-2); direction: rtl; text-align: ri
    Footer
    â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
 .popup-footer {
-  padding: 9px 16px 11px;
+  flex-shrink: 0;
+  margin-top: auto;
+  padding: 9px 16px 0;
   text-align: center;
   font-size: 9.5px;
   color: var(--ea-muted-2);
   border-top: 1px solid var(--ea-border);
   background: var(--ea-faint);
+  position: relative;
 }
 
 /* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•

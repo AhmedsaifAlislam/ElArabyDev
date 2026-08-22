@@ -91,8 +91,453 @@ document.querySelectorAll('.tab-btn').forEach(btn => {
     if (btn.dataset.tab === 'smart-log') { loadSmartLogDashboard(); }
     if (btn.dataset.tab === 'tampermonkey') loadTampermonkeyScripts();
     if (btn.dataset.tab === 'session') loadSessionCaptures();
+    if (btn.dataset.tab === 'dashboard') initDashboard();
+    if (btn.dataset.tab === 'parts-search') initPartsSearch();
+    if (btn.dataset.tab === 'telemetry') initTelemetry();
+    if (btn.dataset.tab === 'n8n') initN8n();
+    if (btn.dataset.tab === 'excel-autofix') initExcelAutofix();
+    if (btn.dataset.tab === 'settings') initSettings();
+    if (btn.dataset.tab === 'sync') initSync();
+    if (btn.dataset.tab === 'ai') initAI();
+    if (btn.dataset.tab === 'financial') initFinancial();
   });
 });
+
+// ── Sub-Tab Switching (generic for all main panels) ────────
+document.querySelectorAll('.sub-tab-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    const parentPanel = btn.closest('.tab-panel');
+    if (!parentPanel) return;
+    parentPanel.querySelectorAll('.sub-tab-btn').forEach(b => b.classList.remove('active'));
+    parentPanel.querySelectorAll('.sub-tab-panel').forEach(p => p.classList.remove('active'));
+    btn.classList.add('active');
+    const subId = 'sub-panel-' + btn.dataset.subTab;
+    const subPanel = parentPanel.querySelector('#' + subId) || document.getElementById(subId);
+    if (subPanel) subPanel.classList.add('active');
+    // Sub-tab specific init
+    if (btn.dataset.subTab === 'parts-search') initPartsSearchContent();
+    if (btn.dataset.subTab === 'tools-telemetry') initTelemetry();
+    if (btn.dataset.subTab === 'tools-n8n') initN8n();
+    if (btn.dataset.subTab === 'tools-excel-autofix') initExcelAutofix();
+    if (btn.dataset.subTab === 'tools-settings') initSettings();
+    if (btn.dataset.subTab === 'tools-sync') initSync();
+    if (btn.dataset.subTab === 'tools-ai') initAI();
+    if (btn.dataset.subTab === 'dashboard-sync') initDashboardSync();
+    if (btn.dataset.subTab === 'dashboard-search') initDashboardSearch();
+    if (btn.dataset.subTab === 'dashboard-inventory') initDashboardInventory();
+  });
+});
+
+// ── Tab Initialization Functions ──────────────────────────
+function initDashboard() {
+  // Initialize dashboard - load stats and default to sync tab
+  initDashboardSync();
+  console.log('[Dashboard] tab activated');
+}
+
+function initDashboardSync() {
+  // Load DB stats from background
+  chrome.runtime.sendMessage({ action: 'getDBCount' }, (res) => {
+    if (res && res.count !== undefined) {
+      const elStatCount = document.getElementById('statCount'); if (elStatCount) { elStatCount.textContent = res.count.toLocaleString('ar-EG'); }
+    }
+    if (res && res.lastSync) {
+      const elStatLastSync = document.getElementById('statLastSync'); if (elStatLastSync) { elStatLastSync.textContent = new Date(res.lastSync).toLocaleString('ar-EG'); }
+      const elStatStatus = document.getElementById('statStatus'); if (elStatStatus) { elStatStatus.textContent = 'محدثة'; }
+      const elStatStatus2 = document.getElementById('statStatus'); if (elStatStatus2) { elStatStatus2.style.color = 'var(--ea-success)'; }
+    }
+  });
+
+  // Drive/Local mode toggle
+  document.getElementById('tabDrive')?.addEventListener('click', () => showSyncMode('drive'));
+  document.getElementById('tabLocal')?.addEventListener('click', () => showSyncMode('local'));
+
+  // Local file upload
+  const fileInput = document.getElementById('localFileInput');
+  fileInput?.addEventListener('change', (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    document.getElementById('localFileName').textContent = `${file.name} (${(file.size / 1024 / 1024).toFixed(1)} MB)`;
+    window.localFileData = file;
+    document.getElementById('localFileReady').style.display = 'block';
+  });
+
+  // Sync buttons
+  document.getElementById('btnSync')?.addEventListener('click', syncFromDrive);
+  document.getElementById('btnLocalImport')?.addEventListener('click', importLocalFile);
+
+  console.log('[Dashboard Sync] initialized');
+}
+
+function showSyncMode(mode) {
+  const driveMode = document.getElementById('syncDriveMode');
+  const localMode = document.getElementById('syncLocalMode');
+  const tabDrive = document.getElementById('tabDrive');
+  const tabLocal = document.getElementById('tabLocal');
+  if (mode === 'local') {
+    driveMode.style.display = 'none';
+    localMode.style.display = 'block';
+    tabDrive.classList.remove('active');
+    tabLocal.classList.add('active');
+  } else {
+    driveMode.style.display = 'block';
+    localMode.style.display = 'none';
+    tabDrive.classList.add('active');
+    tabLocal.classList.remove('active');
+  }
+}
+
+function syncFromDrive() {
+  const url = document.getElementById('driveUrl')?.value;
+  if (!url) return showAlert('syncAlert', 'أدخل رابط Google Drive', 'error');
+  const btn = document.getElementById('btnSync');
+  btn.disabled = true;
+  btn.textContent = '⏳ جاري المزامنة...';
+  document.getElementById('progressWrap').style.display = 'block';
+  document.getElementById('progressFill').style.width = '10%';
+  document.getElementById('progressLabel').textContent = '📥 جاري تحميل الملف...';
+
+  chrome.runtime.sendMessage({ action: 'syncFromDrive', url }, (res) => {
+    btn.disabled = false;
+    btn.textContent = '⬇️ مزامنة الآن';
+    document.getElementById('progressWrap').style.display = 'none';
+    if (res?.error) {
+      showAlert('syncAlert', `❌ فشل: ${res.error}`, 'error');
+    } else {
+      document.getElementById('progressFill').style.width = '100%';
+      document.getElementById('progressLabel').textContent = `✅ اكتمل! ${res.count?.toLocaleString('ar-EG') || ''} سجل`;
+      showAlert('syncAlert', `✅ تمت المزامنة بنجاح`, 'success');
+      loadDashboardStats();
+    }
+  });
+}
+
+function importLocalFile() {
+  const file = window.localFileData;
+  if (!file) return showAlert('syncAlert', 'اختر ملف أولاً', 'error');
+  const btn = document.getElementById('btnLocalImport');
+  btn.disabled = true;
+  btn.textContent = '⏳ جاري القراءة...';
+  document.getElementById('progressWrap').style.display = 'block';
+  document.getElementById('progressFill').style.width = '10%';
+  document.getElementById('progressLabel').textContent = '📂 جاري قراءة الملف...';
+
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    document.getElementById('progressFill').style.width = '20%';
+    document.getElementById('progressLabel').textContent = '⚙️ جاري تحليل الملف...';
+
+    const uint8 = new Uint8Array(e.target.result);
+    let rows = [];
+    const isXLSX = uint8.length > 2 && uint8[0] === 0x50 && uint8[1] === 0x4B;
+
+    try {
+      if (isXLSX) {
+        const workbook = XLSX.read(uint8, { type: 'array' });
+        const sheetName = workbook.SheetNames[0];
+        rows = XLSX.utils.sheet_to_json(workbook.Sheets[sheetName], { defval: '' });
+      } else {
+        let bytes = uint8;
+        if (uint8.length > 3 && uint8[0] === 0xEF && uint8[1] === 0xBB && uint8[2] === 0xBF) {
+          bytes = uint8.slice(3);
+        }
+        function decodeAndCount(enc) {
+          try {
+            const text = new TextDecoder(enc, { fatal: true }).decode(bytes);
+            let arabic = 0;
+            for (let i = 0; i < Math.min(text.length, 5000); i++) {
+              const c = text.charCodeAt(i);
+              if (c >= 0x0600 && c <= 0x06FF) arabic++;
+            }
+            return { text, arabic };
+          } catch(e) { return null; }
+        }
+        let best = null;
+        for (const enc of ['utf-8', 'windows-1256', 'iso-8859-6']) {
+          const r = decodeAndCount(enc);
+          if (r && (!best || r.arabic > best.arabic)) best = r;
+        }
+        const text = best?.text || new TextDecoder('utf-8').decode(bytes);
+        const parsed = Papa.parse(text, { header: true, skipEmptyLines: true, dynamicTyping: false,
+          transformHeader: h => h.trim().replace(/^\uFEFF/, '') });
+        rows = parsed.data;
+      }
+    } catch (err) {
+      showAlert('syncAlert', `❌ فشل في قراءة الملف: ${err.message}`, 'error');
+      document.getElementById('progressWrap').style.display = 'none';
+      btn.disabled = false;
+      btn.textContent = '⬆️ رفع واستيراد الآن';
+      return;
+    }
+
+      document.getElementById('progressFill').style.width = '50%';
+      document.getElementById('progressLabel').textContent = `⚙️ جاري حفظ ${rows.length.toLocaleString('ar-EG')} سجل...`;
+
+      const BATCH = 10000;
+      let totalSaved = 0;
+      (async () => {
+        for (let i = 0; i < rows.length; i += BATCH) {
+          const chunk = rows.slice(i, i + BATCH);
+          const isFirst = i === 0;
+          const res = await new Promise(r => chrome.runtime.sendMessage({ action: 'importLocalChunk', rows: chunk, isFirst }, r));
+          if (res?.error) throw new Error(res.error);
+          totalSaved = res?.total || totalSaved;
+          const pct = 50 + Math.round((i / rows.length) * 45);
+          document.getElementById('progressFill').style.width = pct + '%';
+          document.getElementById('progressLabel').textContent = `⚙️ جاري الحفظ: ${Math.min(i + BATCH, rows.length).toLocaleString('ar-EG')} / ${rows.length.toLocaleString('ar-EG')}`;
+        }
+        localStorage.setItem('lastSync', new Date().toISOString());
+        document.getElementById('progressFill').style.width = '100%';
+        document.getElementById('progressLabel').textContent = `✅ اكتمل! تم حفظ ${totalSaved.toLocaleString('ar-EG')} سجل`;
+        showAlert('syncAlert', `✅ تمت المزامنة بنجاح — ${totalSaved.toLocaleString('ar-EG')} سجل محفوظ`, 'success');
+        loadDashboardStats();
+        loadFilters();
+        btn.disabled = false;
+        btn.textContent = '⬆️ رفع واستيراد الآن';
+      })().catch(err => {
+        showAlert('syncAlert', `❌ فشل: ${err.message}`, 'error');
+        document.getElementById('progressWrap').style.display = 'none';
+        btn.disabled = false;
+        btn.textContent = '⬆️ رفع واستيراد الآن';
+      });
+    };
+    reader.readAsArrayBuffer(file);
+  }
+
+function loadDashboardStats() {
+  chrome.runtime.sendMessage({ action: 'getDBCount' }, (res) => {
+    if (res && res.count !== undefined) {
+      document.getElementById('statCount').textContent = res.count.toLocaleString('ar-EG');
+    }
+    if (res && res.lastSync) {
+      document.getElementById('statLastSync').textContent = new Date(res.lastSync).toLocaleString('ar-EG');
+      document.getElementById('statStatus').textContent = 'محدثة';
+      document.getElementById('statStatus').style.color = 'var(--ea-success)';
+    }
+  });
+}
+
+function loadFilters() {
+  chrome.runtime.sendMessage({ action: 'getMasterDataFilters' }, (res) => {
+    if (!res) return;
+    window.filterRelations = {
+      modelsByType: res.modelsByType || {},
+      defectMajorsByModel: res.defectMajorsByModel || {},
+      defectDescsByMajor: res.defectDescsByMajor || {}
+    };
+    populateSelect('fAdvProductGroup', res.productTypes || [], 'المنتجات', true);
+    const allModels = [...new Set(Object.values(window.filterRelations.modelsByType).flat())].sort();
+    populateSelect('fAdvBrand', allModels.length ? allModels : (res.models || []), 'الموديلات', true);
+    const allMajors = [...new Set(Object.values(window.filterRelations.defectMajorsByModel).flat())].sort();
+    populateSelect('fAdvModel', allMajors.length ? allMajors : (res.defectMajors || []), 'العطل الرئيسي', true);
+    const allDescs = [...new Set(Object.values(window.filterRelations.defectDescsByMajor).flat())].sort();
+    populateSelect('fAdvDefect', allDescs.length ? allDescs : (res.defectDescs || []), 'العطل الفرعي', true);
+  });
+}
+
+function populateSelect(id, items, label, silent) {
+  const sel = document.getElementById(id);
+  if (!sel) return;
+  const currentVal = sel.value;
+  sel.innerHTML = '<option value="">' + label + '</option>' + items.map(v => '<option value="' + v + '">' + v + '</option>').join('');
+  sel.value = items.includes(currentVal) ? currentVal : '';
+  if (!silent) sel.dispatchEvent(new Event('change', { bubbles: true }));
+}
+
+function cascadeModels(silent) {
+  const type = document.getElementById('fAdvProductGroup')?.value || '';
+  window.currentFilterValues = window.currentFilterValues || {};
+  window.currentFilterValues.productType = type;
+  window.currentFilterValues.model = '';
+  window.currentFilterValues.defectMajor = '';
+  window.currentFilterValues.defectDesc = '';
+  const models = type ? (window.filterRelations?.modelsByType?.[type] || []) : [...new Set(Object.values(window.filterRelations?.modelsByType || {}).flat())].sort();
+  populateSelect('fAdvBrand', models, 'الموديلات', silent);
+}
+
+function cascadeMajors() {
+  const md = document.getElementById('fAdvBrand')?.value || '';
+  window.currentFilterValues = window.currentFilterValues || {};
+  window.currentFilterValues.model = md;
+  window.currentFilterValues.defectMajor = '';
+  window.currentFilterValues.defectDesc = '';
+  const majors = md ? (window.filterRelations?.defectMajorsByModel?.[md] || []) : [...new Set(Object.values(window.filterRelations?.defectMajorsByModel || {}).flat())].sort();
+  populateSelect('fAdvModel', majors, 'العطل الرئيسي');
+}
+
+function cascadeDefects(silent) {
+  const maj = document.getElementById('fAdvModel')?.value || '';
+  window.currentFilterValues = window.currentFilterValues || {};
+  window.currentFilterValues.defectMajor = maj;
+  window.currentFilterValues.defectDesc = '';
+  const descs = maj ? (window.filterRelations?.defectDescsByMajor?.[maj] || []) : [...new Set(Object.values(window.filterRelations?.defectDescsByMajor || {}).flat())].sort();
+  populateSelect('fAdvDefect', descs, 'العطل الفرعي', silent);
+}
+
+function setupFilterEvents() {
+  document.getElementById('fAdvProductGroup')?.addEventListener('change', () => { cascadeModels(); doSearch(); });
+  document.getElementById('fAdvBrand')?.addEventListener('change', () => { cascadeMajors(); doSearch(); });
+  document.getElementById('fAdvModel')?.addEventListener('change', () => { cascadeDefects(); doSearch(); });
+  document.getElementById('fAdvDefect')?.addEventListener('change', () => { doSearch(); });
+  document.getElementById('btnSearch')?.addEventListener('click', doSearch);
+  document.getElementById('btnClearSearch')?.addEventListener('click', () => {
+    document.getElementById('fAdvProductGroup').value = '';
+    document.getElementById('fAdvBrand').value = '';
+    document.getElementById('fAdvModel').value = '';
+    document.getElementById('fAdvDefect').value = '';
+    document.getElementById('fAdvKeyword').value = '';
+    cascadeModels(true);
+    cascadeMajors();
+    cascadeDefects(true);
+    doSearch();
+  });
+  document.getElementById('fAdvKeyword')?.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') doSearch();
+  });
+}
+
+async function doSearch() {
+  const btn = document.getElementById('btnSearch');
+  const spinner = document.getElementById('searchSpinner');
+  btn.disabled = true;
+  spinner.style.display = 'inline';
+  document.getElementById('tableControls').style.display = 'flex';
+
+  const filters = {
+    productType: document.getElementById('fAdvProductGroup')?.value || '',
+    model: document.getElementById('fAdvBrand')?.value || '',
+    defectMajor: document.getElementById('fAdvModel')?.value || '',
+    defectDesc: document.getElementById('fAdvDefect')?.value || '',
+    keyword: document.getElementById('fAdvKeyword')?.value || ''
+  };
+
+  const res = await new Promise(r => chrome.runtime.sendMessage({ action: 'searchDB', filters }, r));
+  btn.disabled = false;
+  spinner.style.display = 'none';
+
+  if (res?.error) {
+    showAlert('syncAlert', `❌ بحث فاشل: ${res.error}`, 'error');
+    return;
+  }
+  renderSearchResults(res?.rows || []);
+  document.getElementById('advResultCount').textContent = (res?.rows || []).length.toLocaleString('ar-EG');
+}
+
+function renderSearchResults(data) {
+  const tbody = document.getElementById('dataBody');
+  if (!data.length) {
+    tbody.innerHTML = '<tr><td colspan="6" style="padding:24px; text-align:center; color:var(--muted);"><div>لا توجد نتائج</div><div style="font-size:10px; margin-top:4px;">جرب فلاتر أخرى</div></td></tr>';
+    return;
+  }
+  tbody.innerHTML = data.map(r => `
+    <tr>
+      <td style="padding:8px; font-size:11px;">${r.productType || '–'}</td>
+      <td style="padding:8px;"><span style="font-family:monospace; font-size:11px;">${r.modelCode || '–'}</span><br><span style="font-size:10px; color:var(--muted);">${r.modelDescription || ''}</span></td>
+      <td style="padding:8px; font-size:10px; max-width:180px;">${(r.defectMajor || '').substring(0,35)}</td>
+      <td style="padding:8px;"><span style="background:var(--ea-warning-bg); color:var(--ea-warning); padding:2px 6px; border-radius:4px; font-size:10px; font-weight:700;">${r.defectCode || '–'}</span><br><span style="font-size:10px; color:var(--muted);">${(r.defectDescription || '').substring(0,40)}</span></td>
+      <td style="padding:8px;"><strong style="font-family:monospace; font-size:11px;">${r.sparePartCode || '–'}</strong></td>
+      <td style="padding:8px; text-align:center;">${r.maxQuantity > 0 ? r.maxQuantity : '–'}</td>
+    </tr>
+  `).join('');
+}
+
+function initDashboardSearch() {
+  setupFilterEvents();
+  loadFilters();
+  console.log('[Dashboard Search] initialized');
+}
+
+function initDashboardInventory() {
+  document.getElementById('btnScrape')?.addEventListener('click', scrapeInventory);
+  document.getElementById('btnExportInv')?.addEventListener('click', exportInventory);
+  document.getElementById('invSearch')?.addEventListener('input', filterInventoryTable);
+  console.log('[Dashboard Inventory] initialized');
+}
+
+async function scrapeInventory() {
+  const btn = document.getElementById('btnScrape');
+  btn.disabled = true;
+  btn.textContent = '⏳ جاري السحب...';
+  showAlert('invAlert', 'جاري البحث عن تبويب البورتال...', 'info');
+
+  const res = await new Promise(r => chrome.runtime.sendMessage({ action: 'scrapeInventory' }, r));
+  btn.disabled = false;
+  btn.textContent = '📥 سحب العهدة من البورتال';
+
+  if (res?.error) {
+    showAlert('invAlert', `❌ ${res.error}`, 'error');
+    return;
+  }
+  if (!res?.data?.length) {
+    showAlert('invAlert', 'لم يتم العثور على بيانات عهدة في التبويب النشط', 'error');
+    return;
+  }
+  window.inventoryData = res.data;
+  renderInventory(res.data);
+  document.getElementById('btnExportInv').disabled = false;
+  showAlert('invAlert', `✅ تم سحب ${res.data.length} صنف`, 'success');
+}
+
+function renderInventory(data) {
+  document.getElementById('invStats').style.display = 'grid';
+  const totalItems = data.length;
+  const totalQty = data.reduce((s, r) => s + (r.qty || 0), 0);
+  const totalValue = data.reduce((s, r) => s + (r.price * r.qty || 0), 0);
+  document.getElementById('invCount').textContent = totalItems.toLocaleString('ar-EG');
+  document.getElementById('invQty').textContent = totalQty.toLocaleString('ar-EG');
+  document.getElementById('invValue').textContent = totalValue.toLocaleString('ar-EG') + ' ج.م';
+
+  document.getElementById('invTableCard').style.display = 'block';
+  const tbody = document.getElementById('invBody');
+  tbody.innerHTML = data.map((r, i) => `
+    <tr>
+      <td style="padding:8px;"><span style="font-family:monospace;">${r.code || r.sparePartCode || '–'}</span></td>
+      <td style="padding:8px;">${r.desc || r.description || '–'}</td>
+      <td style="padding:8px; text-align:right;">${r.store || r.location || '–'}</td>
+      <td style="padding:8px; text-align:center;">${r.qty || 0}</td>
+      <td style="padding:8px; text-align:center; font-family:monospace;">${r.price ? r.price.toLocaleString('ar-EG') : '–'}</td>
+      <td style="padding:8px; text-align:center; font-family:monospace; color:var(--ea-success);">${(r.price * r.qty || 0).toLocaleString('ar-EG')}</td>
+    </tr>
+  `).join('');
+  document.getElementById('invTableCount').textContent = `${data.length} سجل`;
+}
+
+function filterInventoryTable() {
+  const term = document.getElementById('invSearch').value.toLowerCase();
+  const rows = document.getElementById('invBody')?.querySelectorAll('tr') || [];
+  rows.forEach(tr => {
+    const text = tr.textContent.toLowerCase();
+    tr.style.display = text.includes(term) ? '' : 'none';
+  });
+  const visible = [...rows].filter(r => r.style.display !== 'none').length;
+  document.getElementById('invTableCount').textContent = `${visible} / ${rows.length} سجل`;
+}
+
+function exportInventory() {
+  if (!window.inventoryData?.length) return;
+  const wb = XLSX.utils.book_new();
+  const ws = XLSX.utils.json_to_sheet(window.inventoryData.map(r => ({
+    'كود القطعة': r.code || r.sparePartCode,
+    'الوصف': r.desc || r.description,
+    'المخزن': r.store || r.location,
+    'الكمية': r.qty,
+    'سعر الوحدة': r.price,
+    'القيمة': r.price * r.qty
+  })));
+  XLSX.utils.book_append_sheet(wb, ws, 'العهدة');
+  XLSX.writeFile(wb, 'العهدة_المسعرة_' + new Date().toISOString().split('T')[0] + '.xlsx');
+}
+
+function showAlert(id, msg, type) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.textContent = msg;
+  el.className = 'alert ' + type;
+  el.style.display = 'block';
+  if (type === 'success') { el.style.background = 'var(--ea-success-bg)'; el.style.color = 'var(--ea-success)'; el.style.borderColor = 'var(--ea-success-border)'; }
+  else if (type === 'error') { el.style.background = 'var(--ea-error-bg)'; el.style.color = 'var(--ea-error)'; el.style.borderColor = 'var(--ea-error-border)'; }
+  else { el.style.background = 'var(--ea-brand-bg)'; el.style.color = 'var(--ea-brand)'; el.style.borderColor = 'var(--ea-brand-border)'; }
+}
 
 // ── Smart Log buttons ────────────────────────────────────
 document.getElementById('sl-btn-refresh')?.addEventListener('click', loadSmartLogDashboard);
