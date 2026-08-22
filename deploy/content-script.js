@@ -1,5 +1,5 @@
 ﻿// =========================================================
-// content-script.js â€” Portal AutoFiller v3.0
+// content-script.js — Portal AutoFiller v3.0
 // TARGET: Modular Architecture (Page1 & Page 2) + ClearBtn Verifier
 // =========================================================
 'use strict';
@@ -8,7 +8,7 @@ const LOG_PREFIX = '[AutoFiller v3.0]';
 const PORTAL_BASE = 'https://elarabyportalpfs.powerappsportals.com';
 const ORDERS_URL  = PORTAL_BASE + '/en-US/Orders/';
 
-// â”€â”€ Storage proxy (Edge Tracking Prevention bypass) â”€â”€
+// ── Storage proxy (Edge Tracking Prevention bypass) ──
 async function storageGet(keys) {
   try {
     const resp = await chrome.runtime.sendMessage({ type: 'STORAGE_GET', keys });
@@ -31,7 +31,7 @@ function sendSmartLog(eventType, details) {
 }
 
 async function sysLog(msg, type='info') {
-  const symbol = type === 'error' ? 'âŒ' : type === 'success' ? 'âœ…' : type === 'warn' ? 'âš ï¸' : 'â„¹ï¸';
+  const symbol = type === 'error' ? 'âŒ' : type === 'success' ? '✅' : type === 'warn' ? '⚠ï¸' : 'ℹï¸';
   const text = `[${new Date().toLocaleTimeString('en-US', {hour12:false})}] ${symbol} ${msg}`;
   console.log(LOG_PREFIX, text);
   try {
@@ -48,7 +48,7 @@ const log  = (...a) => sysLog(a.join(' '), 'info');
 const warn = (...a) => sysLog(a.join(' '), 'warn');
 const err  = (...a) => sysLog(a.join(' '), 'error');
 
-// â”€â”€ Utility: Safe Click to catch and log silent UI errors â”€â”€
+// ── Utility: Safe Click to catch and log silent UI errors ──
 function safeClick(element, description = 'element') {
   if (!element) { warn(`safeClick: ${description} is null or undefined.`); return false; }
   try {
@@ -71,10 +71,10 @@ function getPageType() {
   return 'OTHER';
 }
 
-// â”€â”€ Page Toast notification â”€â”€
+// ── Page Toast notification ── (هوية العربي #17334c)
 function showPageToast(msg, type = 'info') {
   const toast = document.createElement('div');
-  const colors = { info: '#4fc3f7', success: '#66bb6a', error: '#ef5350', warn: '#ffa726' };
+  const colors = { info: '#17334c', success: '#17334c', error: '#ef5350', warn: '#ffa726' };
   Object.assign(toast.style, {
     position: 'fixed', bottom: '20px', right: '20px', zIndex: 999999,
     padding: '12px 20px', borderRadius: '8px', background: colors[type] || '#4fc3f7',
@@ -101,26 +101,26 @@ async function loadSelectors() {
 
 function getHardcodedDefaults() {
   return {
-    serial: ["#ldv_serialnumber","#ldv_technicalserialnumber","[aria-label*='Ø§Ù„Ø±Ù‚Ù… Ø§Ù„Ù…Ø³Ù„Ø³Ù„']","[name*='serial']","input[id*='serial']"],
-    serial2: ["#ldv_serialnumber1","[aria-label*='Ø§Ù„Ø±Ù‚Ù… Ø§Ù„Ù…Ø³Ù„Ø³Ù„ 2']","[name*='serialnumber1']"],
-    brandInput: ["#ats_producttypebrand_name","input[aria-label='Ø§Ù„Ø¹Ù„Ø§Ù…Ø© Ø§Ù„ØªØ¬Ø§Ø±ÙŠÙ‡']","input[aria-label*='Ø§Ù„Ø¹Ù„Ø§Ù…Ø© Ø§Ù„ØªØ¬Ø§Ø±ÙŠÙ‡']","input[id*='brand']","input[name*='brand']"],
-    brandBtn: ["button[aria-label*='Ø§Ù„Ø¹Ù„Ø§Ù…Ø© Ø§Ù„ØªØ¬Ø§Ø±ÙŠÙ‡ Launch lookup modal']",".launchentitylookup","button[aria-label*='Brand']",".lookup-brand button"],
-    modelInput: ["#ldv_actualmodel_name","input[aria-label='Ø§Ù„Ù…ÙˆØ¯ÙŠÙ„ Ø§Ù„ÙØ¹Ù„ÙŠ 1']","input[aria-label*='Ø§Ù„Ù…ÙˆØ¯ÙŠÙ„ Ø§Ù„ÙØ¹Ù„ÙŠ']","input[name*='actualmodel']","input[name*='model']","input[id*='actualModel']"],
-    modelInput2: ["#ldv_actualmodel2_name","input[aria-label='Ø§Ù„Ù…ÙˆØ¯ÙŠÙ„ Ø§Ù„ÙØ¹Ù„ÙŠ 2']","input[aria-label*='Ø§Ù„Ù…ÙˆØ¯ÙŠÙ„ Ø§Ù„ÙØ¹Ù„ÙŠ 2']"],
-    modelBtn: ["button[aria-label*='Ø§Ù„Ù…ÙˆØ¯ÙŠÙ„ Ø§Ù„ÙØ¹Ù„ÙŠ Launch lookup modal']",".launchentitylookup","button[aria-label*='Model']",".lookup-model button"],
+    serial: ["#ldv_serialnumber","#ldv_technicalserialnumber","[aria-label*='الرقم المسلسل']","[name*='serial']","input[id*='serial']"],
+    serial2: ["#ldv_serialnumber1","[aria-label*='الرقم المسلسل 2']","[name*='serialnumber1']"],
+    brandInput: ["#ats_producttypebrand_name","input[aria-label='العلامة التجاريه']","input[aria-label*='العلامة التجاريه']","input[id*='brand']","input[name*='brand']"],
+    brandBtn: ["button[aria-label*='العلامة التجاريه Launch lookup modal']",".launchentitylookup","button[aria-label*='Brand']",".lookup-brand button"],
+    modelInput: ["#ldv_actualmodel_name","input[aria-label='الموديل الفعلي 1']","input[aria-label*='الموديل الفعلي']","input[name*='actualmodel']","input[name*='model']","input[id*='actualModel']"],
+    modelInput2: ["#ldv_actualmodel2_name","input[aria-label='الموديل الفعلي 2']","input[aria-label*='الموديل الفعلي 2']"],
+    modelBtn: ["button[aria-label*='الموديل الفعلي Launch lookup modal']",".launchentitylookup","button[aria-label*='Model']",".lookup-model button"],
     statusSelect: ["#ldv_warrantystatus","select[name*='warranty']","select[aria-label*='Warranty']","select[id*='warranty']","select[name*='status']"],
-    dateInput: ["#ldv_warrantydate_datepicker_description","input[aria-label*='Warranty Date']","input[aria-label*='ØªØ§Ø±ÙŠØ® Ø§Ù„Ø¶Ù…Ø§Ù†']","input[name*='warrantyDate']","input[id*='warrantydate']","input[type='date']"],
+    dateInput: ["#ldv_warrantydate_datepicker_description","input[aria-label*='Warranty Date']","input[aria-label*='تاريخ الضمان']","input[name*='warrantyDate']","input[id*='warrantydate']","input[type='date']"],
     notes: ["textarea[aria-label*='Notes']","textarea[name*='notes']","textarea[id*='notes']"],
-    nextBtn: ["#NextButton","input[type='button'][value='Next']","input[type='button'][value='Ø§Ù„ØªØ§Ù„ÙŠ']","button[aria-label='Next']","button[aria-label='Ø§Ù„ØªØ§Ù„ÙŠ']","button[type='submit']"],
+    nextBtn: ["#NextButton","input[type='button'][value='Next']","input[type='button'][value='التالي']","button[aria-label='Next']","button[aria-label='التالي']","button[type='submit']"],
     lookupModalItem: ["[role='dialog'] li","[role='listbox'] [role='option']",".lookup-modal .result-item",".modal .result-item","table tbody tr", ".entitylist-items li"],
     lookupSearchInput:["[role='dialog'] input[type='search']","[role='dialog'] input[type='text']",".modal input"],
     successIndicator: [".save-success",".alert-success","[class*='success']"],
     customer: [".customer-name","[class*='customer-name']"],
     orderNumber: [".order-number","[class*='order-id']","[class*='workorder-id']"],
-    ordersSearchInput:["input[aria-label*='Search']","input[placeholder*='Search']","input[placeholder*='Ø¨Ø­Ø«']","#searchOrders","input[type='search']"],
-    ordersSearchBtn: ["button[type='submit'][aria-label*='Search']","button[aria-label*='Search']","button[aria-label*='Ø¨Ø­Ø«']"],
+    ordersSearchInput:["input[aria-label*='Search']","input[placeholder*='Search']","input[placeholder*='بحث']","#searchOrders","input[type='search']"],
+    ordersSearchBtn: ["button[type='submit'][aria-label*='Search']","button[aria-label*='Search']","button[aria-label*='بحث']"],
     ordersTableRow: ["table tbody tr","[role='row']",".entitylist-items > li",".order-row"],
-    ordersViewLink: ["a[href*='workorderreview']","a[href*='followup']","a[href*='review']","button[aria-label*='View']","button[aria-label*='Ù…ØªØ§Ø¨Ø¹Ø©']"],
+    ordersViewLink: ["a[href*='workorderreview']","a[href*='followup']","a[href*='review']","button[aria-label*='View']","button[aria-label*='متابعة']"],
     _batchDelay: 1200, _nextWaitTimeout: 10000, _lookupTimeout: 6000, _ordersSearchWait: 2000, _retryCount: 3
   };
 }
@@ -132,7 +132,7 @@ function findFirst(list) {
 }
 function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
 
-// â”€â”€ Dynamic Resilience Wait for PowerApps Loading Overlay â”€â”€
+// ── Dynamic Resilience Wait for PowerApps Loading Overlay ──
 async function waitForSaveComplete(startUrl, cfg, maxWaitMs = 15000) {
   log('â³ Waiting for PowerApps to process (Dynamic Wait)...');
   await sleep(1000); // Give UI time to show loading overlay
@@ -147,7 +147,7 @@ async function waitForSaveComplete(startUrl, cfg, maxWaitMs = 15000) {
     const hasError = !!document.querySelector('.alert-danger, .validation-summary-errors');
     
     if (!isBlocked && hasError) {
-      warn('âš ï¸ Validation error appeared during wait. Aborting wait.');
+      warn('⚠ï¸ Validation error appeared during wait. Aborting wait.');
       break;
     }
     await sleep(1000);
@@ -194,9 +194,9 @@ function findFieldByLabel(labelTexts, tagName = null) {
   } return null;
 }
 
-// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+// ═══════════════════════════════════════════════════════════
 // UI INTERACTIONS & MODALS
-// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+// ═══════════════════════════════════════════════════════════
 async function fillElement(el, value) {
   if (!el || !value) return { ok: false };
   el.scrollIntoView({ block: 'center', behavior: 'auto' });
@@ -212,26 +212,26 @@ async function fillElement(el, value) {
 function findSafeLookupButton(inputEl, fallbackCfgSelectors) {
   const container = inputEl.closest('.input-group') || inputEl.parentElement;
   if (!container) return findFirst(fallbackCfgSelectors);
-  const btn = Array.from(container.querySelectorAll('button, a.btn')).find(b => !/clear|Ù…Ø³Ø­|remove|delete/i.test(b.className+(b.getAttribute('aria-label')||'')+(b.title||'')));
+  const btn = Array.from(container.querySelectorAll('button, a.btn')).find(b => !/clear|مسح|remove|delete/i.test(b.className+(b.getAttribute('aria-label')||'')+(b.title||'')));
   return btn || findFirst(fallbackCfgSelectors);
 }
 
 async function fillLookupModal(btn, searchValue, rootDoc) {
   if (!btn || !searchValue) return { ok: false };
   if (!rootDoc) rootDoc = document;
-  const clearBtn = btn.parentElement?.querySelector('button[aria-label*="Clear"], button[aria-label*="Ù…Ø³Ø­"]');
+  const clearBtn = btn.parentElement?.querySelector('button[aria-label*="Clear"], button[aria-label*="مسح"]');
   if (clearBtn) { clearBtn.click(); await sleep(500); }
 
   log('Opening Modal for:', searchValue); btn.click(); await sleep(1800);
 
-  // â”€â”€ Try direct pick first (single-page list like Brand) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ── Try direct pick first (single-page list like Brand) ──────────
   const itemsSelectors = Array.isArray(CFG.lookupModalItem) ? [...CFG.lookupModalItem] : [CFG.lookupModalItem];
   itemsSelectors.push('.modal table tbody tr');
 
   const getVisibleItems = () => {
     let all = [];
     for (const sel of itemsSelectors) {
-      try { all.push(...Array.from(rootDoc.querySelectorAll(sel)).filter(i => i.offsetParent !== null && i.innerText.trim().length > 0 && !/norecords|Ù„Ø§ØªÙˆØ¬Ø¯/i.test(i.innerText.replace(/\s/g,'')))); } catch (_) {}
+      try { all.push(...Array.from(rootDoc.querySelectorAll(sel)).filter(i => i.offsetParent !== null && i.innerText.trim().length > 0 && !/norecords|لاتوجد/i.test(i.innerText.replace(/\s/g,'')))); } catch (_) {}
     }
     return all;
   };
@@ -249,7 +249,7 @@ async function fillLookupModal(btn, searchValue, rootDoc) {
   // Also keep a "raw" version that preserves hyphens for strict boundary matching
   const rawTarget = (searchValue||'').replace(/[\s\(\)\[\]_#\*]/g,'').toLowerCase();
   // Extract just the model code part (before " _ " or "(") for better matching
-  const modelCodeOnly = (searchValue||'').split(/\s*[_â€“â€”]\s*/)[0].split('(')[0].trim();
+  const modelCodeOnly = (searchValue||'').split(/\s*[_–—]\s*/)[0].split('(')[0].trim();
   const targetCode = normalize(modelCodeOnly);
   const rawTargetCode = modelCodeOnly.replace(/[\s\(\)\[\]_#\*]/g,'').toLowerCase();
 
@@ -261,7 +261,7 @@ async function fillLookupModal(btn, searchValue, rootDoc) {
         const radio = match.querySelector('input[type="radio"]');
         if (radio) radio.click(); else { const chk = match.querySelector('input[type="checkbox"]'); if (chk) chk.click(); else match.click(); }
         await sleep(600);
-        const selBtnList = Array.from(rootDoc.querySelectorAll('.modal button.primary, .modal button[aria-label*="Select"], .modal button[aria-label*="ØªØ­Ø¯ÙŠØ¯"], .modal button[aria-label*="Ø§Ø®ØªØ±"]'));
+        const selBtnList = Array.from(rootDoc.querySelectorAll('.modal button.primary, .modal button[aria-label*="Select"], .modal button[aria-label*="تحديد"], .modal button[aria-label*="اختر"]'));
         const selectBtn = selBtnList.reverse().find(b => b.offsetParent !== null);
         if (selectBtn) { try { selectBtn.focus(); } catch(e){} selectBtn.click(); try { selectBtn.dispatchEvent(new Event('click', { bubbles: true })); } catch(e){} await sleep(1000); }
         return { ok: true, selected: match.innerText?.trim() };
@@ -271,7 +271,7 @@ async function fillLookupModal(btn, searchValue, rootDoc) {
       const getRowCode = (row) => {
         const txt = row.innerText.trim();
         // Model code is typically the first segment before " _ " or before Arabic text
-        const codePart = txt.split(/\s*[_â€“â€”]\s*/)[0].trim();
+        const codePart = txt.split(/\s*[_–—]\s*/)[0].trim();
         return codePart;
       };
 
@@ -293,18 +293,18 @@ async function fillLookupModal(btn, searchValue, rootDoc) {
         const searchTarget = targetCode.length > target.length / 2 ? targetCode : target;
         return (norm.startsWith(searchTarget) && (norm.length === searchTarget.length || !/[a-z0-9]/.test(norm[searchTarget.length])));
       }) : null;
-      // Priority 3: Code-part includes match only (NOT full row text â€” prevents Arabic description false positives)
+      // Priority 3: Code-part includes match only (NOT full row text — prevents Arabic description false positives)
       const includesMatch = (!exactMatch && !startsMatch) ? items.find(i => {
         const code = normalize(getRowCode(i));
         return code.includes(targetCode) || code.includes(target);
       }) : null;
       const match = exactMatch || startsMatch || includesMatch || null;
-      log(`Model pick â€” exact:${!!exactMatch} starts:${!!startsMatch} includes:${!!includesMatch} â†’ "${match?.innerText?.trim().slice(0,60)}"`);
+      log(`Model pick — exact:${!!exactMatch} starts:${!!startsMatch} includes:${!!includesMatch} → "${match?.innerText?.trim().slice(0,60)}"`);
       if (!match) return { ok: false, reason: 'no-match' };
       const radio = match.querySelector('input[type="radio"]');
       if (radio) radio.click(); else { const chk = match.querySelector('input[type="checkbox"]'); if (chk) chk.click(); else match.click(); }
       await sleep(600);
-      const selBtnList = Array.from(rootDoc.querySelectorAll('.modal button.primary, .modal button[aria-label*="Select"], .modal button[aria-label*="ØªØ­Ø¯ÙŠØ¯"], .modal button[aria-label*="Ø§Ø®ØªØ±"]'));
+      const selBtnList = Array.from(rootDoc.querySelectorAll('.modal button.primary, .modal button[aria-label*="Select"], .modal button[aria-label*="تحديد"], .modal button[aria-label*="اختر"]'));
       const selectBtn = selBtnList.reverse().find(b => b.offsetParent !== null);
       if (selectBtn) { try { selectBtn.focus(); } catch(e){} selectBtn.click(); try { selectBtn.dispatchEvent(new Event('click', { bubbles: true })); } catch(e){} await sleep(1000); }
       return { ok: true, selected: match.innerText?.trim() };
@@ -319,7 +319,7 @@ async function fillLookupModal(btn, searchValue, rootDoc) {
     log('No exact match in direct list, falling back to search...');
   }
 
-  // â”€â”€ Fallback: search mode â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ── Fallback: search mode ─────────────────────────────────────────
   const searchSelectors = Array.isArray(CFG.lookupSearchInput) ? [...CFG.lookupSearchInput] : [CFG.lookupSearchInput];
   searchSelectors.push('.modal input[type="search"]', '.modal input[type="text"]', '.modal input.query', 'input[placeholder*="Search"]');
   let si = Array.from(rootDoc.querySelectorAll(searchSelectors.join(','))).find(i => i.offsetParent !== null);
@@ -329,7 +329,7 @@ async function fillLookupModal(btn, searchValue, rootDoc) {
     // Use model code only for search to get better results
     const searchFor = modelCodeOnly || searchValue;
     await emulateUserInput(si, searchFor); await sleep(400); 
-    const modalSearchBtn = si.parentElement?.querySelector('button') || rootDoc.querySelector('.modal button[aria-label*="Search"], .modal button[aria-label*="Ø¨Ø­Ø«"]');
+    const modalSearchBtn = si.parentElement?.querySelector('button') || rootDoc.querySelector('.modal button[aria-label*="Search"], .modal button[aria-label*="بحث"]');
     if (modalSearchBtn) modalSearchBtn.click(); else ['keydown','keypress','keyup'].forEach(ev => { try { si.dispatchEvent(new KeyboardEvent(ev, { key: 'Enter', keyCode: 13, bubbles: true })); } catch(e){} });
     
     log('â³ Waiting for search results...');
@@ -351,7 +351,7 @@ async function fillLookupModal(btn, searchValue, rootDoc) {
   return await pickAndConfirm(visibleItems) || { ok: false };
 }
 
-// â”€â”€ Modal guard: wait for any open modal to close before proceeding â”€â”€
+// ── Modal guard: wait for any open modal to close before proceeding ──
 async function waitForModalCloseIfOpen(timeoutMs = 20000) {
   const modal = document.querySelector('.modal.show, .modal-backdrop.show');
   if (!modal) return;
@@ -359,7 +359,7 @@ async function waitForModalCloseIfOpen(timeoutMs = 20000) {
   const start = Date.now();
   while (Date.now() - start < timeoutMs) {
     if (!document.querySelector('.modal.show, .modal-backdrop.show')) {
-      log('âœ… Existing modal closed');
+      log('✅ Existing modal closed');
       await sleep(1000);
       return;
     }
@@ -367,7 +367,7 @@ async function waitForModalCloseIfOpen(timeoutMs = 20000) {
   }
 }
 
-// â”€â”€ Find the iframe document inside a modal (PowerApps subgrid modals) â”€â”€
+// ── Find the iframe document inside a modal (PowerApps subgrid modals) ──
 async function waitForModalIframe(modal, timeoutMs = 15000) {
   const start = Date.now();
   while (Date.now() - start < timeoutMs) {
@@ -389,7 +389,7 @@ async function waitForModalIframe(modal, timeoutMs = 15000) {
   return null;
 }
 
-// Handle Page 2 modals (Problems & Technicians) â€” PowerApps modal with iframe inside
+// Handle Page 2 modals (Problems & Technicians) — PowerApps modal with iframe inside
 async function handlePage2Modal(btnRegex, searchValue) {
   // Guard: wait for any existing modal to close before clicking add
   await waitForModalCloseIfOpen();
@@ -399,7 +399,7 @@ async function handlePage2Modal(btnRegex, searchValue) {
     .find(b => btnRegex.test((b.innerText || b.title || b.value || '').trim()));
   if (!addBtn) { warn(`handlePage2Modal: Add button not found`); return { ok: false, reason: 'button-not-found' }; }
   if (!searchValue) searchValue = '*';
-  log(`â–¶ï¸ Opening Page2 modal for: ${searchValue}`);
+  log(`▶ï¸ Opening Page2 modal for: ${searchValue}`);
   safeClick(addBtn, 'Page2 Add button');
 
   // Wait for modal to appear
@@ -445,9 +445,9 @@ async function handlePage2Modal(btnRegex, searchValue) {
   const saveBtn = iframeDoc.getElementById('InsertButton') ||
     iframeDoc.querySelector('input[type="submit"]') ||
     Array.from(iframeDoc.querySelectorAll('button')).find(b =>
-      /Ø­ÙØ¸|save/i.test((b.innerText || b.value || '').trim()) &&
+      /حفظ|save/i.test((b.innerText || b.value || '').trim()) &&
       b.offsetParent !== null &&
-      !/Ø¥Ù„ØºØ§Ø¡|cancel/i.test(b.className + (b.innerText || ''))
+      !/إلغاء|cancel/i.test(b.className + (b.innerText || ''))
     );
   if (!saveBtn) { warn('handlePage2Modal: Save button not found in iframe'); return { ok: false, reason: 'save-not-found' }; }
   saveBtn.click();
@@ -493,9 +493,9 @@ async function fillPowerAppsLookup(inputEl, labelText, value, cfgBtnSelectors) {
   const btn = findSafeLookupButton(inputEl, cfgBtnSelectors); if (btn) return await fillLookupModal(btn, value); return { ok: true };
 }
 
-// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+// ═══════════════════════════════════════════════════════════
 // SUPERVISORY VERIFICATION ENGINE
-// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+// ═══════════════════════════════════════════════════════════
 function createLookupVerifier(elFinder) {
   return () => {
     const el = elFinder(); if (!el) return false;
@@ -511,37 +511,75 @@ function createInputVerifier(elFinder) {
     const val = el.value || el.getAttribute('value') || el.innerText || ''; return val.trim().length > 0; 
   };
 }
+function verifyBySnapshot(elFinder, expectedValue) {
+  const el = typeof elFinder === 'function' ? elFinder() : elFinder;
+  if (!el || !expectedValue) return false;
+  const exp = String(expectedValue).trim().toLowerCase();
+  const elTxt = (el.value || el.getAttribute('value') || el.innerText || el.textContent || '').trim().toLowerCase();
+  if (elTxt.includes(exp)) return true;
+  const container = el.closest('.form-group,.field,.control,.input-group,.row,[class*="field"],[class*="form-"]') || el.parentElement;
+  if (container) {
+    const contTxt = (container.innerText || container.textContent || '').toLowerCase();
+    if (contTxt.includes(exp)) return true;
+  }
+  const label = el.id ? document.querySelector(`label[for="${el.id}"]`) : null;
+  if (label) {
+    const lblParent = label.closest('.form-group,.field,.row,tr,[class*="field"]') || label.parentElement;
+    if (lblParent && (lblParent.innerText || '').toLowerCase().includes(exp)) return true;
+  }
+  return false;
+}
+function createSnapshotVerifier(elFinder, expectedValue) {
+  return () => verifyBySnapshot(elFinder, expectedValue);
+}
+async function waitForModalStable(rootDoc, timeoutMs = 3000) {
+  const doc = rootDoc || document;
+  const start = Date.now();
+  while (Date.now() - start < timeoutMs) {
+    const modal = doc.querySelector('.modal.show, .modal[style*="display: block"], [role="dialog"]');
+    if (modal && modal.offsetParent !== null) {
+      const rows = modal.querySelectorAll('table tbody tr, [role="option"], .result-item');
+      const visible = Array.from(rows).filter(r => r.offsetParent !== null).length;
+      if (visible > 0) {
+        await sleep(400);
+        return true;
+      }
+    }
+    await sleep(300);
+  }
+  return false;
+}
 
 async function fillAndVerify(fieldLabel, targetValue, actionFn, verifyFn, maxRetries = 2) {
   if (!targetValue) return null;
-  log(`â–¶ï¸ Filling ${fieldLabel}: "${targetValue}"`);
+  log(`▶ï¸ Filling ${fieldLabel}: "${targetValue}"`);
   
   // Real-time notification updates
   try {
     const { currentTask } = await storageGet({ currentTask: null });
-    if (currentTask) notifyStatus(currentTask.taskId, 'filling', `Ø¬Ø§Ø±ÙŠ ØªØ¹Ø¨Ø¦Ø©: ${fieldLabel}...`);
+    if (currentTask) notifyStatus(currentTask.taskId, 'filling', `جاري تعبئة: ${fieldLabel}...`);
   } catch(e){}
 
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
     const result = await actionFn(); let verified = false; const start = Date.now();
     while (Date.now() - start < 4500) { if (verifyFn()) { verified = true; break; } await sleep(350); }
     if (verified) {
-      log(`âœ… [Success] ${fieldLabel}`);
+      log(`✅ [Success] ${fieldLabel}`);
       sendSmartLog('FIELD_FILLED', { field: fieldLabel, value: targetValue, method: 'fillAndVerify' });
       return { ok: true, result };
     }
-    warn(`âš ï¸ [Retry] ${fieldLabel} failed on attempt ${attempt}.`);
+    warn(`⚠ï¸ [Retry] ${fieldLabel} failed on attempt ${attempt}.`);
     const closeBtn = document.querySelector('.modal.show [data-dismiss="modal"], .modal.show button.close');
     if (closeBtn && closeBtn.offsetParent !== null) { closeBtn.click(); await sleep(800); }
   }
   err(`âŒ [Failed] ${fieldLabel} after ${maxRetries} attempts.`); return { ok: false };
 }
 
-// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-// â–¼â–¼â–¼  PAGE 2 HELPER FUNCTIONS (DETECTION)  â–¼â–¼â–¼
-// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+// ═══════════════════════════════════════════════════════════
+// ▼▼▼  PAGE 2 HELPER FUNCTIONS (DETECTION)  ▼▼▼
+// ═══════════════════════════════════════════════════════════
 function readDeviceTypeFromPage() {
-  const labels = ['Product Category','Product Type','Device Type','Ù†ÙˆØ¹ Ø§Ù„Ù…Ù†ØªØ¬','ÙØ¦Ø© Ø§Ù„Ù…Ù†ØªØ¬'];
+  const labels = ['Product Category','Product Type','Device Type','نوع المنتج','فئة المنتج'];
   for (const lab of labels) {
     const labelEl = Array.from(document.querySelectorAll('label, .field-label, th')).find(l => l.innerText.trim().includes(lab));
     if (labelEl) {
@@ -560,12 +598,12 @@ function readDeviceTypeFromPage() {
   } return null;
 }
 
-// â”€â”€ Read Customer Complaint Code from page â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ── Read Customer Complaint Code from page ──────────────────
 function readComplaintCodeFromPage() {
   // Try common complaint/symptom field labels
   const labels = [
     'Customer Complaint', 'Complaint Code', 'Complaint',
-    'ÙƒÙˆØ¯ Ø§Ù„Ø´ÙƒÙˆÙ‰', 'Ø´ÙƒÙˆÙ‰ Ø§Ù„Ø¹Ù…ÙŠÙ„', 'Ø´ÙƒÙˆÙ‰', 'ÙƒÙˆØ¯ Ø§Ù„Ù…Ø´ÙƒÙ„Ø©', 'Ø§Ù„Ù…Ø´ÙƒÙ„Ø©'
+    'كود الشكوى', 'شكوى العميل', 'شكوى', 'كود المشكلة', 'المشكلة'
   ];
   for (const lab of labels) {
     const labelEl = Array.from(document.querySelectorAll('label, .field-label, th, td'))
@@ -592,7 +630,7 @@ function readComplaintCodeFromPage() {
   // Fallback: check lookup/readonly display fields near complaint patterns
   const allLabels = Array.from(document.querySelectorAll('label, th'));
   for (const lb of allLabels) {
-    if (/Ø´ÙƒÙˆ|complaint/i.test(lb.innerText || '')) {
+    if (/شكو|complaint/i.test(lb.innerText || '')) {
       let next = lb.nextElementSibling || lb.closest('td')?.nextElementSibling;
       if (next) { const v = (next.innerText || next.value || '').trim(); if (v) return v; }
     }
@@ -600,11 +638,11 @@ function readComplaintCodeFromPage() {
   return null;
 }
 
-// â”€â”€ Scrape full order details from current page â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ── Scrape full order details from current page ──────────────
 async function scrapeFullOrderDetails(injectedData = {}) {
   const details = {};
   // Customer address
-  const addrLabels = ['Ø§Ù„Ø¹Ù†ÙˆØ§Ù†', 'Address', 'Ø¹Ù†ÙˆØ§Ù† Ø§Ù„Ø¹Ù…ÙŠÙ„', 'Customer Address'];
+  const addrLabels = ['العنوان', 'Address', 'عنوان العميل', 'Customer Address'];
   for (const lab of addrLabels) {
     const labelEl = Array.from(document.querySelectorAll('label, th, td, .field-label'))
       .find(l => l.innerText && l.innerText.trim().includes(lab));
@@ -622,7 +660,7 @@ async function scrapeFullOrderDetails(injectedData = {}) {
   }
 
   // Customer name
-  const custLabels = ['Ø§Ø³Ù… Ø§Ù„Ø¹Ù…ÙŠÙ„', 'Customer Name', 'Customer', 'Ø§Ù„Ø¹Ù…ÙŠÙ„'];
+  const custLabels = ['اسم العميل', 'Customer Name', 'Customer', 'العميل'];
   for (const lab of custLabels) {
     const labelEl = Array.from(document.querySelectorAll('label, th, td, .field-label, .customer-name, [class*="customer"]'))
       .find(l => l.innerText && l.innerText.trim().includes(lab));
@@ -638,7 +676,7 @@ async function scrapeFullOrderDetails(injectedData = {}) {
   }
 
   // Phone
-  const phoneLabels = ['Ø±Ù‚Ù… Ø§Ù„ØªÙ„ÙŠÙÙˆÙ†', 'Phone', 'Mobile', 'Ø§Ù„Ù…ÙˆØ¨Ø§ÙŠÙ„', 'Ø§Ù„ØªÙ„ÙŠÙÙˆÙ†'];
+  const phoneLabels = ['رقم التليفون', 'Phone', 'Mobile', 'الموبايل', 'التليفون'];
   for (const lab of phoneLabels) {
     const labelEl = Array.from(document.querySelectorAll('label, th, td'))
       .find(l => l.innerText && l.innerText.trim().includes(lab));
@@ -658,7 +696,7 @@ async function scrapeFullOrderDetails(injectedData = {}) {
 
   // Compare injected vs current (detect manual additions)
   const manuallyAdded = {};
-  const fieldMap = { serial: 'Ø§Ù„Ø±Ù‚Ù… Ø§Ù„ØªØ³Ù„Ø³Ù„ÙŠ', brand: 'Ø§Ù„Ø¨Ø±Ø§Ù†Ø¯', model: 'Ø§Ù„Ù…ÙˆØ¯ÙŠÙ„', status: 'Ø­Ø§Ù„Ø© Ø§Ù„Ø¶Ù…Ø§Ù†', date: 'Ø§Ù„ØªØ§Ø±ÙŠØ®', notes: 'Ø§Ù„Ù…Ù„Ø§Ø­Ø¸Ø§Øª' };
+  const fieldMap = { serial: 'الرقم التسلسلي', brand: 'البراند', model: 'الموديل', status: 'حالة الضمان', date: 'التاريخ', notes: 'الملاحظات' };
   for (const [key, label] of Object.entries(fieldMap)) {
     const injectedVal = (injectedData[key] || '').toString().trim();
     // Try to read current value from page
@@ -682,7 +720,7 @@ async function scrapeFullOrderDetails(injectedData = {}) {
 function isInstallationReport() {
   const allDocs = [document, ...Array.from(document.querySelectorAll('iframe')).map(f => { try { return f.contentDocument || f.contentWindow?.document; } catch(e) { return null; } }).filter(Boolean)];
   for (const doc of allDocs) {
-    // Ø§Ù„Ø­Ù‚ÙˆÙ„ Ø§Ù„Ù…Ø¨Ø§Ø´Ø±Ø© Ù„Ù†ÙˆØ¹ Ø§Ù„Ø®Ø¯Ù…Ø© / Ù†ÙˆØ¹ Ø£Ù…Ø± Ø§Ù„Ø´ØºÙ„
+    // الحقول المباشرة لنوع الخدمة / نوع أمر الشغل
     const typeFields = [
       doc.querySelector('#ats_workordertype_name'),
       doc.querySelector('#ats_servicetype_name'),
@@ -691,9 +729,9 @@ function isInstallationReport() {
     for (const el of typeFields) {
       if (!el) continue;
       const v = (el.value || el.innerText || '') || '';
-      if (/ØªØ±ÙƒÙŠØ¨|installation|ØªØ±ÙƒÙŠØ¨ ÙˆØªØ´ØºÙŠÙ„/i.test(v)) return true;
+      if (/تركيب|installation|تركيب وتشغيل/i.test(v)) return true;
     }
-    // Ø§Ù„Ù€ select Ø§Ù„Ø®Ø§Øµ Ø¨Ù€ Work Order Type (0 = Installation)
+    // الـ select الخاص بـ Work Order Type (0 = Installation)
     const sel = doc.querySelector('#ldv_workordertype');
     if (sel) {
       const selVal = sel.value || '';
@@ -703,40 +741,40 @@ function isInstallationReport() {
     const hiddenVal = doc.querySelector('#ldv_workordertype_Value');
     if (hiddenVal && hiddenVal.value === '0') return true;
   }
-  // fallback: Ø§Ù„Ø¨Ø­Ø« Ø¹Ù† label Ù†ÙˆØ¹ Ø§Ù„Ø®Ø¯Ù…Ø© ÙˆÙ‚Ø±Ø§Ø¡Ø© Ø§Ù„Ù‚ÙŠÙ…Ø© Ù…Ù† Ù†ÙØ³ Ø§Ù„Ø®Ù„ÙŠØ© (info/control)
-  const keys = ['Report Type','Service Type','Ù†ÙˆØ¹ Ø§Ù„Ø¨Ù„Ø§Øº','Ù†ÙˆØ¹ Ø§Ù„Ø®Ø¯Ù…Ø©'];
+  // fallback: البحث عن label نوع الخدمة وقراءة القيمة من نفس الخلية (info/control)
+  const keys = ['Report Type','Service Type','نوع البلاغ','نوع الخدمة'];
   for (const k of keys) {
     const label = Array.from(document.querySelectorAll('label, .field-label, th')).find(l => l.innerText && l.innerText.trim().includes(k));
     if (label) {
       const td = label.closest('td, .cell, [data-logical-name]');
       const valEl = td ? td.querySelector('.control input, .control select, .control [role="textbox"], .control') : null;
       const val = valEl ? (valEl.value || valEl.innerText || '') : '';
-      if (/ØªØ±ÙƒÙŠØ¨|installation/i.test(val)) return true;
+      if (/تركيب|installation/i.test(val)) return true;
     }
   }
   const complaint = (document.querySelector('.initial-complaint, .complaint-text, .description')?.innerText || '');
-  if (/ØªØ±ÙƒÙŠØ¨|installation/i.test(complaint)) return true;
+  if (/تركيب|installation/i.test(complaint)) return true;
   return false;
 }
 
-// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+// ═══════════════════════════════════════════════════════════
 // INSTALLATION & COMMISSIONING - SPECIAL FLOW
-// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+// ═══════════════════════════════════════════════════════════
 async function performInstallationAndCommissioning(data = {}) {
   try { await sleep(1500); } catch(e) {}
   let filledService = false;
 
-  const serviceLabelCandidates = ['Service Type','Report Type','Ù†ÙˆØ¹ Ø§Ù„Ø®Ø¯Ù…Ø©','Ù†ÙˆØ¹ Ø§Ù„Ø¨Ù„Ø§Øº','Service'];
+  const serviceLabelCandidates = ['Service Type','Report Type','نوع الخدمة','نوع البلاغ','Service'];
   for (const lab of serviceLabelCandidates) {
     const labelEl = Array.from(document.querySelectorAll('label, .field-label, th')).find(l => l.innerText && l.innerText.includes(lab));
     if (labelEl) {
       const target = labelEl.getAttribute('for') ? document.getElementById(labelEl.getAttribute('for')) : (labelEl.closest('tr')?.querySelector('td:nth-child(2) input, td:nth-child(2) select, td:nth-child(2)') || labelEl.nextElementSibling);
       if (target) {
         if (target.tagName === 'SELECT') {
-          const opt = Array.from(target.options).find(o => /ØªØ±ÙƒÙŠØ¨|Installation|Installation and Commissioning|ØªØ±ÙƒÙŠØ¨ ÙˆØªØ´ØºÙŠÙ„/i.test(o.text));
+          const opt = Array.from(target.options).find(o => /تركيب|Installation|Installation and Commissioning|تركيب وتشغيل/i.test(o.text));
           if (opt && target.value !== opt.value) { target.value = opt.value; try { target.dispatchEvent(new Event('change', {bubbles:true})); } catch(e){} filledService = true; break; }
         } else if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable) {
-          await emulateUserInput(target, 'ØªØ±ÙƒÙŠØ¨ ÙˆØªØ´ØºÙŠÙ„'); filledService = true; break;
+          await emulateUserInput(target, 'تركيب وتشغيل'); filledService = true; break;
         } else {
           log('Service field is read-only, skipping direct write');
         }
@@ -746,20 +784,20 @@ async function performInstallationAndCommissioning(data = {}) {
   const targetTech = data.technicianName || data.technician || null;
   const techRes = await selectRandomTechnician(targetTech);
 
-  const notesCandidates = ['Notes','Ù…Ù„Ø§Ø­Ø¸Ø§Øª','notes_support','notes'];
+  const notesCandidates = ['Notes','ملاحظات','notes_support','notes'];
   for (const nlab of notesCandidates) {
     const notesEl = Array.from(document.querySelectorAll('textarea, input')).find(el => {
       const lab = document.querySelector(`label[for="${el.id}"]`) || el.closest('.field');
       return lab && (lab.innerText || '').includes(nlab);
     });
     if (notesEl) {
-      const noteText = data.notes || 'ØªÙ… ØªÙ†ÙÙŠØ° ØªØ±ÙƒÙŠØ¨ ÙˆØªØ´ØºÙŠÙ„ Ø­Ø³Ø¨ Ø·Ù„Ø¨ Ø§Ù„Ø¹Ù…ÙŠÙ„. Ù„Ø§ Ø£ÙƒÙˆØ§Ø¯ Ø£Ùˆ Ø£Ø±Ù‚Ø§Ù… Ø¥Ø¶Ø§ÙÙŠØ©.';
+      const noteText = data.notes || 'تم تنفيذ تركيب وتشغيل حسب طلب العميل. لا أكواد أو أرقام إضافية.';
       await emulateUserInput(notesEl, noteText);
       break;
     }
   }
 
-  const nextBtn = Array.from(document.querySelectorAll('button')).find(b => /Next|Ø§Ù„ØªØ§Ù„ÙŠ|Save|Ø­ÙØ¸|submit/i.test((b.innerText||b.value||b.title||'').trim()) && b.offsetParent !== null && !/cancel|Ø¥Ù„ØºØ§Ø¡/i.test(b.className));
+  const nextBtn = Array.from(document.querySelectorAll('button')).find(b => /Next|التالي|Save|حفظ|submit/i.test((b.innerText||b.value||b.title||'').trim()) && b.offsetParent !== null && !/cancel|إلغاء/i.test(b.className));
   let saveOk = false;
   if (nextBtn) {
     const startUrl = location.href; nextBtn.click();
@@ -770,7 +808,7 @@ async function performInstallationAndCommissioning(data = {}) {
     });
   } else { warn('Next/Save button not found for Installation Flow'); }
 
-  return { report: { fieldResults: { 'ØªØ±ÙƒÙŠØ¨': { ok: filledService }, technician: { ok: techRes.ok, selected: techRes.name } }, saveResult: { ok: saveOk } } };
+  return { report: { fieldResults: { 'تركيب': { ok: filledService }, technician: { ok: techRes.ok, selected: techRes.name } }, saveResult: { ok: saveOk } } };
 }
 
 async function handleSubgridIframeModal(btnRegex, targetName, pickRandomIfTargetMissing = true, excludePattern = null, priorityPattern = null) {
@@ -780,7 +818,7 @@ async function handleSubgridIframeModal(btnRegex, targetName, pickRandomIfTarget
 
   if (!addBtn) return null;
 
-  log(`â–¶ï¸ Opening subgrid modal for: ${btnRegex.source}...`);
+  log(`▶ï¸ Opening subgrid modal for: ${btnRegex.source}...`);
   addBtn.click();
   
   let iframeDoc = null, targetIframe = null, lookupBtn = null;
@@ -824,7 +862,7 @@ async function handleSubgridIframeModal(btnRegex, targetName, pickRandomIfTarget
         if (!doc) return;
         const rows = doc.querySelectorAll('table tbody tr, div[role="grid"] tr, table tr:not(:first-child)');
         rows.forEach(r => {
-          if (r.offsetParent !== null && r.innerText.trim() && !/norecords|Ù„Ø§ ØªÙˆØ¬Ø¯/i.test(r.innerText.replace(/\s/g,''))) results.push(r);
+          if (r.offsetParent !== null && r.innerText.trim() && !/norecords|لا توجد/i.test(r.innerText.replace(/\s/g,''))) results.push(r);
         });
       });
       return results;
@@ -846,7 +884,7 @@ async function handleSubgridIframeModal(btnRegex, targetName, pickRandomIfTarget
       if (items.length === 0) await sleep(1000);
     }
     
-    // Filter out excluded patterns (e.g. ØªØ±ØµÙŠØ¯ for problems)
+    // Filter out excluded patterns (e.g. ترصيد for problems)
     if (excludePattern && items.length) {
       const before = items.length;
       items = items.filter(i => !excludePattern.test(i.innerText));
@@ -859,14 +897,14 @@ async function handleSubgridIframeModal(btnRegex, targetName, pickRandomIfTarget
       let priorityMatch = null;
       if (priorityPattern) {
         priorityMatch = items.find(i => priorityPattern.test(i.innerText));
-        if (priorityMatch) log('â­ Priority match found: "' + priorityMatch.innerText.trim().slice(0,60) + '"');
+        if (priorityMatch) log('⭐ Priority match found: "' + priorityMatch.innerText.trim().slice(0,60) + '"');
       }
 
       // Smart matching: separate installation vs regular
       let exactMatch = priorityMatch; // Priority match wins
       if (!exactMatch && cleanTarget) {
-        if (/ØªØ±ÙƒÙŠØ¨/.test(cleanTarget)) {
-          exactMatch = items.find(i => /ØªØ±ÙƒÙŠØ¨ ÙˆØªØ´ØºÙŠÙ„/i.test(i.innerText)) || items.find(i => i.innerText.toLowerCase().includes(cleanTarget.toLowerCase()));
+        if (/تركيب/.test(cleanTarget)) {
+          exactMatch = items.find(i => /تركيب وتشغيل/i.test(i.innerText)) || items.find(i => i.innerText.toLowerCase().includes(cleanTarget.toLowerCase()));
         } else {
           exactMatch = items.find(i => i.innerText.toLowerCase().includes(cleanTarget.toLowerCase()));
         }
@@ -875,7 +913,7 @@ async function handleSubgridIframeModal(btnRegex, targetName, pickRandomIfTarget
       const rand = exactMatch || (pickRandomIfTargetMissing ? items[Math.floor(Math.random() * items.length)] : null);
       
       if (!rand) {
-        log('âš ï¸ No match for "' + cleanTarget + '" in ' + items.length + ' items â€” skipping');
+        log('⚠ï¸ No match for "' + cleanTarget + '" in ' + items.length + ' items — skipping');
         const cBtn = Array.from(iframeDoc.querySelectorAll('[data-dismiss="modal"]')).filter(b => b.offsetParent !== null).reverse()[0];
         if (cBtn) cBtn.click();
         await sleep(1000);
@@ -887,17 +925,17 @@ async function handleSubgridIframeModal(btnRegex, targetName, pickRandomIfTarget
       if (radio) radio.click(); else rand.click();
       await sleep(600);
       
-      log(`Selected: ${selectedName.slice(0, 50)}, clicking Ø§Ø®ØªØ±...`);
+      log(`Selected: ${selectedName.slice(0, 50)}, clicking اختر...`);
       let selBtn = null;
       for (const d of allDocs) {
         if (!d) continue;
-        const found = Array.from(d.querySelectorAll('button.btn-primary, input.btn-primary, input[value="Ø§Ø®ØªØ±"], input[value="Select"], button[aria-label="Select"], button[aria-label*="Ø§Ø®ØªØ±"]')).filter(b => b.offsetParent !== null);
+        const found = Array.from(d.querySelectorAll('button.btn-primary, input.btn-primary, input[value="اختر"], input[value="Select"], button[aria-label="Select"], button[aria-label*="اختر"]')).filter(b => b.offsetParent !== null);
         if (found.length) { selBtn = found[found.length - 1]; break; }
       }
       if (!selBtn) {
         for (const d of allDocs) {
           if (!d) continue;
-          const modalClose = Array.from(d.querySelectorAll('[data-dismiss="modal"]')).find(b => b.offsetParent !== null && /Ø§Ø®ØªØ±|select/i.test(b.innerText));
+          const modalClose = Array.from(d.querySelectorAll('[data-dismiss="modal"]')).find(b => b.offsetParent !== null && /اختر|select/i.test(b.innerText));
           if (modalClose) { selBtn = modalClose; break; }
         }
       }
@@ -925,7 +963,7 @@ async function handleSubgridIframeModal(btnRegex, targetName, pickRandomIfTarget
   }
   
   log('Clicking Save on primary modal...');
-  const subBtn = iframeDoc.getElementById('InsertButton') || iframeDoc.getElementById('SubmitButton') || Array.from(iframeDoc.querySelectorAll('input[type="submit"], button.btn-primary')).find(b => b.offsetParent !== null && /save|submit|Ø­ÙØ¸|insert/i.test(b.innerText || b.value || b.title));
+  const subBtn = iframeDoc.getElementById('InsertButton') || iframeDoc.getElementById('SubmitButton') || Array.from(iframeDoc.querySelectorAll('input[type="submit"], button.btn-primary')).find(b => b.offsetParent !== null && /save|submit|حفظ|insert/i.test(b.innerText || b.value || b.title));
   if (subBtn) {
     subBtn.click();
     log('Waiting for primary modal to close...');
@@ -942,23 +980,23 @@ async function handleSubgridIframeModal(btnRegex, targetName, pickRandomIfTarget
 
 async function selectRandomTechnician(targetName = null) {
   // Skip if technician subgrid already has records
-  const existing = await hasExistingSubgridRow(/Ø§Ù„ÙÙ†ÙŠÙŠÙ†|Technicians/i);
+  const existing = await hasExistingSubgridRow(/الفنيين|Technicians/i);
   if (existing) {
-    log('â„¹ï¸ Technician subgrid already has rows â€” skipping');
-    return { ok: true, name: '(Ù…ÙˆØ¬ÙˆØ¯ Ù…Ø³Ø¨Ù‚Ø§Ù‹)' };
+    log('ℹï¸ Technician subgrid already has rows — skipping');
+    return { ok: true, name: '(موجود مسبقاً)' };
   }
 
-  log('â–¶ï¸ Looking for Technician button...');
+  log('▶ï¸ Looking for Technician button...');
   const allBtns = Array.from(document.querySelectorAll('a, button, input[type="button"]')).filter(b => b.offsetParent !== null);
-  const techBtns = allBtns.filter(b => /ÙÙ†|tech/i.test((b.innerText||b.title||b.value||'').trim()));
+  const techBtns = allBtns.filter(b => /فن|tech/i.test((b.innerText||b.title||b.value||'').trim()));
   log(`Found ${techBtns.length} tech-related buttons: ${techBtns.map(b=>'"'+(b.innerText||b.title||b.value||'').trim().slice(0,30)+'"').join(', ')}`);
 
-  let res = await handlePage2Modal(/[Ø§Ø¥Ø£]Ø¶Ø§Ù[Ø©Ù‡]\s*ÙÙ†|Add.*Tech/i, targetName);
+  let res = await handlePage2Modal(/[اإأ]ضاف[ةه]\s*فن|Add.*Tech/i, targetName);
   if (res && res.ok) return res;
-  if (res && !res.ok) log('âš ï¸ Technician handlePage2Modal failed');
+  if (res && !res.ok) log('⚠ï¸ Technician handlePage2Modal failed');
 
   log('Trying inline technician lookup...');
-  const lab = findFieldByLabel(['Ø§Ù„ÙÙ†ÙŠÙŠÙ†','Ø§Ù„ÙÙ†ÙŠ','Technician','Technicians']);
+  const lab = findFieldByLabel(['الفنيين','الفني','Technician','Technicians']);
   if (!lab) { log('âŒ No technician field found on page'); return { ok: false }; }
   if (lab.tagName === 'SELECT') {
     const valid = Array.from(lab.options).filter(o => o.value && o.text.trim());
@@ -967,12 +1005,12 @@ async function selectRandomTechnician(targetName = null) {
   const btn = findSafeLookupButton(lab, ['.lookup-technician button', '.lookup-btn']);
   if (btn) {
     btn.click(); await sleep(2000); 
-    const items = Array.from(document.querySelectorAll('.modal table tbody tr, .modal-body table tbody tr td:first-child')).filter(i => i.offsetParent !== null && i.innerText.trim() && !/norecords|Ù„Ø§ØªÙˆØ¬Ø¯/.test(i.innerText.replace(/\s/g,'')));
+    const items = Array.from(document.querySelectorAll('.modal table tbody tr, .modal-body table tbody tr td:first-child')).filter(i => i.offsetParent !== null && i.innerText.trim() && !/norecords|لاتوجد/.test(i.innerText.replace(/\s/g,'')));
     if (items.length) {
       const rand = targetName ? (items.find(i => i.innerText.trim().includes(targetName)) || items[0]) : items[Math.floor(Math.random()*items.length)];
       const radio = rand.querySelector('input[type="radio"], input[type="checkbox"]');
       if (radio) radio.click(); else rand.click(); await sleep(300);
-      const sels = Array.from(document.querySelectorAll('.modal button.btn-primary, .modal input.btn-primary, .modal input[value="Ø§Ø®ØªØ±"], .modal input[value="Select"], .modal button[aria-label*="Select"], .modal button[aria-label*="Ø§Ø®ØªØ±"]'));
+      const sels = Array.from(document.querySelectorAll('.modal button.btn-primary, .modal input.btn-primary, .modal input[value="اختر"], .modal input[value="Select"], .modal button[aria-label*="Select"], .modal button[aria-label*="اختر"]'));
       const selectBtn = sels.reverse().find(b => b.offsetParent !== null);
       if (selectBtn) { try{selectBtn.focus();}catch(e){} selectBtn.click(); try{selectBtn.dispatchEvent(new Event('click',{bubbles:true}));}catch(e){} }
       return { ok: true, name: rand.innerText.trim() };
@@ -988,23 +1026,23 @@ function getProblemCode(deviceName, isInstallRow) {
   log('ðŸ” Complaint code from page: ' + (complaintCode || 'NOT FOUND'));
 
   // Special case: if complaint/reportType indicates installation
-  if (isInstallRow || isInstallationReport()) return '*ØªØ±ÙƒÙŠØ¨';
+  if (isInstallRow || isInstallationReport()) return '*تركيب';
 
   // Special case: Premium Care
-  if (complaintCode && /premium.?care|Ø¨Ø±ÙŠÙ…ÙŠÙ….?ÙƒÙŠØ±|Ø¨Ø±ÙŠÙ…ÙŠÙ… ÙƒÙŠØ±/i.test(complaintCode)) {
-    log('â­ Premium Care detected from complaint code');
+  if (complaintCode && /premium.?care|بريميم.?كير|بريميم كير/i.test(complaintCode)) {
+    log('⭐ Premium Care detected from complaint code');
     return complaintCode; // Return the complaint code itself to search for Premium Care
   }
 
   // Special case: installation inside complaint text
-  if (complaintCode && /ØªØ±ÙƒÙŠØ¨|installation/i.test(complaintCode)) {
+  if (complaintCode && /تركيب|installation/i.test(complaintCode)) {
     log('ðŸ”§ Installation detected from complaint code');
-    return '*ØªØ±ÙƒÙŠØ¨';
+    return '*تركيب';
   }
 
   // If complaint code found AND matches problem code pattern, use it
   if (complaintCode && /^\*?\w{2}\d{2}$/i.test(complaintCode)) {
-    log('âœ… Using complaint code as problem search: ' + complaintCode);
+    log('✅ Using complaint code as problem search: ' + complaintCode);
     return complaintCode;
   }
 
@@ -1020,33 +1058,33 @@ function getProblemCode(deviceName, isInstallRow) {
           const codes = entry.codes;
           return codes[Math.floor(Math.random() * codes.length)];
         }
-      } catch(e) { /* invalid regex â€” skip */ }
+      } catch(e) { /* invalid regex — skip */ }
     }
   }
 
   // Hardcoded fallback (used if selectors.json patterns don't match)
-  if (/ØªÙƒÙŠÙŠÙ|ac|air.?cond|split|Ø´Ø¨Ø§Ùƒ|inverter/i.test(text)) { const arr = ['*AC02','*AC03']; return arr[Math.floor(Math.random()*arr.length)]; }
-  if (/Ø¨ÙˆØªÙˆØ¬Ø§Ø²|Ø·Ø¨Ø§Ø®|cooker/.test(text)) return '*GS04';
-  if (/ØºØ³Ø§Ù„/i.test(text) && !/Ø§Ø·Ø¨Ø§Ù‚|Ø£Ø·Ø¨Ø§Ù‚/.test(text)) return '*WM05';
-  if (/Ø«Ù„Ø§Ø¬|Ù…Ø¨Ø±Ø¯|fridge/.test(text)) { const arr = ['*GR01','*GR02','*GR03']; return arr[Math.floor(Math.random()*arr.length)]; }
-  if (/Ø§Ø·Ø¨Ø§Ù‚|Ø£Ø·Ø¨Ø§Ù‚|dish/.test(text)) return '*DW06';
-  if (/Ø³Ø®Ø§Ù†|heater/.test(text)) return '*HT01';
+  if (/تكييف|ac|air.?cond|split|شباك|inverter/i.test(text)) { const arr = ['*AC02','*AC03']; return arr[Math.floor(Math.random()*arr.length)]; }
+  if (/بوتوجاز|طباخ|cooker/.test(text)) return '*GS04';
+  if (/غسال/i.test(text) && !/اطباق|أطباق/.test(text)) return '*WM05';
+  if (/ثلاج|مبرد|fridge/.test(text)) { const arr = ['*GR01','*GR02','*GR03']; return arr[Math.floor(Math.random()*arr.length)]; }
+  if (/اطباق|أطباق|dish/.test(text)) return '*DW06';
+  if (/سخان|heater/.test(text)) return '*HT01';
   return null;
 }
 
 // AI-powered problem code selection
 async function getSmartProblemCode(deviceName, isInstallRow) {
-  if (isInstallRow) return '*ØªØ±ÙƒÙŠØ¨';
+  if (isInstallRow) return '*تركيب';
   
   const complaintCode = readComplaintCodeFromPage();
   
   if (typeof aiService !== 'undefined' && await aiService.isAvailable()) {
     const aiResult = await aiService.prompt(
-      `Ø´ÙƒÙˆÙ‰ Ø§Ù„Ø¹Ù…ÙŠÙ„: "${complaintCode || 'ØºÙŠØ± Ù…Ø­Ø¯Ø¯'}"
-       Ù†ÙˆØ¹ Ø§Ù„Ø¬Ù‡Ø§Ø²: "${deviceName}"
-       Ø§Ø®ØªØ± ÙƒÙˆØ¯ Ø§Ù„Ø¹Ø·Ù„ Ø§Ù„Ù…Ù†Ø§Ø³Ø¨ Ù…Ù†: *AC02, *AC03, *GS04, *WM05, *GR01, *GR02, *GR03, *DW06, *HT01, *ØªØ±ÙƒÙŠØ¨
-       Ø£Ø±Ø¬Ø¹ Ø§Ù„ÙƒÙˆØ¯ ÙÙ‚Ø· Ø¨Ø¯ÙˆÙ† Ø´Ø±Ø­.`,
-      'Ø£Ù†Øª Ù…Ø³Ø§Ø¹Ø¯ Ù…ØªØ®ØµØµ ÙÙŠ Ø£ÙƒÙˆØ§Ø¯ Ø§Ù„Ø¹Ø·Ù„ Ù„Ù„Ø£Ø¬Ù‡Ø²Ø© Ø§Ù„ÙƒÙ‡Ø±Ø¨Ø§Ø¦ÙŠØ©.',
+      `شكوى العميل: "${complaintCode || 'غير محدد'}"
+       نوع الجهاز: "${deviceName}"
+       اختر كود العطل المناسب من: *AC02, *AC03, *GS04, *WM05, *GR01, *GR02, *GR03, *DW06, *HT01, *تركيب
+       أرجع الكود فقط بدون شرح.`,
+      'أنت مساعد متخصص في أكواد العطل للأجهزة الكهربائية.',
       { timeout: 5000 }
     );
     
@@ -1060,23 +1098,23 @@ async function getSmartProblemCode(deviceName, isInstallRow) {
   return getProblemCode(deviceName, isInstallRow);
 }
 
-// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-// â–¼â–¼â–¼  MODULAR LOGIC: PAGE 1 (Review) vs PAGE 2 (FollowUp)
-// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+// ═══════════════════════════════════════════════════════════
+// ▼▼▼  MODULAR LOGIC: PAGE 1 (Review) vs PAGE 2 (FollowUp)
+// ═══════════════════════════════════════════════════════════
 
 function parseDataLine(line) {
   const obj = {}; const parts = line.includes('|') ? line.split('|') : line.split(',');
   parts.forEach(p => { const i = p.indexOf(':'); if(i<0)return; obj[p.slice(0,i).trim().toLowerCase().replace(/\s+/g,'')] = p.slice(i+1).trim(); });
   const parsed = {
-    orderId: obj['orderid'] || obj['order'] || line.match(/\bCAS\d{10,}\b/i)?.[0] || '', brand: obj['brand'] || obj['Ø¹Ù„Ø§Ù…Ù‡ØªØ¬Ø§Ø±ÙŠÙ‡'] || '',
-    model: obj['model'] || obj['Ù…ÙˆØ¯ÙŠÙ„'] || '', serial: obj['serial'] || obj['serialnumber'] || '', model2: obj['model2'] || '',
-    serial2: obj['serial2'] || '', status: obj['status'] || obj['Ø­Ø§Ù„Ø©'] || '', date: obj['date'] || obj['ØªØ§Ø±ÙŠØ®'] || '', 
+    orderId: obj['orderid'] || obj['order'] || line.match(/\bCAS\d{10,}\b/i)?.[0] || '', brand: obj['brand'] || obj['علامهتجاريه'] || '',
+    model: obj['model'] || obj['موديل'] || '', serial: obj['serial'] || obj['serialnumber'] || '', model2: obj['model2'] || '',
+    serial2: obj['serial2'] || '', status: obj['status'] || obj['حالة'] || '', date: obj['date'] || obj['تاريخ'] || '', 
     reportType: obj['reporttype'] || obj['report'] || '',
     date2: obj['date2'] || '',
     problemCode: obj['problemcode'] || obj['problem'] || '',
     faultCode: obj['faultcode'] || obj['fault'] || '',
     subFaultCode: obj['subfault'] || null,
-    notes: obj['notes'] || obj['Ù…Ù„Ø§Ø­Ø¸Ø§Øª'] || ''
+    notes: obj['notes'] || obj['ملاحظات'] || ''
   };
 
   // For AC with merged model+serial (model2 exists): pick the newest date
@@ -1084,31 +1122,31 @@ function parseDataLine(line) {
     try {
       const toDate = (d) => { const m = d.match(/(\d{1,2})\/(\d{1,2})\/(\d{4})/); return m ? new Date(m[3], m[2]-1, m[1]) : new Date(d); };
       const d1 = toDate(parsed.date), d2 = toDate(parsed.date2);
-      if (d2 > d1) { parsed.date = parsed.date2; sysLog('ðŸ“… Using newer date: ' + parsed.date2, 'info'); }
+      if (d2 > d1) { parsed.date = parsed.date2; sysLog('📅 Using newer date: ' + parsed.date2, 'info'); }
     } catch(e) { /* keep original date */ }
   }
   return parsed;
 }
 
-// â”€â”€ Check if Page 1 fields are already filled (skip already-processed orders) â”€â”€
+// ── Check if Page 1 fields are already filled (skip already-processed orders) ──
 function isPage1AlreadyFilled(cfg) {
-  const serialEl = findFirst(cfg.serial) || findFieldByLabel(['Ø§Ù„Ø±Ù‚Ù… Ø§Ù„Ù…Ø³Ù„Ø³Ù„ 1','Ø§Ù„Ø±Ù‚Ù… Ø§Ù„Ù…Ø³Ù„Ø³Ù„','Serial Number','Serial']);
+  const serialEl = findFirst(cfg.serial) || findFieldByLabel(['الرقم المسلسل 1','الرقم المسلسل','Serial Number','Serial']);
   const serialVal = (serialEl?.value || '').trim();
 
-  // Ù„Ùˆ Serial ÙØ§Ø¶ÙŠ Ø£Ùˆ "0" Ø£Ùˆ "Ù„Ø§ ÙŠÙˆØ¬Ø¯" â†’ Ø§Ù„Ø¨ÙŠØ§Ù†Ø§Øª Ù†Ø§Ù‚ØµØ©/ÙˆÙ‡Ù…ÙŠØ© â†’ Ù…ØªØ®Ø·Ø§Ø´
-  if (!serialVal || serialVal === '0' || serialVal.includes('Ù„Ø§ ÙŠÙˆØ¬Ø¯')) {
-    log(`ðŸ” Serial is "${serialVal || '(empty)'}" â€” page not considered filled.`);
+  // لو Serial فاضي أو "0" أو "لا يوجد" → البيانات ناقصة/وهمية → متخطاش
+  if (!serialVal || serialVal === '0' || serialVal.includes('لا يوجد')) {
+    log(`ðŸ” Serial is "${serialVal || '(empty)'}" — page not considered filled.`);
     return false;
   }
 
-  // Ù„Ùˆ Serial Ù…Ù…Ù„ÙˆØ¡ ÙˆØ­Ù‚ÙŠÙ‚ÙŠ (> 3 chars) â†’ Ø´ÙŠÙƒ Ø¨Ø§Ù‚ÙŠ Ø§Ù„Ø­Ù‚ÙˆÙ„
-  const brandEl = findFirst(cfg.brandInput) || findFieldByLabel(['Ø§Ù„Ø¹Ù„Ø§Ù…Ø© Ø§Ù„ØªØ¬Ø§Ø±ÙŠÙ‡','Ø§Ù„Ø¹Ù„Ø§Ù…Ø© Ø§Ù„ØªØ¬Ø§Ø±ÙŠØ©','Brand']);
+  // لو Serial مملوء وحقيقي (> 3 chars) → شيك باقي الحقول
+  const brandEl = findFirst(cfg.brandInput) || findFieldByLabel(['العلامة التجاريه','العلامة التجارية','Brand']);
   const brandVal = (brandEl?.value || brandEl?.innerText || '').trim();
-  const modelEl = findFirst(cfg.modelInput) || findFieldByLabel(['Ø§Ù„Ù…ÙˆØ¯ÙŠÙ„ Ø§Ù„ÙØ¹Ù„ÙŠ 1','Model']);
+  const modelEl = findFirst(cfg.modelInput) || findFieldByLabel(['الموديل الفعلي 1','Model']);
   const modelVal = (modelEl?.value || modelEl?.innerText || '').trim();
 
   if (serialVal.length > 3 && brandVal.length > 1 && modelVal.length > 1) {
-    log(`ðŸ” Page 1 already filled: Brand="${brandVal}", Model="${modelVal}", Serial="${serialVal}" â€” skipping.`);
+    log(`ðŸ” Page 1 already filled: Brand="${brandVal}", Model="${modelVal}", Serial="${serialVal}" — skipping.`);
     return true;
   }
   return false;
@@ -1116,10 +1154,10 @@ function isPage1AlreadyFilled(cfg) {
 
 async function executePage1_Review(data, cfg) {
   const FR = {};
-  log('ã€ PAGE 1 ã€‘ Waiting for form to load...');
+  log('ã€ PAGE 1 】 Waiting for form to load...');
   const startWait = Date.now();
   while (Date.now() - startWait < 15000) { 
-    if (findFirst(cfg.brandInput || []) || findFieldByLabel(['Ø§Ù„Ø¹Ù„Ø§Ù…Ø© Ø§Ù„ØªØ¬Ø§Ø±ÙŠÙ‡','Ø§Ù„Ø¹Ù„Ø§Ù…Ø© Ø§Ù„ØªØ¬Ø§Ø±ÙŠØ©','Brand'])) break; 
+    if (findFirst(cfg.brandInput || []) || findFieldByLabel(['العلامة التجاريه','العلامة التجارية','Brand'])) break; 
     await sleep(250); 
   }
   await sleep(1200);
@@ -1128,17 +1166,17 @@ async function executePage1_Review(data, cfg) {
   const pType = readDeviceTypeFromPage() || data.reportType;
   if (pType) await storageSet({ autofiller_ProductType: pType });
 
-  FR.brand = await fillAndVerify('Brand', data.brand, () => fillPowerAppsLookup(findFirst(cfg.brandInput)||findFieldByLabel(['Ø§Ù„Ø¹Ù„Ø§Ù…Ø© Ø§Ù„ØªØ¬Ø§Ø±ÙŠÙ‡','Ø§Ù„Ø¹Ù„Ø§Ù…Ø© Ø§Ù„ØªØ¬Ø§Ø±ÙŠØ©','Brand']), 'Brand', data.brand, cfg.brandBtn), createLookupVerifier(()=>findFirst(cfg.brandInput)||findFieldByLabel(['Ø§Ù„Ø¹Ù„Ø§Ù…Ø© Ø§Ù„ØªØ¬Ø§Ø±ÙŠÙ‡','Ø§Ù„Ø¹Ù„Ø§Ù…Ø© Ø§Ù„ØªØ¬Ø§Ø±ÙŠØ©','Brand'])));
-  FR.model = await fillAndVerify('Model1', data.model, () => fillPowerAppsLookup(findFirst(cfg.modelInput)||findFieldByLabel(['Ø§Ù„Ù…ÙˆØ¯ÙŠÙ„ Ø§Ù„ÙØ¹Ù„ÙŠ 1','Model']), 'Model1', data.model, cfg.modelBtn), createLookupVerifier(()=>findFirst(cfg.modelInput)||findFieldByLabel(['Ø§Ù„Ù…ÙˆØ¯ÙŠÙ„ Ø§Ù„ÙØ¹Ù„ÙŠ 1','Model'])));
-  FR.serial = await fillAndVerify('Serial1', data.serial, () => fillElement(findFirst(cfg.serial)||findFieldByLabel(['Ø§Ù„Ø±Ù‚Ù… Ø§Ù„Ù…Ø³Ù„Ø³Ù„ 1','Ø§Ù„Ø±Ù‚Ù… Ø§Ù„Ù…Ø³Ù„Ø³Ù„','Serial'],'input'), data.serial), createInputVerifier(()=>findFirst(cfg.serial)||findFieldByLabel(['Ø§Ù„Ø±Ù‚Ù… Ø§Ù„Ù…Ø³Ù„Ø³Ù„ 1','Ø§Ù„Ø±Ù‚Ù… Ø§Ù„Ù…Ø³Ù„Ø³Ù„','Serial'],'input')));
-  FR.model2 = await fillAndVerify('Model2', data.model2, () => fillPowerAppsLookup(findFirst(cfg.modelInput2)||findFieldByLabel(['Ø§Ù„Ù…ÙˆØ¯ÙŠÙ„ Ø§Ù„ÙØ¹Ù„ÙŠ 2','Model 2']), 'Model2', data.model2, cfg.modelBtn), createLookupVerifier(()=>findFirst(cfg.modelInput2)||findFieldByLabel(['Ø§Ù„Ù…ÙˆØ¯ÙŠÙ„ Ø§Ù„ÙØ¹Ù„ÙŠ 2','Model 2'])));
-  FR.serial2 = await fillAndVerify('Serial2', data.serial2, () => fillElement(findFirst(cfg.serial2)||findFieldByLabel(['Ø§Ù„Ø±Ù‚Ù… Ø§Ù„Ù…Ø³Ù„Ø³Ù„ 2','Serial 2'],'input'), data.serial2), createInputVerifier(()=>findFirst(cfg.serial2)||findFieldByLabel(['Ø§Ù„Ø±Ù‚Ù… Ø§Ù„Ù…Ø³Ù„Ø³Ù„ 2','Serial 2'],'input')));
+  FR.brand = await fillAndVerify('Brand', data.brand, () => fillPowerAppsLookup(findFirst(cfg.brandInput)||findFieldByLabel(['العلامة التجاريه','العلامة التجارية','Brand']), 'Brand', data.brand, cfg.brandBtn), createLookupVerifier(()=>findFirst(cfg.brandInput)||findFieldByLabel(['العلامة التجاريه','العلامة التجارية','Brand'])));
+  FR.model = await fillAndVerify('Model1', data.model, () => fillPowerAppsLookup(findFirst(cfg.modelInput)||findFieldByLabel(['الموديل الفعلي 1','Model']), 'Model1', data.model, cfg.modelBtn), createLookupVerifier(()=>findFirst(cfg.modelInput)||findFieldByLabel(['الموديل الفعلي 1','Model'])));
+  FR.serial = await fillAndVerify('Serial1', data.serial, () => fillElement(findFirst(cfg.serial)||findFieldByLabel(['الرقم المسلسل 1','الرقم المسلسل','Serial'],'input'), data.serial), createInputVerifier(()=>findFirst(cfg.serial)||findFieldByLabel(['الرقم المسلسل 1','الرقم المسلسل','Serial'],'input')));
+  FR.model2 = await fillAndVerify('Model2', data.model2, () => fillPowerAppsLookup(findFirst(cfg.modelInput2)||findFieldByLabel(['الموديل الفعلي 2','Model 2']), 'Model2', data.model2, cfg.modelBtn), createLookupVerifier(()=>findFirst(cfg.modelInput2)||findFieldByLabel(['الموديل الفعلي 2','Model 2'])));
+  FR.serial2 = await fillAndVerify('Serial2', data.serial2, () => fillElement(findFirst(cfg.serial2)||findFieldByLabel(['الرقم المسلسل 2','Serial 2'],'input'), data.serial2), createInputVerifier(()=>findFirst(cfg.serial2)||findFieldByLabel(['الرقم المسلسل 2','Serial 2'],'input')));
   FR.status = await fillAndVerify('Status', data.status, async () => {
-    let el = findFirst(cfg.statusSelect) || findFieldByLabel(['Ø­Ø§Ù„Ø© Ø§Ù„Ø¶Ù…Ø§Ù†','Warranty Status'],'select');
-    if (!el) el = Array.from(document.querySelectorAll('select')).find(s => /warranty|Ø¶Ù…Ø§Ù†/i.test(s.getAttribute('aria-label')||'') || /warranty|Ø¶Ù…Ø§Ù†/i.test(s.name||'') || /warranty|Ø¶Ù…Ø§Ù†/i.test(s.id||''));
+    let el = findFirst(cfg.statusSelect) || findFieldByLabel(['حالة الضمان','Warranty Status'],'select');
+    if (!el) el = Array.from(document.querySelectorAll('select')).find(s => /warranty|ضمان/i.test(s.getAttribute('aria-label')||'') || /warranty|ضمان/i.test(s.name||'') || /warranty|ضمان/i.test(s.id||''));
     if (!el) el = Array.from(document.querySelectorAll('select')).find(s => {
       const opts = Array.from(s.options || []);
-      return opts.some(o => /warranty|Ø¶Ù…Ø§Ù†/i.test(o.text));
+      return opts.some(o => /warranty|ضمان/i.test(o.text));
     });
     if (!el) return { ok: false };
     const lower = (data.status || '').toLowerCase();
@@ -1147,8 +1185,8 @@ async function executePage1_Review(data, cfg) {
     if (!match) return { ok: false };
     await emulateUserInput(el, match.value);
     return { ok: true, selected: match.text };
-  }, createInputVerifier(() => document.querySelector('#ldv_warrantystatus') || document.querySelector('select[name*="warranty"]') || document.querySelector('select[id*="warranty"]') || findFieldByLabel(['Ø­Ø§Ù„Ø© Ø§Ù„Ø¶Ù…Ø§Ù†'],'select')));
-  FR.date = await fillAndVerify('Date', data.date, () => { let d = data.date; const dmy = d.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/); if(dmy) d=`${dmy[3]}-${dmy[2].padStart(2,'0')}-${dmy[1].padStart(2,'0')}`; const el=findFirst(cfg.dateInput)||findFieldByLabel(['ØªØ§Ø±ÙŠØ® Ø§Ù„Ø¶Ù…Ø§Ù†','Warranty Date'],'input'); return (el) ? emulateUserInput(el, el.type==='date'?d:data.date) : false; }, createInputVerifier(()=>findFirst(cfg.dateInput)||findFieldByLabel(['ØªØ§Ø±ÙŠØ® Ø§Ù„Ø¶Ù…Ø§Ù†'],'input')));
+  }, createInputVerifier(() => document.querySelector('#ldv_warrantystatus') || document.querySelector('select[name*="warranty"]') || document.querySelector('select[id*="warranty"]') || findFieldByLabel(['حالة الضمان'],'select')));
+  FR.date = await fillAndVerify('Date', data.date, () => { let d = data.date; const dmy = d.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/); if(dmy) d=`${dmy[3]}-${dmy[2].padStart(2,'0')}-${dmy[1].padStart(2,'0')}`; const el=findFirst(cfg.dateInput)||findFieldByLabel(['تاريخ الضمان','Warranty Date'],'input'); return (el) ? emulateUserInput(el, el.type==='date'?d:data.date) : false; }, createInputVerifier(()=>findFirst(cfg.dateInput)||findFieldByLabel(['تاريخ الضمان'],'input')));
 
   log('â”â”â” PAGE 1 DONE â”â”â”', FR);
   return { report: { fieldResults: FR } };
@@ -1177,7 +1215,7 @@ async function hasExistingSubgridRow(sectionRegex) {
     const rows = container.querySelectorAll('table.view-grid tbody tr, table.entity-grid tbody tr, table tbody tr, table tr');
     const dataRows = Array.from(rows).filter(r => {
       const td = r.querySelector('td');
-      return td && r.innerText.trim() && !/norecords|Ù„Ø§ ØªÙˆØ¬Ø¯|Ù„Ø§ØªÙˆØ¬Ø¯/i.test(r.innerText.replace(/\s/g,''));
+      return td && r.innerText.trim() && !/norecords|لا توجد|لاتوجد/i.test(r.innerText.replace(/\s/g,''));
     });
     if (dataRows.length > 0) {
       log(`hasExistingSubgridRow: Found ${dataRows.length} existing row(s)`);
@@ -1189,40 +1227,40 @@ async function hasExistingSubgridRow(sectionRegex) {
 
 async function executePage2_FollowUp(data, cfg) {
   const FR = {};
-  log('ã€ PAGE 2 ã€‘ Preparing Actual Problems and Technicians...');
+  log('ã€ PAGE 2 】 Preparing Actual Problems and Technicians...');
   await sleep(1000); // Buffer for DOM render
 
-  // Set Spare Parts to "Ø¨Ø¯ÙˆÙ† Ù‚Ø·Ø¹ ØºÙŠØ§Ø±" (confirmed on live portal: id=ats_sparepartsstatus)
-  let sparePartsEl = findFieldByLabel(['Ø­Ø§Ù„Ø© Ù‚Ø·Ø¹ Ø§Ù„ØºÙŠØ§Ø±', 'Spare Parts'], 'select');
+  // Set Spare Parts to "بدون قطع غيار" (confirmed on live portal: id=ats_sparepartsstatus)
+  let sparePartsEl = findFieldByLabel(['حالة قطع الغيار', 'Spare Parts'], 'select');
   if (!sparePartsEl) sparePartsEl = document.getElementById('ats_sparepartsstatus'); // Direct ID fallback
   if (sparePartsEl && sparePartsEl.tagName === 'SELECT') {
-      const noneOpt = Array.from(sparePartsEl.options).find(o => /Ø¨Ø¯ÙˆÙ† Ù‚Ø·Ø¹ ØºÙŠØ§Ø±/i.test(o.text));
+      const noneOpt = Array.from(sparePartsEl.options).find(o => /بدون قطع غيار/i.test(o.text));
       if (noneOpt) {
          sparePartsEl.value = noneOpt.value;
          try { sparePartsEl.dispatchEvent(new Event('change', {bubbles:true})); } catch(e){}
          FR.spareParts = { ok: true, selected: noneOpt.text };
-         log('âœ… Spare Parts set to: ' + noneOpt.text);
+         log('✅ Spare Parts set to: ' + noneOpt.text);
       } else {
-         warn('âš ï¸ "Ø¨Ø¯ÙˆÙ† Ù‚Ø·Ø¹ ØºÙŠØ§Ø±" option not found in spare parts dropdown');
+         warn('⚠ï¸ "بدون قطع غيار" option not found in spare parts dropdown');
       }
   } else {
-      log('â„¹ï¸ Spare Parts field not found â€” skipping');
+      log('ℹï¸ Spare Parts field not found — skipping');
   }
 
   const { autofiller_ProductType } = await chrome.storage.local.get('autofiller_ProductType');
   const deviceName = readDeviceTypeFromPage() || autofiller_ProductType || data.reportType || '';
-  const isInstall = /ØªØ±ÙƒÙŠØ¨/.test(data.reportType) || isInstallationReport();
+  const isInstall = /تركيب/.test(data.reportType) || isInstallationReport();
   
   // For Second Visit: use problemCode from profile directly
   const probCode = data.secondVisitMode && data.problemCode ? data.problemCode : getProblemCode(deviceName, isInstall);
   if (probCode) {
-    log('â–¶ï¸ Adding Actual Problem: ' + probCode);
-    // Exclude: ØªØ±ØµÙŠØ¯ØŒ Ø§Ø±Ø¶ÙŠØŒ Ø¨Ù„Ø§Øº â€” these are not valid actual problems
-    const excludeActualProblems = /ØªØ±ØµÙŠØ¯|Ø§Ø±Ø¶ÙŠ|Ø£Ø±Ø¶ÙŠ|Ø¨Ù„Ø§Øº/i;
+    log('▶ï¸ Adding Actual Problem: ' + probCode);
+    // Exclude: ترصيد، ارضي، بلاغ — these are not valid actual problems
+    const excludeActualProblems = /ترصيد|ارضي|أرضي|بلاغ/i;
     // Priority: Premium Care match
-    const priorityActualProblem = /Premium\s*care|Ø¨Ø±ÙŠÙ…ÙŠÙ….?ÙƒÙŠØ±|ØªØ±ÙƒÙŠØ¨ ÙˆØªØ´ØºÙŠÙ„/i;
+    const priorityActualProblem = /Premium\s*care|بريميم.?كير|تركيب وتشغيل/i;
     let probRes = await handleSubgridIframeModal(
-      /Ø§Ø¶Ø§Ù[Ø©Ù‡]\s*Ø§Ù„Ù…Ø´Ø§ÙƒÙ„\s*Ø§Ù„ÙØ¹Ù„ÙŠ[Ø©Ù‡]|Add.*Problem/i,
+      /اضاف[ةه]\s*المشاكل\s*الفعلي[ةه]|Add.*Problem/i,
       probCode,
       false,
       excludeActualProblems,
@@ -1230,9 +1268,9 @@ async function executePage2_FollowUp(data, cfg) {
     );
     if (probRes && probRes.ok) {
        FR.problem = { ok: true, selected: probRes.name };
-       log('âœ… Problem added: ' + probRes.name);
+       log('✅ Problem added: ' + probRes.name);
     } else {
-       warn('âš ï¸ Problem modal failed or no match. probRes:', JSON.stringify(probRes));
+       warn('⚠ï¸ Problem modal failed or no match. probRes:', JSON.stringify(probRes));
        FR.problem = { ok: false };
     }
   } else { warn('Could not determine Problem Code for device:', deviceName); }
@@ -1242,52 +1280,52 @@ async function executePage2_FollowUp(data, cfg) {
   await sleep(2000);
 
   const targetTech = data.technicianName || data.technician || null;
-  log('â–¶ï¸ Adding Technician...');
+  log('▶ï¸ Adding Technician...');
   let techRes = await selectRandomTechnician(targetTech);
   // Retry once if failed
   if (!techRes || !techRes.ok) {
-    log('âš ï¸ Technician failed, retrying in 3s...');
+    log('⚠ï¸ Technician failed, retrying in 3s...');
     await sleep(3000);
     techRes = await selectRandomTechnician(targetTech);
   }
   FR.technician = { ok: techRes?.ok || false, selected: techRes?.name };
-  log(techRes?.ok ? 'âœ… Technician added: ' + techRes.name : 'âŒ Technician failed');
+  log(techRes?.ok ? '✅ Technician added: ' + techRes.name : 'âŒ Technician failed');
 
   log('â”â”â” PAGE 2 DONE â”â”â”', FR);
   return { report: { fieldResults: FR } };
 }
 async function executePage3_Resolution(data, cfg) {
   const FR = {};
-  log('ã€ PAGE 3 ã€‘ Preparing Resolution/Fault Codes...');
+  log('ã€ PAGE 3 】 Preparing Resolution/Fault Codes...');
   try {
     const { currentTask } = await storageGet({ currentTask: null });
-    if (currentTask) notifyStatus(currentTask.taskId, 'filling', 'Ø¬Ø§Ø±ÙŠ ØªØ¹Ø¨Ø¦Ø© Ø§Ù„ØµÙØ­Ø© Ø§Ù„Ø«Ø§Ù„Ø«Ø© (Ø§Ù„Ø£Ø¹Ø·Ø§Ù„)...');
+    if (currentTask) notifyStatus(currentTask.taskId, 'filling', 'جاري تعبئة الصفحة الثالثة (الأعطال)...');
   } catch(e){}
   await sleep(1000);
 
-  const isInstall = /ØªØ±ÙƒÙŠØ¨/.test(data.reportType) || isInstallationReport();
+  const isInstall = /تركيب/.test(data.reportType) || isInstallationReport();
 
   // Determine the fault code(s) to use
   if (data.forceDrainCleaning) {
-    log('ðŸš¿ Force ØµÙŠØ§Ù†Ø© Ø¯ÙˆØ±ÙŠØ©: adding 3 fault codes (ØµÙŠØ§Ù†Ø© Ø¯ÙˆØ±ÙŠØ© + ØµÙŠØ§Ù†Ø© Ø¯ÙˆØ±ÙŠØ© + Ø´Ø­Ù†)...');
+    log('ðŸš¿ Force صيانة دورية: adding 3 fault codes (صيانة دورية + صيانة دورية + شحن)...');
 
-    FR.faultMaintenance = await addFaultCodePage3('AC001', 'AC00000005', ['ØªÙØ±ÙŠØº']);
-    log(FR.faultMaintenance?.ok ? 'âœ… ØµÙŠØ§Ù†Ø© Ø¯ÙˆØ±ÙŠØ© (AC001) added' : 'âš ï¸ ØµÙŠØ§Ù†Ø© Ø¯ÙˆØ±ÙŠØ© (AC001) failed');
+    FR.faultMaintenance = await addFaultCodePage3('AC001', 'AC00000005', ['تفريغ']);
+    log(FR.faultMaintenance?.ok ? '✅ صيانة دورية (AC001) added' : '⚠ï¸ صيانة دورية (AC001) failed');
 
     await sleep(2000);
-    FR.faultDrain = await addFaultCodePage3('AC004', 'AC0300308A', ['ØªÙØ±ÙŠØº']);
-    log(FR.faultDrain?.ok ? 'âœ… ØµÙŠØ§Ù†Ø© Ø¯ÙˆØ±ÙŠØ© (AC004) added' : 'âš ï¸ ØµÙŠØ§Ù†Ø© Ø¯ÙˆØ±ÙŠØ© (AC004) failed');
+    FR.faultDrain = await addFaultCodePage3('AC004', 'AC0300308A', ['تفريغ']);
+    log(FR.faultDrain?.ok ? '✅ صيانة دورية (AC004) added' : '⚠ï¸ صيانة دورية (AC004) failed');
 
     if (data.shahnEnabled) {
       await sleep(2000);
-      FR.faultShahn = await addFaultCodePage3('AC003', 'AC9000L02B', ['ØªÙØ±ÙŠØº']);
-      log(FR.faultShahn?.ok ? 'âœ… Ø´Ø­Ù† added' : 'âš ï¸ Ø´Ø­Ù† failed');
+      FR.faultShahn = await addFaultCodePage3('AC003', 'AC9000L02B', ['تفريغ']);
+      log(FR.faultShahn?.ok ? '✅ شحن added' : '⚠ï¸ شحن failed');
     }
 
   } else if (isInstall) {
-    // Installation: search 'ØªØ±ÙƒÙŠØ¨' and pick the one with 'ØªØ±ÙƒÙŠØ¨ ÙˆØªØ´ØºÙŠÙ„'
-    FR.fault = await addFaultCodePage3('*ØªØ±ÙƒÙŠØ¨');
-  } else if (/ØªÙ†Ø¸ÙŠÙ|ØµØ±Ù/.test(data.reportType) || /ØªÙ†Ø¸ÙŠÙ|ØµØ±Ù/.test(data.notes || '')) {
+    // Installation: search 'تركيب' and pick the one with 'تركيب وتشغيل'
+    FR.fault = await addFaultCodePage3('*تركيب');
+  } else if (/تنظيف|صرف/.test(data.reportType) || /تنظيف|صرف/.test(data.notes || '')) {
     FR.fault = await addFaultCodePage3('AC004');
   } else if (data.faultCode) {
     FR.fault = await addFaultCodePage3(data.faultCode, data.subFaultCode);
@@ -1485,13 +1523,13 @@ function collectAllDocs(root) {
 // Specialized function for Page 3 fault code modal (two-step lookup)
 async function addFaultCodePage3(faultCode, subFaultCode = null, excludeTexts = []) {
   document.body.dataset.isAutofilling = 'true';
-  // Step 1: Click "Ø§Ø¶Ø§ÙØ© ÙƒÙˆØ¯ Ø¹Ø·Ù„"
+  // Step 1: Click "اضافة كود عطل"
   const addBtn = Array.from(document.querySelectorAll('a, button'))
-    .find(el => el.innerText.trim() === 'Ø§Ø¶Ø§ÙØ© ÙƒÙˆØ¯ Ø¹Ø·Ù„' && el.offsetParent !== null);
-  if (!addBtn) { warn('Ø§Ø¶Ø§ÙØ© ÙƒÙˆØ¯ Ø¹Ø·Ù„ button not found'); return { ok: false }; }
+    .find(el => el.innerText.trim() === 'اضافة كود عطل' && el.offsetParent !== null);
+  if (!addBtn) { warn('اضافة كود عطل button not found'); return { ok: false }; }
   
   addBtn.click();
-  log('â–¶ï¸ Opening fault code modal for: ' + faultCode + (subFaultCode ? ` + ${subFaultCode}` : ''));
+  log('▶ï¸ Opening fault code modal for: ' + faultCode + (subFaultCode ? ` + ${subFaultCode}` : ''));
   const cleanCode = faultCode.replace(/\*/g, ''); // Strip wildcard for matching
   
   // Wait for iframe to load
@@ -1508,10 +1546,10 @@ async function addFaultCodePage3(faultCode, subFaultCode = null, excludeTexts = 
   }
   if (!iframeDoc) { warn('Fault code iframe not loaded'); return { ok: false }; }
   
-  // Step 2: Click first lookup (ÙƒÙˆØ¯ Ø§Ù„Ø¹Ø·Ù„ Ø§Ù„Ø±Ø¦ÙŠØ³ÙŠ)
+  // Step 2: Click first lookup (كود العطل الرئيسي)
   const lookupBtns = Array.from(iframeDoc.querySelectorAll('button.launchentitylookup')).filter(b => b.offsetParent !== null);
-  const mainFaultBtn = lookupBtns.find(b => (b.getAttribute('aria-label') || '').includes('ÙƒÙˆØ¯ Ø§Ù„Ø¹Ø·Ù„ Ø§Ù„Ø±Ø¦ÙŠØ³ÙŠ'));
-  if (!mainFaultBtn) { warn('ÙƒÙˆØ¯ Ø§Ù„Ø¹Ø·Ù„ Ø§Ù„Ø±Ø¦ÙŠØ³ÙŠ lookup button not found'); return { ok: false }; }
+  const mainFaultBtn = lookupBtns.find(b => (b.getAttribute('aria-label') || '').includes('كود العطل الرئيسي'));
+  if (!mainFaultBtn) { warn('كود العطل الرئيسي lookup button not found'); return { ok: false }; }
   
   log('Waiting for iframe events to bind...');
   await sleep(3000);
@@ -1541,8 +1579,8 @@ async function addFaultCodePage3(faultCode, subFaultCode = null, excludeTexts = 
     let btns = [];
     docs.forEach(doc => {
       if (!doc) return;
-      let found = Array.from(doc.querySelectorAll('button.btn-primary, input.btn-primary, input[value="Ø§Ø®ØªØ±"], input[value="Select"], button[aria-label="Select"], button[aria-label*="Ø§Ø®ØªØ±"]')).filter(b => b.offsetParent !== null);
-      if (!found.length) found = Array.from(doc.querySelectorAll('button')).filter(b => b.offsetParent !== null && /Ø§Ø®ØªØ±|select/i.test(b.innerText.trim()));
+      let found = Array.from(doc.querySelectorAll('button.btn-primary, input.btn-primary, input[value="اختر"], input[value="Select"], button[aria-label="Select"], button[aria-label*="اختر"]')).filter(b => b.offsetParent !== null);
+      if (!found.length) found = Array.from(doc.querySelectorAll('button')).filter(b => b.offsetParent !== null && /اختر|select/i.test(b.innerText.trim()));
       btns = btns.concat(found);
     });
     return btns;
@@ -1577,7 +1615,7 @@ async function addFaultCodePage3(faultCode, subFaultCode = null, excludeTexts = 
   // Filter out unwanted codes
   let mainRows = mainRowEntries.map(e => e.row);
   const filteredRows = mainRows.filter(r => {
-    if (r.innerText.includes('Ø®Ø²Ù†Ø©') || r.innerText.includes('ØªØ±ØµÙŠØ¯')) return false;
+    if (r.innerText.includes('خزنة') || r.innerText.includes('ترصيد')) return false;
     if (excludeTexts && excludeTexts.length) {
       for (const ex of excludeTexts) { if (r.innerText.includes(ex)) return false; }
     }
@@ -1588,8 +1626,8 @@ async function addFaultCodePage3(faultCode, subFaultCode = null, excludeTexts = 
   // Find best match
   const isWildcard = faultCode.startsWith('*');
   const bestRow = isWildcard
-    ? (mainRows.find(r => r.innerText.includes('ØªØ±ÙƒÙŠØ¨ ÙˆØªØ´ØºÙŠÙ„')) ||
-       mainRows.find(r => r.innerText.includes('ØµÙŠØ§Ù†Ø© Ø¯ÙˆØ±ÙŠØ©')) ||
+    ? (mainRows.find(r => r.innerText.includes('تركيب وتشغيل')) ||
+       mainRows.find(r => r.innerText.includes('صيانة دورية')) ||
        mainRows.find(r => new RegExp(cleanCode, 'i').test(r.innerText)) ||
        mainRows[0])
     : (mainRows.find(r => r.innerText.includes(cleanCode + ' ')) ||
@@ -1599,7 +1637,7 @@ async function addFaultCodePage3(faultCode, subFaultCode = null, excludeTexts = 
   if (chk) chk.click(); else bestRow.querySelector('td')?.click() || bestRow.click();
   await sleep(600);
   
-  // Click Ø§Ø®ØªØ± â€” search all docs
+  // Click اختر — search all docs
   let selectBtns = findSelectBtn(allDocs);
   if (selectBtns.length) selectBtns[selectBtns.length - 1].click();
   await sleep(2000);
@@ -1609,19 +1647,19 @@ async function addFaultCodePage3(faultCode, subFaultCode = null, excludeTexts = 
     if (iframeDoc.getElementById('ats_modeldefectmajor_name')?.value) break;
     await sleep(500);
   }
-  log('âœ… ÙƒÙˆØ¯ Ø§Ù„Ø¹Ø·Ù„ Ø§Ù„Ø±Ø¦ÙŠØ³ÙŠ selected: ' + iframeDoc.getElementById('ats_modeldefectmajor_name')?.value);
+  log('✅ كود العطل الرئيسي selected: ' + iframeDoc.getElementById('ats_modeldefectmajor_name')?.value);
   
-  // Step 3: Click second lookup (ÙƒÙˆØ¯ Ø§Ù„Ø¹Ø·Ù„) â€” search in iframeDoc + top doc
+  // Step 3: Click second lookup (كود العطل) — search in iframeDoc + top doc
   const faultBtns = (Array.from(iframeDoc.querySelectorAll('button.launchentitylookup'))
     .concat(Array.from(document.querySelectorAll('button.launchentitylookup'))))
     .filter(b => b.offsetParent !== null);
-  const subFaultBtn = faultBtns.find(b => (b.getAttribute('aria-label') || '').includes('ÙƒÙˆØ¯ Ø§Ù„Ø¹Ø·Ù„'));
+  const subFaultBtn = faultBtns.find(b => (b.getAttribute('aria-label') || '').includes('كود العطل'));
   
   if (subFaultBtn) {
     await sleep(1500);
     subFaultBtn.click();
     
-    // Wait for sub-fault rows â€” search all docs
+    // Wait for sub-fault rows — search all docs
     let subRowEntries = [];
     for (let j = 0; j < 16; j++) {
       await sleep(500);
@@ -1649,13 +1687,13 @@ async function addFaultCodePage3(faultCode, subFaultCode = null, excludeTexts = 
         if (iframeDoc.getElementById('ats_defectcodedefectmajor_name')?.value) break;
         await sleep(500);
       }
-      log('âœ… ÙƒÙˆØ¯ Ø§Ù„Ø¹Ø·Ù„ selected: ' + iframeDoc.getElementById('ats_defectcodedefectmajor_name')?.value);
+      log('✅ كود العطل selected: ' + iframeDoc.getElementById('ats_defectcodedefectmajor_name')?.value);
     } else {
       warn('No sub-fault rows appeared');
     }
   }
   
-  // Step 4: Click Ø­ÙØ¸
+  // Step 4: Click حفظ
   const insertBtn = iframeDoc.getElementById('InsertButton') || document.getElementById('InsertButton');
   if (insertBtn) {
     insertBtn.click();
@@ -1674,25 +1712,25 @@ async function addFaultCodePage3(faultCode, subFaultCode = null, excludeTexts = 
 }
 
 
-// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+// ═══════════════════════════════════════════════════════════
 // ROUTER & QUEUE MANAGER
-// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+// ═══════════════════════════════════════════════════════════
 async function getActivePageFeature() {
-  // Page 3: contains "Ø£ÙƒÙˆØ§Ø¯ Ø§Ù„Ø£Ø¹Ø·Ø§Ù„" or "Ø§Ø¶Ø§ÙØ© ÙƒÙˆØ¯ Ø¹Ø·Ù„"
+  // Page 3: contains "أكواد الأعطال" or "اضافة كود عطل"
   const hasFaultSection = Array.from(document.querySelectorAll('label, h3')).some(el => 
-    el.innerText.includes('Ø£ÙƒÙˆØ§Ø¯ Ø§Ù„Ø£Ø¹Ø·Ø§Ù„')
+    el.innerText.includes('أكواد الأعطال')
   );
   const hasFaultBtn = Array.from(document.querySelectorAll('a, button')).some(el => 
-    el.innerText.trim() === 'Ø§Ø¶Ø§ÙØ© ÙƒÙˆØ¯ Ø¹Ø·Ù„' && el.offsetParent !== null
+    el.innerText.trim() === 'اضافة كود عطل' && el.offsetParent !== null
   );
   if (hasFaultSection || hasFaultBtn) return 'PAGE_3';
 
-  // Page 2: use regex to handle text variants (ÙÙ†Ù‰/ÙÙ†ÙŠ, Ø©Ù‡ endings, all alef forms)
+  // Page 2: use regex to handle text variants (فنى/فني, ةه endings, all alef forms)
   const hasTechBtn = Array.from(document.querySelectorAll('a, button')).some(el => 
-    /[Ø§Ø¥Ø£]Ø¶Ø§Ù[Ø©Ù‡]\s*ÙÙ†/i.test(el.innerText.trim()) && el.offsetParent !== null
+    /[اإأ]ضاف[ةه]\s*فن/i.test(el.innerText.trim()) && el.offsetParent !== null
   );
   const hasProbBtn = Array.from(document.querySelectorAll('a, button')).some(el => 
-    /[Ø§Ø¥Ø£]Ø¶Ø§Ù[Ø©Ù‡]\s*Ø§Ù„Ù…Ø´Ø§ÙƒÙ„\s*Ø§Ù„ÙØ¹Ù„ÙŠ[Ø©Ù‡]/i.test(el.innerText.trim()) && el.offsetParent !== null
+    /[اإأ]ضاف[ةه]\s*المشاكل\s*الفعلي[ةه]/i.test(el.innerText.trim()) && el.offsetParent !== null
   );
   if (hasTechBtn || hasProbBtn) return 'PAGE_2';
 
@@ -1700,7 +1738,7 @@ async function getActivePageFeature() {
 }
 
 async function clickNextAndWaitForSave(cfg) {
-  const btn = findFirst(cfg.nextBtn) || Array.from(document.querySelectorAll('button[type="submit"], input[type="submit"], input[type="button"], button')).find(b => /next|Ø§Ù„ØªØ§Ù„ÙŠ|save|Ø­ÙØ¸|submit/i.test((b.textContent + (b.value||'') + (b.getAttribute('aria-label')||'')).trim()));
+  const btn = findFirst(cfg.nextBtn) || Array.from(document.querySelectorAll('button[type="submit"], input[type="submit"], input[type="button"], button')).find(b => /next|التالي|save|حفظ|submit/i.test((b.textContent + (b.value||'') + (b.getAttribute('aria-label')||'')).trim()));
   if (!btn) return { ok: false, reason: 'next-not-found' };
   const startUrl = location.href; 
   btn.click();
@@ -1711,21 +1749,21 @@ async function clickNextAndWaitForSave(cfg) {
 function showOverlay(report) {
   document.getElementById('autofiller-overlay')?.remove();
   const div = document.createElement('div'); div.id = 'autofiller-overlay';
-  Object.assign(div.style, { position:'fixed', bottom:'16px', left:'16px', background:'linear-gradient(135deg,#0b1220,#0f1e35)', border:'1px solid #1e3450', borderRadius:'12px', padding:'14px 18px', color:'#e2eaf5', fontFamily:"'Cairo', Tahoma, Arial, sans-serif", fontSize:'13px', zIndex:'2147483647', boxShadow:'0 8px 32px rgba(0,0,0,0.6)', maxWidth:'340px', direction:'rtl', pointerEvents:'none' });
-  const fr = report.fieldResults || {}; const summary = Object.keys(fr).map(k => fr[k] ? `${fr[k].ok ? 'âœ…':'âŒ'}${k}` : null).filter(Boolean).join(' | ');
-  div.innerHTML = `<div style="font-weight:700;color:#1f8feb;margin-bottom:6px">âš¡ Portal AutoFiller v3.0</div><div>âœ… Ø§ÙƒØªÙ…Ù„ â€” <b>${report.customer || 'Ø§Ù„Ø¹Ù…ÙŠÙ„'}</b></div><div style="color:#2bd46f;font-size:11px;margin-top:4px">${summary}</div>`;
+  Object.assign(div.style, { position:'fixed', bottom:'16px', left:'16px', background:'linear-gradient(135deg,#0f2538,#17334c)', border:'1px solid rgba(255,255,255,0.15)', borderRadius:'12px', padding:'14px 18px', color:'#ffffff', fontFamily:"'Cairo', Tahoma, Arial, sans-serif", fontSize:'13px', zIndex:'2147483647', boxShadow:'0 8px 32px rgba(0,0,0,0.6)', maxWidth:'340px', direction:'rtl', pointerEvents:'none' });
+  const fr = report.fieldResults || {}; const summary = Object.keys(fr).map(k => fr[k] ? `${fr[k].ok ? '✅':'âŒ'}${k}` : null).filter(Boolean).join(' | ');
+  div.innerHTML = `<div style="font-weight:700;color:#ffffff;margin-bottom:6px">âš¡ Portal AutoFiller v3.0</div><div style="color:#ffffff;">✅ اكتمل — <b>${report.customer || 'العميل'}</b></div><div style="color:rgba(255,255,255,0.85);font-size:11px;margin-top:4px">${summary}</div>`;
   document.body.appendChild(div); setTimeout(() => div.remove(), 7000);
 }
 
 function showMasahaOverlay() {
   document.getElementById('autofiller-overlay')?.remove();
   const div = document.createElement('div'); div.id = 'autofiller-overlay';
-  Object.assign(div.style, { position:'fixed', bottom:'16px', left:'16px', background:'linear-gradient(135deg,#1a237e,#0d47a1)', border:'2px solid #ff9800', borderRadius:'12px', padding:'16px 20px', color:'#e2eaf5', fontFamily:"'Cairo', Tahoma, Arial, sans-serif", fontSize:'14px', zIndex:'2147483647', boxShadow:'0 8px 32px rgba(0,0,0,0.6)', maxWidth:'380px', direction:'rtl' });
+  Object.assign(div.style, { position:'fixed', bottom:'16px', left:'16px', background:'linear-gradient(135deg,#0f2538,#17334c)', border:'2px solid #ff9800', borderRadius:'12px', padding:'16px 20px', color:'#ffffff', fontFamily:"'Cairo', Tahoma, Arial, sans-serif", fontSize:'14px', zIndex:'2147483647', boxShadow:'0 8px 32px rgba(0,0,0,0.6)', maxWidth:'380px', direction:'rtl' });
   div.innerHTML = `
-    <div style="font-weight:700;color:#ff9800;margin-bottom:8px;font-size:16px;">ðŸ“¸ Ù…Ø³Ø§Ø­Ø© â€” Ø£Ø±ÙÙ‚ Ø§Ù„ØµÙˆØ±Ø©</div>
-    <div style="margin-bottom:8px;">ØªÙ… ØªØ¹Ø¨Ø¦Ø© Ø¬Ù…ÙŠØ¹ Ø§Ù„Ø¨ÙŠØ§Ù†Ø§Øª Ø¨Ù†Ø¬Ø§Ø­.</div>
-    <div style="margin-bottom:8px;color:#ffcc80;">Ø§Ù„Ø¢Ù† Ø£Ø±ÙÙ‚ ØµÙˆØ±Ø© Ø§Ù„Ù…Ø³Ø§Ø­Ø© ÙŠØ¯ÙˆÙŠØ§Ù‹ Ø«Ù… Ø§Ø¶ØºØ· <b>Ø­ÙØ¸</b>.</div>
-    <button id="masaha-close-overlay" style="background:#ff9800;color:#000;border:none;padding:6px 16px;border-radius:6px;font-weight:700;cursor:pointer;font-size:13px;">ÙÙ‡Ù…Øª</button>
+    <div style="font-weight:700;color:#ff9800;margin-bottom:8px;font-size:16px;">ðŸ“¸ مساحة — أرفق الصورة</div>
+    <div style="margin-bottom:8px;">تم تعبئة جميع البيانات بنجاح.</div>
+    <div style="margin-bottom:8px;color:#ffcc80;">الآن أرفق صورة المساحة يدوياً ثم اضغط <b>حفظ</b>.</div>
+    <button id="masaha-close-overlay" style="background:#ff9800;color:#000;border:none;padding:6px 16px;border-radius:6px;font-weight:700;cursor:pointer;font-size:13px;">فهمت</button>
   `;
   document.body.appendChild(div);
   div.querySelector('#masaha-close-overlay')?.addEventListener('click', () => div.remove());
@@ -1740,7 +1778,7 @@ function notifyStatus(taskId, status, message) {
 async function clearCurrentTask() { await storageRemove(['currentTask']); }
 async function startNextTask(queue) {
   if (!queue || queue.length === 0) {
-    notifyStatus('batch', 'batch-done', 'Ø§ÙƒØªÙ…Ù„ Batch');
+    notifyStatus('batch', 'batch-done', 'اكتمل Batch');
     chrome.runtime.sendMessage({ type: 'BATCH_DONE_STORAGE' }).catch(()=>{});
     return;
   }
@@ -1757,7 +1795,7 @@ async function startNextTask(queue) {
 async function runSingleLineWithRouter(task) {
   // Mutex: prevent parallel execution (race condition between processQueueOnLoad + RUN_SINGLE)
   if (_routerRunning) {
-    log('âš ï¸ Router already running â€” skipping duplicate call');
+    log('⚠ï¸ Router already running — skipping duplicate call');
     return { report: {}, isFullyDone: false, skipped: true };
   }
   _routerRunning = true;
@@ -1787,11 +1825,11 @@ async function _runSingleLineWithRouterInner(task) {
     data.masahaMode = true;
   }
 
-  log('ðŸ“„ Router started. forceDrainCleaning=' + !!data.forceDrainCleaning + ' shahnEnabled=' + !!data.shahnEnabled + ' forceOverwrite=' + !!data.forceOverwrite + ' reportType=' + (data.reportType || 'N/A') + ' problemCode=' + (data.problemCode || 'N/A') + ' faultCode=' + (data.faultCode || 'N/A'));
+  log('📄 Router started. forceDrainCleaning=' + !!data.forceDrainCleaning + ' shahnEnabled=' + !!data.shahnEnabled + ' forceOverwrite=' + !!data.forceOverwrite + ' reportType=' + (data.reportType || 'N/A') + ' problemCode=' + (data.problemCode || 'N/A') + ' faultCode=' + (data.faultCode || 'N/A'));
   let resFR = {}, saveResult = { ok: false };
 
   if (isInstallationReport()) {
-    log('ã€ INSTALLATION DETECTED ã€‘ By-passing Review/Problems and executing explicit setup.');
+    log('ã€ INSTALLATION DETECTED 】 By-passing Review/Problems and executing explicit setup.');
     const res = await performInstallationAndCommissioning(data);
     return { report: res.report, isFullyDone: true };
   }
@@ -1799,13 +1837,13 @@ async function _runSingleLineWithRouterInner(task) {
   let feature = await getActivePageFeature();
   
   if (feature === 'PAGE_1') {
-    // â”€â”€ Skip if page is already filled (order already processed) â”€â”€
+    // ── Skip if page is already filled (order already processed) ──
     await sleep(800); // Wait briefly so fields render before checking
     if (!data.forceOverwrite && isPage1AlreadyFilled(cfg)) {
-        warn('â­ï¸ Page 1 already has data â€” marking task as done and skipping to next order.');
+        warn('â­ï¸ Page 1 already has data — marking task as done and skipping to next order.');
         try {
           const { currentTask } = await storageGet({ currentTask: null });
-          if (currentTask) notifyStatus(currentTask.taskId, 'done', 'â­ï¸ Ù…ÙƒØªÙ…Ù„ Ù…Ø³Ø¨Ù‚Ø§Ù‹ â€” ØªØ®Ø·ÙŠ');
+          if (currentTask) notifyStatus(currentTask.taskId, 'done', 'â­ï¸ مكتمل مسبقاً — تخطي');
         } catch(e){}
         const report = { timestamp: new Date().toISOString(), url: location.href, customer: findFirst(cfg.customer)?.innerText?.trim(), orderNumber: data.orderId, filled: data, fieldResults: { skipped: { ok: true } }, saveResult: { ok: true, skipped: true }, skippedReason: 'already-filled' };
         return { report, isFullyDone: true };
@@ -1814,11 +1852,11 @@ async function _runSingleLineWithRouterInner(task) {
     Object.assign(resFR, res1.report.fieldResults);
     
     // Attempt to navigate to Page 2
-    const nBtn = document.getElementById('NextButton') || findFirst(cfg.nextBtn) || Array.from(document.querySelectorAll('button, input[type="button"], input[type="submit"]')).find(b => /next|Ø§Ù„ØªØ§Ù„ÙŠ/i.test((b.innerText||b.value||b.title||'').trim()) && !/cancel|Ø¥Ù„ØºØ§Ø¡/i.test(b.className));
+    const nBtn = document.getElementById('NextButton') || findFirst(cfg.nextBtn) || Array.from(document.querySelectorAll('button, input[type="button"], input[type="submit"]')).find(b => /next|التالي/i.test((b.innerText||b.value||b.title||'').trim()) && !/cancel|إلغاء/i.test(b.className));
     if (nBtn) { 
       try {
         const { currentTask } = await storageGet({ currentTask: null });
-        if (currentTask) notifyStatus(currentTask.taskId, 'navigating', 'Ø¬Ø§Ø±ÙŠ Ø§Ù„Ø§Ù†ØªÙ‚Ø§Ù„ Ù„Ù„ØµÙØ­Ø© Ø§Ù„Ø«Ø§Ù†ÙŠØ©...');
+        if (currentTask) notifyStatus(currentTask.taskId, 'navigating', 'جاري الانتقال للصفحة الثانية...');
       } catch(e){}
       log('Clicking Next to load PAGE 2');
       nBtn.click(); 
@@ -1845,13 +1883,13 @@ async function _runSingleLineWithRouterInner(task) {
     Object.assign(resFR, res2.report.fieldResults);
     
     // Check if we need to proceed to Page 3
-    const isInstall = /ØªØ±ÙƒÙŠØ¨/.test(data.reportType) || isInstallationReport();
-    let needsPage3 = data.forceDrainCleaning || data.faultCode || (/ØªÙ†Ø¸ÙŠÙ|ØµØ±Ù/.test(data.reportType) || /ØªÙ†Ø¸ÙŠÙ|ØµØ±Ù/.test(data.notes || '')) || isInstall;
-    log(`ðŸ“‹ needsPage3=${needsPage3} | forceDrain=${!!data.forceDrainCleaning} | faultCode=${data.faultCode||'N/A'} | isInstall=${isInstall}`);
+    const isInstall = /تركيب/.test(data.reportType) || isInstallationReport();
+    let needsPage3 = data.forceDrainCleaning || data.faultCode || (/تنظيف|صرف/.test(data.reportType) || /تنظيف|صرف/.test(data.notes || '')) || isInstall;
+    log(`📋 needsPage3=${needsPage3} | forceDrain=${!!data.forceDrainCleaning} | faultCode=${data.faultCode||'N/A'} | isInstall=${isInstall}`);
     
     if (!needsPage3) {
         log('PAGE 3 is not needed. Clicking Save/Next to finalize order on Page 2.');
-        const nBtn = Array.from(document.querySelectorAll('button[type="submit"], input[type="submit"], button')).find(b => /next|Ø§Ù„ØªØ§Ù„ÙŠ|save|Ø­ÙØ¸|submit/i.test((b.textContent + (b.value||'') + (b.getAttribute('aria-label')||'')).trim()) && !/cancel|Ø¥Ù„ØºØ§Ø¡/i.test(b.className) && b.offsetParent !== null);
+        const nBtn = Array.from(document.querySelectorAll('button[type="submit"], input[type="submit"], button')).find(b => /next|التالي|save|حفظ|submit/i.test((b.textContent + (b.value||'') + (b.getAttribute('aria-label')||'')).trim()) && !/cancel|إلغاء/i.test(b.className) && b.offsetParent !== null);
         let isSaved = false;
         if (nBtn) {
             const startUrl = location.href;
@@ -1860,11 +1898,11 @@ async function _runSingleLineWithRouterInner(task) {
             isSaved = await waitForSaveComplete(startUrl, cfg);
         }
         // removed finalizeSmartLog()
-        const report = { timestamp: new Date().toISOString(), url: location.href, customer: findFirst(cfg.customer)?.innerText?.trim(), orderNumber: data.orderId, filled: data, fieldResults: resFR, saveResult: { ok: true }, serviceFilled: !!resFR['ØªØ±ÙƒÙŠØ¨'], technician: resFR['technician']?.selected };
+        const report = { timestamp: new Date().toISOString(), url: location.href, customer: findFirst(cfg.customer)?.innerText?.trim(), orderNumber: data.orderId, filled: data, fieldResults: resFR, saveResult: { ok: true }, serviceFilled: !!resFR['تركيب'], technician: resFR['technician']?.selected };
         return { report, isFullyDone: true };
     }
     
-    const nBtn = Array.from(document.querySelectorAll('button[type="submit"], input[type="submit"], button')).find(b => /next|Ø§Ù„ØªØ§Ù„ÙŠ|save|Ø­ÙØ¸|submit/i.test((b.textContent + (b.value||'') + (b.getAttribute('aria-label')||'')).trim()) && !/cancel|Ø¥Ù„ØºØ§Ø¡/i.test(b.className) && b.offsetParent !== null);
+    const nBtn = Array.from(document.querySelectorAll('button[type="submit"], input[type="submit"], button')).find(b => /next|التالي|save|حفظ|submit/i.test((b.textContent + (b.value||'') + (b.getAttribute('aria-label')||'')).trim()) && !/cancel|إلغاء/i.test(b.className) && b.offsetParent !== null);
     
     if (nBtn) {
         log('Clicking Next/Save on PAGE 2 to go to PAGE 3');
@@ -1899,15 +1937,15 @@ async function _runSingleLineWithRouterInner(task) {
     const res3 = await executePage3_Resolution(data, cfg);
     Object.assign(resFR, res3.report.fieldResults);
     
-    if (data.notes === 'Ù…Ø³Ø§Ø­Ø©') {
-      // Masaha: DON'T auto-save â€” user must attach image manually
-      log('PAGE 3 filled (Ù…Ø³Ø§Ø­Ø©). Waiting for user to attach image and save manually.');
+    if (data.notes === 'مساحة') {
+      // Masaha: DON'T auto-save — user must attach image manually
+      log('PAGE 3 filled (مساحة). Waiting for user to attach image and save manually.');
       showMasahaOverlay();
       saveResult = { ok: true, masahaPending: true };
     } else {
     // Auto-save on Page 3
     log('PAGE 3 filled. Clicking Save/Submit.');
-    const saveBtn = Array.from(document.querySelectorAll('button[type="submit"], input[type="submit"], button')).find(b => /save|Ø­ÙØ¸|submit|Ø¥Ø±Ø³Ø§Ù„/i.test((b.textContent + (b.value||'') + (b.getAttribute('aria-label')||'')).trim()) && !/cancel|Ø¥Ù„ØºØ§Ø¡/i.test(b.className) && b.offsetParent !== null);
+    const saveBtn = Array.from(document.querySelectorAll('button[type="submit"], input[type="submit"], button')).find(b => /save|حفظ|submit|إرسال/i.test((b.textContent + (b.value||'') + (b.getAttribute('aria-label')||'')).trim()) && !/cancel|إلغاء/i.test(b.className) && b.offsetParent !== null);
     let isSaved = false;
     if (saveBtn) {
        const startUrl = location.href;
@@ -1924,13 +1962,13 @@ async function _runSingleLineWithRouterInner(task) {
   }
   
   const isDone = saveResult.ok;
-  const report = { timestamp: new Date().toISOString(), url: location.href, customer: findFirst(cfg.customer)?.innerText?.trim(), orderNumber: data.orderId, filled: data, fieldResults: resFR, saveResult, serviceFilled: !!resFR['ØªØ±ÙƒÙŠØ¨'], technician: resFR['technician']?.selected };
+  const report = { timestamp: new Date().toISOString(), url: location.href, customer: findFirst(cfg.customer)?.innerText?.trim(), orderNumber: data.orderId, filled: data, fieldResults: resFR, saveResult, serviceFilled: !!resFR['تركيب'], technician: resFR['technician']?.selected };
   try { await chrome.runtime.sendMessage({ type: 'SAVE_REPORT', payload: report }); } catch (_) {}
   showOverlay(report); 
   return { report, isFullyDone: isDone };
 }
 
-// â”€â”€ JSON-Driven Workflow Engine (V4 Architecture) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ── JSON-Driven Workflow Engine (V4 Architecture) ──────────────────────────
 async function executeWorkflow(workflowName, context, cfg) {
   const steps = cfg.workflows?.[workflowName];
   if (!steps) return false;
@@ -1993,11 +2031,11 @@ async function executeWorkflow(workflowName, context, cfg) {
   return true;
 }
 
-// â”€â”€ Legacy wrapper using Engine for Page 1 â”€â”€
+// ── Legacy wrapper using Engine for Page 1 ──
 async function findOrderAndOpen(orderId, cfg) {
   try {
     const { currentTask } = await storageGet({ currentTask: null });
-    if (currentTask) notifyStatus(currentTask.taskId, 'searching', `Ø¬Ø§Ø±ÙŠ Ø§Ù„Ø¨Ø­Ø« Ø¹Ù† Ø±Ù‚Ù… Ø§Ù„Ø£Ù…Ø±...`);
+    if (currentTask) notifyStatus(currentTask.taskId, 'searching', `جاري البحث عن رقم الأمر...`);
   } catch (e) {}
 
   await sleep(cfg._ordersSearchWait || 2000);
@@ -2036,11 +2074,34 @@ async function processQueueOnLoad() {
   const { currentTask, processingTabId } = await storageGet({ currentTask: null, processingTabId: null });
   if (!currentTask) return;
 
+  // ── Tab Lock with race-condition retry (fix: new tab may start before background updates processingTabId)
+  let myTabId = null;
   if (processingTabId) {
     const myTabIdResp = await new Promise(r => chrome.runtime.sendMessage({ type: 'GET_MY_TAB_ID' }, r));
-    if (myTabIdResp && myTabIdResp.tabId && myTabIdResp.tabId !== processingTabId) {
-        log(`â›” Tab Lock: This tab (${myTabIdResp.tabId}) is not the active processing tab (${processingTabId}). Ignoring.`);
-        return;
+    myTabId = myTabIdResp?.tabId || null;
+    if (myTabId && myTabId !== processingTabId) {
+        await sleep(1500);
+        const retry = await storageGet({ processingTabId: null });
+        const updatedId = retry.processingTabId;
+        if (updatedId && myTabId !== updatedId) {
+            const pCheck = getPageType();
+            if (pCheck === 'ORDERS') {
+                log(`⚠️ Tab Lock race on ORDERS: claiming lock for tab ${myTabId} (was ${updatedId})`);
+                await storageSet({ processingTabId: myTabId });
+            } else {
+                log(`⛔ Tab Lock: This tab (${myTabId}) is not the active processing tab (${updatedId}). Ignoring.`);
+                return;
+            }
+        } else if (updatedId) {
+            log(`✅ Tab Lock resolved after wait: ${myTabId} == ${updatedId}`);
+        }
+    }
+  } else {
+    // No lock yet — claim it for ORDERS page so queue can start
+    const myTabIdResp2 = await new Promise(r => chrome.runtime.sendMessage({ type: 'GET_MY_TAB_ID' }, r));
+    myTabId = myTabIdResp2?.tabId || null;
+    if (myTabId && getPageType() === 'ORDERS') {
+        await storageSet({ processingTabId: myTabId });
     }
   }
 
@@ -2048,19 +2109,19 @@ async function processQueueOnLoad() {
   document.body.dataset.isAutofilling = 'true';
   sendSmartLog('TASK_START', { orderId: currentTask.orderId, mode: currentTask.mode || 'search' });
   if (p === 'ORDERS') {
-     notifyStatus(currentTask.taskId, 'searching', `Ø§Ù„Ø¨Ø­Ø« Ø¹Ù†: ${currentTask.orderId}`);
+     notifyStatus(currentTask.taskId, 'searching', `البحث عن: ${currentTask.orderId}`);
      if (!await findOrderAndOpen(currentTask.orderId, cfg)) {
          sendSmartLog('TASK_COMPLETE', { orderId: currentTask.orderId, success: false, reason: 'not-found', mode: currentTask.mode || 'search' });
          delete document.body.dataset.isAutofilling;
-         notifyStatus(currentTask.taskId, 'not-found', `Ù„Ù… ÙŠÙØ¹Ø«Ø± : ${currentTask.orderId}`);
+         notifyStatus(currentTask.taskId, 'not-found', `لم يُعثر : ${currentTask.orderId}`);
          await finalizeOrderInSession(currentTask, { error: 'not-found' }, 'not-found');
          await clearCurrentTask(); const { taskQueue, taskDelay: td1 = 800 } = await storageGet({ taskQueue: [], taskDelay: 800 }); await sleep(td1); 
-         if (taskQueue.length > 0) { await startNextTask(taskQueue); } else { notifyStatus('batch', 'batch-done', 'Ø§ÙƒØªÙ…Ù„ Batch'); await finalizeSession(); chrome.runtime.sendMessage({ type: 'BATCH_DONE_STORAGE' }).catch(()=>{}); }
+         if (taskQueue.length > 0) { await startNextTask(taskQueue); } else { notifyStatus('batch', 'batch-done', 'اكتمل Batch'); await finalizeSession(); chrome.runtime.sendMessage({ type: 'BATCH_DONE_STORAGE' }).catch(()=>{}); }
          return;
      }
-     notifyStatus(currentTask.taskId, 'navigating', 'Ø¬Ø§Ø±Ù Ø§Ù„Ø§Ù†ØªÙ‚Ø§Ù„...');
+     notifyStatus(currentTask.taskId, 'navigating', 'جارٍ الانتقال...');
   } else if (p === 'WORK_ORDER_REVIEW') {
-     notifyStatus(currentTask.taskId, 'filling', `Ø¬Ø§Ø±ÙŠ Ø§Ù„ØªÙØ±ÙŠØº Ù„Ù€: ${currentTask.orderId}`);
+     notifyStatus(currentTask.taskId, 'filling', `جاري التفريغ لـ: ${currentTask.orderId}`);
      try {
        const { taskRetryFlag } = await storageGet({ taskRetryFlag: false });
        const routerRes = await runSingleLineWithRouter(currentTask);
@@ -2068,7 +2129,7 @@ async function processQueueOnLoad() {
            const ok = routerRes.report?.saveResult?.ok;
            sendSmartLog('TASK_COMPLETE', { orderId: currentTask.orderId, success: ok, mode: currentTask.mode || 'search' });
            delete document.body.dataset.isAutofilling;
-           notifyStatus(currentTask.taskId, ok ? 'done' : 'save-failed', ok ? 'âœ… Ø§ÙƒØªÙ…Ù„' : 'âš ï¸ Ù„Ù… ÙŠØªØ£ÙƒØ¯');
+           notifyStatus(currentTask.taskId, ok ? 'done' : 'save-failed', ok ? '✅ اكتمل' : '⚠ï¸ لم يتأكد');
           await finalizeOrderInSession(currentTask, routerRes.report, ok ? 'done' : 'save-failed');
           
           await storageRemove(['taskRetryFlag']);
@@ -2076,35 +2137,35 @@ async function processQueueOnLoad() {
           const { taskQueue, taskDelay: td2 = 800 } = await storageGet({ taskQueue: [], taskDelay: 800 });
           if (taskQueue.length > 0) { await sleep(td2); await startNextTask(taskQueue); }
           else { 
-             notifyStatus('batch', 'batch-done', 'Ø§ÙƒØªÙ…Ù„ Batch'); 
+             notifyStatus('batch', 'batch-done', 'اكتمل Batch'); 
              await finalizeSession(); // END SESSION
              chrome.runtime.sendMessage({ type: 'BATCH_DONE_STORAGE' }).catch(()=>{}); 
           }
        } else if (routerRes && routerRes.isManualStop) {
           log('Manual stop requested. Pausing here.');
-          notifyStatus(currentTask.taskId, 'stopped', 'â¸ï¸ Ø¨Ø§Ù†ØªØ¸Ø§Ø± Ø§Ù„Ø¥ÙƒÙ…Ø§Ù„ Ø§Ù„ÙŠØ¯ÙˆÙŠ');
+          notifyStatus(currentTask.taskId, 'stopped', 'â¸ï¸ بانتظار الإكمال اليدوي');
           await finalizeOrderInSession(currentTask, routerRes.report, 'stopped');
           await storageRemove(['taskRetryFlag']);
           await clearCurrentTask();
           // We intentionally do not call startNextTask() to stop the queue.
        } else {
           if (!taskRetryFlag) {
-            log('âš ï¸ Page 1 incomplete. Retrying once...');
-            notifyStatus(currentTask.taskId, 'filling', 'ðŸ”„ Ø¥Ø¹Ø§Ø¯Ø© Ø§Ù„Ù…Ø­Ø§ÙˆÙ„Ø©...');
+            log('⚠ï¸ Page 1 incomplete. Retrying once...');
+            notifyStatus(currentTask.taskId, 'filling', '🔄 إعادة المحاولة...');
             await storageSet({ taskRetryFlag: true });
             location.reload();
           } else {
             warn('âŒ Retry failed. Skipping to next task.');
             sendSmartLog('TASK_COMPLETE', { orderId: currentTask.orderId, success: false, reason: 'retry-failed', mode: currentTask.mode || 'search' });
             delete document.body.dataset.isAutofilling;
-            notifyStatus(currentTask.taskId, 'error', 'âŒ ÙØ´Ù„ â€” ØªØ®Ø·ÙŠ Ù„Ù„ØªØ§Ù„ÙŠ');
+            notifyStatus(currentTask.taskId, 'error', 'âŒ فشل — تخطي للتالي');
             await finalizeOrderInSession(currentTask, routerRes.report, 'error');
             await storageRemove(['taskRetryFlag']);
             await clearCurrentTask();
             const { taskQueue: q2, taskDelay: td3 = 800 } = await storageGet({ taskQueue: [], taskDelay: 800 });
             if (q2.length > 0) { await sleep(td3); await startNextTask(q2); }
             else { 
-               notifyStatus('batch', 'batch-done', 'Ø§ÙƒØªÙ…Ù„ Batch'); 
+               notifyStatus('batch', 'batch-done', 'اكتمل Batch'); 
                await finalizeSession(); // END SESSION
                chrome.runtime.sendMessage({ type: 'BATCH_DONE_STORAGE' }).catch(()=>{}); 
             }
@@ -2114,13 +2175,13 @@ async function processQueueOnLoad() {
        err('ðŸ’¥ Unexpected error in router: ' + e);
         if (currentTask) sendSmartLog('TASK_COMPLETE', { orderId: currentTask.orderId, success: false, reason: 'error', mode: currentTask.mode || 'search' });
         delete document.body.dataset.isAutofilling;
-        notifyStatus(currentTask?.taskId, 'error', 'âŒ Ø®Ø·Ø£ ØºÙŠØ± Ù…ØªÙˆÙ‚Ø¹ â€” ØªØ®Ø·ÙŠ Ù„Ù„ØªØ§Ù„ÙŠ');
+        notifyStatus(currentTask?.taskId, 'error', 'âŒ خطأ غير متوقع — تخطي للتالي');
        if (currentTask) await finalizeOrderInSession(currentTask, { error: e.toString() }, 'error');
        await clearCurrentTask();
        const { taskQueue: qErr, taskDelay: td5 = 800 } = await storageGet({ taskQueue: [], taskDelay: 800 });
        if (qErr.length > 0) { await sleep(td5); await startNextTask(qErr); }
        else { 
-          notifyStatus('batch', 'batch-done', 'Ø§ÙƒØªÙ…Ù„ Batch'); 
+          notifyStatus('batch', 'batch-done', 'اكتمل Batch'); 
           await finalizeSession(); // END SESSION
           chrome.runtime.sendMessage({ type: 'BATCH_DONE_STORAGE' }).catch(()=>{}); 
        }
@@ -2128,7 +2189,7 @@ async function processQueueOnLoad() {
   } else { location.href = ORDERS_URL; }
 }
 
-// â”€â”€ SESSION ENGINE â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ── SESSION ENGINE ─────────────────────────────────────────────────────────────
 // Groups orders into sessions instead of single disjointed logs.
 
 async function openSession(batchId, tasks) {
@@ -2206,7 +2267,7 @@ async function finalizeSession() {
   } catch (e) { warn('finalizeSession error', e); }
 }
 
-// â”€â”€ Helper functions for QUICK_PASTE_BATCH â”€â”€
+// ── Helper functions for QUICK_PASTE_BATCH ──
 function extractOrderIdFromLine(line) {
   const m1 = line.match(/orderid\s*:\s*([^\s|,]+)/i);
   if (m1) return m1[1].trim();
@@ -2256,7 +2317,7 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
         });
         await storageRemove(['taskRetryFlag']);
         await clearCurrentTask();
-        // Respond BEFORE startNextTask â€” it may navigate away, killing this context
+        // Respond BEFORE startNextTask — it may navigate away, killing this context
         sendResponse({ ok: true });
         await startNextTask(tasks);
       }
@@ -2264,7 +2325,7 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
         await storageSet({ taskQueue: [] });
         await storageRemove(['taskRetryFlag']);
         await clearCurrentTask();
-        notifyStatus('batch', 'stopped', 'ØªÙ… Ø¥ÙŠÙ‚Ø§Ù Ø§Ù„ÙƒÙ„');
+        notifyStatus('batch', 'stopped', 'تم إيقاف الكل');
         await finalizeSession(); // END SESSION
         sendResponse({ ok: true });
       }
@@ -2272,12 +2333,12 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
         const { taskQueue, currentTask } = await storageGet({ taskQueue: [], currentTask: null });
         await storageRemove(['taskRetryFlag']);
         const skippedId = msg.taskId;
-        notifyStatus(skippedId, 'stopped', 'â­ ØªÙ… Ø§Ù„ØªØ®Ø·ÙŠ');
+        notifyStatus(skippedId, 'stopped', 'â­ تم التخطي');
         if (currentTask) await finalizeOrderInSession(currentTask, { skippedReason: 'user-skipped' }, 'skipped');
         await clearCurrentTask();
         if (taskQueue.length > 0) { const { taskDelay: td4 = 800 } = await storageGet({ taskDelay: 800 }); await sleep(td4); await startNextTask(taskQueue); }
         else { 
-            notifyStatus('batch', 'batch-done', 'Ø§ÙƒØªÙ…Ù„ Batch'); 
+            notifyStatus('batch', 'batch-done', 'اكتمل Batch'); 
             await finalizeSession(); // END SESSION
             chrome.runtime.sendMessage({ type: 'BATCH_DONE_STORAGE' }).catch(()=>{}); 
         }
@@ -2292,12 +2353,12 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
         setTimeout(async () => {
           let text = '';
           try { text = await navigator.clipboard.readText(); } catch(e) { text = ''; }
-          if (!text) { showPageToast('âš ï¸ Ø§Ù„Ø­Ø§ÙØ¸Ø© ÙØ§Ø±ØºØ©', 'error'); return; }
+          if (!text) { showPageToast('⚠ï¸ الحافظة فارغة', 'error'); return; }
           const lines = text.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
-          if (!lines.length) { showPageToast('âš ï¸ Ù„Ø§ ØªÙˆØ¬Ø¯ Ø¨ÙŠØ§Ù†Ø§Øª ÙÙŠ Ø§Ù„Ø­Ø§ÙØ¸Ø©', 'error'); return; }
+          if (!lines.length) { showPageToast('⚠ï¸ لا توجد بيانات في الحافظة', 'error'); return; }
           const tasks = buildTasksFromLines(lines);
-          if (!tasks.length) { showPageToast('âš ï¸ Ù„Ù… ÙŠØªÙ… Ø§Ù„ØªØ¹Ø±Ù Ø¹Ù„Ù‰ Order IDs', 'error'); return; }
-          showPageToast(`âœ… Ø¨Ø¯Ø¡ Ø§Ù„ØªØ´ØºÙŠÙ„ â€” ${tasks.length} Ù…Ù‡Ù…Ø©`, 'success');
+          if (!tasks.length) { showPageToast('⚠ï¸ لم يتم التعرف على Order IDs', 'error'); return; }
+          showPageToast(`✅ بدء التشغيل — ${tasks.length} مهمة`, 'success');
           const batchId = 'batch-' + Date.now();
           await openSession(batchId, tasks);
           await storageSet({ taskQueue: tasks.slice(1), taskResults: [], taskDelay: 2000 });
@@ -2312,9 +2373,9 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
         } else if (currentUrl.includes('workorderreview')) {
           window.location.href = currentUrl.replace('workorderreview', 'technicalreviewdetails');
         } else if (currentUrl.includes('technicalreviewdetails')) {
-          showPageToast('âœ… Ø£Ù†Øª Ø¨Ø§Ù„ÙØ¹Ù„ ÙÙŠ ØµÙØ­Ø© Ø§Ù„Ù…Ø±Ø§Ø¬Ø¹Ø© Ø§Ù„ÙÙ†ÙŠØ©', 'success');
+          showPageToast('✅ أنت بالفعل في صفحة المراجعة الفنية', 'success');
         } else {
-          showPageToast('âš ï¸ Ø§ÙØªØ­ Ø¨Ù„Ø§Øº Ø£ÙˆÙ„Ø§Ù‹', 'warn');
+          showPageToast('⚠ï¸ افتح بلاغ أولاً', 'warn');
         }
         sendResponse({ ok: true });
       }
@@ -2335,7 +2396,7 @@ async function startDeviceDataExtraction() {
   } else if (currentUrl.includes('technicalreviewdetails')) {
     performExtractionAndLog();
   } else {
-    alert('Ø§Ù„Ø±Ø¬Ø§Ø¡ ÙØªØ­ ØµÙØ­Ø© workorderreview Ø£Ùˆ Reportdetail Ø£Ùˆ technicalreviewdetails Ù„Ù„Ù‚ÙŠØ§Ù… Ø¨Ø³Ø­Ø¨ Ø§Ù„Ø¨ÙŠØ§Ù†Ø§Øª.');
+    alert('الرجاء فتح صفحة workorderreview أو Reportdetail أو technicalreviewdetails للقيام بسحب البيانات.');
   }
 }
 
@@ -2362,34 +2423,95 @@ function qSel(selector, root) {
 }
 
 async function performExtractionAndLog(attempt = 1) {
-  const brandEl = qSel('input[aria-label="Ø¹Ù„Ø§Ù…Ø© ØªØ¬Ø§Ø±ÙŠØ©"]') || qSel('#ats_producttypebrand_name');
-  const modelEl = qSel('input[aria-label="Ø§Ù„Ù…ÙˆØ¯ÙŠÙ„ Ø§Ù„ÙØ¹Ù„Ù‰ 1"]') || qSel('#ldv_actualmodel_name');
-  const model2El = qSel('input[aria-label="Ø§Ù„Ù…ÙˆØ¯ÙŠÙ„ Ø§Ù„ÙØ¹Ù„Ù‰ 2"]') || qSel('#ldv_actualmodel2_name');
-  const serial1El = qSel('#ldv_technicalserialnumber') || qSel('[aria-label*="Ø§Ù„Ø±Ù‚Ù… Ø§Ù„Ù…Ø³Ù„Ø³Ù„"]');
-  const serial2El = qSel('#ldv_secondtechnicalserial');
+  // Helper: try selectors in order, return first element with valid (non-empty, non-"0") value
+  function pickValid(candidates, invalid = ['', '0', 'غير محدد']) {
+    for (const c of candidates) {
+      let el = null;
+      try { el = typeof c === 'string' ? qSel(c) : c; } catch(e) {}
+      if (!el) continue;
+      const v = (el.value ?? el.innerText ?? '').toString().trim();
+      if (!v) continue;
+      if (invalid.includes(v)) continue;
+      if (v.length < 2 && v !== '0') continue;
+      return el;
+    }
+    return null;
+  }
+  let _cfg = null; try { _cfg = await loadSelectors(); } catch(e) {}
+  // Build candidate lists — qSel variants FIRST (iframe-aware) then CFG then label fallback
+  const brandCandidates = [
+    'input[aria-label="علامة تجارية"]', 'input[aria-label*="علامة"]', '#ats_producttypebrand_name',
+    ...(_cfg?.brandInput || []),
+    findFieldByLabel(['العلامة التجاريه','العلامة التجارية','علامة تجارية','Brand'], 'input')
+  ];
+  const modelCandidates = [
+    'input[aria-label="الموديل الفعلى 1"]', 'input[aria-label="الموديل الفعلي 1"]', 'input[aria-label*="الموديل الفعلي"]', 'input[aria-label*="الموديل"]', '#ldv_actualmodel_name',
+    ...(_cfg?.modelInput || []),
+    findFieldByLabel(['الموديل الفعلي 1','الموديل الفعلى 1','الموديل الفعلي','Model'], 'input')
+  ];
+  const model2Candidates = [
+    'input[aria-label="الموديل الفعلى 2"]', 'input[aria-label="الموديل الفعلي 2"]', '#ldv_actualmodel2_name',
+    ...(_cfg?.modelInput2 || []),
+    findFieldByLabel(['الموديل الفعلي 2','الموديل الفعلى 2'], 'input')
+  ];
+  const serialCandidates = [
+    '#ldv_technicalserialnumber', '#ldv_serialnumber', '[aria-label*="الرقم المسلسل"]',
+    ...(_cfg?.serial || []),
+    findFieldByLabel(['الرقم المسلسل','الرقم التسلسلي','Serial'], 'input')
+  ];
+  const serial2Candidates = [
+    '#ldv_secondtechnicalserial', '#ldv_serialnumber1', '[aria-label*="الرقم المسلسل 2"]',
+    ...(_cfg?.serial2 || []),
+    findFieldByLabel(['الرقم المسلسل 2','Serial 2'], 'input')
+  ];
 
-  const brand = brandEl?.value || brandEl?.innerText || '';
-  const model1 = modelEl?.value || modelEl?.innerText || '';
-  const model2 = model2El?.value || model2El?.innerText || '';
+  // For brand/model, skip "0" and "غير محدد"; for serial, allow "لا يوجد" (so don't filter it)
+  const brandEl = pickValid(brandCandidates);
+  const modelEl = pickValid(modelCandidates);
+  const model2El = pickValid(model2Candidates, ['', '0', 'غير محدد', 'لا يوجد']);
+  // Serial: allow "لا يوجد" — so invalid only ["", "0"? but user wants "لا يوجد" shown, so keep it]
+  // Try valid first, fallback to any found (even if "لا يوجد")
+  let serial1El = pickValid(serialCandidates, ['', '0']);
+  if (!serial1El) serial1El = qSel('#ldv_technicalserialnumber') || qSel('[aria-label*="الرقم المسلسل"]') || (_cfg && findFirst(_cfg.serial)) || findFieldByLabel(['الرقم المسلسل'], 'input');
+  let serial2El = pickValid(serial2Candidates, ['', '0']);
+  if (!serial2El) serial2El = qSel('#ldv_secondtechnicalserial') || (_cfg && findFirst(_cfg.serial2));
+
+  const brandRaw = brandEl?.value || brandEl?.innerText || '';
+  let model1 = modelEl?.value || modelEl?.innerText || '';
+  let model2 = model2El?.value || model2El?.innerText || '';
   const serial1 = serial1El?.value || serial1El?.innerText || '';
   const serial2 = serial2El?.value || serial2El?.innerText || '';
+
+  // Fallback: if model1 still "0" or empty, scan all model-like inputs for a valid code (contains letters+numbers and "-")
+  if (!model1 || model1.trim() === '0' || model1.trim() === 'غير محدد') {
+    const allModelInputs = Array.from(document.querySelectorAll('input[id*="actualmodel"], input[aria-label*="الموديل"]')).concat(
+      ...Array.from(document.querySelectorAll('iframe')).map(f => { try { return Array.from((f.contentDocument||f.contentWindow?.document||document).querySelectorAll('input[id*="actualmodel"], input[aria-label*="الموديل"]')); } catch(e){ return []; } }).flat()
+    );
+    for (const inp of allModelInputs) {
+      const v = (inp.value || inp.innerText || '').trim();
+      if (v && v !== '0' && v !== 'غير محدد' && /[A-Z]{1,3}-/.test(v)) { model1 = v; break; }
+    }
+  }
+
+  // Clean brand: "ثلاجات - TOSHIBA" / "تكييف - SHARP" → "TOSHIBA"/"SHARP" (last segment after -/–/—/|)
+  const brand = (() => { const b = brandRaw.trim(); if (!b) return ''; const parts = b.split(/\s*[-–—|]\s*/); return parts.length > 1 ? parts[parts.length - 1].trim() : b; })();
 
   if ((!brand || !model1 || !serial1) && attempt <= 20) {
     setTimeout(() => performExtractionAndLog(attempt + 1), 500);
     return;
   }
 
-  const extractCode = (s) => (s || '').split(/\s*[_â€“â€”]\s*/)[0].split('(')[0].trim();
-  const model1Code = extractCode(model1) || model1 || 'ØºÙŠØ± Ù…Ø­Ø¯Ø¯';
+  const extractCode = (s) => (s || '').split(/\s*[_–—]\s*/)[0].split('(')[0].trim();
+  const model1Code = extractCode(model1) || model1 || 'غير محدد';
   const model2Code = extractCode(model2) || model2 || '';
   const finalSerial2 = serial2.trim();
-  const brandText = brand || 'ØºÙŠØ± Ù…Ø­Ø¯Ø¯';
+  const brandText = brand || 'غير محدد';
 
   const d = new Date();
   const today = `${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}/${d.getFullYear()}`;
 
   const lines = [];
-  lines.push(`OrderId: Unknown | Brand: ${brandText} | Model: ${model1Code} | Serial: ${serial1 || 'ØºÙŠØ± Ù…Ø­Ø¯Ø¯'} | Status: Out of Warranty | Date: ${today}`);
+  lines.push(`OrderId: Unknown | Brand: ${brandText} | Model: ${model1Code} | Serial: ${serial1 || 'غير محدد'} | Status: Out of Warranty | Date: ${today}`);
   if (model2Code && finalSerial2) {
     lines.push(`OrderId: Unknown | Brand: ${brandText} | Model: ${model2Code} | Serial: ${finalSerial2} | Status: Out of Warranty | Date: ${today}`);
   }
@@ -2398,7 +2520,7 @@ async function performExtractionAndLog(attempt = 1) {
 
   const sessionLog = {
     sessionId: `ext_${Date.now()}`,
-    orderId: `Ù…Ø³Ø­ÙˆØ¨ (${(window.location.search.match(/id=([^&]+)/)?.[1] || 'unknown').substring(0,8)}...)`,
+    orderId: `مسحوب (${(window.location.search.match(/id=([^&]+)/)?.[1] || 'unknown').substring(0,8)}...)`,
     startTime: Date.now(),
     steps: [],
     details: { brand: brandText, model: model1Code, serial: lines.length > 1 ? `${serial1} / ${finalSerial2}` : serial1 },
@@ -2414,27 +2536,31 @@ async function performExtractionAndLog(attempt = 1) {
   const overlay = document.createElement('div');
   overlay.id = 'ext-device-overlay';
   overlay.style.cssText = `
-    position: fixed; top: 20px; right: 20px; background: #4caf50; color: white;
+    position: fixed; top: 20px; right: 20px; background: #17334c; color: #ffffff;
     padding: 16px 20px; border-radius: 10px; z-index: 999999; box-shadow: 0 4px 16px rgba(0,0,0,0.3);
-    font-family: Consolas, 'Courier New', monospace; direction: ltr; font-size: 13px; max-width: 600px;
+    font-family: Consolas, 'Courier New', monospace; direction: ltr; font-size: 13px; max-width: 600px; border: 1px solid rgba(255,255,255,0.15);
   `;
   overlay.innerHTML = `
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
-      <span style="font-size:15px;font-family:Arial,sans-serif;">âœ… ØªÙ… Ø³Ø­Ø¨ Ø¨ÙŠØ§Ù†Ø§Øª Ø§Ù„Ø¬Ù‡Ø§Ø² Ø¨Ù†Ø¬Ø§Ø­!</span>
-      <button id="ext-copy-btn" style="background:#fff;color:#4caf50;border:none;padding:5px 12px;border-radius:5px;cursor:pointer;font-weight:bold;font-size:12px;">ðŸ“‹ Ù†Ø³Ø®</button>
+      <span style="font-size:15px;font-family:Arial,sans-serif; color:#ffffff;">✅ تم سحب بيانات الجهاز بنجاح!</span>
+      <div style="display:flex;gap:8px;">
+        <button id="ext-copy-btn" style="background:#ffffff;color:#17334c;border:none;padding:5px 12px;border-radius:5px;cursor:pointer;font-weight:bold;font-size:12px;">📋 نسخ</button>
+        <button id="ext-hide-btn" style="background:rgba(255,255,255,0.15);color:#ffffff;border:1px solid rgba(255,255,255,0.35);padding:5px 10px;border-radius:5px;cursor:pointer;font-weight:bold;font-size:12px;">✖️ إخفاء</button>
+      </div>
     </div>
-    <div style="background:rgba(0,0,0,0.15);padding:10px 12px;border-radius:6px;white-space:pre-wrap;line-height:1.8;">${copyText}</div>
+    <div style="background:rgba(255,255,255,0.08);padding:10px 12px;border-radius:6px;white-space:pre-wrap;line-height:1.8; color:#ffffff; border:1px solid rgba(255,255,255,0.12);">${copyText}</div>
   `;
   document.body.appendChild(overlay);
 
   overlay.querySelector('#ext-copy-btn').addEventListener('click', () => {
     navigator.clipboard.writeText(copyText).then(() => {
       const btn = overlay.querySelector('#ext-copy-btn');
-      btn.textContent = 'âœ… ØªÙ… Ø§Ù„Ù†Ø³Ø®!';
-      btn.style.color = '#4caf50';
-      setTimeout(() => { btn.textContent = 'ðŸ“‹ Ù†Ø³Ø®'; btn.style.color = '#4caf50'; }, 1500);
+      btn.textContent = '✅ تم النسخ!';
+      btn.style.color = '#17334c';
+      setTimeout(() => { btn.textContent = '📋 نسخ'; btn.style.color = '#17334c'; }, 1500);
     });
   });
+  overlay.querySelector('#ext-hide-btn').addEventListener('click', () => overlay.remove());
 
   setTimeout(() => overlay.remove(), 15000);
 }
@@ -2546,8 +2672,10 @@ async function capturePageState(pageType, reason) {
     // حفظ مجمّعة: captureByOrderId[orderId].pages[]
     const { [SESSION_CAPTURE_KEY]: all } = await storageGet({ [SESSION_CAPTURE_KEY]: {} });
     const byOrder = all || {};
-    if (!byOrder[orderId]) byOrder[orderId] = { orderId, firstSeen: Date.now(), pages: [] };
+    if (!byOrder[orderId]) byOrder[orderId] = { orderId, firstSeen: Date.now(), pages: [], events: [] };
     byOrder[orderId].lastSeen = Date.now();
+    capture.seq = (byOrder[orderId].pages.length || 0) + (byOrder[orderId].events.length || 0) + 1;
+    capture.delta = capture.ts - byOrder[orderId].firstSeen;
     byOrder[orderId].pages.push(capture);
     // حد أقصى للصفحات المخزنة لكل أمر
     if (byOrder[orderId].pages.length > 60) byOrder[orderId].pages = byOrder[orderId].pages.slice(-60);
@@ -2581,8 +2709,11 @@ function hookCaptureClicks() {
             const { [SESSION_CAPTURE_KEY]: all } = await storageGet({ [SESSION_CAPTURE_KEY]: {} });
             const byOrder = all || {};
             if (!byOrder[orderId]) byOrder[orderId] = { orderId, firstSeen: Date.now(), pages: [] };
-            if (!byOrder[orderId].events) byOrder[orderId].events = [];
-            byOrder[orderId].events.push({ ts: Date.now(), iso: new Date().toISOString(), type: 'click', tag, id, text: txt, url: location.href });
+if (!byOrder[orderId].events) byOrder[orderId].events = [];
+            const ev = { ts: Date.now(), iso: new Date().toISOString(), type: 'click', tag, id, text: txt, url: location.href };
+            ev.seq = (byOrder[orderId].pages.length || 0) + (byOrder[orderId].events.length || 0) + 1;
+            ev.delta = ev.ts - byOrder[orderId].firstSeen;
+            byOrder[orderId].events.push(ev);
             if (byOrder[orderId].events.length > 200) byOrder[orderId].events = byOrder[orderId].events.slice(-200);
             await storageSet({ [SESSION_CAPTURE_KEY]: byOrder });
           } catch (_) {}

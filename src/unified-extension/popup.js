@@ -795,7 +795,7 @@ function renderSmartLog(logs, filterText = '') {
           <div style="font-weight:700;color:var(--accent);font-size:12px;">${isActive ? '⚡ جلسة نشطة' : 'جلسة: ' + escapeHtml(session.id)}</div>
           <div style="font-size:10px;color:var(--muted);">${startTime}${endTime ? ' ← ' + endTime : ''}</div>
         </div>
-        <span style="font-size:11px;color:#4caf50;">${success} نجح</span>
+        <span style="font-size:11px;color:#ffffff; background: #17334c; padding: 1px 6px; border-radius: 4px;">${success} نجح</span>
         <span style="font-size:11px;color:#ef5350;">${failed} فشل</span>
         <span style="font-size:11px;color:var(--muted);">${totalOrds} بلاغ</span>
       </div>
@@ -978,7 +978,7 @@ function renderFieldChanges(logs) {
       <span style="color:${catColor};font-weight:700;white-space:nowrap;">${escapeHtml(e.label || e.field || '—')}</span>
       <span style="color:#ef5350;white-space:nowrap;">${escapeHtml(e.oldValue || '(فارغ)')}</span>
       <span style="color:var(--muted);">→</span>
-      <span style="color:#4caf50;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHtml(e.newValue || '(فارغ)')}</span>
+      <span style="color:#ffffff;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHtml(e.newValue || '(فارغ)')}</span>
       <span style="color:var(--muted);white-space:nowrap;">${time}</span>
     </div>`;
   }).join('');
@@ -1016,9 +1016,9 @@ function renderActionLog(logs) {
   el.innerHTML = sorted.map(e => {
     const time = e.timestamp ? new Date(e.timestamp).toLocaleTimeString('ar-EG') : '';
     let icon, text, color;
-    if (e.eventType === 'FIELD_FILLED') { icon = '✅'; text = `${e.field || '—'} = ${e.value || '—'}`; color = '#4caf50'; }
-    else if (e.eventType === 'TASK_START') { icon = '🚀'; text = `بدء ${e.orderId || '—'}`; color = '#2196f3'; }
-    else if (e.eventType === 'TASK_COMPLETE') { icon = e.success ? '🏁' : '❌'; text = `${e.orderId || '—'} ${e.success ? 'نجح' : 'فشل'}`; color = e.success ? '#4caf50' : '#ef5350'; }
+    if (e.eventType === 'FIELD_FILLED') { icon = '✅'; text = `${e.field || '—'} = ${e.value || '—'}`; color = '#ffffff'; }
+    else if (e.eventType === 'TASK_START') { icon = '🚀'; text = `بدء ${e.orderId || '—'}`; color = '#a8c7fa'; }
+    else if (e.eventType === 'TASK_COMPLETE') { icon = e.success ? '🏁' : '❌'; text = `${e.orderId || '—'} ${e.success ? 'نجح' : 'فشل'}`; color = e.success ? '#ffffff' : '#ef5350'; }
     else if (e.eventType === 'VALIDATION_WARNING') { icon = '⚠️'; text = e.correlatedLabel ? `"${e.correlatedLabel}" — ${(e.errorText||'').substring(0,60)}` : (e.errorText||'').substring(0,60); color = '#ffc107'; }
     else if (e.eventType === 'CLIENT_VALIDATION_ERROR') { icon = '❌'; text = (e.errorText||'').substring(0,60); color = '#f44336'; }
     else { icon = '📌'; text = e.eventType; color = '#a8c7fa'; }
@@ -1058,7 +1058,7 @@ function renderManualAnalysis(data) {
   el.innerHTML = `
     <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:4px;margin-bottom:8px;">
       <div style="background:#1e304b;padding:4px;border-radius:4px;text-align:center;"><div style="font-size:14px;font-weight:700;color:#ffb74d;">${manual.length}</div><div style="font-size:9px;color:#8899bb;">يدوي</div></div>
-      <div style="background:#1e304b;padding:4px;border-radius:4px;text-align:center;"><div style="font-size:14px;font-weight:700;color:#4caf50;">${autoArr.length}</div><div style="font-size:9px;color:#8899bb;">آلي</div></div>
+      <div style="background:#17334c;padding:4px;border-radius:4px;text-align:center; border:1px solid rgba(255,255,255,0.15);"><div style="font-size:14px;font-weight:700;color:#ffffff;">${autoArr.length}</div><div style="font-size:9px;color:rgba(255,255,255,0.8);">آلي</div></div>
       <div style="background:#1e304b;padding:4px;border-radius:4px;text-align:center;"><div style="font-size:14px;font-weight:700;color:#ef5350;">${errArr.length}</div><div style="font-size:9px;color:#8899bb;">أخطاء</div></div>
       <div style="background:#1e304b;padding:4px;border-radius:4px;text-align:center;"><div style="font-size:14px;font-weight:700;color:#64b5f6;">${errArr.filter(e => e.eventType === 'NETWORK_ERROR').length}</div><div style="font-size:9px;color:#8899bb;">شبكة</div></div>
     </div>

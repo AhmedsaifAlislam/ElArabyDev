@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "العربي ديف — مساعد البوابة",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "description": "أدوات El Araby الموحدة: ملء تلقائي، كشف الأرقام، التقفيلات، الفلترة، والتحليلات — بوابة واحدة",
   "permissions": ["activeTab", "scripting", "storage", "notifications", "tabs", "clipboardRead"],
   "host_permissions": [
@@ -53,7 +53,6 @@
       "js": ["lib/xlsx.full.min.js", "lib/exceljs.min.js"],
       "run_at": "document_start"
     },
-
     {
       "matches": ["https://elarabyportalpfs.powerappsportals.com/*"],
       "js": ["elaraby-phone-reveal-layer0.js"],
@@ -62,22 +61,60 @@
     },
     {
       "matches": ["https://elarabyportalpfs.powerappsportals.com/*"],
-      "js": ["content-script.js"],
+      "js": ["dock-fab-hider.js"],
+      "run_at": "document_start"
+    },
+    {
+      "matches": ["https://elarabyportalpfs.powerappsportals.com/*"],
+      "js": ["Tempermonky/DateFilter/ElAraby_DateFilter_Unlocker.user.js"],
+      "run_at": "document_start"
+    },
+    {
+      "matches": ["https://elarabyportalpfs.powerappsportals.com/*"],
+      "js": [
+        "shared/table-scraper.js",
+        "shared/sync-manager.js",
+        "Tempermonky/elaraby-phone-reveal.js"
+      ],
       "run_at": "document_idle"
     },
     {
       "matches": ["https://elarabyportalpfs.powerappsportals.com/*"],
-      "js": ["smart-log.js"],
+      "js": [
+        "shared/message-bus.js",
+        "shared/storage-proxy.js",
+        "shared/smart-log.js",
+        "shared/arabic-utils.js",
+        "shared/data-mapper.js",
+        "shared/portal-selectors.js",
+        "shared/frame-walker.js",
+        "shared/table-scraper.js",
+        "shared/excel-exporter.js",
+        "shared/portal-config.js",
+        "shared/ai-client.js",
+        "shared/n8n-client.js",
+        "content-script.js"
+      ],
       "run_at": "document_idle"
     },
     {
       "matches": ["https://elarabyportalpfs.powerappsportals.com/*"],
-      "js": ["control-panel.js"],
+      "js": [
+        "shared/storage-proxy.js",
+        "shared/ai-client.js",
+        "control-panel.js",
+        "unified-dock.js"
+      ],
       "run_at": "document_idle"
     },
     {
       "matches": ["https://elarabyportalpfs.powerappsportals.com/*"],
-      "js": ["order-extractor.js"],
+      "js": [
+        "lib/exceljs.min.js",
+        "shared/message-bus.js",
+        "shared/portal-selectors.js",
+        "order-extractor.js"
+      ],
       "run_at": "document_idle"
     },
     {
@@ -86,7 +123,10 @@
         "https://*.facebook.com/*",
         "https://*.messenger.com/*"
       ],
-      "js": ["tampermonkey-runner.js"],
+      "js": [
+        "shared/storage-proxy.js",
+        "tampermonkey-runner.js"
+      ],
       "run_at": "document_idle"
     },
     {
@@ -110,7 +150,9 @@
         "travel-costs.json",
         "lib/xlsx.full.min.js",
         "Tempermonky/elaraby-phone-reveal.js",
-        "Tempermonky/messenger-sender.js"
+        "Tempermonky/messenger-sender.js",
+        "dashboard/dashboard.js",
+        "dashboard/assets/index-CuF8gZts.css"
       ],
       "matches": ["<all_urls>"]
     }

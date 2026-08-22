@@ -795,7 +795,7 @@ function renderSmartLog(logs, filterText = '') {
           <div style="font-weight:700;color:var(--accent);font-size:12px;">${isActive ? '⚡ جلسة نشطة' : 'جلسة: ' + escapeHtml(session.id)}</div>
           <div style="font-size:10px;color:var(--muted);">${startTime}${endTime ? ' ← ' + endTime : ''}</div>
         </div>
-        <span style="font-size:11px;color:#4caf50;">${success} نجح</span>
+        <span style="font-size:11px;color:#ffffff; background: #17334c; padding: 1px 6px; border-radius: 4px;">${success} نجح</span>
         <span style="font-size:11px;color:#ef5350;">${failed} فشل</span>
         <span style="font-size:11px;color:var(--muted);">${totalOrds} بلاغ</span>
       </div>
@@ -978,7 +978,7 @@ function renderFieldChanges(logs) {
       <span style="color:${catColor};font-weight:700;white-space:nowrap;">${escapeHtml(e.label || e.field || '—')}</span>
       <span style="color:#ef5350;white-space:nowrap;">${escapeHtml(e.oldValue || '(فارغ)')}</span>
       <span style="color:var(--muted);">→</span>
-      <span style="color:#4caf50;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHtml(e.newValue || '(فارغ)')}</span>
+      <span style="color:#ffffff;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHtml(e.newValue || '(فارغ)')}</span>
       <span style="color:var(--muted);white-space:nowrap;">${time}</span>
     </div>`;
   }).join('');
@@ -1016,9 +1016,9 @@ function renderActionLog(logs) {
   el.innerHTML = sorted.map(e => {
     const time = e.timestamp ? new Date(e.timestamp).toLocaleTimeString('ar-EG') : '';
     let icon, text, color;
-    if (e.eventType === 'FIELD_FILLED') { icon = '✅'; text = `${e.field || '—'} = ${e.value || '—'}`; color = '#4caf50'; }
-    else if (e.eventType === 'TASK_START') { icon = '🚀'; text = `بدء ${e.orderId || '—'}`; color = '#2196f3'; }
-    else if (e.eventType === 'TASK_COMPLETE') { icon = e.success ? '🏁' : '❌'; text = `${e.orderId || '—'} ${e.success ? 'نجح' : 'فشل'}`; color = e.success ? '#4caf50' : '#ef5350'; }
+    if (e.eventType === 'FIELD_FILLED') { icon = '✅'; text = `${e.field || '—'} = ${e.value || '—'}`; color = '#ffffff'; }
+    else if (e.eventType === 'TASK_START') { icon = '🚀'; text = `بدء ${e.orderId || '—'}`; color = '#a8c7fa'; }
+    else if (e.eventType === 'TASK_COMPLETE') { icon = e.success ? '🏁' : '❌'; text = `${e.orderId || '—'} ${e.success ? 'نجح' : 'فشل'}`; color = e.success ? '#ffffff' : '#ef5350'; }
     else if (e.eventType === 'VALIDATION_WARNING') { icon = '⚠️'; text = e.correlatedLabel ? `"${e.correlatedLabel}" — ${(e.errorText||'').substring(0,60)}` : (e.errorText||'').substring(0,60); color = '#ffc107'; }
     else if (e.eventType === 'CLIENT_VALIDATION_ERROR') { icon = '❌'; text = (e.errorText||'').substring(0,60); color = '#f44336'; }
     else { icon = '📌'; text = e.eventType; color = '#a8c7fa'; }
@@ -1058,7 +1058,7 @@ function renderManualAnalysis(data) {
   el.innerHTML = `
     <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:4px;margin-bottom:8px;">
       <div style="background:#1e304b;padding:4px;border-radius:4px;text-align:center;"><div style="font-size:14px;font-weight:700;color:#ffb74d;">${manual.length}</div><div style="font-size:9px;color:#8899bb;">يدوي</div></div>
-      <div style="background:#1e304b;padding:4px;border-radius:4px;text-align:center;"><div style="font-size:14px;font-weight:700;color:#4caf50;">${autoArr.length}</div><div style="font-size:9px;color:#8899bb;">آلي</div></div>
+      <div style="background:#17334c;padding:4px;border-radius:4px;text-align:center; border:1px solid rgba(255,255,255,0.15);"><div style="font-size:14px;font-weight:700;color:#ffffff;">${autoArr.length}</div><div style="font-size:9px;color:rgba(255,255,255,0.8);">آلي</div></div>
       <div style="background:#1e304b;padding:4px;border-radius:4px;text-align:center;"><div style="font-size:14px;font-weight:700;color:#ef5350;">${errArr.length}</div><div style="font-size:9px;color:#8899bb;">أخطاء</div></div>
       <div style="background:#1e304b;padding:4px;border-radius:4px;text-align:center;"><div style="font-size:14px;font-weight:700;color:#64b5f6;">${errArr.filter(e => e.eventType === 'NETWORK_ERROR').length}</div><div style="font-size:9px;color:#8899bb;">شبكة</div></div>
     </div>
@@ -1653,6 +1653,14 @@ async function loadSessionCaptures() {
   renderSessionCaptures(all || {}, q);
 }
 
+function fmtDelta(ms) {
+  if (ms == null) return '';
+  const s = Math.floor(ms / 1000);
+  const m = Math.floor(s / 60);
+  const r = s % 60;
+  return (m > 0 ? `${m}m` : '') + `${r}s`;
+}
+
 function renderSessionCaptures(byOrder, q = '') {
   const list = document.getElementById('session-list');
   const orders = Object.values(byOrder || {}).filter(o => o && o.orderId);
@@ -1685,43 +1693,71 @@ function renderSessionCaptures(byOrder, q = '') {
     const last  = fmtTime(o.lastSeen);
     const oid = escapeHtml(o.orderId);
 
-    const pagesHtml = pages.slice().reverse().map((p, i) => {
-      const selRows = (p.selects || []).map(s =>
-        `<li style="margin:0 0 1px 0;"><b>${escapeHtml(s.label || s.name || s.id || '؟')}</b>: <span style="color:${s.selectedValue ? '#ffb74d' : 'var(--muted)'}">${escapeHtml(s.selectedText || s.selectedValue || '(فارغ)')}</span>${s.selectedText ? ` <span style="color:var(--muted)">[${escapeHtml(s.selectedValue)}]</span>` : ''}</li>`
-      ).join('');
-      const inpRows = (p.inputs || []).map(x =>
-        `<li style="margin:0 0 1px 0;"><b>${escapeHtml(x.label || x.name || x.id || '؟')}</b>: <span style="color:${x.value ? '#a8c7fa' : 'var(--muted)'}">${escapeHtml(x.value || '(فارغ)')}</span></li>`
-      ).join('');
-      const btnList = (p.buttons || []).map(b => b.text).join('، ');
-      return `<details ${i === 0 ? 'open' : ''} style="margin-bottom:4px;">
-        <summary style="cursor:pointer;font-size:11px;color:#64b5f6;padding:2px 4px;background:#0f1a2e;border-radius:4px;">🕐 ${fmtTime(p.ts)} — <b>${escapeHtml(p.pageType || '')}</b> ${escapeHtml(p.reason || '')} <span style="color:var(--muted)">(${(p.selects || []).length} selects / ${(p.inputs || []).length} inputs / ${(p.buttons || []).length} buttons)</span></summary>
-        <div style="padding:4px 6px;font-size:10px;background:#0d1b2a;border-radius:4px;line-height:1.5;">
-          <div style="color:var(--muted);word-break:break-all;margin-bottom:4px;">${escapeHtml(p.url || '')}</div>
-          ${selRows ? `<div style="color:#ffcc80;margin-top:2px;">🔻 القوائم المنسدلة:</div><ul style="margin:2px 0 0 14px;padding:0;list-style:none;">${selRows}</ul>` : ''}
-          ${inpRows ? `<div style="color:#90caf9;margin-top:2px;">✏️ الحقول:</div><ul style="margin:2px 0 0 14px;padding:0;list-style:none;">${inpRows}</ul>` : ''}
-          ${btnList ? `<div style="color:#a5d6a7;margin-top:2px;">🔘 الأزرار: <span style="color:var(--muted)">${escapeHtml(btnList.slice(0, 300))}</span></div>` : ''}
-        </div>
-      </details>`;
-    }).join('');
+    // بناء Timeline واحد يجمع اللقطات + الأحداث بالترتيب الزمني الفعلي
+    const timeline = [];
+    pages.forEach(p => timeline.push({ kind: 'page', ...p }));
+    events.forEach(e => timeline.push({ kind: 'event', ...e }));
+    timeline.sort((a, b) => (a.ts || 0) - (b.ts || 0));
 
-    const eventsHtml = events.slice().reverse().map(e => {
-      const icon = e.type === 'click' ? '👆' : '⚙️';
-      return `<div style="padding:2px 4px;font-size:10px;border-bottom:1px solid #13253d;">${icon} <b style="color:#ffb74d;">${escapeHtml(e.tag || '')}</b> ${escapeHtml(e.text || '')} <span style="color:var(--muted)">— ${fmtTime(e.ts)}</span></div>`;
-    }).join('') || '<div style="color:var(--muted);padding:2px;">لا أحداث كليك مسجلة</div>';
+    const timelineHtml = timeline.map((item, idx) => {
+      const seq = item.seq != null ? item.seq : (idx + 1);
+      const delta = fmtDelta(item.delta != null ? item.delta : ((item.ts || 0) - (o.firstSeen || 0)));
+      const ts = fmtTime(item.ts);
 
-    return `<div style="background:var(--surface-2);border:1px solid var(--border);border-radius:6px;margin-bottom:8px;padding:6px 8px;">
+      if (item.kind === 'page') {
+        const selRows = (item.selects || []).map(s =>
+          `<li style="margin:0 0 1px 0;"><b>${escapeHtml(s.label || s.name || s.id || '؟')}</b>: <span style="color:${s.selectedValue ? '#ffb74d' : 'var(--muted)'}">${escapeHtml(s.selectedText || s.selectedValue || '(فارغ)')}</span>${s.selectedText ? ` <span style="color:var(--muted)">[${escapeHtml(s.selectedValue)}]</span>` : ''}</li>`
+        ).join('');
+        const inpRows = (item.inputs || []).map(x =>
+          `<li style="margin:0 0 1px 0;"><b>${escapeHtml(x.label || x.name || x.id || '؟')}</b>: <span style="color:${x.value ? '#a8c7fa' : 'var(--muted)'}">${escapeHtml(x.value || '(فارغ)')}</span></li>`
+        ).join('');
+        const btnList = (item.buttons || []).map(b => b.text).join('، ');
+        const pageType = escapeHtml(item.pageType || '');
+        const reason = escapeHtml(item.reason || '');
+
+        return `<details style="margin:0 0 6px 0;border-right:3px solid #64b5f6;">
+          <summary style="cursor:pointer;font-size:11px;color:#64b5f6;padding:3px 6px;background:#0f1a2e;border-radius:4px;display:flex;gap:6px;flex-wrap:wrap;align-items:center;">
+            <span style="background:#1e3a5f;color:#fff;border-radius:3px;padding:0 5px;font-weight:700;">#${seq}</span>
+            <span style="color:#ffd54f;">⏱ +${delta}</span>
+            <span>🖼️ <b>${pageType}</b></span>
+            <span style="color:var(--muted);font-size:10px;">${reason}</span>
+            <span style="color:var(--muted);font-size:10px;">(${(item.selects || []).length} selects / ${(item.inputs || []).length} inputs / ${(item.buttons || []).length} buttons)</span>
+          </summary>
+          <div style="padding:5px 6px;font-size:10px;background:#0d1b2a;border-radius:4px;line-height:1.5;">
+            <div style="color:var(--muted);word-break:break-all;margin-bottom:4px;">🕐 ${ts} — ${escapeHtml(item.url || '')}</div>
+            ${selRows ? `<div style="color:#ffcc80;margin-top:2px;">🔻 القوائم المنسدلة:</div><ul style="margin:2px 0 0 14px;padding:0;list-style:none;">${selRows}</ul>` : ''}
+            ${inpRows ? `<div style="color:#90caf9;margin-top:2px;">✏️ الحقول:</div><ul style="margin:2px 0 0 14px;padding:0;list-style:none;">${inpRows}</ul>` : ''}
+            ${btnList ? `<div style="color:#a5d6a7;margin-top:2px;">🔘 الأزرار: <span style="color:var(--muted)">${escapeHtml(btnList.slice(0, 400))}</span></div>` : ''}
+          </div>
+        </details>`;
+      }
+
+      // event (كليك / ضغطة)
+      const icon = item.type === 'click' ? '👆' : '⚙️';
+      const color = item.type === 'click' ? '#ffb74d' : '#90caf9';
+      return `<div style="margin:0 0 3px 0;padding:2px 6px;font-size:10px;background:#1a1305;border-radius:4px;border-right:3px solid ${color};display:flex;gap:6px;flex-wrap:wrap;align-items:center;">
+        <span style="background:#5f4a1e;color:#fff;border-radius:3px;padding:0 5px;font-weight:700;">#${seq}</span>
+        <span style="color:#ffd54f;">⏱ +${delta}</span>
+        <span>${icon} <b style="color:${color};">${escapeHtml(item.tag || '')}</b> ${escapeHtml(item.text || '')}</span>
+        <span style="color:var(--muted);font-size:9px;">🕐 ${ts}</span>
+      </div>`;
+    }).join('') || '<div style="color:var(--muted);padding:4px;">لا أحداث مسجلة بعد</div>';
+
+    // ملخص الأزرار المستخدمة عبر كل اللقطات
+    const allBtnTexts = [...new Set(
+      (pages || []).flatMap(p => (p.buttons || []).map(b => b.text))
+    )].slice(0, 30);
+
+    return `<div style="background:var(--surface-2);border:1px solid var(--border);border-radius:6px;margin-bottom:10px;padding:6px 8px;">
       <div style="display:flex;justify-content:space-between;align-items:center;gap:6px;flex-wrap:wrap;">
         <span style="font-weight:700;font-size:12px;color:#ffb74d;">🆔 ${oid}</span>
         <span style="font-size:10px;color:var(--muted);">أول: ${first} • آخر: ${last}</span>
       </div>
       <div style="font-size:10px;color:#a8c7fa;margin:2px 0 4px;">📄 ${pages.length} لقطة • 👆 ${events.length} كليك</div>
-      <details open style="margin-bottom:2px;">
-        <summary style="cursor:pointer;font-size:10px;font-weight:700;color:#64b5f6;padding:2px 4px;background:#0f1a2e;border-radius:4px;">🖼️ لقطات الصفحات</summary>
-        <div style="padding:4px 2px;">${pagesHtml}</div>
-      </details>
-      <details>
-        <summary style="cursor:pointer;font-size:10px;font-weight:700;color:#ffb74d;padding:2px 4px;background:#2e2a1a;border-radius:4px;">👆 أحداث الكليك</summary>
-        <div style="padding:4px 2px;">${eventsHtml}</div>
+      ${allBtnTexts.length ? `<div style="font-size:9px;color:var(--muted);margin-bottom:4px;word-break:break-word;">🔘 أزرار الصفحة: ${allBtnTexts.map(t => escapeHtml(t)).join('، ')}</div>` : ''}
+      <details open>
+        <summary style="cursor:pointer;font-size:10px;font-weight:700;color:#64b5f6;padding:2px 4px;background:#0f1a2e;border-radius:4px;margin-bottom:3px;">⏳ الخط الزمني (بالترتيب الفعلي + التوقيتات)</summary>
+        <div style="padding:4px 2px;">${timelineHtml}</div>
       </details>
     </div>`;
   }).join('');

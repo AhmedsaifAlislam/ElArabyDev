@@ -269,7 +269,7 @@
 .cp-panel.docked .cp-body{max-height:60vh}
 .cp-dock{background:rgba(255,255,255,.1);border:none;border-radius:50%;color:#94a3b8;cursor:pointer;width:22px;height:22px;font-size:12px;display:flex;align-items:center;justify-content:center;line-height:1;transition:all .15s;margin-right:2px}
 .cp-dock:hover{background:rgba(255,255,255,.2);color:#e2eaf5}
-.cp-dock.active{background:rgba(16,185,129,.2);color:#34d399}
+.cp-dock.active{background:rgba(23,51,76,.35);color:#ffffff; border:1px solid rgba(255,255,255,0.2)}
 .cp-shortcuts{display:flex;flex-direction:column;gap:2px;margin:4px 0}
 .cp-shortcut-row{display:flex;gap:4px}
 .p2-sc, .cp-shortcut-btn{flex:1;padding:5px 4px;border:1px solid #2a3050;border-radius:5px;background:#0d1528;color:#a8c7fa;font-size:10px;font-weight:600;cursor:pointer;transition:all .12s;text-align:center}

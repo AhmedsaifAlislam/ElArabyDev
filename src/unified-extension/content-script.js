@@ -71,10 +71,10 @@ function getPageType() {
   return 'OTHER';
 }
 
-// ── Page Toast notification ──
+// ── Page Toast notification ── (هوية العربي #17334c)
 function showPageToast(msg, type = 'info') {
   const toast = document.createElement('div');
-  const colors = { info: '#4fc3f7', success: '#66bb6a', error: '#ef5350', warn: '#ffa726' };
+  const colors = { info: '#17334c', success: '#17334c', error: '#ef5350', warn: '#ffa726' };
   Object.assign(toast.style, {
     position: 'fixed', bottom: '20px', right: '20px', zIndex: 999999,
     padding: '12px 20px', borderRadius: '8px', background: colors[type] || '#4fc3f7',
@@ -1749,16 +1749,16 @@ async function clickNextAndWaitForSave(cfg) {
 function showOverlay(report) {
   document.getElementById('autofiller-overlay')?.remove();
   const div = document.createElement('div'); div.id = 'autofiller-overlay';
-  Object.assign(div.style, { position:'fixed', bottom:'16px', left:'16px', background:'linear-gradient(135deg,#0b1220,#0f1e35)', border:'1px solid #1e3450', borderRadius:'12px', padding:'14px 18px', color:'#e2eaf5', fontFamily:"'Cairo', Tahoma, Arial, sans-serif", fontSize:'13px', zIndex:'2147483647', boxShadow:'0 8px 32px rgba(0,0,0,0.6)', maxWidth:'340px', direction:'rtl', pointerEvents:'none' });
+  Object.assign(div.style, { position:'fixed', bottom:'16px', left:'16px', background:'linear-gradient(135deg,#0f2538,#17334c)', border:'1px solid rgba(255,255,255,0.15)', borderRadius:'12px', padding:'14px 18px', color:'#ffffff', fontFamily:"'Cairo', Tahoma, Arial, sans-serif", fontSize:'13px', zIndex:'2147483647', boxShadow:'0 8px 32px rgba(0,0,0,0.6)', maxWidth:'340px', direction:'rtl', pointerEvents:'none' });
   const fr = report.fieldResults || {}; const summary = Object.keys(fr).map(k => fr[k] ? `${fr[k].ok ? '✅':'âŒ'}${k}` : null).filter(Boolean).join(' | ');
-  div.innerHTML = `<div style="font-weight:700;color:#1f8feb;margin-bottom:6px">âš¡ Portal AutoFiller v3.0</div><div>✅ اكتمل — <b>${report.customer || 'العميل'}</b></div><div style="color:#2bd46f;font-size:11px;margin-top:4px">${summary}</div>`;
+  div.innerHTML = `<div style="font-weight:700;color:#ffffff;margin-bottom:6px">âš¡ Portal AutoFiller v3.0</div><div style="color:#ffffff;">✅ اكتمل — <b>${report.customer || 'العميل'}</b></div><div style="color:rgba(255,255,255,0.85);font-size:11px;margin-top:4px">${summary}</div>`;
   document.body.appendChild(div); setTimeout(() => div.remove(), 7000);
 }
 
 function showMasahaOverlay() {
   document.getElementById('autofiller-overlay')?.remove();
   const div = document.createElement('div'); div.id = 'autofiller-overlay';
-  Object.assign(div.style, { position:'fixed', bottom:'16px', left:'16px', background:'linear-gradient(135deg,#1a237e,#0d47a1)', border:'2px solid #ff9800', borderRadius:'12px', padding:'16px 20px', color:'#e2eaf5', fontFamily:"'Cairo', Tahoma, Arial, sans-serif", fontSize:'14px', zIndex:'2147483647', boxShadow:'0 8px 32px rgba(0,0,0,0.6)', maxWidth:'380px', direction:'rtl' });
+  Object.assign(div.style, { position:'fixed', bottom:'16px', left:'16px', background:'linear-gradient(135deg,#0f2538,#17334c)', border:'2px solid #ff9800', borderRadius:'12px', padding:'16px 20px', color:'#ffffff', fontFamily:"'Cairo', Tahoma, Arial, sans-serif", fontSize:'14px', zIndex:'2147483647', boxShadow:'0 8px 32px rgba(0,0,0,0.6)', maxWidth:'380px', direction:'rtl' });
   div.innerHTML = `
     <div style="font-weight:700;color:#ff9800;margin-bottom:8px;font-size:16px;">ðŸ“¸ مساحة — أرفق الصورة</div>
     <div style="margin-bottom:8px;">تم تعبئة جميع البيانات بنجاح.</div>
@@ -2423,17 +2423,78 @@ function qSel(selector, root) {
 }
 
 async function performExtractionAndLog(attempt = 1) {
-  const brandEl = qSel('input[aria-label="علامة تجارية"]') || qSel('#ats_producttypebrand_name');
-  const modelEl = qSel('input[aria-label="الموديل الفعلى 1"]') || qSel('#ldv_actualmodel_name');
-  const model2El = qSel('input[aria-label="الموديل الفعلى 2"]') || qSel('#ldv_actualmodel2_name');
-  const serial1El = qSel('#ldv_technicalserialnumber') || qSel('[aria-label*="الرقم المسلسل"]');
-  const serial2El = qSel('#ldv_secondtechnicalserial');
+  // Helper: try selectors in order, return first element with valid (non-empty, non-"0") value
+  function pickValid(candidates, invalid = ['', '0', 'غير محدد']) {
+    for (const c of candidates) {
+      let el = null;
+      try { el = typeof c === 'string' ? qSel(c) : c; } catch(e) {}
+      if (!el) continue;
+      const v = (el.value ?? el.innerText ?? '').toString().trim();
+      if (!v) continue;
+      if (invalid.includes(v)) continue;
+      if (v.length < 2 && v !== '0') continue;
+      return el;
+    }
+    return null;
+  }
+  let _cfg = null; try { _cfg = await loadSelectors(); } catch(e) {}
+  // Build candidate lists — qSel variants FIRST (iframe-aware) then CFG then label fallback
+  const brandCandidates = [
+    'input[aria-label="علامة تجارية"]', 'input[aria-label*="علامة"]', '#ats_producttypebrand_name',
+    ...(_cfg?.brandInput || []),
+    findFieldByLabel(['العلامة التجاريه','العلامة التجارية','علامة تجارية','Brand'], 'input')
+  ];
+  const modelCandidates = [
+    'input[aria-label="الموديل الفعلى 1"]', 'input[aria-label="الموديل الفعلي 1"]', 'input[aria-label*="الموديل الفعلي"]', 'input[aria-label*="الموديل"]', '#ldv_actualmodel_name',
+    ...(_cfg?.modelInput || []),
+    findFieldByLabel(['الموديل الفعلي 1','الموديل الفعلى 1','الموديل الفعلي','Model'], 'input')
+  ];
+  const model2Candidates = [
+    'input[aria-label="الموديل الفعلى 2"]', 'input[aria-label="الموديل الفعلي 2"]', '#ldv_actualmodel2_name',
+    ...(_cfg?.modelInput2 || []),
+    findFieldByLabel(['الموديل الفعلي 2','الموديل الفعلى 2'], 'input')
+  ];
+  const serialCandidates = [
+    '#ldv_technicalserialnumber', '#ldv_serialnumber', '[aria-label*="الرقم المسلسل"]',
+    ...(_cfg?.serial || []),
+    findFieldByLabel(['الرقم المسلسل','الرقم التسلسلي','Serial'], 'input')
+  ];
+  const serial2Candidates = [
+    '#ldv_secondtechnicalserial', '#ldv_serialnumber1', '[aria-label*="الرقم المسلسل 2"]',
+    ...(_cfg?.serial2 || []),
+    findFieldByLabel(['الرقم المسلسل 2','Serial 2'], 'input')
+  ];
 
-  const brand = brandEl?.value || brandEl?.innerText || '';
-  const model1 = modelEl?.value || modelEl?.innerText || '';
-  const model2 = model2El?.value || model2El?.innerText || '';
+  // For brand/model, skip "0" and "غير محدد"; for serial, allow "لا يوجد" (so don't filter it)
+  const brandEl = pickValid(brandCandidates);
+  const modelEl = pickValid(modelCandidates);
+  const model2El = pickValid(model2Candidates, ['', '0', 'غير محدد', 'لا يوجد']);
+  // Serial: allow "لا يوجد" — so invalid only ["", "0"? but user wants "لا يوجد" shown, so keep it]
+  // Try valid first, fallback to any found (even if "لا يوجد")
+  let serial1El = pickValid(serialCandidates, ['', '0']);
+  if (!serial1El) serial1El = qSel('#ldv_technicalserialnumber') || qSel('[aria-label*="الرقم المسلسل"]') || (_cfg && findFirst(_cfg.serial)) || findFieldByLabel(['الرقم المسلسل'], 'input');
+  let serial2El = pickValid(serial2Candidates, ['', '0']);
+  if (!serial2El) serial2El = qSel('#ldv_secondtechnicalserial') || (_cfg && findFirst(_cfg.serial2));
+
+  const brandRaw = brandEl?.value || brandEl?.innerText || '';
+  let model1 = modelEl?.value || modelEl?.innerText || '';
+  let model2 = model2El?.value || model2El?.innerText || '';
   const serial1 = serial1El?.value || serial1El?.innerText || '';
   const serial2 = serial2El?.value || serial2El?.innerText || '';
+
+  // Fallback: if model1 still "0" or empty, scan all model-like inputs for a valid code (contains letters+numbers and "-")
+  if (!model1 || model1.trim() === '0' || model1.trim() === 'غير محدد') {
+    const allModelInputs = Array.from(document.querySelectorAll('input[id*="actualmodel"], input[aria-label*="الموديل"]')).concat(
+      ...Array.from(document.querySelectorAll('iframe')).map(f => { try { return Array.from((f.contentDocument||f.contentWindow?.document||document).querySelectorAll('input[id*="actualmodel"], input[aria-label*="الموديل"]')); } catch(e){ return []; } }).flat()
+    );
+    for (const inp of allModelInputs) {
+      const v = (inp.value || inp.innerText || '').trim();
+      if (v && v !== '0' && v !== 'غير محدد' && /[A-Z]{1,3}-/.test(v)) { model1 = v; break; }
+    }
+  }
+
+  // Clean brand: "ثلاجات - TOSHIBA" / "تكييف - SHARP" → "TOSHIBA"/"SHARP" (last segment after -/–/—/|)
+  const brand = (() => { const b = brandRaw.trim(); if (!b) return ''; const parts = b.split(/\s*[-–—|]\s*/); return parts.length > 1 ? parts[parts.length - 1].trim() : b; })();
 
   if ((!brand || !model1 || !serial1) && attempt <= 20) {
     setTimeout(() => performExtractionAndLog(attempt + 1), 500);
@@ -2475,16 +2536,19 @@ async function performExtractionAndLog(attempt = 1) {
   const overlay = document.createElement('div');
   overlay.id = 'ext-device-overlay';
   overlay.style.cssText = `
-    position: fixed; top: 20px; right: 20px; background: #4caf50; color: white;
+    position: fixed; top: 20px; right: 20px; background: #17334c; color: #ffffff;
     padding: 16px 20px; border-radius: 10px; z-index: 999999; box-shadow: 0 4px 16px rgba(0,0,0,0.3);
-    font-family: Consolas, 'Courier New', monospace; direction: ltr; font-size: 13px; max-width: 600px;
+    font-family: Consolas, 'Courier New', monospace; direction: ltr; font-size: 13px; max-width: 600px; border: 1px solid rgba(255,255,255,0.15);
   `;
   overlay.innerHTML = `
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
-      <span style="font-size:15px;font-family:Arial,sans-serif;">✅ تم سحب بيانات الجهاز بنجاح!</span>
-      <button id="ext-copy-btn" style="background:#fff;color:#4caf50;border:none;padding:5px 12px;border-radius:5px;cursor:pointer;font-weight:bold;font-size:12px;">📋 نسخ</button>
+      <span style="font-size:15px;font-family:Arial,sans-serif; color:#ffffff;">✅ تم سحب بيانات الجهاز بنجاح!</span>
+      <div style="display:flex;gap:8px;">
+        <button id="ext-copy-btn" style="background:#ffffff;color:#17334c;border:none;padding:5px 12px;border-radius:5px;cursor:pointer;font-weight:bold;font-size:12px;">📋 نسخ</button>
+        <button id="ext-hide-btn" style="background:rgba(255,255,255,0.15);color:#ffffff;border:1px solid rgba(255,255,255,0.35);padding:5px 10px;border-radius:5px;cursor:pointer;font-weight:bold;font-size:12px;">✖️ إخفاء</button>
+      </div>
     </div>
-    <div style="background:rgba(0,0,0,0.15);padding:10px 12px;border-radius:6px;white-space:pre-wrap;line-height:1.8;">${copyText}</div>
+    <div style="background:rgba(255,255,255,0.08);padding:10px 12px;border-radius:6px;white-space:pre-wrap;line-height:1.8; color:#ffffff; border:1px solid rgba(255,255,255,0.12);">${copyText}</div>
   `;
   document.body.appendChild(overlay);
 
@@ -2492,10 +2556,11 @@ async function performExtractionAndLog(attempt = 1) {
     navigator.clipboard.writeText(copyText).then(() => {
       const btn = overlay.querySelector('#ext-copy-btn');
       btn.textContent = '✅ تم النسخ!';
-      btn.style.color = '#4caf50';
-      setTimeout(() => { btn.textContent = '📋 نسخ'; btn.style.color = '#4caf50'; }, 1500);
+      btn.style.color = '#17334c';
+      setTimeout(() => { btn.textContent = '📋 نسخ'; btn.style.color = '#17334c'; }, 1500);
     });
   });
+  overlay.querySelector('#ext-hide-btn').addEventListener('click', () => overlay.remove());
 
   setTimeout(() => overlay.remove(), 15000);
 }

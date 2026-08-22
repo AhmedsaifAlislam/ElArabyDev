@@ -11,24 +11,27 @@
    ════════════════════════════════════════════════════════════ */
 :root,
 [data-theme="dark"] {
-  /* ── Color: Brand (Accent) ── */
-  --ea-brand:            oklch(0.64 0.17 240);        /* #1f8feb */
-  --ea-brand-dark:       oklch(0.54 0.18 240);        /* #1472cc */
-  --ea-brand-glow:       oklch(0.64 0.17 240 / 0.25);
-  --ea-brand-bg:         oklch(0.64 0.17 240 / 0.08);
-  --ea-indigo:           oklch(0.54 0.26 293);        /* #7c3aed */
-  --ea-indigo-glow:      oklch(0.54 0.26 293 / 0.25);
+  /* ── Color: Brand — مطابقة البورتال ElectricBlueDesign ── */
+  /* ملاحظة تباين احترافي: في الدارك مود البراند الفاتح #4a9af0 لضمان تباين 4.5:1 على خلفية #101c2e، بينما الهيدر يبقى #17334c/#135ea2 كالبورتال */
+  --ea-brand:            #4a9af0;                    /* فاتح للدارك — مشتق من #17334c لتباين WCAG AA */
+  --ea-brand-dark:       #17334c;                    /* #17334c — الأساس (للخلفيات/الهيدر) */
+  --ea-brand-glow:       oklch(0.60 0.15 240 / 0.22); /* glow فاتح للدارك */
+  --ea-brand-bg:         oklch(0.60 0.15 240 / 0.10);
+  --ea-accent:           #2f5fef;                    /* #2f5fef — hover/border accent البورتال */
+  --ea-accent-hover:     #1e40af;
+  --ea-indigo:           #135ea2;                    /* #135ea2 — navbar */
+  --ea-indigo-glow:      oklch(0.55 0.25 260 / 0.20);
 
-  /* Header / gradients (theme-aware) */
-  --ea-header-grad-a:    oklch(0.20 0.05 250);        /* #0f1e35 */
-  --ea-header-grad-b:    oklch(0.19 0.05 250);        /* #0d2040 */
-  --ea-icon-grad-a:      oklch(0.64 0.17 240);        /* #1f8feb */
-  --ea-icon-grad-b:      oklch(0.54 0.26 293);        /* #7c3aed */
-  --ea-progress-end:     oklch(0.75 0.19 165);        /* #34d399 */
-  --ea-indigo-text:      oklch(0.76 0.12 276);        /* #a5b4fc */
-  --ea-indigo-bg:        oklch(0.55 0.22 280 / 0.15);
-  --ea-indigo-border:    oklch(0.55 0.22 280 / 0.4);
-  --ea-tab-active-grad:  linear-gradient(180deg, oklch(0.64 0.17 240 / 0.18), transparent);
+  /* Header / gradients — مطابقة navbar البورتال (60px ثابت) */
+  --ea-header-grad-a:    #135ea2;                    /* #135ea2 — navbar */
+  --ea-header-grad-b:    #17334c;                    /* #17334c — news */
+  --ea-icon-grad-a:      #135ea2;
+  --ea-icon-grad-b:      #17334c;
+  --ea-progress-end:     #2f5fef;                    /* #2f5fef — accent */
+  --ea-indigo-text:      #ffffff;
+  --ea-indigo-bg:        oklch(0.30 0.05 240 / 0.12);
+  --ea-indigo-border:    oklch(0.30 0.05 240 / 0.25);
+  --ea-tab-active-grad:  linear-gradient(180deg, #2f5fef, transparent);
 
   /* ── Color: Surfaces ── */
   --ea-bg:               oklch(0.15 0.03 250);        /* #0b1220 */
@@ -68,8 +71,8 @@
   --ea-code-text:        oklch(0.78 0.11 240);        /* #a0c4ff */
   --ea-link-text:        oklch(0.78 0.11 240);        /* #a0c4ff */
 
-  /* ── Typography ── */
-  --ea-font-family: 'Cairo', 'Segoe UI', Tahoma, Arial, sans-serif;
+  /* ── Typography — مطابقة البورتال: Segoe UI + Cairo + Helvetica ── */
+  --ea-font-family: 'Segoe UI', 'Cairo', 'Helvetica Neue', Helvetica, Arial, Tahoma, sans-serif;
   --ea-fs-xs:   10.5px;
   --ea-fs-sm:   11px;
   --ea-fs-md:   13px;
@@ -189,19 +192,23 @@
    LIGHT — [data-theme="light"] على <html>
    ════════════════════════════════════════════════════════════ */
 [data-theme="light"] {
-  --ea-bg:             oklch(0.97 0.005 250);         /* #f4f7fb */
-  --ea-surface:        oklch(1 0 0);                  /* #ffffff */
-  --ea-surface-2:      oklch(0.95 0.008 250);         /* #eef3f9 */
-  --ea-surface-3:      oklch(0.9 0.02 250);           /* #e2eaf5 */
-  --ea-border:         oklch(0.89 0.015 250);         /* #d5e0ee */
-  --ea-border-strong:  oklch(0.8 0.03 250);           /* #b6c8dd */
-  --ea-text:           oklch(0.3 0.05 250);           /* #1a2a44 */
-  --ea-text-strong:    oklch(0.15 0.03 250);          /* #0b1220 */
-  --ea-muted:          oklch(0.52 0.05 250);          /* #5b7394 */
-  --ea-muted-2:        oklch(0.65 0.04 250);          /* #8299b8 */
-  --ea-header-grad-a:  oklch(0.94 0.01 250);          /* #eaf1fa */
-  --ea-header-grad-b:  oklch(0.9 0.02 250);           /* #dfebf8 */
-  --ea-indigo-text:    oklch(0.48 0.2 280);           /* #4b4fc9 */
+  --ea-brand:          #17334c;                      /* #17334c — براند غامق للايت (تباين على أبيض) */
+  --ea-brand-dark:     #0f2538;
+  --ea-brand-glow:     oklch(0.30 0.05 240 / 0.15);
+  --ea-brand-bg:       oklch(0.30 0.05 240 / 0.08);
+  --ea-bg:             #ffffff;                      /* #ffffff — portal body */
+  --ea-surface:        #ffffff;                      /* #ffffff — cards */
+  --ea-surface-2:      #f5f6fa;                      /* #f5f6fa — light (أفتح من #eeeeee لتباين أنعم) */
+  --ea-surface-3:      #eeeeee;                      /* #eeeeee — section */
+  --ea-border:         #bcbcbc;                      /* #bcbcbc — portal border */
+  --ea-border-strong:  #949494;                      /* #949494 — input border (PCF) */
+  --ea-text:           #232222;                      /* #232222 — portal text 15.8:1 على أبيض */
+  --ea-text-strong:    #000000;
+  --ea-muted:          #595959;                      /* #595959 — border #949494 مصدره + تباين 7:1 */
+  --ea-muted-2:        #767676;                      /* #767676 — أفتح مع تباين 4.6:1 */
+  --ea-header-grad-a:  #135ea2;
+  --ea-header-grad-b:  #17334c;
+  --ea-indigo-text:    #ffffff;
 
   /* Light-safe status borders & fills */
   --ea-success-border: oklch(0.68 0.19 152 / 0.4);
