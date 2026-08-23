@@ -919,14 +919,8 @@ btnSearchSingle.addEventListener('click', async () => {
     finalLine = generateSecondVisitLine(orderId, productType, profiles);
   }
 
-  const task = { taskId: generateTaskId(), orderId, line: finalLine, data: { forceDrainCleaning, shahnEnabled, forceOverwrite, secondVisitMode: isSecondVisit, masahaMode: isMasaha } };
-  buildTaskItems([task]);
-
-  // Clear previous results
-  await chrome.storage.local.set({ taskResults: [], lastStatusUpdate: null });
-
-  const delay = parseInt(searchDelaySlider?.value || 2000, 10);
-  const resp = await sendToTab(tab.id, { action: 'START_QUEUE', tasks: [task], tabId: tab.id, delay });
+  // Single order uses RUN_SINGLE (stateless, no queue, same tab)
+  const resp = await sendToTab(tab.id, { action: 'RUN_SINGLE', line: finalLine, orderId, data: { forceDrainCleaning, shahnEnabled, forceOverwrite, secondVisitMode: isSecondVisit, masahaMode: isMasaha } });
 
   if (resp.error) {
     setSearchStatus('خطأ: ' + resp.error, 'error');
@@ -934,9 +928,8 @@ btnSearchSingle.addEventListener('click', async () => {
     return;
   }
 
-  setSearchStatus(`بدأت مهمة: ${orderId}`, 'info');
-  startStatusPolling(1, [task]);
-  setBatchSearchUI(true);
+  setSearchStatus(`بدأت مهمة (مفرد): ${orderId}`, 'info');
+  btnSearchSingle.disabled = false;
 });
 
 // ── SEARCH TAB: Batch Orders ──────────────────────────────
