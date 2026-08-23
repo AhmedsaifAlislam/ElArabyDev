@@ -216,24 +216,6 @@ function findSafeLookupButton(inputEl, fallbackCfgSelectors) {
   return btn || findFirst(fallbackCfgSelectors);
 }
 
-async function waitForModalStable(rootDoc, timeoutMs = 5000) {
-  const doc = rootDoc || document;
-  const start = Date.now();
-  while (Date.now() - start < timeoutMs) {
-    const modal = doc.querySelector('.modal.show, .modal[style*="display: block"], [role="dialog"]');
-    if (modal && modal.offsetParent !== null) {
-      const rows = modal.querySelectorAll('table tbody tr, [role="option"], .result-item, .lookup-results li');
-      const visible = Array.from(rows).filter(r => r.offsetParent !== null).length;
-      if (visible > 0) {
-        await sleep(400);
-        return true;
-      }
-    }
-    await sleep(300);
-  }
-  return false;
-}
-
 async function dispatchClickSequence(el) {
   if (!el) return false;
   const events = ['mousedown', 'mouseup', 'click', 'change'];
@@ -1794,7 +1776,8 @@ function showOverlay(report) {
   const div = document.createElement('div'); div.id = 'autofiller-overlay';
   Object.assign(div.style, { position:'fixed', bottom:'16px', left:'16px', background:'linear-gradient(135deg,#0f2538,#17334c)', border:'1px solid rgba(255,255,255,0.15)', borderRadius:'12px', padding:'14px 18px', color:'#ffffff', fontFamily:"'Cairo', Tahoma, Arial, sans-serif", fontSize:'13px', zIndex:'2147483647', boxShadow:'0 8px 32px rgba(0,0,0,0.6)', maxWidth:'340px', direction:'rtl', pointerEvents:'none' });
   const fr = report.fieldResults || {}; const summary = Object.keys(fr).map(k => fr[k] ? `${fr[k].ok ? '✅':'Œ'}${k}` : null).filter(Boolean).join(' | ');
-  div.innerHTML = `<div style="font-weight:700;color:#ffffff;margin-bottom:6px">⚠¡ Portal AutoFiller v3.0</div><div style="color:#ffffff;">✅ اكتمل — <b>${report.customer || 'العميل'}</b></div><div style="color:rgba(255,255,255,0.85);font-size:11px;margin-top:4px">${summary}</div>`;
+  const saveOk = report?.saveResult?.ok !== false;
+  div.innerHTML = `<div style="font-weight:700;color:#ffffff;margin-bottom:6px">⚠¡ Portal AutoFiller v3.0</div><div style="color:#ffffff;">${saveOk ? '✅ اكتمل' : '⚠ï¸ لم يتأكد الحفظ — راجع الطلب'} <b>${report.customer || 'العميل'}</b></div><div style="color:rgba(255,255,255,0.85);font-size:11px;margin-top:4px">${summary}</div>`;
   document.body.appendChild(div); setTimeout(() => div.remove(), 7000);
 }
 
@@ -1940,8 +1923,12 @@ async function _runSingleLineWithRouterInner(task) {
             nBtn.click();
             isSaved = await waitForSaveComplete(startUrl, cfg);
         }
-        // removed finalizeSmartLog()
-        const report = { timestamp: new Date().toISOString(), url: location.href, customer: findFirst(cfg.customer)?.innerText?.trim(), orderNumber: data.orderId, filled: data, fieldResults: resFR, saveResult: { ok: true }, serviceFilled: !!resFR['تركيب'], technician: resFR['technician']?.selected };
+        // Truthful save result: ok only when verification actually passed.
+        // Queue still advances; consumer marks the task 'save-failed' when ok=false.
+        const saveResult = nBtn
+            ? { ok: !!isSaved, timeout: !isSaved, verifiedVia: 'waitForSaveComplete' }
+            : { ok: false, reason: 'save-button-not-found' };
+        const report = { timestamp: new Date().toISOString(), url: location.href, customer: findFirst(cfg.customer)?.innerText?.trim(), orderNumber: data.orderId, filled: data, fieldResults: resFR, saveResult, serviceFilled: !!resFR['تركيب'], technician: resFR['technician']?.selected };
         return { report, isFullyDone: true };
     }
     
@@ -1999,16 +1986,21 @@ async function _runSingleLineWithRouterInner(task) {
        warn('Save button not found on PAGE 3');
     }
     
-    // removed finalizeTelemetryLog()
-    saveResult = { ok: true };
+    // Truthful save result: ok only when verification actually passed.
+    saveResult = saveBtn
+        ? { ok: !!isSaved, timeout: !isSaved, verifiedVia: 'waitForSaveComplete' }
+        : { ok: false, reason: 'save-button-not-found' };
     }
   }
   
-  const isDone = saveResult.ok;
+  // NOTE: isFullyDone stays true even when saveResult.ok === false. A reload-retry
+  // would hit the "Page1 already filled -> skipped as done" path and turn a real
+  // failure into a fake success. Truthful saveResult.ok drives the 'save-failed'
+  // status/session entry instead (see processQueueOnLoad).
   const report = { timestamp: new Date().toISOString(), url: location.href, customer: findFirst(cfg.customer)?.innerText?.trim(), orderNumber: data.orderId, filled: data, fieldResults: resFR, saveResult, serviceFilled: !!resFR['تركيب'], technician: resFR['technician']?.selected };
   try { await chrome.runtime.sendMessage({ type: 'SAVE_REPORT', payload: report }); } catch (_) {}
-  showOverlay(report); 
-  return { report, isFullyDone: isDone };
+  showOverlay(report);
+  return { report, isFullyDone: true };
 }
 
 // ── JSON-Driven Workflow Engine (V4 Architecture) ──────────────────────────
@@ -2422,7 +2414,7 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
         }
         sendResponse({ ok: true });
       }
-      else sendResponse({ ok: true });
+      else warn('Unhandled action: ' + msg.action + ' — not claiming it (other listeners may own it)');
     } catch { sendResponse({ ok: false }); }
   })(); return true;
 });

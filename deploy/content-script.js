@@ -31,7 +31,7 @@ function sendSmartLog(eventType, details) {
 }
 
 async function sysLog(msg, type='info') {
-  const symbol = type === 'error' ? 'âŒ' : type === 'success' ? '✅' : type === 'warn' ? '⚠ï¸' : 'ℹï¸';
+  const symbol = type === 'error' ? 'Œ' : type === 'success' ? '✅' : type === 'warn' ? '⚠ï¸' : 'ℹï¸';
   const text = `[${new Date().toLocaleTimeString('en-US', {hour12:false})}] ${symbol} ${msg}`;
   console.log(LOG_PREFIX, text);
   try {
@@ -134,7 +134,7 @@ function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
 
 // ── Dynamic Resilience Wait for PowerApps Loading Overlay ──
 async function waitForSaveComplete(startUrl, cfg, maxWaitMs = 15000) {
-  log('â³ Waiting for PowerApps to process (Dynamic Wait)...');
+  log('³ Waiting for PowerApps to process (Dynamic Wait)...');
   await sleep(1000); // Give UI time to show loading overlay
   const sw = Date.now();
   let isSaved = false;
@@ -216,6 +216,15 @@ function findSafeLookupButton(inputEl, fallbackCfgSelectors) {
   return btn || findFirst(fallbackCfgSelectors);
 }
 
+async function dispatchClickSequence(el) {
+  if (!el) return false;
+  const events = ['mousedown', 'mouseup', 'click', 'change'];
+  for (const ev of events) {
+    try { el.dispatchEvent(new Event(ev, { bubbles: true, cancelable: true })); } catch(e) {}
+  }
+  return true;
+}
+
 async function fillLookupModal(btn, searchValue, rootDoc) {
   if (!btn || !searchValue) return { ok: false };
   if (!rootDoc) rootDoc = document;
@@ -223,6 +232,9 @@ async function fillLookupModal(btn, searchValue, rootDoc) {
   if (clearBtn) { clearBtn.click(); await sleep(500); }
 
   log('Opening Modal for:', searchValue); btn.click(); await sleep(1800);
+
+  // Wait for modal to stabilize with visible items
+  await waitForModalStable(rootDoc);
 
   // ── Try direct pick first (single-page list like Brand) ──────────
   const itemsSelectors = Array.isArray(CFG.lookupModalItem) ? [...CFG.lookupModalItem] : [CFG.lookupModalItem];
@@ -258,12 +270,16 @@ async function fillLookupModal(btn, searchValue, rootDoc) {
         log('Wildcard * provided, picking first available item.');
         const match = items[0];
         if (!match) return { ok: false, reason: 'no-match' };
+        // Priority: radio > checkbox > row click
         const radio = match.querySelector('input[type="radio"]');
-        if (radio) radio.click(); else { const chk = match.querySelector('input[type="checkbox"]'); if (chk) chk.click(); else match.click(); }
-        await sleep(600);
+        const chk = match.querySelector('input[type="checkbox"]');
+        if (radio) { await dispatchClickSequence(radio); }
+        else if (chk) { await dispatchClickSequence(chk); }
+        else { await dispatchClickSequence(match); }
+        await sleep(1500);
         const selBtnList = Array.from(rootDoc.querySelectorAll('.modal button.primary, .modal button[aria-label*="Select"], .modal button[aria-label*="تحديد"], .modal button[aria-label*="اختر"]'));
         const selectBtn = selBtnList.reverse().find(b => b.offsetParent !== null);
-        if (selectBtn) { try { selectBtn.focus(); } catch(e){} selectBtn.click(); try { selectBtn.dispatchEvent(new Event('click', { bubbles: true })); } catch(e){} await sleep(1000); }
+        if (selectBtn) { try { selectBtn.focus(); } catch(e){} await dispatchClickSequence(selectBtn); await sleep(1500); }
         return { ok: true, selected: match.innerText?.trim() };
       }
 
@@ -301,12 +317,16 @@ async function fillLookupModal(btn, searchValue, rootDoc) {
       const match = exactMatch || startsMatch || includesMatch || null;
       log(`Model pick — exact:${!!exactMatch} starts:${!!startsMatch} includes:${!!includesMatch} → "${match?.innerText?.trim().slice(0,60)}"`);
       if (!match) return { ok: false, reason: 'no-match' };
+      // Priority: radio > checkbox > row click with full dispatch sequence
       const radio = match.querySelector('input[type="radio"]');
-      if (radio) radio.click(); else { const chk = match.querySelector('input[type="checkbox"]'); if (chk) chk.click(); else match.click(); }
-      await sleep(600);
+      const chk = match.querySelector('input[type="checkbox"]');
+      if (radio) { await dispatchClickSequence(radio); }
+      else if (chk) { await dispatchClickSequence(chk); }
+      else { await dispatchClickSequence(match); }
+      await sleep(1500);
       const selBtnList = Array.from(rootDoc.querySelectorAll('.modal button.primary, .modal button[aria-label*="Select"], .modal button[aria-label*="تحديد"], .modal button[aria-label*="اختر"]'));
       const selectBtn = selBtnList.reverse().find(b => b.offsetParent !== null);
-      if (selectBtn) { try { selectBtn.focus(); } catch(e){} selectBtn.click(); try { selectBtn.dispatchEvent(new Event('click', { bubbles: true })); } catch(e){} await sleep(1000); }
+      if (selectBtn) { try { selectBtn.focus(); } catch(e){} await dispatchClickSequence(selectBtn); await sleep(1500); }
       return { ok: true, selected: match.innerText?.trim() };
     };
 
@@ -332,7 +352,7 @@ async function fillLookupModal(btn, searchValue, rootDoc) {
     const modalSearchBtn = si.parentElement?.querySelector('button') || rootDoc.querySelector('.modal button[aria-label*="Search"], .modal button[aria-label*="بحث"]');
     if (modalSearchBtn) modalSearchBtn.click(); else ['keydown','keypress','keyup'].forEach(ev => { try { si.dispatchEvent(new KeyboardEvent(ev, { key: 'Enter', keyCode: 13, bubbles: true })); } catch(e){} });
     
-    log('â³ Waiting for search results...');
+    log('⏳ Waiting for search results...');
     const startWait = Date.now();
     while (Date.now() - startWait < 12000) {
       visibleItems = getVisibleItems();
@@ -353,18 +373,23 @@ async function fillLookupModal(btn, searchValue, rootDoc) {
 
 // ── Modal guard: wait for any open modal to close before proceeding ──
 async function waitForModalCloseIfOpen(timeoutMs = 20000) {
-  const modal = document.querySelector('.modal.show, .modal-backdrop.show');
-  if (!modal) return;
-  log('â³ Waiting for existing modal to close...');
+  const hasModal = () => document.querySelector('.modal.show, .modal[style*="display: block"], .modal-backdrop.show, body.modal-open');
+  if (!hasModal()) return true;
+  log('⏳ Waiting for existing modal to close...');
   const start = Date.now();
   while (Date.now() - start < timeoutMs) {
-    if (!document.querySelector('.modal.show, .modal-backdrop.show')) {
+    const stillOpen = document.querySelector('.modal.show, .modal[style*="display: block"]');
+    const backdrop = document.querySelector('.modal-backdrop.show');
+    const bodyLocked = document.body.classList.contains('modal-open') && stillOpen;
+    if (!stillOpen && !backdrop && !bodyLocked) {
       log('✅ Existing modal closed');
       await sleep(1000);
-      return;
+      return true;
     }
     await sleep(300);
   }
+  warn('⚠️ Modal still open after timeout');
+  return false;
 }
 
 // ── Find the iframe document inside a modal (PowerApps subgrid modals) ──
@@ -572,7 +597,7 @@ async function fillAndVerify(fieldLabel, targetValue, actionFn, verifyFn, maxRet
     const closeBtn = document.querySelector('.modal.show [data-dismiss="modal"], .modal.show button.close');
     if (closeBtn && closeBtn.offsetParent !== null) { closeBtn.click(); await sleep(800); }
   }
-  err(`âŒ [Failed] ${fieldLabel} after ${maxRetries} attempts.`); return { ok: false };
+  err(`Œ [Failed] ${fieldLabel} after ${maxRetries} attempts.`); return { ok: false };
 }
 
 // ═══════════════════════════════════════════════════════════
@@ -997,7 +1022,7 @@ async function selectRandomTechnician(targetName = null) {
 
   log('Trying inline technician lookup...');
   const lab = findFieldByLabel(['الفنيين','الفني','Technician','Technicians']);
-  if (!lab) { log('âŒ No technician field found on page'); return { ok: false }; }
+  if (!lab) { log('Œ No technician field found on page'); return { ok: false }; }
   if (lab.tagName === 'SELECT') {
     const valid = Array.from(lab.options).filter(o => o.value && o.text.trim());
     if (valid.length) { const rand = targetName ? (valid.find(o=>o.text.includes(targetName))||valid[0]) : valid[Math.floor(Math.random()*valid.length)]; await emulateUserInput(lab, rand.value); return { ok: true, name: rand.text }; }
@@ -1188,7 +1213,7 @@ async function executePage1_Review(data, cfg) {
   }, createInputVerifier(() => document.querySelector('#ldv_warrantystatus') || document.querySelector('select[name*="warranty"]') || document.querySelector('select[id*="warranty"]') || findFieldByLabel(['حالة الضمان'],'select')));
   FR.date = await fillAndVerify('Date', data.date, () => { let d = data.date; const dmy = d.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/); if(dmy) d=`${dmy[3]}-${dmy[2].padStart(2,'0')}-${dmy[1].padStart(2,'0')}`; const el=findFirst(cfg.dateInput)||findFieldByLabel(['تاريخ الضمان','Warranty Date'],'input'); return (el) ? emulateUserInput(el, el.type==='date'?d:data.date) : false; }, createInputVerifier(()=>findFirst(cfg.dateInput)||findFieldByLabel(['تاريخ الضمان'],'input')));
 
-  log('â”â”â” PAGE 1 DONE â”â”â”', FR);
+  log('─── PAGE 1 DONE ───', FR);
   return { report: { fieldResults: FR } };
 }
 
@@ -1289,9 +1314,9 @@ async function executePage2_FollowUp(data, cfg) {
     techRes = await selectRandomTechnician(targetTech);
   }
   FR.technician = { ok: techRes?.ok || false, selected: techRes?.name };
-  log(techRes?.ok ? '✅ Technician added: ' + techRes.name : 'âŒ Technician failed');
+  log(techRes?.ok ? '✅ Technician added: ' + techRes.name : 'Œ Technician failed');
 
-  log('â”â”â” PAGE 2 DONE â”â”â”', FR);
+  log('─── PAGE 2 DONE ───', FR);
   return { report: { fieldResults: FR } };
 }
 async function executePage3_Resolution(data, cfg) {
@@ -1334,7 +1359,7 @@ async function executePage3_Resolution(data, cfg) {
   // Spare Parts Comment Logic
   FR.sparePartsComment = await handleSparePartsComment(data, cfg);
 
-  log('â”â”â” PAGE 3 DONE â”â”â”', FR);
+  log('─── PAGE 3 DONE ───', FR);
   return { report: { fieldResults: FR } };
 }
 
@@ -1750,8 +1775,9 @@ function showOverlay(report) {
   document.getElementById('autofiller-overlay')?.remove();
   const div = document.createElement('div'); div.id = 'autofiller-overlay';
   Object.assign(div.style, { position:'fixed', bottom:'16px', left:'16px', background:'linear-gradient(135deg,#0f2538,#17334c)', border:'1px solid rgba(255,255,255,0.15)', borderRadius:'12px', padding:'14px 18px', color:'#ffffff', fontFamily:"'Cairo', Tahoma, Arial, sans-serif", fontSize:'13px', zIndex:'2147483647', boxShadow:'0 8px 32px rgba(0,0,0,0.6)', maxWidth:'340px', direction:'rtl', pointerEvents:'none' });
-  const fr = report.fieldResults || {}; const summary = Object.keys(fr).map(k => fr[k] ? `${fr[k].ok ? '✅':'âŒ'}${k}` : null).filter(Boolean).join(' | ');
-  div.innerHTML = `<div style="font-weight:700;color:#ffffff;margin-bottom:6px">âš¡ Portal AutoFiller v3.0</div><div style="color:#ffffff;">✅ اكتمل — <b>${report.customer || 'العميل'}</b></div><div style="color:rgba(255,255,255,0.85);font-size:11px;margin-top:4px">${summary}</div>`;
+  const fr = report.fieldResults || {}; const summary = Object.keys(fr).map(k => fr[k] ? `${fr[k].ok ? '✅':'Œ'}${k}` : null).filter(Boolean).join(' | ');
+  const saveOk = report?.saveResult?.ok !== false;
+  div.innerHTML = `<div style="font-weight:700;color:#ffffff;margin-bottom:6px">⚠¡ Portal AutoFiller v3.0</div><div style="color:#ffffff;">${saveOk ? '✅ اكتمل' : '⚠ï¸ لم يتأكد الحفظ — راجع الطلب'} <b>${report.customer || 'العميل'}</b></div><div style="color:rgba(255,255,255,0.85);font-size:11px;margin-top:4px">${summary}</div>`;
   document.body.appendChild(div); setTimeout(() => div.remove(), 7000);
 }
 
@@ -1840,10 +1866,10 @@ async function _runSingleLineWithRouterInner(task) {
     // ── Skip if page is already filled (order already processed) ──
     await sleep(800); // Wait briefly so fields render before checking
     if (!data.forceOverwrite && isPage1AlreadyFilled(cfg)) {
-        warn('â­ï¸ Page 1 already has data — marking task as done and skipping to next order.');
+        warn('­ï¸ Page 1 already has data — marking task as done and skipping to next order.');
         try {
           const { currentTask } = await storageGet({ currentTask: null });
-          if (currentTask) notifyStatus(currentTask.taskId, 'done', 'â­ï¸ مكتمل مسبقاً — تخطي');
+          if (currentTask) notifyStatus(currentTask.taskId, 'done', '­ï¸ مكتمل مسبقاً — تخطي');
         } catch(e){}
         const report = { timestamp: new Date().toISOString(), url: location.href, customer: findFirst(cfg.customer)?.innerText?.trim(), orderNumber: data.orderId, filled: data, fieldResults: { skipped: { ok: true } }, saveResult: { ok: true, skipped: true }, skippedReason: 'already-filled' };
         return { report, isFullyDone: true };
@@ -1897,8 +1923,12 @@ async function _runSingleLineWithRouterInner(task) {
             nBtn.click();
             isSaved = await waitForSaveComplete(startUrl, cfg);
         }
-        // removed finalizeSmartLog()
-        const report = { timestamp: new Date().toISOString(), url: location.href, customer: findFirst(cfg.customer)?.innerText?.trim(), orderNumber: data.orderId, filled: data, fieldResults: resFR, saveResult: { ok: true }, serviceFilled: !!resFR['تركيب'], technician: resFR['technician']?.selected };
+        // Truthful save result: ok only when verification actually passed.
+        // Queue still advances; consumer marks the task 'save-failed' when ok=false.
+        const saveResult = nBtn
+            ? { ok: !!isSaved, timeout: !isSaved, verifiedVia: 'waitForSaveComplete' }
+            : { ok: false, reason: 'save-button-not-found' };
+        const report = { timestamp: new Date().toISOString(), url: location.href, customer: findFirst(cfg.customer)?.innerText?.trim(), orderNumber: data.orderId, filled: data, fieldResults: resFR, saveResult, serviceFilled: !!resFR['تركيب'], technician: resFR['technician']?.selected };
         return { report, isFullyDone: true };
     }
     
@@ -1956,16 +1986,21 @@ async function _runSingleLineWithRouterInner(task) {
        warn('Save button not found on PAGE 3');
     }
     
-    // removed finalizeTelemetryLog()
-    saveResult = { ok: true };
+    // Truthful save result: ok only when verification actually passed.
+    saveResult = saveBtn
+        ? { ok: !!isSaved, timeout: !isSaved, verifiedVia: 'waitForSaveComplete' }
+        : { ok: false, reason: 'save-button-not-found' };
     }
   }
   
-  const isDone = saveResult.ok;
+  // NOTE: isFullyDone stays true even when saveResult.ok === false. A reload-retry
+  // would hit the "Page1 already filled -> skipped as done" path and turn a real
+  // failure into a fake success. Truthful saveResult.ok drives the 'save-failed'
+  // status/session entry instead (see processQueueOnLoad).
   const report = { timestamp: new Date().toISOString(), url: location.href, customer: findFirst(cfg.customer)?.innerText?.trim(), orderNumber: data.orderId, filled: data, fieldResults: resFR, saveResult, serviceFilled: !!resFR['تركيب'], technician: resFR['technician']?.selected };
   try { await chrome.runtime.sendMessage({ type: 'SAVE_REPORT', payload: report }); } catch (_) {}
-  showOverlay(report); 
-  return { report, isFullyDone: isDone };
+  showOverlay(report);
+  return { report, isFullyDone: true };
 }
 
 // ── JSON-Driven Workflow Engine (V4 Architecture) ──────────────────────────
@@ -2143,7 +2178,7 @@ async function processQueueOnLoad() {
           }
        } else if (routerRes && routerRes.isManualStop) {
           log('Manual stop requested. Pausing here.');
-          notifyStatus(currentTask.taskId, 'stopped', 'â¸ï¸ بانتظار الإكمال اليدوي');
+          notifyStatus(currentTask.taskId, 'stopped', '¸ï¸ بانتظار الإكمال اليدوي');
           await finalizeOrderInSession(currentTask, routerRes.report, 'stopped');
           await storageRemove(['taskRetryFlag']);
           await clearCurrentTask();
@@ -2155,10 +2190,10 @@ async function processQueueOnLoad() {
             await storageSet({ taskRetryFlag: true });
             location.reload();
           } else {
-            warn('âŒ Retry failed. Skipping to next task.');
+            warn('Œ Retry failed. Skipping to next task.');
             sendSmartLog('TASK_COMPLETE', { orderId: currentTask.orderId, success: false, reason: 'retry-failed', mode: currentTask.mode || 'search' });
             delete document.body.dataset.isAutofilling;
-            notifyStatus(currentTask.taskId, 'error', 'âŒ فشل — تخطي للتالي');
+            notifyStatus(currentTask.taskId, 'error', 'Œ فشل — تخطي للتالي');
             await finalizeOrderInSession(currentTask, routerRes.report, 'error');
             await storageRemove(['taskRetryFlag']);
             await clearCurrentTask();
@@ -2175,7 +2210,7 @@ async function processQueueOnLoad() {
        err('ðŸ’¥ Unexpected error in router: ' + e);
         if (currentTask) sendSmartLog('TASK_COMPLETE', { orderId: currentTask.orderId, success: false, reason: 'error', mode: currentTask.mode || 'search' });
         delete document.body.dataset.isAutofilling;
-        notifyStatus(currentTask?.taskId, 'error', 'âŒ خطأ غير متوقع — تخطي للتالي');
+        notifyStatus(currentTask?.taskId, 'error', 'Œ خطأ غير متوقع — تخطي للتالي');
        if (currentTask) await finalizeOrderInSession(currentTask, { error: e.toString() }, 'error');
        await clearCurrentTask();
        const { taskQueue: qErr, taskDelay: td5 = 800 } = await storageGet({ taskQueue: [], taskDelay: 800 });
@@ -2333,7 +2368,7 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
         const { taskQueue, currentTask } = await storageGet({ taskQueue: [], currentTask: null });
         await storageRemove(['taskRetryFlag']);
         const skippedId = msg.taskId;
-        notifyStatus(skippedId, 'stopped', 'â­ تم التخطي');
+        notifyStatus(skippedId, 'stopped', '­ تم التخطي');
         if (currentTask) await finalizeOrderInSession(currentTask, { skippedReason: 'user-skipped' }, 'skipped');
         await clearCurrentTask();
         if (taskQueue.length > 0) { const { taskDelay: td4 = 800 } = await storageGet({ taskDelay: 800 }); await sleep(td4); await startNextTask(taskQueue); }
@@ -2379,7 +2414,7 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
         }
         sendResponse({ ok: true });
       }
-      else sendResponse({ ok: true });
+      else warn('Unhandled action: ' + msg.action + ' — not claiming it (other listeners may own it)');
     } catch { sendResponse({ ok: false }); }
   })(); return true;
 });

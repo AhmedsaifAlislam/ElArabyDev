@@ -86,6 +86,14 @@
     "textarea[aria-label*='ملاحظات']"
   ],
 
+  "sparePartsStatus": [
+    "#ats_sparepartsstatus",
+    "select[aria-label*='قطع الغيار']",
+    "select[aria-label*='Spare Parts']",
+    "select[name*='sparepart']",
+    "select[id*='spareparts']"
+  ],
+
   "nextBtn": [
     "#NextButton",
     "input[type='button'][value='Next']",
@@ -195,6 +203,15 @@
       { "action": "click", "target": "ordersSearchBtn" },
       { "action": "wait", "target": "ordersTableRow", "timeout": 12000 },
       { "action": "click_row", "target": "ordersViewLink", "matchText": "{{orderId}}" }
+    ],
+    "page1_fill": [
+      { "action": "fill_lookup", "target": "brandInput", "btn": "brandBtn", "value": "{{brand}}" },
+      { "action": "fill_lookup", "target": "modelInput", "btn": "modelBtn", "value": "{{model}}" },
+      { "action": "fill", "target": "serial", "value": "{{serial}}" },
+      { "action": "fill_lookup", "target": "modelInput2", "btn": "modelBtn", "value": "{{model2}}", "condition": "{{isAC}}" },
+      { "action": "fill", "target": "serial2", "value": "{{serial2}}", "condition": "{{isAC}}" },
+      { "action": "fill_select", "target": "statusSelect", "value": "{{status}}" },
+      { "action": "fill", "target": "dateInput", "value": "{{date}}" }
     ]
   }
 }
