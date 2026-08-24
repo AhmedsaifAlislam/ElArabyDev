@@ -225,7 +225,7 @@ async function dispatchClickSequence(el) {
   return true;
 }
 
-async function fillLookupModal(btn, searchValue, rootDoc) {
+async function fillLookupModal(btn, searchValue, rootDoc, opts = {}) {
   if (!btn || !searchValue) return { ok: false };
   if (!rootDoc) rootDoc = document;
   const clearBtn = btn.parentElement?.querySelector('button[aria-label*="Clear"], button[aria-label*="مسح"]');
@@ -314,7 +314,13 @@ async function fillLookupModal(btn, searchValue, rootDoc) {
         const code = normalize(getRowCode(i));
         return code.includes(targetCode) || code.includes(target);
       }) : null;
-      const match = exactMatch || startsMatch || includesMatch || null;
+      let match = exactMatch || startsMatch || includesMatch || null;
+      if (opts && opts.strictExact) {
+        // P0-B.1: deterministic mode (technician) — accept ONLY exact matches, never starts-with/includes/first-row.
+        match = exactMatch || null;
+        log(`Strict deterministic pick — exactMatch only: ${!!exactMatch}`);
+        if (!match) return { ok: false, reason: 'no-exact-match' };
+      }
       log(`Model pick — exact:${!!exactMatch} starts:${!!startsMatch} includes:${!!includesMatch} → "${match?.innerText?.trim().slice(0,60)}"`);
       if (!match) return { ok: false, reason: 'no-match' };
       // Priority: radio > checkbox > row click with full dispatch sequence
@@ -415,7 +421,7 @@ async function waitForModalIframe(modal, timeoutMs = 15000) {
 }
 
 // Handle Page 2 modals (Problems & Technicians) — PowerApps modal with iframe inside
-async function handlePage2Modal(btnRegex, searchValue) {
+async function handlePage2Modal(btnRegex, searchValue, opts = {}) {
   // Guard: wait for any existing modal to close before clicking add
   await waitForModalCloseIfOpen();
 
@@ -456,7 +462,7 @@ async function handlePage2Modal(btnRegex, searchValue) {
   }
   await sleep(1500);
   // Pass document as rootDoc because the lookup modal opens in the main document (full-screen PowerApps lookup)
-  const result = await fillLookupModal(lookupBtn, searchValue, document);
+  const result = await fillLookupModal(lookupBtn, searchValue, document, opts);
   if (!result || !result.ok) {
     warn(`handlePage2Modal: Lookup failed: ${result?.reason || 'unknown'}`);
     const closeBtn = modal.querySelector('[data-dismiss="modal"]');
@@ -1011,12 +1017,19 @@ async function selectRandomTechnician(targetName = null) {
     return { ok: true, name: '(موجود مسبقاً)' };
   }
 
+  // P0-B.1: deterministic technician targeting — never pick random/first arbitrarily.
+  const wantedTech = (targetName || '').trim();
+  if (!wantedTech) {
+    warn('⚠️ P0-B.1: no technician specified in input — failing explicitly instead of selecting random/first');
+    return { ok: false, reason: 'technician-not-specified' };
+  }
+
   log('▶ï¸ Looking for Technician button...');
   const allBtns = Array.from(document.querySelectorAll('a, button, input[type="button"]')).filter(b => b.offsetParent !== null);
   const techBtns = allBtns.filter(b => /فن|tech/i.test((b.innerText||b.title||b.value||'').trim()));
   log(`Found ${techBtns.length} tech-related buttons: ${techBtns.map(b=>'"'+(b.innerText||b.title||b.value||'').trim().slice(0,30)+'"').join(', ')}`);
 
-  let res = await handlePage2Modal(/[اإأ]ضاف[ةه]\s*فن|Add.*Tech/i, targetName);
+  const res = await handlePage2Modal(/[اإأ]ضاف[ةه]\s*فن|Add.*Tech/i, wantedTech, { strictExact: true });
   if (res && res.ok) return res;
   if (res && !res.ok) log('⚠ï¸ Technician handlePage2Modal failed');
 
@@ -1024,15 +1037,21 @@ async function selectRandomTechnician(targetName = null) {
   const lab = findFieldByLabel(['الفنيين','الفني','Technician','Technicians']);
   if (!lab) { log('Œ No technician field found on page'); return { ok: false }; }
   if (lab.tagName === 'SELECT') {
-    const valid = Array.from(lab.options).filter(o => o.value && o.text.trim());
-    if (valid.length) { const rand = targetName ? (valid.find(o=>o.text.includes(targetName))||valid[0]) : valid[Math.floor(Math.random()*valid.length)]; await emulateUserInput(lab, rand.value); return { ok: true, name: rand.text }; }
+    const normTxt = s => (s || '').replace(/\s+/g, '').toLowerCase();
+    const exactOpt = Array.from(lab.options).find(o => o.value && normTxt(o.text) === normTxt(wantedTech));
+    if (!exactOpt) { warn(`⚠️ P0-B.1: technician "${wantedTech}" not found in select options — failing explicitly (no random/first fallback)`); return { ok: false, reason: 'technician-not-found' }; }
+    await emulateUserInput(lab, exactOpt.value);
+    return { ok: true, name: exactOpt.text };
   }
   const btn = findSafeLookupButton(lab, ['.lookup-technician button', '.lookup-btn']);
   if (btn) {
     btn.click(); await sleep(2000); 
     const items = Array.from(document.querySelectorAll('.modal table tbody tr, .modal-body table tbody tr td:first-child')).filter(i => i.offsetParent !== null && i.innerText.trim() && !/norecords|لاتوجد/.test(i.innerText.replace(/\s/g,'')));
     if (items.length) {
-      const rand = targetName ? (items.find(i => i.innerText.trim().includes(targetName)) || items[0]) : items[Math.floor(Math.random()*items.length)];
+      const nrmRow = s => (s || '').replace(/\s+/g, '').toLowerCase();
+      const exactItem = items.find(i => nrmRow(i.innerText.trim()) === nrmRow(wantedTech));
+      if (!exactItem) { warn(`⚠️ P0-B.1: technician "${wantedTech}" not found in lookup modal — closing and failing explicitly (no random/first fallback)`); const closeX = document.querySelector('.modal.show [data-dismiss="modal"]'); if (closeX) closeX.click(); return { ok: false, reason: 'technician-not-found' }; }
+      const rand = exactItem;
       const radio = rand.querySelector('input[type="radio"], input[type="checkbox"]');
       if (radio) radio.click(); else rand.click(); await sleep(300);
       const sels = Array.from(document.querySelectorAll('.modal button.btn-primary, .modal input.btn-primary, .modal input[value="اختر"], .modal input[value="Select"], .modal button[aria-label*="Select"], .modal button[aria-label*="اختر"]'));
@@ -1139,7 +1158,9 @@ function parseDataLine(line) {
     problemCode: obj['problemcode'] || obj['problem'] || '',
     faultCode: obj['faultcode'] || obj['fault'] || '',
     subFaultCode: obj['subfault'] || null,
-    notes: obj['notes'] || obj['ملاحظات'] || ''
+    notes: obj['notes'] || obj['ملاحظات'] || '',
+    technician: obj['technician'] || obj['الفني'] || obj['الفنى'] || '',
+    technicianName: obj['technicianname'] || obj['اسمالفني'] || obj['اسمالفنى'] || ''
   };
 
   // For AC with merged model+serial (model2 exists): pick the newest date
@@ -1206,7 +1227,8 @@ async function executePage1_Review(data, cfg) {
     if (!el) return { ok: false };
     const lower = (data.status || '').toLowerCase();
     const opts = Array.from(el.options || []);
-    const match = opts.find(o => o.text.toLowerCase() === lower) || opts.find(o => o.text.toLowerCase().includes(lower)) || opts.find(o => lower.includes(o.text.toLowerCase()) && o.text.trim() !== '') || opts.find(o => o.value === '753240001');
+    // P0-B.2: removed hardcoded business-value fallback (753240001). Unmatched/missing status must fail verification explicitly.
+    const match = opts.find(o => o.text.toLowerCase() === lower) || opts.find(o => o.text.toLowerCase().includes(lower)) || opts.find(o => lower.includes(o.text.toLowerCase()) && o.text.trim() !== '');
     if (!match) return { ok: false };
     await emulateUserInput(el, match.value);
     return { ok: true, selected: match.text };

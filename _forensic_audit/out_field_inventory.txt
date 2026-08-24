@@ -1,0 +1,704 @@
+===== PAGE_1: 96 distinct fields =====
+    162  [input] label=فئة المنتج is a required field. name=ctl00$ctl00$ContentContainer$MainContent$EntityControls$WebFormControl$EntityFormView$ldv_productgroup_name
+    152  [input] label=نوع المنتج is a required field. name=ctl00$ctl00$ContentContainer$MainContent$EntityControls$WebFormControl$EntityFormView$ldv_producttype_name
+    152  [input] label=العلامة التجاريه is a required field. name=ctl00$ctl00$ContentContainer$MainContent$EntityControls$WebFormControl$EntityFormView$ats_producttypebrand_name
+    152  [input] label=الموديل الفعلي 1 is a required field. name=ctl00$ctl00$ContentContainer$MainContent$EntityControls$WebFormControl$EntityFormView$ldv_actualmodel_name
+    152  [input] label=الرقم المسلسل name=ctl00$ctl00$ContentContainer$MainContent$EntityControls$WebFormControl$EntityFormView$ldv_serialnumber
+    152  SELECT label=حالة الضمان name=ctl00$ctl00$ContentContainer$MainContent$EntityControls$WebFormControl$EntityFormView$ldv_warrantystatus
+     66  [input] label=الموديل الفعلي 2 name=ctl00$ctl00$ContentContainer$MainContent$EntityControls$WebFormControl$EntityFormView$ldv_actualmodel2_name
+     66  [input] label=الرقم المسلسل 2 name=ctl00$ctl00$ContentContainer$MainContent$EntityControls$WebFormControl$EntityFormView$ldv_serialnumber1
+     60  [input] label=تاريخ الضمان name=
+     38  [input] label=Leave this field blank name=ctl00$ctl00$ContentContainer$MainContent$EntityControls$WebFormControl$EntityFormView$frm_pref_bee1d551
+     38  [input] label=Leave this field blank name=ctl00$ctl00$ContentContainer$MainContent$EntityControls$WebFormControl$EntityFormView$frm_pref_a9290319
+     18  [input] label=To search on partial text, use the asterisk (*) wildcard character.  name=
+     16  [input] label=Leave this field blank name=ctl00$ctl00$ContentContainer$MainContent$EntityControls$WebFormControl$EntityFormView$frm_pref_5d278b4c
+     14  [input] label=الفعل is a required field. name=ctl00$ctl00$ContentContainer$MainContent$EntityControls$WebFormControl$EntityFormView$ats_bookingstatus_name
+     14  [input] label=تاريخ الحجز name=
+     12  [input] label=Leave this field blank name=ctl00$ctl00$ContentContainer$MainContent$EntityControls$WebFormControl$EntityFormView$frm_pref_96a10c4c
+     11  [input] label=Leave this field blank name=ctl00$ctl00$ContentContainer$MainContent$EntityControls$WebFormControl$EntityFormView$frm_pref_0c0a2981
+     10  [input] label=اسم العميل is a required field. name=ctl00$ctl00$ContentContainer$MainContent$EntityControls$WebFormControl$EntityFormView$customerid_name
+     10  [input] label=رقم الحساب name=ctl00$ctl00$ContentContainer$MainContent$EntityControls$WebFormControl$EntityFormView$ats_accountnumber
+     10  [input] label=رقم العقار name=ctl00$ctl00$ContentContainer$MainContent$EntityControls$WebFormControl$EntityFormView$ldv_buildingnumber
+     10  [input] label=العنوان name=ctl00$ctl00$ContentContainer$MainContent$EntityControls$WebFormControl$EntityFormView$ldv_address
+     10  [input] label=Correct Total Amount No name=ctl00$ctl00$ContentContainer$MainContent$EntityControls$WebFormControl$EntityFormView$ldv_correcttotalamount
+     10  [input] label=Correct Total Amount Yes name=ctl00$ctl00$ContentContainer$MainContent$EntityControls$WebFormControl$EntityFormView$ldv_correcttotalamount
+     10  [input] label=Correct warranty status No name=ctl00$ctl00$ContentContainer$MainContent$EntityControls$WebFormControl$EntityFormView$ldv_correctwarantystatus
+     10  [input] label=Correct warranty status Yes name=ctl00$ctl00$ContentContainer$MainContent$EntityControls$WebFormControl$EntityFormView$ldv_correctwarantystatus
+     10  [input] label=Correct report No name=ctl00$ctl00$ContentContainer$MainContent$EntityControls$WebFormControl$EntityFormView$ldv_correctreport
+     10  [input] label=Correct report Yes name=ctl00$ctl00$ContentContainer$MainContent$EntityControls$WebFormControl$EntityFormView$ldv_correctreport
+     10  [input] label=Correct Warranty Date No name=ctl00$ctl00$ContentContainer$MainContent$EntityControls$WebFormControl$EntityFormView$ldv_correctwarrantydate
+     10  [input] label=Correct Warranty Date Yes name=ctl00$ctl00$ContentContainer$MainContent$EntityControls$WebFormControl$EntityFormView$ldv_correctwarrantydate
+     10  [input] label=Correct Model No name=ctl00$ctl00$ContentContainer$MainContent$EntityControls$WebFormControl$EntityFormView$ldv_correctmodel
+     10  [input] label=Correct Model Yes name=ctl00$ctl00$ContentContainer$MainContent$EntityControls$WebFormControl$EntityFormView$ldv_correctmodel
+     10  [input] label=Correct Second Model No name=ctl00$ctl00$ContentContainer$MainContent$EntityControls$WebFormControl$EntityFormView$ldv_correctsecondmodel
+     10  [input] label=Correct Second Model Yes name=ctl00$ctl00$ContentContainer$MainContent$EntityControls$WebFormControl$EntityFormView$ldv_correctsecondmodel
+     10  [input] label=Correct Serial Number No name=ctl00$ctl00$ContentContainer$MainContent$EntityControls$WebFormControl$EntityFormView$ldv_correctserial
+     10  [input] label=Correct Serial Number Yes name=ctl00$ctl00$ContentContainer$MainContent$EntityControls$WebFormControl$EntityFormView$ldv_correctserial
+     10  [input] label=Correct Second Serial No name=ctl00$ctl00$ContentContainer$MainContent$EntityControls$WebFormControl$EntityFormView$ldv_correctsecondserial
+     10  [input] label=Correct Second Serial Yes name=ctl00$ctl00$ContentContainer$MainContent$EntityControls$WebFormControl$EntityFormView$ldv_correctsecondserial
+     10  [input] label=Correct Defect Code No name=ctl00$ctl00$ContentContainer$MainContent$EntityControls$WebFormControl$EntityFormView$ldv_correct
+     10  [input] label=Correct Defect Code Yes name=ctl00$ctl00$ContentContainer$MainContent$EntityControls$WebFormControl$EntityFormView$ldv_correct
+     10  [input] label=Correct Second Defects No name=ctl00$ctl00$ContentContainer$MainContent$EntityControls$WebFormControl$EntityFormView$ldv_correctseconddefects
+
+===== PAGE_2: 77 distinct fields =====
+    276  [input] label=اسم العميل is a required field. name=ctl00$ctl00$ContentContainer$MainContent$EntityControls$WebFormControl$EntityFormView$customerid_name
+    276  [input] label=رقم الحساب name=ctl00$ctl00$ContentContainer$MainContent$EntityControls$WebFormControl$EntityFormView$ats_accountnumber
+    276  [input] label=رقم العقار name=ctl00$ctl00$ContentContainer$MainContent$EntityControls$WebFormControl$EntityFormView$ldv_buildingnumber
+    276  [input] label=العنوان is a required field. name=ctl00$ctl00$ContentContainer$MainContent$EntityControls$WebFormControl$EntityFormView$is_casecustomeraddress_name
+    276  [input] label=Latitude name=ctl00$ctl00$ContentContainer$MainContent$EntityControls$WebFormControl$EntityFormView$ldv_latitude
+    276  [input] label=Longitude name=ctl00$ctl00$ContentContainer$MainContent$EntityControls$WebFormControl$EntityFormView$ldv_longitude
+    276  [textarea] label=ملاحظات الدعم الفنى name=ctl00$ctl00$ContentContainer$MainContent$EntityControls$WebFormControl$EntityFormView$ldv_technicalsupportnotes
+    276  [textarea] label=ملاحظات فريق التخطيط name=ctl00$ctl00$ContentContainer$MainContent$EntityControls$WebFormControl$EntityFormView$ldv_planningteamnotes
+    276  [textarea] label=ملاحظات فريق المكتب الخلفى name=ctl00$ctl00$ContentContainer$MainContent$EntityControls$WebFormControl$EntityFormView$ldv_backofficenotes
+    276  [textarea] label=ملاحظات خدمة العملاء name=ctl00$ctl00$ContentContainer$MainContent$EntityControls$WebFormControl$EntityFormView$ldv_callcenternotes
+    276  [textarea] label=ملاحظات name=ctl00$ctl00$ContentContainer$MainContent$EntityControls$WebFormControl$EntityFormView$ldv_notes
+    276  [input] label=رقم الطلب name=ctl00$ctl00$ContentContainer$MainContent$EntityControls$WebFormControl$EntityFormView$ticketnumber
+    276  [input] label=SAPرقم ال name=ctl00$ctl00$ContentContainer$MainContent$EntityControls$WebFormControl$EntityFormView$ldv_sapordernumber
+    276  [input] label=تاريخ الانشاء name=
+    276  [input] label=نوع الخدمة name=ctl00$ctl00$ContentContainer$MainContent$EntityControls$WebFormControl$EntityFormView$ats_workordertype_name
+    276  [input] label=فئة المنتج is a required field. name=ctl00$ctl00$ContentContainer$MainContent$EntityControls$WebFormControl$EntityFormView$ldv_productgroup_name
+    276  [input] label=نوع المنتج is a required field. name=ctl00$ctl00$ContentContainer$MainContent$EntityControls$WebFormControl$EntityFormView$ldv_producttype_name
+    276  [input] label=تاريخ الضمان name=
+    276  [input] label=علامة تجارية name=ctl00$ctl00$ContentContainer$MainContent$EntityControls$WebFormControl$EntityFormView$ldv_brand_name
+    276  [input] label=الموديل المبدئي is a required field. name=ctl00$ctl00$ContentContainer$MainContent$EntityControls$WebFormControl$EntityFormView$ldv_modelnumber_name
+    276  [input] label=المشاكل المبدئية name=ctl00$ctl00$ContentContainer$MainContent$EntityControls$WebFormControl$EntityFormView$ldv_problem_name
+    276  [input] label=المشاكل المبدئية2 name=ctl00$ctl00$ContentContainer$MainContent$EntityControls$WebFormControl$EntityFormView$ldv_problem2_name
+    276  [input] label=المشاكل المبدئية3 name=ctl00$ctl00$ContentContainer$MainContent$EntityControls$WebFormControl$EntityFormView$ldv_problem3_name
+    276  [input] label=الرقم المسلسل name=ctl00$ctl00$ContentContainer$MainContent$EntityControls$WebFormControl$EntityFormView$ldv_serialnumber
+    276  [input] label=علامة تجارية is a required field. name=ctl00$ctl00$ContentContainer$MainContent$EntityControls$WebFormControl$EntityFormView$ats_producttypebrand_name
+    276  [input] label=الموديل الفعلي 1 is a required field. name=ctl00$ctl00$ContentContainer$MainContent$EntityControls$WebFormControl$EntityFormView$ldv_actualmodel_name
+    276  [input] label=احصل على الموقع name=ctl00$ctl00$ContentContainer$MainContent$EntityControls$WebFormControl$EntityFormView$ats_getlocation
+    276  SELECT label=تمت الصيانة داخل/خارج المركز name=ctl00$ctl00$ContentContainer$MainContent$EntityControls$WebFormControl$EntityFormView$new_inoutasc
+    276  SELECT label=حالة الضمان name=ctl00$ctl00$ContentContainer$MainContent$EntityControls$WebFormControl$EntityFormView$ldv_warrantystatus
+    276  SELECT label=حالة قطع الغيار name=ctl00$ctl00$ContentContainer$MainContent$EntityControls$WebFormControl$EntityFormView$ats_sparepartsstatus
+    276  SELECT label=Is LSC name=ctl00$ctl00$ContentContainer$MainContent$EntityControls$WebFormControl$EntityFormView$ldv_islsc
+    276  SELECT label=حالة الضمان name=ctl00$ctl00$ContentContainer$MainContent$EntityControls$WebFormControl$EntityFormView$ldv_trwarrantystatus
+    276  SELECT label=Work Order Type name=ctl00$ctl00$ContentContainer$MainContent$EntityControls$WebFormControl$EntityFormView$ldv_workordertype
+    109  [input] label=الرقم المسلسل 2 name=ctl00$ctl00$ContentContainer$MainContent$EntityControls$WebFormControl$EntityFormView$ldv_serialnumber1
+    109  [input] label=الموديل الفعلي 2 name=ctl00$ctl00$ContentContainer$MainContent$EntityControls$WebFormControl$EntityFormView$ldv_actualmodel2_name
+     35  [input] label=Leave this field blank name=ctl00$ctl00$ContentContainer$MainContent$EntityControls$WebFormControl$EntityFormView$frm_pref_8722e130
+     30  [input] label=Leave this field blank name=ctl00$ctl00$ContentContainer$MainContent$EntityControls$WebFormControl$EntityFormView$frm_pref_857954f3
+     27  [input] label=Leave this field blank name=ctl00$ctl00$ContentContainer$MainContent$EntityControls$WebFormControl$EntityFormView$frm_pref_84671bff
+     26  [textarea] label=ملاحظات name=text
+     19  [input] label=Leave this field blank name=ctl00$ctl00$ContentContainer$MainContent$EntityControls$WebFormControl$EntityFormView$frm_pref_585f7579
+
+===== PAGE_3: 89 distinct fields =====
+    506  [input] label=تكلفة الزيارة name=ctl00$ctl00$ContentContainer$MainContent$EntityControls$WebFormControl$EntityFormView$ldv_originalvisitcost
+    506  [input] label=تكلفة قطع الغيار المستخدمة name=ctl00$ctl00$ContentContainer$MainContent$EntityControls$WebFormControl$EntityFormView$ldv_originaltotalusedsparepartscost
+    506  [input] label=التكلفة الإجمالية name=ctl00$ctl00$ContentContainer$MainContent$EntityControls$WebFormControl$EntityFormView$ldv_originaltotalvisitcost
+    506  SELECT label=Is LSC name=ctl00$ctl00$ContentContainer$MainContent$EntityControls$WebFormControl$EntityFormView$ldv_islsc
+    488  [input] label=الموديل الفعلي 1 name=ctl00$ctl00$ContentContainer$MainContent$EntityControls$WebFormControl$EntityFormView$ldv_actualmodel_name
+    488  [input] label=الفعل is a required field. name=ctl00$ctl00$ContentContainer$MainContent$EntityControls$WebFormControl$EntityFormView$ats_bookingstatus_name
+    488  [input] label=المبلغ المحصل name=ctl00$ctl00$ContentContainer$MainContent$EntityControls$WebFormControl$EntityFormView$ldv_actualcollectedamount
+    488  [input] label=التعليق name=ctl00$ctl00$ContentContainer$MainContent$EntityControls$WebFormControl$EntityFormView$ldv_resourcelastcomment
+    488  SELECT label=Warranty Status name=ctl00$ctl00$ContentContainer$MainContent$EntityControls$WebFormControl$EntityFormView$ldv_warrantystatus
+    488  SELECT label=حالة قطع الغيار name=ctl00$ctl00$ContentContainer$MainContent$EntityControls$WebFormControl$EntityFormView$ats_sparepartsstatus
+    488  SELECT label=Work Order Type name=ctl00$ctl00$ContentContainer$MainContent$EntityControls$WebFormControl$EntityFormView$ldv_workordertype
+    251  [input] label=كود العطل الرئيسي is a required field. name=ctl00$ContentContainer$MainContent$EntityFormControl$EntityFormControl_EntityFormView$ats_modeldefectmajor_name
+    251  [input] label=كود العطل is a required field. name=ctl00$ContentContainer$MainContent$EntityFormControl$EntityFormControl_EntityFormView$ats_defectcodedefectmajor_name
+    239  [input] label=الموديل الفعلي ٢ name=ctl00$ctl00$ContentContainer$MainContent$EntityControls$WebFormControl$EntityFormView$ldv_actualmodel2_name
+    188  [input] label=To search on partial text, use the asterisk (*) wildcard character.  name=
+    145  [input] label=قطع الغيار is a required field. name=ctl00$ContentContainer$MainContent$EntityFormControl$EntityFormControl_EntityFormView$ats_modeldefectspid_name
+    145  [input] label=الكمية name=ctl00$ContentContainer$MainContent$EntityFormControl$EntityFormControl_EntityFormView$ats_quantity
+    145  SELECT label=داخل/خارج المخزن name=ctl00$ContentContainer$MainContent$EntityFormControl$EntityFormControl_EntityFormView$ats_inventorystatus
+    145  SELECT label=داخل/ خارج الضمان name=ctl00$ContentContainer$MainContent$EntityFormControl$EntityFormControl_EntityFormView$ats_warrantystatus
+    128  [input] label=الموديل الفعلى is a required field. name=ctl00$ContentContainer$MainContent$EntityFormControl$EntityFormControl_EntityFormView$ats_modelid_name
+    106  [input] label=الموديل الفعلي is a required field. name=ctl00$ContentContainer$MainContent$EntityFormControl$EntityFormControl_EntityFormView$ats_actualmodel_name
+     60  [input] label=Leave this field blank name=ctl00$ctl00$ContentContainer$MainContent$EntityControls$WebFormControl$EntityFormView$frm_pref_08638918
+     60  [input] label=Leave this field blank name=ctl00$ctl00$ContentContainer$MainContent$EntityControls$WebFormControl$EntityFormView$frm_pref_d6422eca
+     60  [input] label=Leave this field blank name=ctl00$ctl00$ContentContainer$MainContent$EntityControls$WebFormControl$EntityFormView$frm_pref_1d8766cb
+     60  [input] label=Leave this field blank name=ctl00$ctl00$ContentContainer$MainContent$EntityControls$WebFormControl$EntityFormView$frm_pref_987a459a
+     48  [input] label=Leave this field blank name=ctl00$ContentContainer$MainContent$EntityFormControl$EntityFormControl_EntityFormView$frm_pref_320b985b
+     45  [input] label=Leave this field blank name=ctl00$ContentContainer$MainContent$EntityFormControl$EntityFormControl_EntityFormView$frm_pref_43d28d02
+     28  [input] label=Leave this field blank name=ctl00$ctl00$ContentContainer$MainContent$EntityControls$WebFormControl$EntityFormView$frm_pref_00c22ff6
+     22  [input] label=Leave this field blank name=ctl00$ctl00$ContentContainer$MainContent$EntityControls$WebFormControl$EntityFormView$frm_pref_73b90b7d
+     20  [input] label=Leave this field blank name=ctl00$ctl00$ContentContainer$MainContent$EntityControls$WebFormControl$EntityFormView$frm_pref_d6b849a9
+     18  [input] label=Leave this field blank name=ctl00$ContentContainer$MainContent$EntityFormControl$EntityFormControl_EntityFormView$frm_pref_97cbe3c9
+     18  [input] label=Leave this field blank name=ctl00$ctl00$ContentContainer$MainContent$EntityControls$WebFormControl$EntityFormView$frm_pref_c6140adc
+     18  [input] label=نوع الخدمة name=ctl00$ctl00$ContentContainer$MainContent$EntityControls$WebFormControl$EntityFormView$ats_workordertype_name
+     18  [input] label=الموديل الفعلى 1 name=ctl00$ctl00$ContentContainer$MainContent$EntityControls$WebFormControl$EntityFormView$ldv_model_name
+     18  [input] label=Leave this field blank name=ctl00$ctl00$ContentContainer$MainContent$EntityControls$WebFormControl$EntityFormView$frm_pref_ff0b9b63
+     18  SELECT label=Spare Parts Status name=ctl00$ctl00$ContentContainer$MainContent$EntityControls$WebFormControl$EntityFormView$ats_sparepartsstatus
+     18  SELECT label=Send For Correction name=ctl00$ctl00$ContentContainer$MainContent$EntityControls$WebFormControl$EntityFormView$ldv_sendforcorrection
+     18  SELECT label=نوع الخدمة name=ctl00$ctl00$ContentContainer$MainContent$EntityControls$WebFormControl$EntityFormView$ldv_workordertype
+     18  SELECT label=حالة الضمان name=ctl00$ctl00$ContentContainer$MainContent$EntityControls$WebFormControl$EntityFormView$ldv_trwarrantystatus
+     18  [input] label=Leave this field blank name=ctl00$ctl00$ContentContainer$MainContent$EntityControls$WebFormControl$EntityFormView$frm_pref_d2257067
+
+########## DISTINCT NON-EMPTY VALUES PER PAGE ##########
+===== PAGE_1 (146 distinct values) =====
+   Case Number = 'CAS2026081052872129'
+   Case Number = 'CAS2026081552979366'
+   Case Number = 'CAS2026081853044400'
+   Case Number = 'CAS2026082253113378'
+   Case Type => 'Select' ()
+   Correct Defect Code No = '0'
+   Correct Defect Code Yes = '1'
+   Correct Model No = '0'
+   Correct Model Yes = '1'
+   Correct Second Defects No = '0'
+   Correct Second Defects Yes = '1'
+   Correct Second Model No = '0'
+   Correct Second Model Yes = '1'
+   Correct Second Serial No = '0'
+   Correct Second Serial Yes = '1'
+   Correct Serial Number No = '0'
+   Correct Serial Number Yes = '1'
+   Correct Total Amount No = '0'
+   Correct Total Amount Yes = '1'
+   Correct Warranty Date No = '0'
+   Correct Warranty Date Yes = '1'
+   Correct report No = '0'
+   Correct report Yes = '1'
+   Correct warranty status No = '0'
+   Correct warranty status Yes = '1'
+   Created On = '10/08/2026 4:43 PM'
+   Created On = '15/08/2026 4:08 PM'
+   Created On = '18/08/2026 12:42 PM'
+   Created On = '22/08/2026 12:19 PM'
+   Customer Name is a required field. = 'اسماء فوزي عبد العزيز'
+   Customer Name is a required field. = 'محمد سليمان فتحى'
+   Customer Name is a required field. = 'منال عبدالله عبد العزيز'
+   Customer Name is a required field. = 'هشام توفيق منير'
+   Inventory Adjustment = '36082598'
+   Inventory Adjustment = '36429666'
+   Is LSC => 'Select' ()
+   SAPرقم ال = '734043807'
+   SAPرقم ال = '734148884'
+   Send For Correction => 'Yes' (1)
+   Title = 'اسماء فوزي عبد العزيز(CAS2026081853044400)   '
+   Title = 'محمد سليمان فتحى(CAS2026082253113378)   '
+   Title = 'منال عبدالله عبد العزيز(CAS2026081052872129)   '
+   Title = 'هشام توفيق منير(CAS2026081552979366)   '
+   To search on partial text, use the asterisk (*) wildcard character.  = 'AE-A'
+   To search on partial text, use the asterisk (*) wildcard character.  = 'AE-A3'
+   To search on partial text, use the asterisk (*) wildcard character.  = 'GR-EFV45-G'
+   To search on partial text, use the asterisk (*) wildcard character.  = 'TDV-'
+   To search on partial text, use the asterisk (*) wildcard character.  = 'TDV-FN'
+   To search on partial text, use the asterisk (*) wildcard character.  = 'TDV-FN107'
+   To search on partial text, use the asterisk (*) wildcard character.  = 'Tornado Water Heater 60 Liters'
+   To search on partial text, use the asterisk (*) wildcard character.  = 'فير'
+   product type is a required field. = 'تكييف'
+   product type is a required field. = 'غساله'
+   أخر تعليق الفني = 'تم تغيير بورده ولوك'
+   أخر تعليق الفني = 'تم تغيير بورده وموتور سوينج افقي'
+   اسم العميل is a required field. = 'احلام ابراهيم خليل جامع '
+   اسم العميل is a required field. = 'محمود فرج علي'
+   الرقم المسلسل 2 = '20A190013901U4WE'
+   الرقم المسلسل 2 = '21A160000913E38WH'
+   الرقم المسلسل 2 = '22F120022542U2YE'
+   الرقم المسلسل 2 = '22G210005708UX2UH'
+   الرقم المسلسل 2 = '23B150150848EX2UH'
+   الرقم المسلسل = '04833558005523420161'
+   الرقم المسلسل = '16G25#040019AN4C'
+   الرقم المسلسل = '17F03#040641AN4C'
+   الرقم المسلسل = '19A23#03S527YF39A'
+   الرقم المسلسل = '20A200014015H4WE'
+   الرقم المسلسل = '20L24#040055HA4C'
+   الرقم المسلسل = '20M140000957Y36WH'
+   الرقم المسلسل = '22E160019543HYE'
+   الرقم المسلسل = '22G130085217HX2UH'
+   الرقم المسلسل = '22M110152272YX2UH'
+   الرقم المسلسل = '24E190003875HS35DS'
+   الرقم المسلسل = '24H190004737HS35DS'
+   الرقم المسلسل = '24K200004359H8IS'
+   الرقم المسلسل = '24L1900009993TC15RC'
+   العلامة التجاريه is a required field. = 'تكييف - SHARP '
+   العلامة التجاريه is a required field. = 'تكييف - TORNADO'
+   العلامة التجاريه is a required field. = 'ثلاجات - SHARP'
+   العلامة التجاريه is a required field. = 'ثلاجات - TOSHIBA'
+   العلامة التجاريه is a required field. = 'سخانات مياه - TORNADO'
+   العلامة التجاريه is a required field. = 'غساله - HOOVER'
+   العلامة التجاريه is a required field. = 'غساله اطباق - TORNADO'
+   العنوان = 'عمارة 4,مساكن الاعلام,دور3,شقه12,بجوار المركز الاعلامي'
+   العنوان = '٤٦, شارع العشريني, ٢, ٢, صيدليه خالد'
+   الفعل is a required field. = 'اصلاح داخل المركز'
+   الفعل is a required field. = 'زيارة ثانية قطع غيار'
+   المبلغ المحصل = '0.00'
+   الموديل الفعلى 1 = 'AH-XP12UHE _ (وحدة داخلية 1.5 حصان بارد ديجيتال انفرتر)'
+   الموديل الفعلى 1 = 'TWT-TLD15RSC _ (TORNADO TLWM 15KG-DDM-damper-STS-chrome)'
+   الموديل الفعلى 2 = 'AU-X12UHE _ (وحدة خارجية 1.5حصان بارد انفرتر)'
+   الموديل الفعلي 1 is a required field. = 'AY-A36WHT _ (Sharp Air Condition In Door 5HP)'
+   الموديل الفعلي 1 is a required field. = 'AY-XP12UHE _ (وحدة داخلية 1.5 ح بارد ساخن ديجيتال انفر)'
+   الموديل الفعلي 1 is a required field. = 'EWH-S35CSE-S _ (DIGITAL Tornado Water Heater 35LT-Silver)'
+   الموديل الفعلي 1 is a required field. = 'GR-EFV45-G _ (shiba Refrigerator -3 doors  - Gold)'
+   الموديل الفعلي 1 is a required field. = 'H3WS38TAMF7R-ELA _ (HOOVER FLWM 8kg1300rpm-Steam-Wifi-INV-SL)'
+   الموديل الفعلي 1 is a required field. = 'SJ-48C(BK) _ (Sharp Refrigerator - 2 Doors - Black)'
+   الموديل الفعلي 1 is a required field. = 'SJ-PC58A(BK) _ (Sharp Refrigerator - 2 Doors - Black)'
+   الموديل الفعلي 1 is a required field. = 'TDV-FN107DDS _ (TORNADO DISHWASHER 10PERSON DARK SILVER)'
+   الموديل الفعلي 1 is a required field. = 'TH-C12YEE _ (TH-C12YEETORNADO AC 1.5HP IN DOOR)'
+   الموديل الفعلي 1 is a required field. = 'TH-C24WEE _ (TORNADO A/C indoor Unit 24K (COOL))'
+   الموديل الفعلي 2 = 'AE-A36WHT _ (Sharp Air Condtion Out Door 5HP)'
+   الموديل الفعلي 2 = 'AE-X12UHE _ (وحدة خارجية 1.5حصان بارد ساخن انفرتر)'
+   الموديل الفعلي 2 = 'TH-H12YEE _ (TORNADO AC 1.5HP IN DOOR)'
+   الموديل الفعلي 2 = 'TU-C12YEE _ (TU-C12YEETORNADO AC 1.5HP OUT DOOR)'
+   بحث = 'CAS2026072752557755'
+   تاريخ الانشاء = '02/08/2026 7:33 PM'
+   تاريخ الانشاء = '11/08/2026 4:01 PM'
+   تاريخ الحجز = '25/08/2026'
+   تاريخ الحجز = '27/08/2026'
+   تاريخ الضمان = '03/06/2017'
+   تاريخ الضمان = '06/08/2026'
+   تاريخ الضمان = '19/05/2024'
+   تاريخ الضمان = '19/08/2024'
+   تاريخ الضمان = '19/11/2024'
+   تاريخ الضمان = '20/07/2023'
+   تاريخ الضمان = '23/01/2019'
+   تاريخ الضمان = '24/12/2020'
+   تاريخ الضمان = '28/07/2022'
+   تعليق المراجعة الفنية = 'تعديل حالة الضمان \nتعديل تاريخ التركيب'
+   تعليق المراجعة الفنية = 'حالة الضمان'
+   حالة الضمان => 'In Warranty' (753240000)
+   حالة الضمان => 'In warranty' (753240000)
+   حالة الضمان => 'Out Warranty' (753240001)
+   حالة الضمان => 'Out warranty' (753240001)
+   حالة الضمان => 'Select' ()
+   حالة امر الشغل قبل المتابعة = 'Maintained'
+   رقم الحساب = '2013404124'
+   رقم الحساب = '2013912816'
+   رقم الطلب = 'CAS2026080252697210'
+   رقم الطلب = 'CAS2026081152894287'
+   رقم العقار = 'عمارة 4'
+   رقم العقار = '٤٦'
+   علامة تجارية = 'SHARP'
+   علامة تجارية = 'TORNADO'
+   علامة تجارية = 'تكييف - SHARP '
+   علامة تجارية = 'غساله - TORNADO'
+   فئة المنتج is a required field. = 'AC'
+   فئة المنتج is a required field. = 'HA'
+   نوع الخدمة = 'صيانة'
+   نوع الخدمة => 'Maintenance' (1)
+   نوع المنتج is a required field. = 'تكييف'
+   نوع المنتج is a required field. = 'ثلاجات'
+   نوع المنتج is a required field. = 'سخانات مياه'
+   نوع المنتج is a required field. = 'غساله اطباق'
+   نوع المنتج is a required field. = 'غساله'
+
+===== PAGE_2 (238 distinct values) =====
+   Is LSC => 'Select' ()
+   SAPرقم ال = '734136599'
+   SAPرقم ال = '734177300'
+   SAPرقم ال = '734194448'
+   SAPرقم ال = '734203327'
+   SAPرقم ال = '734230592'
+   SAPرقم ال = '734230596'
+   SAPرقم ال = '734254012'
+   SAPرقم ال = '734259461'
+   SAPرقم ال = '734262160'
+   SAPرقم ال = '734266767'
+   SAPرقم ال = '734268623'
+   SAPرقم ال = '734268995'
+   SAPرقم ال = '734270061'
+   SAPرقم ال = '734270544'
+   SAPرقم ال = '734270564'
+   To search on partial text, use the asterisk (*) wildcard character.  = 'AU-A12UH'
+   To search on partial text, use the asterisk (*) wildcard character.  = 'AUA12UH'
+   To search on partial text, use the asterisk (*) wildcard character.  = 'شعAU-A12USEA'
+   Work Order Type => 'Installation' (0)
+   Work Order Type => 'Maintenance' (1)
+   احصل على الموقع = 'on'
+   اسم العميل is a required field. = 'احمد فايد احمد'
+   اسم العميل is a required field. = 'اسلام  السيد محمد'
+   اسم العميل is a required field. = 'اسلام عبد الحميد محمود'
+   اسم العميل is a required field. = 'اسماء فوزي عبد العزيز'
+   اسم العميل is a required field. = 'اسماء محمد عبد المعطي'
+   اسم العميل is a required field. = 'دسوقى سيد على'
+   اسم العميل is a required field. = 'رشا محمد محمد حسن '
+   اسم العميل is a required field. = 'صلاح الدين عبد الفتاح سالم'
+   اسم العميل is a required field. = 'محمد سليمان فتحى'
+   اسم العميل is a required field. = 'محمد محمود نادر الشرقاوى  '
+   اسم العميل is a required field. = 'منال عبدالله عبد العزيز'
+   اسم العميل is a required field. = 'منه الله كمال الدين محمود'
+   اسم العميل is a required field. = 'هشام توفيق منير'
+   الرقم المسلسل 2 = '19B040088717H2USA'
+   الرقم المسلسل 2 = '20A190013901U4WE'
+   الرقم المسلسل 2 = '21A160000913E38WH'
+   الرقم المسلسل 2 = '22F120022542U2YE'
+   الرقم المسلسل 2 = '23B150150848EX2UH'
+   الرقم المسلسل 2 = '24J260098677EX8UH'
+   الرقم المسلسل 2 = 'لا يوجد'
+   الرقم المسلسل 2 = 'لا'
+   الرقم المسلسل = '04833558005523420161'
+   الرقم المسلسل = '16G25#040019AN4C'
+   الرقم المسلسل = '17F03#040641AN4C'
+   الرقم المسلسل = '19A23#03S527YF39A'
+   الرقم المسلسل = '19B040088717H2USA'
+   الرقم المسلسل = '20A200014015H4WE'
+   الرقم المسلسل = '20L24#040055HA4C'
+   الرقم المسلسل = '20M140000957Y36WH'
+   الرقم المسلسل = '21M260010646Y2YS'
+   الرقم المسلسل = '22E160019543H2YE'
+   الرقم المسلسل = '22E160019543HYE'
+   الرقم المسلسل = '22M110152272YX2UH'
+   الرقم المسلسل = '24E190003875HS35DS'
+   الرقم المسلسل = '24H190004737HS35DS'
+   الرقم المسلسل = '24J240098318YX8UH'
+   الرقم المسلسل = '24K200004359H8IS'
+   العنوان is a required field. = 'محافظة : الاسماعيلية , منطقة :   أبو سلطان   '
+   العنوان is a required field. = 'محافظة : الاسماعيلية , منطقة : الاسماعيلية '
+   العنوان is a required field. = 'محافظة : الاسماعيلية\xa0,\xa0منطقة :   الشيخ زايد  '
+   العنوان is a required field. = 'محافظة : الاسماعيلية\xa0,\xa0منطقة :   نفيشة       '
+   العنوان is a required field. = 'محافظة : الاسماعيلية\xa0,\xa0منطقة :  فايد -  فنارة                 '
+   العنوان is a required field. = 'محافظة : الاسماعيلية\xa0,\xa0منطقة : الاسماعيلية '
+   العنوان is a required field. = 'محافظة : الاسماعيلية\xa0,\xa0منطقة : الاسماعيليه - فايد '
+   المشاكل الفعلية المستخدمة is a required field. = 'AC02 - (التبريد ضعيف)'
+   المشاكل الفعلية المستخدمة is a required field. = 'AC24 -( Premium care )'
+   المشاكل الفعلية المستخدمة is a required field. = 'DW12 - (تركيب وتشغيل)'
+   المشاكل الفعلية المستخدمة is a required field. = 'WM01 - (تركيب وتشغيل)'
+   المشاكل المبدئية = 'AC03 - (التبريد منعدم)'
+   المشاكل المبدئية = 'AC11 - (الموجهات الرأسيه لا تعمل)'
+   المشاكل المبدئية = 'AC24 -( Premium care )'
+   المشاكل المبدئية = 'AC27 - (تجهيزات)'
+   المشاكل المبدئية = 'AC34 - ( صيانة - تكييف - خارج الضمان )'
+   المشاكل المبدئية = 'DW12 - (تركيب وتشغيل)'
+   المشاكل المبدئية = 'GR08 - (تسريب مياه على الارفف)'
+   المشاكل المبدئية = 'GR40 - (الثلاجة لا تعمل تماما)'
+   المشاكل المبدئية = 'GR99 - (تكرار أعطال)'
+   المشاكل المبدئية = 'HT10 - (تسريب مياه من صمام الامان)'
+   المشاكل المبدئية = 'WM01 - (تركيب وتشغيل)'
+   المشاكل المبدئية2 = 'AC02 - (التبريد ضعيف)'
+   المشاكل المبدئية2 = 'AC37 - ( Premium care )'
+   المشاكل المبدئية2 = 'GR03 - (التجميد ضعيف فى الفريزر)'
+   المشاكل المبدئية2 = 'GR23 - (تسريب هواء بارد من الكابينه)'
+   المشاكل المبدئية3 = 'AC37 - ( Premium care )'
+   المشاكل المبدئية3 = 'GR24 - (تسريب هواء بارد من الفريزر)'
+   الموديل الفعلي 1 is a required field. = 'AH-A12USEA _ (Sharp A/C Indoor Unit 12K(COOL))'
+   الموديل الفعلي 1 is a required field. = 'AY-A12YSE _ (صيانة دورية)'
+   الموديل الفعلي 1 is a required field. = 'AY-A36WHT _ (Sharp Air Condition In Door 5HP)'
+   الموديل الفعلي 1 is a required field. = 'AY-XP12UHE _ (وحدة داخلية 1.5 ح بارد ساخن ديجيتال انفر)'
+   الموديل الفعلي 1 is a required field. = 'AY-XP18UHE _ (18K inverter Indoor unit (cool/heat) mod)'
+   الموديل الفعلي 1 is a required field. = 'EWH-S35CSE-S _ (DIGITAL Tornado Water Heater 35LT-Silver)'
+   الموديل الفعلي 1 is a required field. = 'GR-EFV45-G _ (shiba Refrigerator -3 doors  - Gold)'
+   الموديل الفعلي 1 is a required field. = 'H3WS38TAMF7R-ELA _ (HOOVER FLWM 8kg1300rpm-Steam-Wifi-INV-SL)'
+   الموديل الفعلي 1 is a required field. = 'SJ-48C(BK) _ (Sharp Refrigerator - 2 Doors - Black)'
+   الموديل الفعلي 1 is a required field. = 'SJ-PC58A(BK) _ (Sharp Refrigerator - 2 Doors - Black)'
+   الموديل الفعلي 1 is a required field. = 'TDV-FN107DDS _ (TORNADO DISHWASHER 10PERSON DARK SILVER)'
+   الموديل الفعلي 1 is a required field. = 'TH-C12YEE _ (TH-C12YEETORNADO AC 1.5HP IN DOOR)'
+   الموديل الفعلي 1 is a required field. = 'TH-C24WEE _ (TORNADO A/C indoor Unit 24K (COOL))'
+   الموديل الفعلي 2 = 'AE-A36WHT _ (Sharp Air Condtion Out Door 5HP)'
+   الموديل الفعلي 2 = 'AE-X12UHE _ (وحدة خارجية 1.5حصان بارد ساخن انفرتر)'
+   الموديل الفعلي 2 = 'AE-X18UHE _ (18K inverter outdoor unit (cool/heat))'
+   الموديل الفعلي 2 = 'AH-A12USEA _ (Sharp A/C Indoor Unit 12K(COOL))'
+   الموديل الفعلي 2 = 'TH-H12YEE _ (TORNADO AC 1.5HP IN DOOR)'
+   الموديل الفعلي 2 = 'TU-C12YEE _ (TU-C12YEETORNADO AC 1.5HP OUT DOOR)'
+   الموديل المبدئي is a required field. = 'AE-A12CSL _ (صيانة دورية)'
+   الموديل المبدئي is a required field. = 'AE-A12NME _ (Sharp A/C Outdoor Unit 12000BTU)'
+   الموديل المبدئي is a required field. = 'AY-A36WHT _ (Sharp Air Condition In Door 5HP)'
+   الموديل المبدئي is a required field. = 'AY-XP12UHE _ (وحدة داخلية 1.5 ح بارد ساخن ديجيتال انفر)'
+   الموديل المبدئي is a required field. = 'AY-XP18UHE _ (18K inverter Indoor unit (cool/heat) mod)'
+   الموديل المبدئي is a required field. = 'EWH-S35CSE-S _ (DIGITAL Tornado Water Heater 35LT-Silver)'
+   الموديل المبدئي is a required field. = 'GR-EFV45-G _ (shiba Refrigerator -3 doors  - Gold)'
+   الموديل المبدئي is a required field. = 'H3WS38TAMF7R-ELA _ (HOOVER FLWM 8kg1300rpm-Steam-Wifi-INV-SL)'
+   الموديل المبدئي is a required field. = 'SJ-48C(BK) _ (Sharp Refrigerator - 2 Doors - Black)'
+   الموديل المبدئي is a required field. = 'SJ-PC58A(BK) _ (Sharp Refrigerator - 2 Doors - Black)'
+   الموديل المبدئي is a required field. = 'TDV-FN138CBK _ (غساله أطباق تورنيد 13 فرد 8برامج أسود)'
+   الموديل المبدئي is a required field. = 'TE-C24BEE _ (TORNADO OUTDOOR C/H 3 HP NORMAL)'
+   الموديل المبدئي is a required field. = 'TH-C12YEE _ (TH-C12YEETORNADO AC 1.5HP IN DOOR)'
+   تاريخ الانشاء = '10/08/2026 4:43 PM'
+   تاريخ الانشاء = '13/08/2026 6:39 PM'
+   تاريخ الانشاء = '15/08/2026 4:08 PM'
+   تاريخ الانشاء = '16/08/2026 11:46 AM'
+   تاريخ الانشاء = '18/08/2026 12:42 PM'
+   تاريخ الانشاء = '18/08/2026 12:43 PM'
+   تاريخ الانشاء = '20/08/2026 2:24 PM'
+   تاريخ الانشاء = '21/08/2026 11:10 AM'
+   تاريخ الانشاء = '21/08/2026 5:25 PM'
+   تاريخ الانشاء = '22/08/2026 12:19 PM'
+   تاريخ الانشاء = '22/08/2026 2:05 PM'
+   تاريخ الانشاء = '22/08/2026 2:26 PM'
+   تاريخ الانشاء = '22/08/2026 3:22 PM'
+   تاريخ الانشاء = '22/08/2026 3:42 PM'
+   تاريخ الانشاء = '22/08/2026 3:43 PM'
+   تاريخ الضمان = '03/06/2017'
+   تاريخ الضمان = '04/02/2019'
+   تاريخ الضمان = '16/01/2021'
+   تاريخ الضمان = '19/05/2024'
+   تاريخ الضمان = '19/08/2024'
+   تاريخ الضمان = '2/2023'
+   تاريخ الضمان = '20/01/2020'
+   تاريخ الضمان = '20/04/2023'
+   تاريخ الضمان = '20/07/2023'
+   تاريخ الضمان = '20/10/2024'
+   تاريخ الضمان = '23/01/2019'
+   تاريخ الضمان = '24/09/2023'
+   تاريخ الضمان = '24/12/2020'
+   تاريخ الضمان = '25/07/2016'
+   تاريخ الضمان = '26/09/2024'
+   تاريخ الضمان = '26/12/2021'
+   تاريخ الضمان = '28/07/2022'
+   تمت الصيانة داخل/خارج المركز => 'خارج' (0)
+   حالة الضمان => 'In Warranty' (753240000)
+   حالة الضمان => 'Out Warranty' (753240001)
+   حالة الضمان => 'خارج الضمان' (753240001)
+   حالة الضمان => 'داخل الضمان' (753240000)
+   حالة قطع الغيار => 'Select' ()
+   حالة قطع الغيار => 'بدون قطع غيار' (963400002)
+   حالة قطع الغيار => 'مستعمل' (963400000)
+   حالة قطع الغيار => 'منتظر' (963400001)
+   رقم الحساب = '2003582539'
+   رقم الحساب = '2004078712'
+   رقم الحساب = '2004101164'
+   رقم الحساب = '2005228869'
+   رقم الحساب = '2005547183'
+   رقم الحساب = '2005725928'
+   رقم الحساب = '2006068619'
+   رقم الحساب = '2008235490'
+   رقم الحساب = '2010523246'
+   رقم الحساب = '2010810356'
+   رقم الحساب = '2011291464'
+   رقم الحساب = '2014208992'
+   رقم الحساب = '2014239414'
+   رقم الطلب = 'CAS2026081052872129'
+   رقم الطلب = 'CAS2026081352947430'
+   رقم الطلب = 'CAS2026081552979366'
+   رقم الطلب = 'CAS2026081652994385'
+   رقم الطلب = 'CAS2026081853044400'
+   رقم الطلب = 'CAS2026081853044437'
+   رقم الطلب = 'CAS2026082053089546'
+   رقم الطلب = 'CAS2026082153099989'
+   رقم الطلب = 'CAS2026082153104806'
+   رقم الطلب = 'CAS2026082253113378'
+   رقم الطلب = 'CAS2026082253117342'
+   رقم الطلب = 'CAS2026082253118135'
+   رقم الطلب = 'CAS2026082253120315'
+   رقم الطلب = 'CAS2026082253121076'
+   رقم الطلب = 'CAS2026082253121114'
+   رقم العقار = '0'
+   رقم العقار = '00'
+   رقم العقار = '10'
+   رقم العقار = '18 ب'
+   رقم العقار = '25'
+   رقم العقار = '76'
+   رقم العقار = '79'
+   رقم العقار = 'عمارة رضا'
+   علامة تجارية = 'HOOVER'
+   علامة تجارية = 'SHARP'
+   علامة تجارية = 'TORNADO'
+   علامة تجارية = 'TOSHIBA'
+   علامة تجارية is a required field. = 'تكييف - SHARP '
+   علامة تجارية is a required field. = 'تكييف - TORNADO'
+   علامة تجارية is a required field. = 'ثلاجات - SHARP'
+   علامة تجارية is a required field. = 'ثلاجات - TOSHIBA'
+   علامة تجارية is a required field. = 'سخانات مياه - TORNADO'
+   علامة تجارية is a required field. = 'صيانة دورية تكييف - SHARP'
+   علامة تجارية is a required field. = 'غساله - HOOVER'
+   علامة تجارية is a required field. = 'غساله اطباق - TORNADO'
+   فئة المنتج is a required field. = 'AC'
+   فئة المنتج is a required field. = 'HA'
+   فئة المنتج is a required field. = 'صيانات دورية تكييف'
+   فنى is a required field. = 'AC522 & حسام محمد عبدالمنعم'
+   فنى is a required field. = 'AC522 & يوسف محمد يونس'
+   ملاحظات = '163782583-epot'
+   ملاحظات = 'تم ضبط سلك كهربائي وتنظيف الفلاتر وضبط اتزان الوحده الداخليه\n'
+   ملاحظات خدمة العملاء = 'CAS2026040450217341  يحتاج شيك بالف \nسنة و 4شهور'
+   ملاحظات خدمة العملاء = 'التبريد والتجميد لايعمل'
+   ملاحظات خدمة العملاء = 'الجوان الخاص بالكابينة والفريزر مفصول'
+   ملاحظات خدمة العملاء = 'الوحده الخارجية سعات تشتغل وسعات تفصل'
+   ملاحظات خدمة العملاء = 'سلك الكهرباء مفكوك'
+   ملاحظات خدمة العملاء = 'صوت خبط في الوحدة الخارجية'
+   ملاحظات خدمة العملاء = 'موديل غير معرف'
+   ملاحظات فريق التخطيط = '163771244     EPOT'
+   ملاحظات فريق التخطيط = '163782583-epot'
+   ملاحظات فريق المكتب الخلفى = '163744532 بورسعيد'
+   ملاحظات فريق المكتب الخلفى = '163771244     EPOT'
+   ملاحظات فريق المكتب الخلفى = '163779605          بورسعيد'
+   ملاحظات فريق المكتب الخلفى = '163782583-epot'
+   ملاحظات فريق المكتب الخلفى = '163783151  بورسعيد'
+   ملاحظات فريق المكتب الخلفى = '163786099   بورسعيد'
+   نوع الخدمة = 'تركيب'
+   نوع الخدمة = 'صيانة'
+   نوع المنتج is a required field. = 'تكييف'
+   نوع المنتج is a required field. = 'ثلاجات'
+   نوع المنتج is a required field. = 'سخانات مياه'
+   نوع المنتج is a required field. = 'صيانة دورية تكييف'
+   نوع المنتج is a required field. = 'غساله اطباق'
+   نوع المنتج is a required field. = 'غساله'
+
+===== PAGE_3 (187 distinct values) =====
+   Is LSC => 'Select' ()
+   Send For Correction => 'Yes' (1)
+   Spare Parts Status => 'مستعمل' (963400000)
+   To search on partial text, use the asterisk (*) wildcard character.  = '*'
+   To search on partial text, use the asterisk (*) wildcard character.  = '*J'
+   To search on partial text, use the asterisk (*) wildcard character.  = '*ترك'
+   To search on partial text, use the asterisk (*) wildcard character.  = '*جيد'
+   To search on partial text, use the asterisk (*) wildcard character.  = '*س'
+   To search on partial text, use the asterisk (*) wildcard character.  = '*صر'
+   To search on partial text, use the asterisk (*) wildcard character.  = '*ضا'
+   To search on partial text, use the asterisk (*) wildcard character.  = '*كابل'
+   To search on partial text, use the asterisk (*) wildcard character.  = '*كبا'
+   To search on partial text, use the asterisk (*) wildcard character.  = '*كهر'
+   To search on partial text, use the asterisk (*) wildcard character.  = 'مصن'
+   Warranty Status => 'In warranty' (753240000)
+   Warranty Status => 'Out warranty' (753240001)
+   Work Order Type => 'Installation' (0)
+   Work Order Type => 'Maintenance' (1)
+   التعليق = 'ARCHITECT REVIEW — P0-A  قرأت تقرير TASK REPORT بالكامل.  أعتبر P0-A: DONE — MANUAL VALIDATION REQUIRED  لكنها لم تُعتمد نهائيًا بعد.  لا تنفذ أي Task جديدة. لا تعدل أي ملف. لا تعمل cleanup. لا تحذف dead code. لا تلمس message-bus. لا تعمل deploy. لا تغير save heuristic.  الخطوة الحالية هي Manual Validation فقط على الـ Portal الحقيقي.  أريد منك أن تحتفظ بالحالة الحالية كما هي، وأن تنتظر نتائج الاختبار اليدوي.  الاختبارات المطلوبة:  1. Normal workflow: Pages 1 → 2 → 3 → Save Expected: saveResult.o'
+   التعليق = 'CAS2026081853044437'
+   التعليق = 'تحتاج كارته داخليه AC-SH-CBU-INVH12 _ (H12UHE-بوردة تحكم تكييف انفرتر) وحساس حراره AC-SH-THRMST-12HY _ (H&Y12U/X-حساس حرارة تكييف) وفاقيوم وشحن فريون وصيانه // ٤,٥٦٥'
+   التعليق = 'تحتاج كارته داخليه وحساس حراره AC-SH-THRMST-12HY _ (H&Y12U/X-حساس حرارة تكييف) وفاقيوم وشحن فريون وصيانه // ٤,٥٦٥'
+   التعليق = 'تحتاج كارته داخليه وحساس حراره وفاقيوم وشحن فريون // ٤,٥٦٥'
+   التعليق = 'تحتاج كارته داخليه وحساس حراره وفاقيوم وشحن فريون وصيانه // ٤,٥٦٥'
+   التعليق = 'تحتاج مكثف تشغيل كباس 330'
+   التعليق = 'تم التركيب والتشغيل وتم تحصيل 250'
+   التعليق = 'تم التركيب والتشغيل'
+   التعليق = 'تم تغيير شيك بلف  210'
+   التعليق = 'تم تغيير شيك بلف وتحصيل 210'
+   التعليق = 'تم تغيير ماسوره حوت صرف وشحن فريون وتنظيف الدائره'
+   التعليق = 'تم تغيير ماسوره حوض صرف وشحن فريون وتنظيف الدائره'
+   التعليق = 'تم تغيير ماسوره حوض صرف وعمل فاكيوم وشحن فريون وتنظيف الدائره'
+   التعليق = 'تم تغيير ماسوره حوض صرف وعمل فاكيووشحن فريون وتنظيف الدائره'
+   التعليق = 'تم ربط المواسير وتفريغ وشحن فريون وتنظيف الدائره وفاكيوم'
+   التعليق = 'تم سحب الجهاز و '
+   التعليق = 'تم سحب الجهاز و تم تغيير محبس الثلاثي ومحبس ثنائي و3 م مواسير '
+   التعليق = 'تم سحب الجهاز و تم تغيير محبس الثلاثي ومحبس ثنائي و3 م مواسير و تم عمل فلير وربط المواسير و تنظيف الدائرة وعمل فاكيوم وشحن غاز فريون و تم عمل صيانة دورية غسيل الفلاتر وتنظيف الوحدة الخارجية بالبلاور وتنظيف الصرف وتم تحصيل4800 تمن 3م مواسي'
+   التعليق = 'تم سحب الجهاز و تم تغيير محبس الثلاثي ومحبس ثنائي و3 م مواسير و تم عمل فلير وربط المواسير و تنظيف الدائرة وعمل فاكيوم وشحن غاز فريون و تم عمل صيانة دورية غسيل الفلاتر وتنظيف الوحدة الخارجية بالبلاور وتنظيف الصرف وتم تحصيل4800 تمن 3م مواسير'
+   التعليق = 'تم سحب الجهاز و تم تغيير محبس الثلاثي ومحبس ثنائي و3 م مواسير و تم عمل فلير وربط المواسير و تنظيف الدائرة وعمل فاكيوم وشحن غاز فريون و تم عمل صيانة دورية غسيل الفلاتر وتنظيف الوحدة الخارجية بالبلاور وتنظيف الصرف'
+   التعليق = 'تم سحب الجهاز و تم تغيير محبس الثلاثي ومحبس ثنائي و3 م مواسير و'
+   التعليق = 'تم ضبط سلك كهربائي وضبط اتزان الوحده الداخليه'
+   التعليق = 'تم ضبط ولحام السلك اكهربائي وضبط اتزان الوحده الداخليه'
+   التعليق = 'تم ضبط ولحام السلك الكهربائي وضبط اتزان الوحده الداخليه'
+   التعليق = 'تم عمل صيانه وتنظيف الوحده الداخليه والوحده الخارجيه وغسيل بمكنه الغسيل وتنظيف حوض الصرف // خدمة بريميوم كير Premium Care  وتحصيل 450'
+   التعليق = 'زيارة ثانية قطع غيار'
+   التعليق = 'يحتاج كباس وكابيلاري '
+   التعليق = 'يحتاج كباس وكابيلاري وتم التاجيل للغد لحين الاتصال على الدعم الفني'
+   التكلفة الإجمالية = '0'
+   التكلفة الإجمالية = '1'
+   التكلفة الإجمالية = '210'
+   التكلفة الإجمالية = '250'
+   التكلفة الإجمالية = '360'
+   التكلفة الإجمالية = '450'
+   التكلفة الإجمالية = '4800'
+   الفعل is a required field. = 'اصلاح داخل المركز'
+   الفعل is a required field. = 'الجهاز يعمل بحالة جيدة'
+   الفعل is a required field. = 'انتظار قطع غيار'
+   الفعل is a required field. = 'تم التركيب'
+   الفعل is a required field. = 'تمت الصيانة'
+   الفعل is a required field. = 'زيارة ثانية قطع غيار'
+   الكمية = '1'
+   الكمية = '250'
+   الكمية = '450'
+   الكمية = '4800'
+   المبلغ المحصل = '0'
+   المبلغ المحصل = '0.00'
+   المبلغ المحصل = '210'
+   المبلغ المحصل = '250'
+   المبلغ المحصل = '450'
+   المبلغ المحصل = '4800'
+   الموديل الفعلى 1 = 'TWT-TLD15RSC _ (TORNADO TLWM 15KG-DDM-damper-STS-chrome)'
+   الموديل الفعلى = 'TWT-TLD15RSC _ (TORNADO TLWM 15KG-DDM-damper-STS-chrome)'
+   الموديل الفعلى is a required field. = 'AEW-1190SUP _ (TOSHIBA TLWM 11KG Circular Door- White)'
+   الموديل الفعلى is a required field. = 'AH-A12USEA _ (Sharp A/C Indoor Unit 12K(COOL))'
+   الموديل الفعلى is a required field. = 'AU-A12UHEA _ (Sharp A/C Outdoor Unit 12K (COOL ONLY))'
+   الموديل الفعلى is a required field. = 'AY-A12YSE _ (صيانة دورية)'
+   الموديل الفعلى is a required field. = 'EWH-S35CSE-S _ (DIGITAL Tornado Water Heater 35LT-Silver)'
+   الموديل الفعلى is a required field. = 'GR-EF40P-J-SL _ (Toshiba Refrigerator 355L-Silver)'
+   الموديل الفعلى is a required field. = 'SJ-48C(BK) _ (Sharp Refrigerator - 2 Doors - Black)'
+   الموديل الفعلى is a required field. = 'TH-C12YEE _ (TH-C12YEETORNADO AC 1.5HP IN DOOR)'
+   الموديل الفعلى is a required field. = 'TH-C24WEE _ (TORNADO A/C indoor Unit 24K (COOL))'
+   الموديل الفعلى is a required field. = 'TU-C12YEE _ (TU-C12YEETORNADO AC 1.5HP OUT DOOR)'
+   الموديل الفعلي 1 = 'AEW-1190SUP _ (TOSHIBA TLWM 11KG Circular Door- White)'
+   الموديل الفعلي 1 = 'AH-A12USEA _ (Sharp A/C Indoor Unit 12K(COOL))'
+   الموديل الفعلي 1 = 'AH-XP12UHE _ (وحدة داخلية 1.5 حصان بارد ديجيتال انفرتر)'
+   الموديل الفعلي 1 = 'AY-A12YSE _ (صيانة دورية)'
+   الموديل الفعلي 1 = 'AY-A36WHT _ (Sharp Air Condition In Door 5HP)'
+   الموديل الفعلي 1 = 'AY-XP12UHE _ (وحدة داخلية 1.5 ح بارد ساخن ديجيتال انفر)'
+   الموديل الفعلي 1 = 'AY-XP18UHE _ (18K inverter Indoor unit (cool/heat) mod)'
+   الموديل الفعلي 1 = 'EWH-S35CSE-S _ (DIGITAL Tornado Water Heater 35LT-Silver)'
+   الموديل الفعلي 1 = 'GR-EF40P-J-SL _ (Toshiba Refrigerator 355L-Silver)'
+   الموديل الفعلي 1 = 'GR-EFV45-G _ (shiba Refrigerator -3 doors  - Gold)'
+   الموديل الفعلي 1 = 'H3WS38TAMF7R-ELA _ (HOOVER FLWM 8kg1300rpm-Steam-Wifi-INV-SL)'
+   الموديل الفعلي 1 = 'SJ-48C(BK) _ (Sharp Refrigerator - 2 Doors - Black)'
+   الموديل الفعلي 1 = 'SJ-PC58A(BK) _ (Sharp Refrigerator - 2 Doors - Black)'
+   الموديل الفعلي 1 = 'TDV-FN107DDS _ (TORNADO DISHWASHER 10PERSON DARK SILVER)'
+   الموديل الفعلي 1 = 'TH-C12YEE _ (TH-C12YEETORNADO AC 1.5HP IN DOOR)'
+   الموديل الفعلي 1 = 'TH-C24WEE _ (TORNADO A/C indoor Unit 24K (COOL))'
+   الموديل الفعلي is a required field. = 'AEW-1190SUP _ (TOSHIBA TLWM 11KG Circular Door- White)'
+   الموديل الفعلي is a required field. = 'AY-A12YSE _ (صيانة دورية)'
+   الموديل الفعلي is a required field. = 'AY-A36WHT _ (Sharp Air Condition In Door 5HP)'
+   الموديل الفعلي is a required field. = 'AY-XP18UHE _ (18K inverter Indoor unit (cool/heat) mod)'
+   الموديل الفعلي is a required field. = 'GR-EF40P-J-SL _ (Toshiba Refrigerator 355L-Silver)'
+   الموديل الفعلي is a required field. = 'GR-EFV45-G _ (shiba Refrigerator -3 doors  - Gold)'
+   الموديل الفعلي is a required field. = 'H3WS38TAMF7R-ELA _ (HOOVER FLWM 8kg1300rpm-Steam-Wifi-INV-SL)'
+   الموديل الفعلي is a required field. = 'SJ-48C(BK) _ (Sharp Refrigerator - 2 Doors - Black)'
+   الموديل الفعلي is a required field. = 'SJ-PC58A(BK) _ (Sharp Refrigerator - 2 Doors - Black)'
+   الموديل الفعلي is a required field. = 'TDV-FN107DDS _ (TORNADO DISHWASHER 10PERSON DARK SILVER)'
+   الموديل الفعلي is a required field. = 'TH-C12YEE _ (TH-C12YEETORNADO AC 1.5HP IN DOOR)'
+   الموديل الفعلي ٢ = 'AE-A36WHT _ (Sharp Air Condtion Out Door 5HP)'
+   الموديل الفعلي ٢ = 'AE-X12UHE _ (وحدة خارجية 1.5حصان بارد ساخن انفرتر)'
+   الموديل الفعلي ٢ = 'AE-X18UHE _ (18K inverter outdoor unit (cool/heat))'
+   الموديل الفعلي ٢ = 'AH-A12USEA _ (Sharp A/C Indoor Unit 12K(COOL))'
+   الموديل الفعلي ٢ = 'AH-XP12UHE _ (وحدة داخلية 1.5 حصان بارد ديجيتال انفرتر)'
+   الموديل الفعلي ٢ = 'AU-A12UHEA _ (Sharp A/C Outdoor Unit 12K (COOL ONLY))'
+   الموديل الفعلي ٢ = 'TH-H12YEE _ (TORNADO AC 1.5HP IN DOOR)'
+   الموديل الفعلي ٢ = 'TU-C12YEE _ (TU-C12YEETORNADO AC 1.5HP OUT DOOR)'
+   تكلفة الزيارة = '0.00'
+   تكلفة قطع الغيار المستخدمة = '0'
+   تكلفة قطع الغيار المستخدمة = '1'
+   تكلفة قطع الغيار المستخدمة = '210'
+   تكلفة قطع الغيار المستخدمة = '250'
+   تكلفة قطع الغيار المستخدمة = '360'
+   تكلفة قطع الغيار المستخدمة = '450'
+   تكلفة قطع الغيار المستخدمة = '4800'
+   حالة الضمان => 'داخل الضمان' (753240000)
+   حالة قطع الغيار => 'بدون قطع غيار' (963400002)
+   حالة قطع الغيار => 'مستعمل' (963400000)
+   حالة قطع الغيار => 'منتظر' (963400001)
+   داخل/ خارج الضمان => 'In' (963400000)
+   داخل/ خارج الضمان => 'Out' (963400001)
+   داخل/خارج المخزن => 'Inside' (963400000)
+   داخل/خارج المخزن => 'Outside' (963400001)
+   قطع الغيار is a required field. = 'AC-R-COMP-U12YEE _ (COMPRESSOR (HIGHLY, R410A,35µf/450VAC ))'
+   قطع الغيار is a required field. = 'AC-RSH-CPLIRYTUB2U _ (U12UEE&U12UHEA-كابلري تكييف)'
+   قطع الغيار is a required field. = 'AC-SH-OUTFNMOTO284 _ (U&E12UH-12&18R/N-موتور مروحة مكثف تكييف)'
+   قطع الغيار is a required field. = 'AC-SH-PCRNGCP12UHE _ (U12UHEA/NM/FM/U12UEE-مكثف تشغيل تكييف)'
+   قطع الغيار is a required field. = 'AC-SH-V-LVR-MOTO84 _ (H&Y18-24U/X/WEE-موتور سوينج أفقي تكييف)'
+   قطع الغيار is a required field. = 'LAB-CRM _ (مصنعية)'
+   قطع الغيار is a required field. = 'RF-RSH-EVPNPPAS48C _ (ماسورة حوض تبخير ثلاجة شارب وتورنيدو)'
+   قطع الغيار is a required field. = 'RF-T-HEAT-14-16F _ (هيتر ثلاجة توشيبا 14-16 قدم)'
+   قطع الغيار is a required field. = 'RF-T-O-LODCOM75-4 _ (OLP)'
+   قطع الغيار is a required field. = 'WH-R-SRVLV-05-GE _ (شيك فالف السخان  الاناميل)'
+   قطع الغيار is a required field. = 'WH-T-CHECK-VALVE-G _ (شيك بلف سخان تورنادو عام 10 بار)'
+   كود العطل is a required field. = '0001'
+   كود العطل is a required field. = '0002'
+   كود العطل is a required field. = '0004'
+   كود العطل is a required field. = '0005'
+   كود العطل is a required field. = '0802'
+   كود العطل is a required field. = '401A'
+   كود العطل is a required field. = '402A'
+   كود العطل is a required field. = '502A'
+   كود العطل is a required field. = '504A'
+   كود العطل is a required field. = '7201'
+   كود العطل is a required field. = '9051'
+   كود العطل is a required field. = 'F02'
+   كود العطل is a required field. = 'I02C'
+   كود العطل is a required field. = 'L16A'
+   كود العطل is a required field. = 'RF1001'
+   كود العطل is a required field. = 'RF1103'
+   كود العطل is a required field. = 'RF1306'
+   كود العطل is a required field. = 'RF2001'
+   كود العطل is a required field. = 'RF4501'
+   كود العطل الرئيسي is a required field. = 'AC001 - (صيانة دورية)'
+   كود العطل الرئيسي is a required field. = 'AC002 - (تركيب و تجهيزات مواسير)'
+   كود العطل الرئيسي is a required field. = 'AC006 - (سحب و إرجاع)'
+   كود العطل الرئيسي is a required field. = 'AC007 - (تغيير مكثف التشغيل للضاغط)'
+   كود العطل الرئيسي is a required field. = 'AC015 - (تغيير الضاغط)'
+   كود العطل الرئيسي is a required field. = 'AC018 - (ضبط الوصلات الكهربيه)'
+   كود العطل الرئيسي is a required field. = 'AC022 - (ضبط تركيب)'
+   كود العطل الرئيسي is a required field. = 'AC026 - (تغيير كابلري ( صمام الإنتشار))'
+   كود العطل الرئيسي is a required field. = 'AC028 - (تغيير موتور السوينج الأفقي)'
+   كود العطل الرئيسي is a required field. = 'AC030 - (تغيير موتور مروحه المكثف)'
+   كود العطل الرئيسي is a required field. = 'AC115 - (خدمة بريميوم كير Premium Care)'
+   كود العطل الرئيسي is a required field. = 'DT0800 - (تسريب مياه من صمام الأمان)'
+   كود العطل الرئيسي is a required field. = 'DW9050 - (تركيب)'
+   كود العطل الرئيسي is a required field. = 'FW9000 - (تركيب)'
+   كود العطل الرئيسي is a required field. = 'RF1000 - (شحن و لحام)'
+   كود العطل الرئيسي is a required field. = 'RF1100 - (دائرة النوفروست)'
+   كود العطل الرئيسي is a required field. = 'RF1300 - (مشتملات الكباس)'
+   كود العطل الرئيسي is a required field. = 'RF2000 - (دائرة الصرف)'
+   كود العطل الرئيسي is a required field. = 'RF4500 - (الجهاز يعمل بحالة جيدة)'
+   كود العطل الرئيسي is a required field. = 'TW7200 - (تركيب)'
+   كود العطل الرئيسي is a required field. = 'مصنعية تركيبات'
+   كود العطل الرئيسي is a required field. = 'مصنعية'
+   نوع الخدمة = 'صيانة'
+   نوع الخدمة => 'Maintenance' (1)
+

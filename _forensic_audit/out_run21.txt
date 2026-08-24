@@ -1,0 +1,127 @@
+
+======================================================================
+RUN21  id=14b22321-2d9  orderId=14b22321-2d97-f111-8075-0022489a282a  [WARRANTY FLIP P1=OUT -> P2=IN]
+firstSeen=1787521374535 lastSeen=1787532067639 span_min=178.2
+[+-0.4s] SNAP pt=PAGE_1 step=none reason=page-load ins=8 sel=1 | TRWS=Out warranty(753240001)
+[+0.4s] SNAP pt=PAGE_1 step=none reason=page-load ins=8 sel=1 | TRWS=Out warranty(753240001)
+[+2.1s] CLICK seq=3 click <select> "Select In warranty Out warranty"
+[+3.1s] CLICK seq=4 click <select> "Select In warranty Out warranty"
+[+3.1s] SNAP pt=PAGE_1 step=none reason=interval ins=9 sel=1 | TRWS=In warranty(753240000)
+[+5.3s] CLICK seq=6 click <input> "Next"
+[+7.7s] SNAP pt=PAGE_1 step=none reason=page-load ins=9 sel=1 | TRWS=In warranty(753240000)
+[+11.2s] SNAP pt=PAGE_1 step=none reason=interval ins=9 sel=1 | TRWS=In warranty(753240000)
+[+18.0s] SNAP pt=PAGE_1 step=none reason=interval ins=8 sel=1 | TRWS=Out warranty(753240001)
+[+19.9s] CLICK seq=10 click <input> "Next"
+[+10487.8s](gap 10467.9s) SNAP pt=PAGE_1 step=none reason=page-load ins=8 sel=1 | TRWS=Out warranty(753240001)
+[+10490.8s] CLICK seq=12 click <input> "Next"
+[+10499.8s] CLICK seq=13 click <select> "Select داخل الضمان خارج الضمان" <<<< WS-RELATED
+[+10503.7s] CLICK seq=14 click <select> "Select داخل الضمان خارج الضمان" <<<< WS-RELATED
+[+10503.8s] SNAP pt=PAGE_2 step=a9bbd40a-c61e-ec11-b6e5-000d3addfed4 reason=interval ins=30 sel=6 | TRWS=داخل الضمان(753240000) TRWS=In Warranty(753240000)
+[+10508.8s] SNAP pt=PAGE_2 step=a9bbd40a-c61e-ec11-b6e5-000d3addfed4 reason=interval ins=30 sel=6 | TRWS=داخل الضمان(753240000) TRWS=In Warranty(753240000)
+[+10513.8s] SNAP pt=PAGE_2 step=a9bbd40a-c61e-ec11-b6e5-000d3addfed4 reason=interval ins=30 sel=6 | TRWS=داخل الضمان(753240000) TRWS=In Warranty(753240000)
+[+10518.8s] SNAP pt=PAGE_2 step=a9bbd40a-c61e-ec11-b6e5-000d3addfed4 reason=interval ins=30 sel=6 | TRWS=داخل الضمان(753240000) TRWS=In Warranty(753240000)
+[+10523.8s] SNAP pt=PAGE_2 step=a9bbd40a-c61e-ec11-b6e5-000d3addfed4 reason=interval ins=30 sel=6 | TRWS=داخل الضمان(753240000) TRWS=In Warranty(753240000)
+[+10528.8s] SNAP pt=PAGE_2 step=a9bbd40a-c61e-ec11-b6e5-000d3addfed4 reason=interval ins=30 sel=6 | TRWS=داخل الضمان(753240000) TRWS=In Warranty(753240000)
+[+10533.8s] SNAP pt=PAGE_2 step=a9bbd40a-c61e-ec11-b6e5-000d3addfed4 reason=interval ins=30 sel=6 | TRWS=داخل الضمان(753240000) TRWS=In Warranty(753240000)
+[+10538.8s] SNAP pt=PAGE_2 step=a9bbd40a-c61e-ec11-b6e5-000d3addfed4 reason=interval ins=30 sel=6 | TRWS=داخل الضمان(753240000) TRWS=In Warranty(753240000)
+[+10543.8s] SNAP pt=PAGE_2 step=a9bbd40a-c61e-ec11-b6e5-000d3addfed4 reason=interval ins=30 sel=6 | TRWS=داخل الضمان(753240000) TRWS=In Warranty(753240000)
+[+10548.8s] SNAP pt=PAGE_2 step=a9bbd40a-c61e-ec11-b6e5-000d3addfed4 reason=interval ins=30 sel=6 | TRWS=داخل الضمان(753240000) TRWS=In Warranty(753240000)
+[+10553.8s] SNAP pt=PAGE_2 step=a9bbd40a-c61e-ec11-b6e5-000d3addfed4 reason=interval ins=30 sel=6 | TRWS=داخل الضمان(753240000) TRWS=In Warranty(753240000)
+[+10558.8s] SNAP pt=PAGE_2 step=a9bbd40a-c61e-ec11-b6e5-000d3addfed4 reason=interval ins=30 sel=6 | TRWS=داخل الضمان(753240000) TRWS=In Warranty(753240000)
+[+10562.1s] CLICK seq=27 click <input> "التالي"
+[+10563.8s] SNAP pt=PAGE_2 step=a9bbd40a-c61e-ec11-b6e5-000d3addfed4 reason=interval ins=30 sel=6 | TRWS=داخل الضمان(753240000) TRWS=In Warranty(753240000)
+[+10568.8s] SNAP pt=PAGE_2 step=a9bbd40a-c61e-ec11-b6e5-000d3addfed4 reason=interval ins=30 sel=6 | TRWS=داخل الضمان(753240000) TRWS=In Warranty(753240000)
+[+10579.0s] SNAP pt=PAGE_3 step=07fc381f-9c67-ea11-a811-000d3ab95588 reason=page-load ins=9 sel=4 | TRWS=In warranty(753240000)
+[+10592.4s] SNAP pt=PAGE_3 step=07fc381f-9c67-ea11-a811-000d3ab95588 reason=interval ins=9 sel=4 | TRWS=In warranty(753240000)
+[+10595.1s] CLICK seq=32 click <a> "اضافة قطعة غيار الموديل 2"
+[+10597.4s] SNAP pt=PAGE_3 step=07fc381f-9c67-ea11-a811-000d3ab95588 reason=interval ins=16 sel=6 | TRWS=In warranty(753240000) TRWS=Out(963400001)
+[+10602.4s] SNAP pt=PAGE_3 step=07fc381f-9c67-ea11-a811-000d3ab95588 reason=interval ins=16 sel=6 | TRWS=In warranty(753240000) TRWS=Out(963400001)
+[+10607.4s] SNAP pt=PAGE_3 step=07fc381f-9c67-ea11-a811-000d3ab95588 reason=interval ins=16 sel=6 | TRWS=In warranty(753240000) TRWS=Out(963400001)
+[+10612.4s] SNAP pt=PAGE_3 step=07fc381f-9c67-ea11-a811-000d3ab95588 reason=interval ins=16 sel=6 | TRWS=In warranty(753240000) TRWS=Out(963400001)
+[+10617.4s] SNAP pt=PAGE_3 step=07fc381f-9c67-ea11-a811-000d3ab95588 reason=interval ins=15 sel=6 | TRWS=In warranty(753240000) TRWS=Out(963400001)
+[+10622.4s] SNAP pt=PAGE_3 step=07fc381f-9c67-ea11-a811-000d3ab95588 reason=interval ins=15 sel=6 | TRWS=In warranty(753240000) TRWS=Out(963400001)
+[+10625.6s] CLICK seq=39 click <a> "اضافة قطعة غيار الموديل 2"
+[+10627.4s] SNAP pt=PAGE_3 step=07fc381f-9c67-ea11-a811-000d3ab95588 reason=interval ins=16 sel=6 | TRWS=In warranty(753240000) TRWS=Out(963400001)
+[+10632.4s] SNAP pt=PAGE_3 step=07fc381f-9c67-ea11-a811-000d3ab95588 reason=interval ins=16 sel=6 | TRWS=In warranty(753240000) TRWS=Out(963400001)
+[+10637.4s] SNAP pt=PAGE_3 step=07fc381f-9c67-ea11-a811-000d3ab95588 reason=interval ins=16 sel=6 | TRWS=In warranty(753240000) TRWS=Out(963400001)
+[+10642.4s] SNAP pt=PAGE_3 step=07fc381f-9c67-ea11-a811-000d3ab95588 reason=interval ins=16 sel=6 | TRWS=In warranty(753240000) TRWS=Out(963400001)
+[+10647.4s] SNAP pt=PAGE_3 step=07fc381f-9c67-ea11-a811-000d3ab95588 reason=interval ins=15 sel=6 | TRWS=In warranty(753240000) TRWS=Out(963400001)
+[+10652.4s] SNAP pt=PAGE_3 step=07fc381f-9c67-ea11-a811-000d3ab95588 reason=interval ins=9 sel=4 | TRWS=In warranty(753240000)
+[+10657.4s] SNAP pt=PAGE_3 step=07fc381f-9c67-ea11-a811-000d3ab95588 reason=interval ins=9 sel=4 | TRWS=In warranty(753240000)
+[+10662.4s] SNAP pt=PAGE_3 step=07fc381f-9c67-ea11-a811-000d3ab95588 reason=interval ins=9 sel=4 | TRWS=In warranty(753240000)
+[+10665.7s] CLICK seq=48 click <button> "Launch lookup modal"
+[+10668.5s] CLICK seq=49 click <button> "اختر"
+[+10672.4s] SNAP pt=PAGE_3 step=07fc381f-9c67-ea11-a811-000d3ab95588 reason=interval ins=9 sel=4 | TRWS=In warranty(753240000)
+[+10677.4s] SNAP pt=PAGE_3 step=07fc381f-9c67-ea11-a811-000d3ab95588 reason=interval ins=9 sel=4 | TRWS=In warranty(753240000)
+[+10683.4s] CLICK seq=52 click <input> "حفظ و اغلاق"
+[+10687.4s] SNAP pt=PAGE_3 step=07fc381f-9c67-ea11-a811-000d3ab95588 reason=interval ins=9 sel=4 | TRWS=In warranty(753240000)
+[+10692.4s] SNAP pt=PAGE_3 step=07fc381f-9c67-ea11-a811-000d3ab95588 reason=interval ins=9 sel=4 | TRWS=In warranty(753240000)
+
+======================================================================
+RUN09  id=55e6be54-1c9  orderId=55e6be54-1c9e-f111-b8db-00224899f406  [negative-ts anomaly]
+firstSeen=1787498159578 lastSeen=1787513380092 span_min=253.7
+[+-0.7s] SNAP pt=PAGE_2 step=a9bbd40a-c61e-ec11-b6e5-000d3addfed4 reason=interval ins=28 sel=6 | TRWS=خارج الضمان(753240001) TRWS=Out Warranty(753240001)
+[+14431.9s](gap 14432.7s) SNAP pt=PAGE_2 step=a9bbd40a-c61e-ec11-b6e5-000d3addfed4 reason=page-load ins=28 sel=6 | TRWS=خارج الضمان(753240001) TRWS=Out Warranty(753240001)
+[+14904.7s](gap 472.8s) SNAP pt=PAGE_2 step=a9bbd40a-c61e-ec11-b6e5-000d3addfed4 reason=interval ins=28 sel=6 | TRWS=خارج الضمان(753240001) TRWS=Out Warranty(753240001)
+[+14905.4s] SNAP pt=PAGE_2 step=a9bbd40a-c61e-ec11-b6e5-000d3addfed4 reason=interval ins=28 sel=6 | TRWS=خارج الضمان(753240001) TRWS=Out Warranty(753240001)
+[+14910.4s] SNAP pt=PAGE_2 step=a9bbd40a-c61e-ec11-b6e5-000d3addfed4 reason=interval ins=28 sel=6 | TRWS=خارج الضمان(753240001) TRWS=Out Warranty(753240001)
+[+14915.4s] SNAP pt=PAGE_2 step=a9bbd40a-c61e-ec11-b6e5-000d3addfed4 reason=interval ins=28 sel=6 | TRWS=خارج الضمان(753240001) TRWS=Out Warranty(753240001)
+[+14920.5s] SNAP pt=PAGE_2 step=a9bbd40a-c61e-ec11-b6e5-000d3addfed4 reason=interval ins=28 sel=6 | TRWS=خارج الضمان(753240001) TRWS=Out Warranty(753240001)
+[+14925.5s] SNAP pt=PAGE_2 step=a9bbd40a-c61e-ec11-b6e5-000d3addfed4 reason=interval ins=28 sel=6 | TRWS=خارج الضمان(753240001) TRWS=Out Warranty(753240001)
+[+14930.4s] SNAP pt=PAGE_2 step=a9bbd40a-c61e-ec11-b6e5-000d3addfed4 reason=interval ins=28 sel=6 | TRWS=خارج الضمان(753240001) TRWS=Out Warranty(753240001)
+[+14935.4s] SNAP pt=PAGE_2 step=a9bbd40a-c61e-ec11-b6e5-000d3addfed4 reason=interval ins=28 sel=6 | TRWS=خارج الضمان(753240001) TRWS=Out Warranty(753240001)
+[+14937.5s] CLICK seq=11 click <div> "function entityFormClientValidate() { // Custom client side "
+[+14940.5s] SNAP pt=PAGE_2 step=a9bbd40a-c61e-ec11-b6e5-000d3addfed4 reason=interval ins=28 sel=6 | TRWS=خارج الضمان(753240001) TRWS=Out Warranty(753240001)
+[+14945.5s] SNAP pt=PAGE_2 step=a9bbd40a-c61e-ec11-b6e5-000d3addfed4 reason=interval ins=28 sel=6 | TRWS=خارج الضمان(753240001) TRWS=Out Warranty(753240001)
+[+14950.4s] SNAP pt=PAGE_2 step=a9bbd40a-c61e-ec11-b6e5-000d3addfed4 reason=interval ins=28 sel=6 | TRWS=خارج الضمان(753240001) TRWS=Out Warranty(753240001)
+[+14954.1s] CLICK seq=15 click <a> "اضافة المشاكل الفعلية المستخدمة"
+[+14955.5s] SNAP pt=PAGE_2 step=a9bbd40a-c61e-ec11-b6e5-000d3addfed4 reason=interval ins=31 sel=6 | TRWS=خارج الضمان(753240001) TRWS=Out Warranty(753240001)
+[+14960.5s] SNAP pt=PAGE_2 step=a9bbd40a-c61e-ec11-b6e5-000d3addfed4 reason=interval ins=31 sel=6 | TRWS=خارج الضمان(753240001) TRWS=Out Warranty(753240001)
+[+14963.7s] CLICK seq=18 click <a> "اضافة فنى"
+[+14965.5s] SNAP pt=PAGE_2 step=a9bbd40a-c61e-ec11-b6e5-000d3addfed4 reason=interval ins=31 sel=6 | TRWS=خارج الضمان(753240001) TRWS=Out Warranty(753240001)
+[+14970.4s] SNAP pt=PAGE_2 step=a9bbd40a-c61e-ec11-b6e5-000d3addfed4 reason=interval ins=28 sel=6 | TRWS=خارج الضمان(753240001) TRWS=Out Warranty(753240001)
+[+14975.5s] SNAP pt=PAGE_2 step=a9bbd40a-c61e-ec11-b6e5-000d3addfed4 reason=interval ins=28 sel=6 | TRWS=خارج الضمان(753240001) TRWS=Out Warranty(753240001)
+[+14979.0s] CLICK seq=22 click <select> "Select مستعمل منتظر بدون قطع غيار سحب استبدال"
+[+14980.4s] SNAP pt=PAGE_2 step=a9bbd40a-c61e-ec11-b6e5-000d3addfed4 reason=interval ins=28 sel=6 | TRWS=خارج الضمان(753240001) TRWS=Out Warranty(753240001)
+[+14982.0s] CLICK seq=24 click <input> "التالي"
+[+14985.4s] SNAP pt=PAGE_2 step=a9bbd40a-c61e-ec11-b6e5-000d3addfed4 reason=interval ins=28 sel=6 | TRWS=خارج الضمان(753240001) TRWS=Out Warranty(753240001)
+[+14989.1s] SNAP pt=PAGE_3 step=01e9459d-0a48-ea11-a813-000d3ab95ec9 reason=page-load ins=8 sel=4 | TRWS=Out warranty(753240001)
+[+14992.6s] SNAP pt=PAGE_3 step=01e9459d-0a48-ea11-a813-000d3ab95ec9 reason=interval ins=8 sel=4 | TRWS=Out warranty(753240001)
+[+14994.7s] CLICK seq=28 click <td> "أكواد الأعطالاضافة كود عطلاضافة كود عطلاضافة كود عطلاضافة كو"
+[+14996.5s] CLICK seq=29 click <a> "اضافة قطعة غيار"
+[+14997.6s] SNAP pt=PAGE_3 step=01e9459d-0a48-ea11-a813-000d3ab95ec9 reason=interval ins=14 sel=6 | TRWS=Out warranty(753240001) TRWS=In(963400000)
+[+15002.6s] SNAP pt=PAGE_3 step=01e9459d-0a48-ea11-a813-000d3ab95ec9 reason=interval ins=15 sel=6 | TRWS=Out warranty(753240001) TRWS=In(963400000)
+[+15007.6s] SNAP pt=PAGE_3 step=01e9459d-0a48-ea11-a813-000d3ab95ec9 reason=interval ins=14 sel=6 | TRWS=Out warranty(753240001) TRWS=In(963400000)
+[+15012.6s] SNAP pt=PAGE_3 step=01e9459d-0a48-ea11-a813-000d3ab95ec9 reason=interval ins=14 sel=6 | TRWS=Out warranty(753240001) TRWS=In(963400000)
+[+15017.6s] SNAP pt=PAGE_3 step=01e9459d-0a48-ea11-a813-000d3ab95ec9 reason=interval ins=14 sel=6 | TRWS=Out warranty(753240001) TRWS=Out(963400001)
+[+15022.6s] SNAP pt=PAGE_3 step=01e9459d-0a48-ea11-a813-000d3ab95ec9 reason=interval ins=14 sel=6 | TRWS=Out warranty(753240001) TRWS=Out(963400001)
+[+15027.6s] SNAP pt=PAGE_3 step=01e9459d-0a48-ea11-a813-000d3ab95ec9 reason=interval ins=8 sel=4 | TRWS=Out warranty(753240001)
+[+15040.4s] SNAP pt=PAGE_2 step=a9bbd40a-c61e-ec11-b6e5-000d3addfed4 reason=interval ins=28 sel=6 | TRWS=خارج الضمان(753240001) TRWS=Out Warranty(753240001)
+[+15044.0s] CLICK seq=38 click <select> "Select داخل الضمان خارج الضمان" <<<< WS-RELATED
+[+15044.9s] CLICK seq=39 click <select> "Select داخل الضمان خارج الضمان" <<<< WS-RELATED
+[+15045.4s] SNAP pt=PAGE_2 step=a9bbd40a-c61e-ec11-b6e5-000d3addfed4 reason=interval ins=28 sel=6 | TRWS=داخل الضمان(753240000) TRWS=In Warranty(753240000)
+[+15046.6s] CLICK seq=41 click <input> "التالي"
+[+15092.3s](gap 45.8s) SNAP pt=PAGE_3 step=01e9459d-0a48-ea11-a813-000d3ab95ec9 reason=interval ins=8 sel=4 | TRWS=Out warranty(753240001)
+[+15095.8s] CLICK seq=43 click <a> "اضافة قطعة غيار"
+[+15100.1s] SNAP pt=PAGE_3 step=01e9459d-0a48-ea11-a813-000d3ab95ec9 reason=interval ins=14 sel=6 | TRWS=Out warranty(753240001) TRWS=In(963400000)
+[+15105.1s] SNAP pt=PAGE_3 step=01e9459d-0a48-ea11-a813-000d3ab95ec9 reason=interval ins=15 sel=6 | TRWS=Out warranty(753240001) TRWS=Out(963400001)
+[+15110.1s] SNAP pt=PAGE_3 step=01e9459d-0a48-ea11-a813-000d3ab95ec9 reason=interval ins=15 sel=6 | TRWS=Out warranty(753240001) TRWS=Out(963400001)
+[+15150.1s](gap 40.0s) SNAP pt=PAGE_3 step=01e9459d-0a48-ea11-a813-000d3ab95ec9 reason=interval ins=8 sel=4 | TRWS=Out warranty(753240001)
+[+15155.1s] SNAP pt=PAGE_3 step=01e9459d-0a48-ea11-a813-000d3ab95ec9 reason=interval ins=13 sel=4 | TRWS=Out warranty(753240001)
+[+15160.1s] SNAP pt=PAGE_3 step=01e9459d-0a48-ea11-a813-000d3ab95ec9 reason=interval ins=12 sel=4 | TRWS=Out warranty(753240001)
+[+15165.1s] SNAP pt=PAGE_3 step=01e9459d-0a48-ea11-a813-000d3ab95ec9 reason=interval ins=8 sel=4 | TRWS=Out warranty(753240001)
+[+15166.3s] CLICK seq=51 click <button> "Launch lookup modal"
+[+15170.1s] SNAP pt=PAGE_3 step=01e9459d-0a48-ea11-a813-000d3ab95ec9 reason=interval ins=8 sel=4 | TRWS=Out warranty(753240001)
+[+15175.1s] SNAP pt=PAGE_3 step=01e9459d-0a48-ea11-a813-000d3ab95ec9 reason=interval ins=8 sel=4 | TRWS=Out warranty(753240001)
+[+15180.1s] SNAP pt=PAGE_3 step=01e9459d-0a48-ea11-a813-000d3ab95ec9 reason=interval ins=8 sel=4 | TRWS=Out warranty(753240001)
+[+15185.1s] SNAP pt=PAGE_3 step=01e9459d-0a48-ea11-a813-000d3ab95ec9 reason=interval ins=8 sel=4 | TRWS=Out warranty(753240001)
+[+15190.1s] SNAP pt=PAGE_3 step=01e9459d-0a48-ea11-a813-000d3ab95ec9 reason=interval ins=8 sel=4 | TRWS=Out warranty(753240001)
+[+15193.0s] CLICK seq=57 click <div> "اضافة كود عطلاضافة كود عطلاضافة كود عطلاضافة كود عطلاضافة كو"
+[+15193.9s] CLICK seq=58 click <a> "اضافة كود عطل"
+[+15195.2s] SNAP pt=PAGE_3 step=01e9459d-0a48-ea11-a813-000d3ab95ec9 reason=interval ins=13 sel=4 | TRWS=Out warranty(753240001)
+[+15200.1s] SNAP pt=PAGE_3 step=01e9459d-0a48-ea11-a813-000d3ab95ec9 reason=interval ins=13 sel=4 | TRWS=Out warranty(753240001)
+[+15201.2s] CLICK seq=61 click <section> "اضافة كود عطل×إلغاءجاري التحميل"
+[+15205.1s] SNAP pt=PAGE_3 step=01e9459d-0a48-ea11-a813-000d3ab95ec9 reason=interval ins=8 sel=4 | TRWS=Out warranty(753240001)
+[+15210.1s] SNAP pt=PAGE_3 step=01e9459d-0a48-ea11-a813-000d3ab95ec9 reason=interval ins=8 sel=4 | TRWS=Out warranty(753240001)
+[+15216.1s] CLICK seq=64 click <input> "حفظ و اغلاق"
+[+15220.2s] SNAP pt=PAGE_3 step=01e9459d-0a48-ea11-a813-000d3ab95ec9 reason=interval ins=8 sel=4 | TRWS=Out warranty(753240001)
