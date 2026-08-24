@@ -1,0 +1,956 @@
+{
+ "backups": [
+  [
+   "backup-pre-unified-v4",
+   "2026-08-06T13:55:18.693716",
+   4,
+   130338
+  ],
+  [
+   "deploy_backup_20260807_052019",
+   "2026-08-07T05:20:19.424057",
+   3,
+   178891
+  ],
+  [
+   "deploy_backup_20260808_152656",
+   "2026-08-08T15:26:56.684821",
+   23,
+   177328
+  ],
+  [
+   "deploy_backup_20260811_155011",
+   "2026-08-11T15:50:11.966986",
+   0,
+   0
+  ],
+  [
+   "deploy_backup_20260811_164950",
+   "2026-08-11T16:49:50.599280",
+   65,
+   3607270
+  ],
+  [
+   "deploy_backup_20260811_192437",
+   "2026-08-11T19:24:37.163393",
+   65,
+   3611641
+  ],
+  [
+   "deploy_backup_20260811_201919",
+   "2026-08-11T20:19:19.600495",
+   65,
+   3613251
+  ],
+  [
+   "deploy_backup_20260811_203036",
+   "2026-08-11T20:30:36.759110",
+   66,
+   3633647
+  ],
+  [
+   "deploy_backup_20260811_204415",
+   "2026-08-11T20:44:16.000425",
+   66,
+   3636279
+  ],
+  [
+   "deploy_backup_20260811_210259",
+   "2026-08-11T21:02:59.821744",
+   66,
+   3640931
+  ],
+  [
+   "deploy_backup_20260811_212703",
+   "2026-08-11T21:27:03.401131",
+   66,
+   3646356
+  ],
+  [
+   "deploy_backup_20260811_232348",
+   "2026-08-11T23:23:48.089962",
+   66,
+   3650050
+  ],
+  [
+   "deploy_backup_20260812_174231",
+   "2026-08-12T17:42:31.906598",
+   68,
+   3691781
+  ],
+  [
+   "deploy_backup_20260812_175624",
+   "2026-08-12T17:56:24.762698",
+   69,
+   3735052
+  ],
+  [
+   "deploy_backup_20260813_102725",
+   "2026-08-13T10:27:25.414930",
+   70,
+   3738051
+  ],
+  [
+   "deploy_backup_20260814_160043",
+   "2026-08-14T16:00:43.909714",
+   70,
+   3738787
+  ],
+  [
+   "deploy_backup_20260814_160737",
+   "2026-08-14T16:07:37.557598",
+   71,
+   3771466
+  ],
+  [
+   "deploy_backup_20260814_164050",
+   "2026-08-14T16:40:50.622840",
+   72,
+   3797447
+  ],
+  [
+   "deploy_backup_20260814_164205",
+   "2026-08-14T16:42:05.703789",
+   72,
+   3803888
+  ],
+  [
+   "deploy_backup_20260814_165518",
+   "2026-08-14T16:55:19.039125",
+   72,
+   3804019
+  ],
+  [
+   "deploy_backup_20260814_165735",
+   "2026-08-14T16:57:35.464964",
+   72,
+   3811785
+  ],
+  [
+   "deploy_backup_20260814_173559",
+   "2026-08-14T17:35:59.501135",
+   72,
+   3814091
+  ],
+  [
+   "deploy_backup_20260814_195219",
+   "2026-08-14T19:52:19.327515",
+   72,
+   3815704
+  ],
+  [
+   "deploy_backup_20260814_195756",
+   "2026-08-14T19:57:56.846540",
+   72,
+   3816644
+  ],
+  [
+   "deploy_backup_20260814_200030",
+   "2026-08-14T20:00:30.806292",
+   72,
+   3820712
+  ],
+  [
+   "deploy_backup_20260814_200313",
+   "2026-08-14T20:03:13.934073",
+   72,
+   3821515
+  ],
+  [
+   "deploy_backup_20260814_201206",
+   "2026-08-14T20:12:06.286770",
+   72,
+   3828716
+  ],
+  [
+   "deploy_backup_20260814_201410",
+   "2026-08-14T20:14:10.590621",
+   72,
+   3829657
+  ],
+  [
+   "deploy_backup_20260814_202955",
+   "2026-08-14T20:29:55.145666",
+   72,
+   3829648
+  ],
+  [
+   "deploy_backup_20260814_204629",
+   "2026-08-14T20:46:29.703167",
+   72,
+   3839103
+  ],
+  [
+   "deploy_backup_20260814_205448",
+   "2026-08-14T20:54:48.289457",
+   72,
+   3840265
+  ],
+  [
+   "deploy_backup_20260814_232913",
+   "2026-08-14T23:29:13.590864",
+   72,
+   3840561
+  ],
+  [
+   "deploy_backup_20260815_013317",
+   "2026-08-15T01:33:17.355082",
+   72,
+   3840466
+  ],
+  [
+   "deploy_backup_20260815_015152",
+   "2026-08-15T01:51:52.329967",
+   72,
+   3845304
+  ],
+  [
+   "deploy_backup_20260815_015209",
+   "2026-08-15T01:52:09.317966",
+   72,
+   3847193
+  ],
+  [
+   "deploy_backup_20260815_041953",
+   "2026-08-15T04:19:53.421860",
+   72,
+   3862287
+  ],
+  [
+   "deploy_backup_20260815_043320",
+   "2026-08-15T04:33:20.583460",
+   72,
+   3865507
+  ],
+  [
+   "deploy_backup_20260815_112501",
+   "2026-08-15T11:25:02.053592",
+   72,
+   3895138
+  ],
+  [
+   "deploy_backup_20260815_113008",
+   "2026-08-15T11:30:09.013447",
+   74,
+   3957596
+  ],
+  [
+   "deploy_backup_20260815_113601",
+   "2026-08-15T11:36:01.891938",
+   74,
+   3958578
+  ],
+  [
+   "deploy_backup_20260815_115414",
+   "2026-08-15T11:54:15.101185",
+   74,
+   3963991
+  ],
+  [
+   "deploy_backup_20260815_115638",
+   "2026-08-15T11:56:39.093379",
+   74,
+   3966112
+  ],
+  [
+   "deploy_backup_20260815_115955",
+   "2026-08-15T11:59:55.838855",
+   74,
+   3968301
+  ],
+  [
+   "deploy_backup_20260815_120029",
+   "2026-08-15T12:00:29.653977",
+   77,
+   3983402
+  ],
+  [
+   "deploy_backup_20260815_120241",
+   "2026-08-15T12:02:41.136266",
+   77,
+   3987457
+  ],
+  [
+   "deploy_backup_20260815_120509",
+   "2026-08-15T12:05:10.074109",
+   78,
+   4002360
+  ],
+  [
+   "deploy_backup_20260815_120754",
+   "2026-08-15T12:07:54.139883",
+   80,
+   4026167
+  ],
+  [
+   "deploy_backup_20260815_120931",
+   "2026-08-15T12:09:31.244353",
+   81,
+   4057887
+  ],
+  [
+   "deploy_backup_20260815_121802",
+   "2026-08-15T12:18:02.819489",
+   82,
+   4072027
+  ],
+  [
+   "deploy_backup_20260815_130419",
+   "2026-08-15T13:04:19.792578",
+   83,
+   4078231
+  ],
+  [
+   "deploy_backup_20260815_130455",
+   "2026-08-15T13:04:55.342617",
+   83,
+   4083750
+  ],
+  [
+   "deploy_backup_20260815_134401",
+   "2026-08-15T13:44:01.141363",
+   83,
+   4083751
+  ],
+  [
+   "deploy_backup_20260815_140332",
+   "2026-08-15T14:03:32.244081",
+   83,
+   4083596
+  ],
+  [
+   "deploy_backup_20260815_141955",
+   "2026-08-15T14:19:55.116282",
+   83,
+   4082605
+  ],
+  [
+   "deploy_backup_20260815_155323",
+   "2026-08-15T15:53:23.931820",
+   83,
+   4057017
+  ],
+  [
+   "deploy_backup_20260815_162714",
+   "2026-08-15T16:27:14.870167",
+   83,
+   4082285
+  ],
+  [
+   "deploy_backup_20260815_164212",
+   "2026-08-15T16:42:12.314679",
+   95,
+   4204284
+  ],
+  [
+   "deploy_backup_20260815_174951",
+   "2026-08-15T17:49:51.651103",
+   89,
+   4175971
+  ],
+  [
+   "deploy_backup_20260815_190938",
+   "2026-08-15T19:09:38.572210",
+   89,
+   4177500
+  ],
+  [
+   "deploy_backup_20260815_192446",
+   "2026-08-15T19:24:47.041223",
+   89,
+   4180066
+  ],
+  [
+   "deploy_backup_20260815_201028",
+   "2026-08-15T20:10:28.793076",
+   89,
+   4181046
+  ],
+  [
+   "deploy_backup_20260815_201553",
+   "2026-08-15T20:15:53.181399",
+   89,
+   4181036
+  ],
+  [
+   "deploy_backup_20260816_002727",
+   "2026-08-16T00:27:27.667672",
+   89,
+   4182114
+  ],
+  [
+   "deploy_backup_20260816_004443",
+   "2026-08-16T00:44:43.991760",
+   89,
+   4184758
+  ],
+  [
+   "deploy_backup_20260816_105948",
+   "2026-08-16T10:59:49.079674",
+   89,
+   4188684
+  ],
+  [
+   "deploy_backup_20260816_174523",
+   "2026-08-16T17:45:23.580375",
+   98,
+   6508539
+  ],
+  [
+   "deploy_backup_20260816_181821",
+   "2026-08-16T18:18:21.210092",
+   98,
+   6509254
+  ],
+  [
+   "deploy_backup_20260816_182445",
+   "2026-08-16T18:24:45.619193",
+   98,
+   6509242
+  ],
+  [
+   "deploy_backup_20260816_190042",
+   "2026-08-16T19:00:42.688008",
+   89,
+   4189508
+  ],
+  [
+   "deploy_backup_20260816_192712",
+   "2026-08-16T19:27:12.263385",
+   89,
+   4194323
+  ],
+  [
+   "deploy_backup_20260817_134317",
+   "2026-08-17T13:43:17.882900",
+   88,
+   4095642
+  ],
+  [
+   "deploy_backup_20260817_140051",
+   "2026-08-17T14:00:51.325454",
+   88,
+   4096744
+  ],
+  [
+   "deploy_backup_20260817_145815",
+   "2026-08-17T14:58:16.073464",
+   88,
+   4098248
+  ],
+  [
+   "deploy_backup_20260817_152721",
+   "2026-08-17T15:27:21.410343",
+   88,
+   4098968
+  ],
+  [
+   "deploy_backup_20260817_154845",
+   "2026-08-17T15:48:45.790409",
+   88,
+   4102037
+  ],
+  [
+   "deploy_backup_20260817_161124",
+   "2026-08-17T16:11:24.612930",
+   88,
+   4103555
+  ],
+  [
+   "deploy_backup_20260817_165607",
+   "2026-08-17T16:56:07.520834",
+   31,
+   2988140
+  ],
+  [
+   "deploy_backup_20260818_132711",
+   "2026-08-18T13:27:11.286433",
+   32,
+   3012059
+  ],
+  [
+   "deploy_backup_20260818_143307",
+   "2026-08-18T14:33:07.194655",
+   32,
+   3013544
+  ],
+  [
+   "deploy_backup_20260818_235906",
+   "2026-08-18T23:59:06.551229",
+   41,
+   3132256
+  ],
+  [
+   "deploy_backup_20260819_171924",
+   "2026-08-19T17:19:24.169212",
+   43,
+   3186476
+  ],
+  [
+   "deploy_backup_20260822_184526",
+   "2026-08-22T18:45:26.629684",
+   43,
+   3200659
+  ],
+  [
+   "deploy_backup_20260822_184955",
+   "2026-08-22T18:49:56.008188",
+   43,
+   3197187
+  ],
+  [
+   "deploy_backup_20260822_190600",
+   "2026-08-22T19:06:00.237277",
+   43,
+   3199665
+  ],
+  [
+   "deploy_backup_20260822_191202",
+   "2026-08-22T19:12:02.977075",
+   80,
+   3786509
+  ],
+  [
+   "deploy_backup_20260822_201258",
+   "2026-08-22T20:12:58.758667",
+   80,
+   3786511
+  ],
+  [
+   "deploy_backup_20260822_231925",
+   "2026-08-22T23:19:25.124574",
+   80,
+   3789227
+  ],
+  [
+   "deploy_backup_20260822_232208",
+   "2026-08-22T23:22:08.261688",
+   81,
+   3796152
+  ],
+  [
+   "deploy_backup_20260822_233011",
+   "2026-08-22T23:30:11.665796",
+   81,
+   3823900
+  ],
+  [
+   "deploy_backup_20260822_233240",
+   "2026-08-22T23:32:41.009823",
+   81,
+   3823900
+  ],
+  [
+   "deploy_backup_20260823_005012",
+   "2026-08-23T00:50:12.858285",
+   81,
+   3831625
+  ],
+  [
+   "deploy_backup_20260823_005451",
+   "2026-08-23T00:54:51.372184",
+   81,
+   3865314
+  ],
+  [
+   "deploy_backup_20260823_171327",
+   "2026-08-23T17:13:27.906987",
+   81,
+   3865246
+  ],
+  [
+   "deploy_backup_20260823_210508",
+   "2026-08-23T21:05:08.527716",
+   81,
+   3867937
+  ]
+ ],
+ "_archives": [
+  "pre-v1-rollback_20260817_161034/ (193 files)",
+  "  deploy/ (88 files)",
+  "    Tempermonky/ (11 files)",
+  "    ai/ (8 files)",
+  "    ai-panel-tab.js (9,177)",
+  "    background.js (62,927)",
+  "    content/ (1 files)",
+  "    content-script.js (148,169)",
+  "    control-panel.js (109,759)",
+  "    core/ (3 files)",
+  "    dock-fab-hider.js (1,159)",
+  "    elaraby-phone-reveal-layer0.js (5,843)",
+  "    excel-autofix-tab.js (5,027)",
+  "    features/ (11 files)",
+  "    financial-tab.js (17,932)",
+  "    icons/ (3 files)",
+  "    lib/ (3 files)",
+  "    manifest.json (6,903)",
+  "    n8n-tab.js (6,873)",
+  "    order-extractor.js (57,377)",
+  "    popup.html (65,834)",
+  "    popup.js (164,989)",
+  "    products-db.json (169,755)",
+  "    scripts/ (4 files)",
+  "    secondVisitProfiles.json (3,962)",
+  "    selectors.json (12,995)",
+  "    shared/ (23 files)",
+  "    styles/ (2 files)",
+  "    tampermonkey-runner.js (15,439)",
+  "    travel-costs.json (414)",
+  "    unified-dock.js (51,148)",
+  "  tools/ (17 files)",
+  "    auto-backup.ps1 (1,668)",
+  "    deploy.ps1 (2,218)",
+  "    excel_autofix/ (13 files)",
+  "    sync-shared.ps1 (1,938)",
+  "    tests/ (1 files)",
+  "  unified-extension/ (88 files)",
+  "    Tempermonky/ (11 files)",
+  "    ai/ (8 files)",
+  "    ai-panel-tab.js (9,177)",
+  "    background.js (62,927)",
+  "    content/ (1 files)",
+  "    content-script.js (148,169)",
+  "    control-panel.js (109,759)",
+  "    core/ (3 files)",
+  "    dock-fab-hider.js (1,159)",
+  "    elaraby-phone-reveal-layer0.js (5,843)",
+  "    excel-autofix-tab.js (5,027)",
+  "    features/ (11 files)",
+  "    financial-tab.js (17,932)",
+  "    icons/ (3 files)",
+  "    lib/ (3 files)",
+  "    manifest.json (6,903)",
+  "    n8n-tab.js (6,873)",
+  "    order-extractor.js (57,377)",
+  "    popup.html (65,834)",
+  "    popup.js (164,989)",
+  "    products-db.json (169,755)",
+  "    scripts/ (4 files)",
+  "    secondVisitProfiles.json (3,962)",
+  "    selectors.json (12,995)",
+  "    shared/ (23 files)",
+  "    styles/ (2 files)",
+  "    tampermonkey-runner.js (15,439)",
+  "    travel-costs.json (414)",
+  "    unified-dock.js (51,148)"
+ ],
+ "legacy": [
+  "Rescheduling Portal Requests Optimization/ (5 files)",
+  "  AGENTS.md (1,943)",
+  "  PROJECT_STATUS.md (2,444)",
+  "  README.md (2,264)",
+  "  TOOL_PROFILE.md (4,805)",
+  "  smart-scheduler.js (10,511)",
+  "portal-other-section/ (22 files)",
+  "  AGENTS.md (2,849)",
+  "  PROJECT_STATUS.md (3,976)",
+  "  README.md (3,993)",
+  "  TOOL_PROFILE.md (7,586)",
+  "  elaraby-extension/ (7 files)",
+  "    background.js (1,537)",
+  "    icon.png (11)",
+  "    local-analyzer.js (25,905)",
+  "    manifest.json (725)",
+  "    popup.html (3,733)",
+  "    popup.js (18,205)",
+  "    styles.css (6,393)",
+  "  elaraby_crm_analysis.md (40,800)",
+  "  get_all_data.js (6,194)",
+  "  portal_automation.js (32,937)",
+  "  اوامر شغل - MainMoney.html (10,839)",
+  "  اوامر شغل - accountMovementSAP بعد الباسوورد.html (1,046,315)",
+  "  اوامر شغل - accountMovementSAP بعد الباسوورد_files/ (1 files)",
+  "    bootstrap-rtl.min.css (26,573)",
+  "  اوامر شغل - accountMovementSAP قبل الباسوود.html (13,776)",
+  "  اوامر شغل - inasc.html (108,435)",
+  "  اوامر شغل - inasc_files/ (1 files)",
+  "    bootstrap-rtl.min.css (26,573)",
+  "  اوامر شغل - inprogress.aspx (23,272)",
+  "  اوامر شغل - inprogress.html (105,930)",
+  "اكواد/ (66 files)",
+  "  frames/ (53 files)",
+  "    frame_001.jpg (54,244)",
+  "    frame_002.jpg (63,009)",
+  "    frame_003.jpg (74,360)",
+  "    frame_004.jpg (98,676)",
+  "    frame_005.jpg (83,256)",
+  "    frame_006.jpg (65,933)",
+  "    frame_007.jpg (55,363)",
+  "    frame_008.jpg (45,704)",
+  "    frame_009.jpg (30,982)",
+  "    frame_010.jpg (30,855)",
+  "    frame_011.jpg (28,866)",
+  "    frame_012.jpg (26,419)",
+  "    frame_013.jpg (23,944)",
+  "    frame_014.jpg (23,412)",
+  "    frame_015.jpg (23,398)",
+  "    frame_016.jpg (23,590)",
+  "    frame_017.jpg (28,394)",
+  "    frame_018.jpg (28,460)",
+  "    frame_019.jpg (28,387)",
+  "    frame_020.jpg (28,335)",
+  "    frame_021.jpg (28,417)",
+  "    frame_022.jpg (28,421)",
+  "    frame_023.jpg (28,648)",
+  "    frame_024.jpg (28,791)",
+  "    frame_025.jpg (28,803)",
+  "    frame_026.jpg (23,505)",
+  "    frame_027.jpg (23,570)",
+  "    frame_028.jpg (23,505)",
+  "    frame_029.jpg (28,833)",
+  "    frame_030.jpg (29,391)",
+  "    frame_031.jpg (29,515)",
+  "    frame_032.jpg (29,524)",
+  "    frame_033.jpg (29,527)",
+  "    frame_034.jpg (19,919)",
+  "    frame_035.jpg (21,013)",
+  "    frame_036.jpg (21,546)",
+  "    frame_037.jpg (21,479)",
+  "    frame_038.jpg (22,040)",
+  "    frame_039.jpg (27,262)",
+  "    frame_040.jpg (27,622)",
+  "    frame_041.jpg (27,670)",
+  "    frame_042.jpg (21,323)",
+  "    frame_043.jpg (21,352)",
+  "    frame_044.jpg (19,676)",
+  "    frame_045.jpg (27,851)",
+  "    frame_046.jpg (27,632)",
+  "    frame_047.jpg (27,372)",
+  "    frame_048.jpg (27,144)",
+  "    frame_049.jpg (26,920)",
+  "    frame_050.jpg (27,463)",
+  "    frame_051.jpg (28,059)",
+  "    frame_052.jpg (28,650)",
+  "    frame_053.jpg (29,229)",
+  "  page2_ac_temp.html (471,680)",
+  "  العهد المتاحة · Partner Portal.html (130,341)",
+  "  المراجعة الفنية · Partner Portal صفحة 1 مصدر الصفحة.html (577,925)",
+  "  تغير كلمة المرور · Partner Portal.html (65,380)",
+  "  متابعة امر الشغل · Partner Portal تجميعة قطع الغيار.html (585,535)",
+  "  متابعة امر الشغل · Partner Portal صفحة 1 مصدر الصفحة.html (444,029)",
+  "  متابعة امر الشغل · Partner Portal صفحة 1.html (210,087)",
+  "  متابعة امر الشغل · Partner Portal صفحة 2 تحديث.html (464,888)",
+  "  متابعة امر الشغل · Partner Portal صفحة 2 تكييف مع اضافة المشكلات وفني عشوائي.html (471,680)",
+  "  متابعة امر الشغل · Partner Portal صفحة 2.html (475,423)",
+  "  متابعة امر الشغل · Partner Portal صفحة 3.html (576,399)",
+  "  متابعة امر الشغل · Partner Portal صفحة 33_files.html (564,887)",
+  "  معاينه الحاله · Partner Portal.html (224,173)",
+  "البحث عن بلاغ/ (14 files)",
+  "  AGENTS.md (2,620)",
+  "  PROJECT_STATUS.md (3,720)",
+  "  README.md (2,870)",
+  "  TOOL_PROFILE.md (6,411)",
+  "  content.js (39,301)",
+  "  manifest.json (772)",
+  "  popup.css (2,614)",
+  "  popup.html (1,175)",
+  "  popup.js (2,432)",
+  "  styles.css (14,204)",
+  "  xlsx.full.min.js (951,904)",
+  "  اوامر الشغل · Partner Portal.html (27,524)",
+  "  اوامر شغل - ElAraby.html (58,025)",
+  "  اوامر شغل - ElAraby_files/ (1 files)",
+  "    bootstrap-rtl.min.css (26,573)",
+  "المساعد الذكي/ (40 files)",
+  "  .gitignore (253)",
+  "  AGENTS.md (5,536)",
+  "  MASTER_REFERENCE.md (9,216)",
+  "  PROJECT_STATUS.md (7,172)",
+  "  README.md (4,796)",
+  "  TOOL_PROFILE.md (9,644)",
+  "  background.js (28,993)",
+  "  content/ (4 files)",
+  "    auto-filler.js (8,955)",
+  "    scanner.js (8,688)",
+  "    ui/ (2 files)",
+  "  dashboard/ (2 files)",
+  "    dashboard.html (27,014)",
+  "    dashboard.js (37,068)",
+  "  icons/ (4 files)",
+  "    icon128.png (2,313)",
+  "    icon128.svg (935)",
+  "    icon16.png (465)",
+  "    icon48.png (995)",
+  "  lib/ (2 files)",
+  "    papaparse.min.js (19,469)",
+  "    xlsx.full.min.js (881,727)",
+  "  manifest.json (1,894)",
+  "  metadata.json (336)",
+  "  package-lock.json (3,978)",
+  "  package.json (77)",
+  "  public/ (0 files)",
+  "  scripts/ (4 files)",
+  "    generateMasterData.cjs (5,498)",
+  "    inspect_data.cjs (564)",
+  "    merge-files.js (4,443)",
+  "    portal-data-extractor.js (13,603)",
+  "  shared/ (13 files)",
+  "    ai-client.js (9,555)",
+  "    arabic-utils.js (7,180)",
+  "    data-mapper.js (12,517)",
+  "    db.js (24,044)",
+  "    excel-exporter.js (6,390)",
+  "    frame-walker.js (4,270)",
+  "    message-bus.js (4,195)",
+  "    n8n-client.js (2,303)",
+  "    portal-config.js (4,449)",
+  "    portal-selectors.js (13,012)",
+  "    smart-log.js (4,982)",
+  "    storage-proxy.js (2,938)",
+  "    table-scraper.js (6,636)",
+  "حجز البلاغات المستقبلة/ (5 files)",
+  "  AGENTS.md (1,939)",
+  "  ElAraby_DateFilter_Unlocker.user.js (56,435)",
+  "  PROJECT_STATUS.md (3,283)",
+  "  README.md (2,225)",
+  "  TOOL_PROFILE.md (5,965)",
+  "مساعد التقفيلات (نشر قديم)/ (230 files)",
+  "  AGENTS.md (8,497)",
+  "  Automating Portal Work Order Entry.md (1,362,985)",
+  "  CHANGELOG.md (7,524)",
+  "  PROJECT_STATUS.md (4,831)",
+  "  README.md (8,085)",
+  "  README_Dev.md (3,368)",
+  "  TOOL_PROFILE.md (10,301)",
+  "  Tempermonky/ (11 files)",
+  "    DateFilter/ (1 files)",
+  "    elaraby-phone-reveal/ (3 files)",
+  "    elaraby-phone-reveal.js (56,517)",
+  "    messenger-sender.js (53,432)",
+  "    report-processor.js (49,299)",
+  "    services.json (1,832)",
+  "    tips.json (12,909)",
+  "    مساعد ارسال الماسنجر/ (2 files)",
+  "  a859e936-b10b-40f3-acf0-321c300cb916/ (160 files)",
+  "    .system_generated/ (70 files)",
+  "    architecture_analysis.md (9,432)",
+  "    architecture_analysis.md.metadata.json (286)",
+  "    architecture_analysis.md.resolved (9,432)",
+  "    architecture_analysis.md.resolved.0 (9,432)",
+  "    artifacts/ (6 files)",
+  "    browser/ (9 files)",
+  "    code_review.md.metadata.json (122)",
+  "    implementation_plan.md (9,026)",
+  "    implementation_plan.md.metadata.json (596)",
+  "    implementation_plan.md.resolved (4,901)",
+  "    implementation_plan.md.resolved.0 (6,219)",
+  "    implementation_plan.md.resolved.1 (4,524)",
+  "    implementation_plan.md.resolved.2 (7,944)",
+  "    implementation_plan.md.resolved.3 (8,252)",
+  "    implementation_plan.md.resolved.4 (4,901)",
+  "    implementation_plan_messenger.md.metadata.json (136)",
+  "    media__1776783196485.png (38,796)",
+  "    media__1776793317255.png (293,349)",
+  "    media__1776795536022.png (257,436)",
+  "    media__1776795731448.png (250,821)",
+  "    media__1776795744882.png (231,312)",
+  "    media__1776796009566.png (281,937)",
+  "    media__1776796653437.png (253,194)",
+  "    media__1776796669416.png (279,145)",
+  "    media__1776796965703.png (269,350)",
+  "    media__1776801444030.png (119,386)",
+  "    media__1776801504469.png (285,362)",
+  "    media__1776805160183.png (113,119)",
+  "    media__1776807207225.png (261,940)",
+  "    media__1776808674473.png (215,163)",
+  "    media__1776809194744.png (286,206)",
+  "    media__1776809601313.png (202,531)",
+  "    media__1776809610288.png (231,621)",
+  "    media__1777473278281.png (128,363)",
+  "    media__1777793223322.png (82,397)",
+  "    media__1777889973149.png (136,060)",
+  "    media__1778950259345.png (127,188)",
+  "    media__1778952710372.png (56,009)",
+  "    media__1778953335357.png (133,930)",
+  "    media__1779036549283.png (150,114)",
+  "    media__1779495227556.png (265,165)",
+  "    media__1779495526734.png (744,846)",
+  "    media__1779495642766.png (12,712)",
+  "    media__1779495779236.png (378,156)",
+  "    media__1779495835615.png (123,063)",
+  "    media__1779496791797.png (60,988)",
+  "    media__1779496871069.png (265,592)",
+  "    media__1779496880920.png (121,976)",
+  "    media__1780170570375.png (274,532)",
+  "    media__1780171011145.png (247,603)",
+  "    media__1781557967228.png (63,108)",
+  "    media__1781557980526.png (255,234)",
+  "    media__1781684159384.png (30,040)",
+  "    media__1781684574316.png (121,371)",
+  "    product_codes_reference.md (4,355)",
+  "    product_codes_reference.md.metadata.json (452)",
+  "    scratch/ (1 files)",
+  "    task.md (346)",
+  "    task.md.metadata.json (220)",
+  "    task.md.resolved (1,093)",
+  "    task.md.resolved.0 (368)",
+  "    task.md.resolved.1 (368)",
+  "    task.md.resolved.10 (1,082)",
+  "    task.md.resolved.11 (1,093)",
+  "    task.md.resolved.2 (585)",
+  "    task.md.resolved.3 (691)",
+  "    task.md.resolved.4 (498)",
+  "    task.md.resolved.5 (498)",
+  "    task.md.resolved.6 (698)",
+  "    task.md.resolved.7 (914)",
+  "    task.md.resolved.8 (1,082)",
+  "    task.md.resolved.9 (1,082)",
+  "    walkthrough.md (3,755)",
+  "    walkthrough.md.metadata.json (240)",
+  "    walkthrough.md.resolved (2,920)",
+  "    walkthrough.md.resolved.0 (4,548)",
+  "    walkthrough.md.resolved.1 (2,920)",
+  "  background.js (39,275)",
+  "  content/ (7 files)",
+  "    booking/ (3 files)",
+  "    crm/ (1 files)",
+  "    financial/ (3 files)",
+  "  content-script.js (122,503)",
+  "  control-panel.js (108,994)",
+  "  dashboard/ (5 files)",
+  "    assets/ (1 files)",
+  "    dashboard.html (27,014)",
+  "    dashboard.js (37,068)",
+  "    dashboard.js.map (81,421)",
+  "    index.html (591)",
+  "  elaraby-phone-reveal-layer0.js (1,256)",
+  "  icons/ (3 files)",
+  "    icon128.png (1,930)",
+  "    icon16.png (381)",
+  "    icon48.png (909)",
+  "  lib/ (3 files)",
+  "    exceljs.min.js (947,702)",
+  "    papaparse.min.js (19,469)",
+  "    xlsx.full.min.js (951,904)",
+  "  manifest.json (5,124)",
+  "  order-extractor.js (56,395)",
+  "  popup.html (41,481)",
+  "  popup.js (128,264)",
+  "  products-db.json (169,755)",
+  "  products.ts (133,041)",
+  "  scripts/ (4 files)",
+  "    booking/ (4 files)",
+  "  secondVisitProfiles.json (3,962)",
+  "  selectors.json (6,009)",
+  "  shared/ (13 files)",
+  "    ai-client.js (9,555)",
+  "    arabic-utils.js (7,180)",
+  "    data-mapper.js (12,517)",
+  "    db.js (24,044)",
+  "    excel-exporter.js (6,390)",
+  "    frame-walker.js (4,270)",
+  "    message-bus.js (4,195)",
+  "    n8n-client.js (2,303)",
+  "    portal-config.js (4,449)",
+  "    portal-selectors.js (13,012)",
+  "    smart-log.js (4,982)",
+  "    storage-proxy.js (2,938)",
+  "    table-scraper.js (6,636)",
+  "  smart-log.js (19,853)",
+  "  styles/ (2 files)",
+  "    popup.css (18,502)",
+  "    tokens.css (8,493)",
+  "  tampermonkey-runner.js (9,146)",
+  "  travel-costs.json (414)"
+ ]
+}
