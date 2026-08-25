@@ -1,0 +1,588 @@
+[
+ {
+  "key": "fieldLabels.status",
+  "family": "fieldLabels",
+  "preFiles": [
+   ".\\_archives\\pre-v1-rollback_20260817_161034\\deploy\\Tempermonky\\booking-automation.js",
+   ".\\_archives\\pre-v1-rollback_20260817_161034\\deploy\\Tempermonky\\elaraby-phone-reveal\\google-sheets-sync.js",
+   ".\\_archives\\pre-v1-rollback_20260817_161034\\deploy\\Tempermonky\\messenger-sender.js",
+   ".\\_archives\\pre-v1-rollback_20260817_161034\\deploy\\Tempermonky\\report-processor.js",
+   ".\\_archives\\pre-v1-rollback_20260817_161034\\deploy\\Tempermonky\\tips.json",
+   ".\\_archives\\pre-v1-rollback_20260817_161034\\deploy\\Tempermonky\\مساعد ارسال الماسنجر\\messenger-sender-v2.0.0-OLD.js"
+  ],
+  "curKeyFiles": 66,
+  "equiv": true
+ },
+ {
+  "key": "fieldLabels.date",
+  "family": "fieldLabels",
+  "preFiles": [
+   ".\\_archives\\pre-v1-rollback_20260817_161034\\deploy\\Tempermonky\\booking-automation.js",
+   ".\\_archives\\pre-v1-rollback_20260817_161034\\deploy\\Tempermonky\\elaraby-phone-reveal.js",
+   ".\\_archives\\pre-v1-rollback_20260817_161034\\deploy\\Tempermonky\\elaraby-phone-reveal\\elaraby-phone-reveal.js",
+   ".\\_archives\\pre-v1-rollback_20260817_161034\\deploy\\Tempermonky\\elaraby-phone-reveal\\google-sheets-sync.js",
+   ".\\_archives\\pre-v1-rollback_20260817_161034\\deploy\\Tempermonky\\messenger-sender.js",
+   ".\\_archives\\pre-v1-rollback_20260817_161034\\deploy\\Tempermonky\\report-processor.js"
+  ],
+  "curKeyFiles": 50,
+  "equiv": true
+ },
+ {
+  "key": "fieldLabels.model",
+  "family": "fieldLabels",
+  "preFiles": [
+   ".\\_archives\\pre-v1-rollback_20260817_161034\\deploy\\Tempermonky\\messenger-sender.js",
+   ".\\_archives\\pre-v1-rollback_20260817_161034\\deploy\\Tempermonky\\tips.json",
+   ".\\_archives\\pre-v1-rollback_20260817_161034\\deploy\\Tempermonky\\مساعد ارسال الماسنجر\\messenger-sender-v2.0.0-OLD.js",
+   ".\\_archives\\pre-v1-rollback_20260817_161034\\deploy\\ai-panel-tab.js",
+   ".\\_archives\\pre-v1-rollback_20260817_161034\\deploy\\ai\\chat-panel.js",
+   ".\\_archives\\pre-v1-rollback_20260817_161034\\deploy\\background.js"
+  ],
+  "curKeyFiles": 38,
+  "equiv": true
+ },
+ {
+  "key": "fieldDefinitions.model",
+  "family": "fieldDefinitions",
+  "preFiles": [
+   ".\\_archives\\pre-v1-rollback_20260817_161034\\deploy\\ai-panel-tab.js",
+   ".\\_archives\\pre-v1-rollback_20260817_161034\\deploy\\ai\\chat-panel.js",
+   ".\\_archives\\pre-v1-rollback_20260817_161034\\deploy\\background.js",
+   ".\\_archives\\pre-v1-rollback_20260817_161034\\deploy\\content-script.js",
+   ".\\_archives\\pre-v1-rollback_20260817_161034\\deploy\\control-panel.js",
+   ".\\_archives\\pre-v1-rollback_20260817_161034\\deploy\\core\\booking\\auto-filler.js"
+  ],
+  "curKeyFiles": 38,
+  "equiv": false
+ },
+ {
+  "key": "fieldDefinitions.brand",
+  "family": "fieldDefinitions",
+  "preFiles": [
+   ".\\_archives\\pre-v1-rollback_20260817_161034\\deploy\\background.js",
+   ".\\_archives\\pre-v1-rollback_20260817_161034\\deploy\\content-script.js",
+   ".\\_archives\\pre-v1-rollback_20260817_161034\\deploy\\control-panel.js",
+   ".\\_archives\\pre-v1-rollback_20260817_161034\\deploy\\core\\booking\\auto-filler.js",
+   ".\\_archives\\pre-v1-rollback_20260817_161034\\deploy\\core\\booking\\shadow-panel.js",
+   ".\\_archives\\pre-v1-rollback_20260817_161034\\deploy\\features\\crm\\crm-content.js"
+  ],
+  "curKeyFiles": 32,
+  "equiv": false
+ },
+ {
+  "key": "fieldLabels.brand",
+  "family": "fieldLabels",
+  "preFiles": [
+   ".\\_archives\\pre-v1-rollback_20260817_161034\\deploy\\background.js",
+   ".\\_archives\\pre-v1-rollback_20260817_161034\\deploy\\content-script.js",
+   ".\\_archives\\pre-v1-rollback_20260817_161034\\deploy\\control-panel.js",
+   ".\\_archives\\pre-v1-rollback_20260817_161034\\deploy\\core\\booking\\auto-filler.js",
+   ".\\_archives\\pre-v1-rollback_20260817_161034\\deploy\\core\\booking\\shadow-panel.js",
+   ".\\_archives\\pre-v1-rollback_20260817_161034\\deploy\\features\\crm\\crm-content.js"
+  ],
+  "curKeyFiles": 32,
+  "equiv": true
+ },
+ {
+  "key": "phone",
+  "family": "phone",
+  "preFiles": [
+   ".\\_archives\\pre-v1-rollback_20260817_161034\\deploy\\Tempermonky\\elaraby-phone-reveal.js",
+   ".\\_archives\\pre-v1-rollback_20260817_161034\\deploy\\Tempermonky\\elaraby-phone-reveal\\elaraby-phone-reveal.js",
+   ".\\_archives\\pre-v1-rollback_20260817_161034\\deploy\\Tempermonky\\elaraby-phone-reveal\\google-sheets-sync.js",
+   ".\\_archives\\pre-v1-rollback_20260817_161034\\deploy\\ai\\command-palette.js",
+   ".\\_archives\\pre-v1-rollback_20260817_161034\\deploy\\content-script.js",
+   ".\\_archives\\pre-v1-rollback_20260817_161034\\deploy\\content\\second-visit.js"
+  ],
+  "curKeyFiles": 32,
+  "equiv": false
+ },
+ {
+  "key": "fieldDefinitions.productType",
+  "family": "fieldDefinitions",
+  "preFiles": [
+   ".\\_archives\\pre-v1-rollback_20260817_161034\\deploy\\background.js",
+   ".\\_archives\\pre-v1-rollback_20260817_161034\\deploy\\content-script.js",
+   ".\\_archives\\pre-v1-rollback_20260817_161034\\deploy\\control-panel.js",
+   ".\\_archives\\pre-v1-rollback_20260817_161034\\deploy\\core\\booking\\auto-filler.js",
+   ".\\_archives\\pre-v1-rollback_20260817_161034\\deploy\\core\\booking\\shadow-panel.js",
+   ".\\_archives\\pre-v1-rollback_20260817_161034\\deploy\\features\\spare-parts\\dashboard\\dashboard.js"
+  ],
+  "curKeyFiles": 20,
+  "equiv": false
+ },
+ {
+  "key": "address",
+  "family": "address",
+  "preFiles": [
+   ".\\_archives\\pre-v1-rollback_20260817_161034\\deploy\\Tempermonky\\elaraby-phone-reveal.js",
+   ".\\_archives\\pre-v1-rollback_20260817_161034\\deploy\\Tempermonky\\elaraby-phone-reveal\\elaraby-phone-reveal.js",
+   ".\\_archives\\pre-v1-rollback_20260817_161034\\deploy\\Tempermonky\\elaraby-phone-reveal\\google-sheets-sync.js",
+   ".\\_archives\\pre-v1-rollback_20260817_161034\\deploy\\content-script.js",
+   ".\\_archives\\pre-v1-rollback_20260817_161034\\deploy\\content\\second-visit.js",
+   ".\\_archives\\pre-v1-rollback_20260817_161034\\deploy\\core\\booking\\auto-filler.js"
+  ],
+  "curKeyFiles": 20,
+  "equiv": false
+ },
+ {
+  "key": "fieldLabels.serial",
+  "family": "fieldLabels",
+  "preFiles": [
+   ".\\_archives\\pre-v1-rollback_20260817_161034\\deploy\\Tempermonky\\report-processor.js",
+   ".\\_archives\\pre-v1-rollback_20260817_161034\\deploy\\content-script.js",
+   ".\\_archives\\pre-v1-rollback_20260817_161034\\deploy\\control-panel.js",
+   ".\\_archives\\pre-v1-rollback_20260817_161034\\deploy\\core\\booking\\auto-filler.js",
+   ".\\_archives\\pre-v1-rollback_20260817_161034\\deploy\\order-extractor.js",
+   ".\\_archives\\pre-v1-rollback_20260817_161034\\deploy\\popup.html"
+  ],
+  "curKeyFiles": 20,
+  "equiv": true
+ },
+ {
+  "key": "fieldDefinitions.defect",
+  "family": "fieldDefinitions",
+  "preFiles": [
+   ".\\_archives\\pre-v1-rollback_20260817_161034\\deploy\\background.js",
+   ".\\_archives\\pre-v1-rollback_20260817_161034\\deploy\\control-panel.js",
+   ".\\_archives\\pre-v1-rollback_20260817_161034\\deploy\\core\\booking\\auto-filler.js",
+   ".\\_archives\\pre-v1-rollback_20260817_161034\\deploy\\core\\booking\\scanner.js",
+   ".\\_archives\\pre-v1-rollback_20260817_161034\\deploy\\core\\booking\\shadow-panel.js",
+   ".\\_archives\\pre-v1-rollback_20260817_161034\\deploy\\scripts\\booking\\merge-files.js"
+  ],
+  "curKeyFiles": 10,
+  "equiv": false
+ },
+ {
+  "key": "portalFieldIds.defectMajor",
+  "family": "portalFieldIds",
+  "preFiles": [
+   ".\\_archives\\pre-v1-rollback_20260817_161034\\deploy\\background.js",
+   ".\\_archives\\pre-v1-rollback_20260817_161034\\deploy\\content-script.js",
+   ".\\_archives\\pre-v1-rollback_20260817_161034\\deploy\\core\\booking\\auto-filler.js",
+   ".\\_archives\\pre-v1-rollback_20260817_161034\\deploy\\core\\booking\\shadow-panel.js",
+   ".\\_archives\\pre-v1-rollback_20260817_161034\\deploy\\features\\spare-parts\\dashboard\\dashboard.js",
+   ".\\_archives\\pre-v1-rollback_20260817_161034\\deploy\\scripts\\booking\\merge-files.js"
+  ],
+  "curKeyFiles": 12,
+  "equiv": true
+ },
+ {
+  "key": "fieldLabels.notes",
+  "family": "fieldLabels",
+  "preFiles": [
+   ".\\_archives\\pre-v1-rollback_20260817_161034\\deploy\\Tempermonky\\elaraby-phone-reveal.js",
+   ".\\_archives\\pre-v1-rollback_20260817_161034\\deploy\\content-script.js",
+   ".\\_archives\\pre-v1-rollback_20260817_161034\\deploy\\content\\second-visit.js",
+   ".\\_archives\\pre-v1-rollback_20260817_161034\\deploy\\control-panel.js",
+   ".\\_archives\\pre-v1-rollback_20260817_161034\\deploy\\core\\booking\\auto-filler.js",
+   ".\\_archives\\pre-v1-rollback_20260817_161034\\deploy\\features\\crm\\crm-content.js"
+  ],
+  "curKeyFiles": 14,
+  "equiv": true
+ },
+ {
+  "key": "portalFieldIds.defectCode",
+  "family": "portalFieldIds",
+  "preFiles": [
+   ".\\_archives\\pre-v1-rollback_20260817_161034\\deploy\\background.js",
+   ".\\_archives\\pre-v1-rollback_20260817_161034\\deploy\\content-script.js",
+   ".\\_archives\\pre-v1-rollback_20260817_161034\\deploy\\core\\booking\\auto-filler.js",
+   ".\\_archives\\pre-v1-rollback_20260817_161034\\deploy\\core\\booking\\shadow-panel.js",
+   ".\\_archives\\pre-v1-rollback_20260817_161034\\deploy\\features\\spare-parts\\dashboard\\dashboard.js",
+   ".\\_archives\\pre-v1-rollback_20260817_161034\\deploy\\selectors.json"
+  ],
+  "curKeyFiles": 12,
+  "equiv": true
+ },
+ {
+  "key": "fieldDefinitions.quantity",
+  "family": "fieldDefinitions",
+  "preFiles": [
+   ".\\_archives\\pre-v1-rollback_20260817_161034\\deploy\\background.js",
+   ".\\_archives\\pre-v1-rollback_20260817_161034\\deploy\\core\\booking\\auto-filler.js",
+   ".\\_archives\\pre-v1-rollback_20260817_161034\\deploy\\core\\booking\\shadow-panel.js",
+   ".\\_archives\\pre-v1-rollback_20260817_161034\\deploy\\features\\spare-parts\\dashboard\\dashboard.js",
+   ".\\_archives\\pre-v1-rollback_20260817_161034\\deploy\\selectors.json",
+   ".\\_archives\\pre-v1-rollback_20260817_161034\\deploy\\shared\\data-mapper.js"
+  ],
+  "curKeyFiles": 12,
+  "equiv": false
+ },
+ {
+  "key": "fieldDefinitions.sparePart",
+  "family": "fieldDefinitions",
+  "preFiles": [
+   ".\\_archives\\pre-v1-rollback_20260817_161034\\deploy\\background.js",
+   ".\\_archives\\pre-v1-rollback_20260817_161034\\deploy\\core\\booking\\auto-filler.js",
+   ".\\_archives\\pre-v1-rollback_20260817_161034\\deploy\\scripts\\booking\\merge-files.js",
+   ".\\_archives\\pre-v1-rollback_20260817_161034\\deploy\\selectors.json",
+   ".\\_archives\\pre-v1-rollback_20260817_161034\\deploy\\shared\\data-mapper.js",
+   ".\\_archives\\pre-v1-rollback_20260817_161034\\unified-extension\\background.js"
+  ],
+  "curKeyFiles": 4,
+  "equiv": false
+ },
+ {
+  "key": "portalFieldIds.sparePart",
+  "family": "portalFieldIds",
+  "preFiles": [
+   ".\\_archives\\pre-v1-rollback_20260817_161034\\deploy\\background.js",
+   ".\\_archives\\pre-v1-rollback_20260817_161034\\deploy\\core\\booking\\auto-filler.js",
+   ".\\_archives\\pre-v1-rollback_20260817_161034\\deploy\\scripts\\booking\\merge-files.js",
+   ".\\_archives\\pre-v1-rollback_20260817_161034\\deploy\\selectors.json",
+   ".\\_archives\\pre-v1-rollback_20260817_161034\\deploy\\shared\\data-mapper.js",
+   ".\\_archives\\pre-v1-rollback_20260817_161034\\unified-extension\\background.js"
+  ],
+  "curKeyFiles": 4,
+  "equiv": true
+ },
+ {
+  "key": "_subgridAddPatterns.technician",
+  "family": "_subgridAddPatterns",
+  "preFiles": [
+   ".\\_archives\\pre-v1-rollback_20260817_161034\\deploy\\content-script.js",
+   ".\\_archives\\pre-v1-rollback_20260817_161034\\deploy\\core\\booking\\auto-filler.js",
+   ".\\_archives\\pre-v1-rollback_20260817_161034\\deploy\\order-extractor.js",
+   ".\\_archives\\pre-v1-rollback_20260817_161034\\deploy\\popup.js",
+   ".\\_archives\\pre-v1-rollback_20260817_161034\\deploy\\selectors.json",
+   ".\\_archives\\pre-v1-rollback_20260817_161034\\unified-extension\\content-script.js"
+  ],
+  "curKeyFiles": 8,
+  "equiv": false
+ },
+ {
+  "key": "complaintCode",
+  "family": "complaintCode",
+  "preFiles": [
+   ".\\_archives\\pre-v1-rollback_20260817_161034\\deploy\\content-script.js",
+   ".\\_archives\\pre-v1-rollback_20260817_161034\\deploy\\core\\booking\\auto-filler.js",
+   ".\\_archives\\pre-v1-rollback_20260817_161034\\deploy\\popup.js",
+   ".\\_archives\\pre-v1-rollback_20260817_161034\\deploy\\selectors.json",
+   ".\\_archives\\pre-v1-rollback_20260817_161034\\unified-extension\\content-script.js",
+   ".\\_archives\\pre-v1-rollback_20260817_161034\\unified-extension\\core\\booking\\auto-filler.js"
+  ],
+  "curKeyFiles": 6,
+  "equiv": false
+ },
+ {
+  "key": "sparePartsNoneText",
+  "family": "sparePartsNoneText",
+  "preFiles": [
+   ".\\_archives\\pre-v1-rollback_20260817_161034\\deploy\\content-script.js",
+   ".\\_archives\\pre-v1-rollback_20260817_161034\\deploy\\control-panel.js",
+   ".\\_archives\\pre-v1-rollback_20260817_161034\\deploy\\selectors.json",
+   ".\\_archives\\pre-v1-rollback_20260817_161034\\unified-extension\\content-script.js",
+   ".\\_archives\\pre-v1-rollback_20260817_161034\\unified-extension\\control-panel.js",
+   ".\\_archives\\pre-v1-rollback_20260817_161034\\unified-extension\\selectors.json"
+  ],
+  "curKeyFiles": 0,
+  "equiv": true
+ },
+ {
+  "key": "subgrid",
+  "family": "subgrid",
+  "preFiles": [
+   ".\\_archives\\pre-v1-rollback_20260817_161034\\deploy\\content-script.js",
+   ".\\_archives\\pre-v1-rollback_20260817_161034\\deploy\\core\\booking\\auto-filler.js",
+   ".\\_archives\\pre-v1-rollback_20260817_161034\\deploy\\selectors.json",
+   ".\\_archives\\pre-v1-rollback_20260817_161034\\unified-extension\\content-script.js",
+   ".\\_archives\\pre-v1-rollback_20260817_161034\\unified-extension\\core\\booking\\auto-filler.js",
+   ".\\_archives\\pre-v1-rollback_20260817_161034\\unified-extension\\selectors.json"
+  ],
+  "curKeyFiles": 4,
+  "equiv": false
+ },
+ {
+  "key": "saveBtn",
+  "family": "saveBtn",
+  "preFiles": [
+   ".\\_archives\\pre-v1-rollback_20260817_161034\\deploy\\content-script.js",
+   ".\\_archives\\pre-v1-rollback_20260817_161034\\deploy\\content\\second-visit.js",
+   ".\\_archives\\pre-v1-rollback_20260817_161034\\deploy\\selectors.json",
+   ".\\_archives\\pre-v1-rollback_20260817_161034\\unified-extension\\content-script.js",
+   ".\\_archives\\pre-v1-rollback_20260817_161034\\unified-extension\\content\\second-visit.js",
+   ".\\_archives\\pre-v1-rollback_20260817_161034\\unified-extension\\selectors.json"
+  ],
+  "curKeyFiles": 4,
+  "equiv": false
+ },
+ {
+  "key": "lookupBtn",
+  "family": "lookupBtn",
+  "preFiles": [
+   ".\\_archives\\pre-v1-rollback_20260817_161034\\deploy\\content-script.js",
+   ".\\_archives\\pre-v1-rollback_20260817_161034\\deploy\\control-panel.js",
+   ".\\_archives\\pre-v1-rollback_20260817_161034\\deploy\\selectors.json",
+   ".\\_archives\\pre-v1-rollback_20260817_161034\\unified-extension\\content-script.js",
+   ".\\_archives\\pre-v1-rollback_20260817_161034\\unified-extension\\control-panel.js",
+   ".\\_archives\\pre-v1-rollback_20260817_161034\\unified-extension\\selectors.json"
+  ],
+  "curKeyFiles": 4,
+  "equiv": false
+ },
+ {
+  "key": "_subgridAddPatterns.problems",
+  "family": "_subgridAddPatterns",
+  "preFiles": [
+   ".\\_archives\\pre-v1-rollback_20260817_161034\\deploy\\content-script.js",
+   ".\\_archives\\pre-v1-rollback_20260817_161034\\deploy\\popup.js",
+   ".\\_archives\\pre-v1-rollback_20260817_161034\\deploy\\selectors.json",
+   ".\\_archives\\pre-v1-rollback_20260817_161034\\unified-extension\\content-script.js",
+   ".\\_archives\\pre-v1-rollback_20260817_161034\\unified-extension\\popup.js",
+   ".\\_archives\\pre-v1-rollback_20260817_161034\\unified-extension\\selectors.json"
+  ],
+  "curKeyFiles": 2,
+  "equiv": false
+ },
+ {
+  "key": "_lookupBtnExcludePattern",
+  "family": "_lookupBtnExcludePattern",
+  "preFiles": [
+   ".\\_archives\\pre-v1-rollback_20260817_161034\\deploy\\content-script.js",
+   ".\\_archives\\pre-v1-rollback_20260817_161034\\deploy\\selectors.json",
+   ".\\_archives\\pre-v1-rollback_20260817_161034\\unified-extension\\content-script.js",
+   ".\\_archives\\pre-v1-rollback_20260817_161034\\unified-extension\\selectors.json"
+  ],
+  "curKeyFiles": 0,
+  "equiv": true
+ },
+ {
+  "key": "serviceType",
+  "family": "serviceType",
+  "preFiles": [
+   ".\\_archives\\pre-v1-rollback_20260817_161034\\deploy\\order-extractor.js",
+   ".\\_archives\\pre-v1-rollback_20260817_161034\\deploy\\selectors.json",
+   ".\\_archives\\pre-v1-rollback_20260817_161034\\unified-extension\\order-extractor.js",
+   ".\\_archives\\pre-v1-rollback_20260817_161034\\unified-extension\\selectors.json"
+  ],
+  "curKeyFiles": 2,
+  "equiv": false
+ },
+ {
+  "key": "saveTimeoutMs",
+  "family": "saveTimeoutMs",
+  "preFiles": [
+   ".\\_archives\\pre-v1-rollback_20260817_161034\\deploy\\core\\booking\\auto-filler.js",
+   ".\\_archives\\pre-v1-rollback_20260817_161034\\deploy\\selectors.json",
+   ".\\_archives\\pre-v1-rollback_20260817_161034\\unified-extension\\core\\booking\\auto-filler.js",
+   ".\\_archives\\pre-v1-rollback_20260817_161034\\unified-extension\\selectors.json"
+  ],
+  "curKeyFiles": 2,
+  "equiv": false
+ },
+ {
+  "key": "retryIntervalMs",
+  "family": "retryIntervalMs",
+  "preFiles": [
+   ".\\_archives\\pre-v1-rollback_20260817_161034\\deploy\\core\\booking\\auto-filler.js",
+   ".\\_archives\\pre-v1-rollback_20260817_161034\\deploy\\selectors.json",
+   ".\\_archives\\pre-v1-rollback_20260817_161034\\unified-extension\\core\\booking\\auto-filler.js",
+   ".\\_archives\\pre-v1-rollback_20260817_161034\\unified-extension\\selectors.json"
+  ],
+  "curKeyFiles": 2,
+  "equiv": false
+ },
+ {
+  "key": "lookupNameInput",
+  "family": "lookupNameInput",
+  "preFiles": [
+   ".\\_archives\\pre-v1-rollback_20260817_161034\\deploy\\core\\booking\\auto-filler.js",
+   ".\\_archives\\pre-v1-rollback_20260817_161034\\deploy\\selectors.json",
+   ".\\_archives\\pre-v1-rollback_20260817_161034\\unified-extension\\core\\booking\\auto-filler.js",
+   ".\\_archives\\pre-v1-rollback_20260817_161034\\unified-extension\\selectors.json"
+  ],
+  "curKeyFiles": 2,
+  "equiv": false
+ },
+ {
+  "key": "workOrderType",
+  "family": "workOrderType",
+  "preFiles": [
+   ".\\_archives\\pre-v1-rollback_20260817_161034\\deploy\\selectors.json",
+   ".\\_archives\\pre-v1-rollback_20260817_161034\\unified-extension\\selectors.json"
+  ],
+  "curKeyFiles": 0,
+  "equiv": false
+ },
+ {
+  "key": "technicianSelect",
+  "family": "technicianSelect",
+  "preFiles": [
+   ".\\_archives\\pre-v1-rollback_20260817_161034\\deploy\\selectors.json",
+   ".\\_archives\\pre-v1-rollback_20260817_161034\\unified-extension\\selectors.json"
+  ],
+  "curKeyFiles": 0,
+  "equiv": false
+ },
+ {
+  "key": "subgridTitle",
+  "family": "subgridTitle",
+  "preFiles": [
+   ".\\_archives\\pre-v1-rollback_20260817_161034\\deploy\\selectors.json",
+   ".\\_archives\\pre-v1-rollback_20260817_161034\\unified-extension\\selectors.json"
+  ],
+  "curKeyFiles": 0,
+  "equiv": false
+ },
+ {
+  "key": "subgridRow",
+  "family": "subgridRow",
+  "preFiles": [
+   ".\\_archives\\pre-v1-rollback_20260817_161034\\deploy\\selectors.json",
+   ".\\_archives\\pre-v1-rollback_20260817_161034\\unified-extension\\selectors.json"
+  ],
+  "curKeyFiles": 0,
+  "equiv": false
+ },
+ {
+  "key": "serviceLabels",
+  "family": "serviceLabels",
+  "preFiles": [
+   ".\\_archives\\pre-v1-rollback_20260817_161034\\deploy\\selectors.json",
+   ".\\_archives\\pre-v1-rollback_20260817_161034\\unified-extension\\selectors.json"
+  ],
+  "curKeyFiles": 0,
+  "equiv": false
+ },
+ {
+  "key": "notesLabels",
+  "family": "notesLabels",
+  "preFiles": [
+   ".\\_archives\\pre-v1-rollback_20260817_161034\\deploy\\selectors.json",
+   ".\\_archives\\pre-v1-rollback_20260817_161034\\unified-extension\\selectors.json"
+  ],
+  "curKeyFiles": 0,
+  "equiv": false
+ },
+ {
+  "key": "lookupModalSelectBtn",
+  "family": "lookupModalSelectBtn",
+  "preFiles": [
+   ".\\_archives\\pre-v1-rollback_20260817_161034\\deploy\\selectors.json",
+   ".\\_archives\\pre-v1-rollback_20260817_161034\\unified-extension\\selectors.json"
+  ],
+  "curKeyFiles": 0,
+  "equiv": false
+ },
+ {
+  "key": "lookupModalSearchBtn",
+  "family": "lookupModalSearchBtn",
+  "preFiles": [
+   ".\\_archives\\pre-v1-rollback_20260817_161034\\deploy\\selectors.json",
+   ".\\_archives\\pre-v1-rollback_20260817_161034\\unified-extension\\selectors.json"
+  ],
+  "curKeyFiles": 0,
+  "equiv": false
+ },
+ {
+  "key": "lookupModalCloseBtn",
+  "family": "lookupModalCloseBtn",
+  "preFiles": [
+   ".\\_archives\\pre-v1-rollback_20260817_161034\\deploy\\selectors.json",
+   ".\\_archives\\pre-v1-rollback_20260817_161034\\unified-extension\\selectors.json"
+  ],
+  "curKeyFiles": 0,
+  "equiv": false
+ },
+ {
+  "key": "lookupClearBtn",
+  "family": "lookupClearBtn",
+  "preFiles": [
+   ".\\_archives\\pre-v1-rollback_20260817_161034\\deploy\\selectors.json",
+   ".\\_archives\\pre-v1-rollback_20260817_161034\\unified-extension\\selectors.json"
+  ],
+  "curKeyFiles": 0,
+  "equiv": false
+ },
+ {
+  "key": "installationKeywords",
+  "family": "installationKeywords",
+  "preFiles": [
+   ".\\_archives\\pre-v1-rollback_20260817_161034\\deploy\\selectors.json",
+   ".\\_archives\\pre-v1-rollback_20260817_161034\\unified-extension\\selectors.json"
+  ],
+  "curKeyFiles": 0,
+  "equiv": false
+ },
+ {
+  "key": "errorIndicator",
+  "family": "errorIndicator",
+  "preFiles": [
+   ".\\_archives\\pre-v1-rollback_20260817_161034\\deploy\\selectors.json",
+   ".\\_archives\\pre-v1-rollback_20260817_161034\\unified-extension\\selectors.json"
+  ],
+  "curKeyFiles": 0,
+  "equiv": false
+ },
+ {
+  "key": "deviceType",
+  "family": "deviceType",
+  "preFiles": [
+   ".\\_archives\\pre-v1-rollback_20260817_161034\\deploy\\selectors.json",
+   ".\\_archives\\pre-v1-rollback_20260817_161034\\unified-extension\\selectors.json"
+  ],
+  "curKeyFiles": 0,
+  "equiv": false
+ },
+ {
+  "key": "complaintText",
+  "family": "complaintText",
+  "preFiles": [
+   ".\\_archives\\pre-v1-rollback_20260817_161034\\deploy\\selectors.json",
+   ".\\_archives\\pre-v1-rollback_20260817_161034\\unified-extension\\selectors.json"
+  ],
+  "curKeyFiles": 0,
+  "equiv": false
+ },
+ {
+  "key": "complaintCodeLabels",
+  "family": "complaintCodeLabels",
+  "preFiles": [
+   ".\\_archives\\pre-v1-rollback_20260817_161034\\deploy\\selectors.json",
+   ".\\_archives\\pre-v1-rollback_20260817_161034\\unified-extension\\selectors.json"
+  ],
+  "curKeyFiles": 0,
+  "equiv": false
+ },
+ {
+  "key": "busyIndicator",
+  "family": "busyIndicator",
+  "preFiles": [
+   ".\\_archives\\pre-v1-rollback_20260817_161034\\deploy\\selectors.json",
+   ".\\_archives\\pre-v1-rollback_20260817_161034\\unified-extension\\selectors.json"
+  ],
+  "curKeyFiles": 0,
+  "equiv": false
+ },
+ {
+  "key": "_priorityProblemPatterns",
+  "family": "_priorityProblemPatterns",
+  "preFiles": [
+   ".\\_archives\\pre-v1-rollback_20260817_161034\\deploy\\selectors.json",
+   ".\\_archives\\pre-v1-rollback_20260817_161034\\unified-extension\\selectors.json"
+  ],
+  "curKeyFiles": 0,
+  "equiv": false
+ },
+ {
+  "key": "_mergeNote",
+  "family": "_mergeNote",
+  "preFiles": [
+   ".\\_archives\\pre-v1-rollback_20260817_161034\\deploy\\selectors.json",
+   ".\\_archives\\pre-v1-rollback_20260817_161034\\unified-extension\\selectors.json"
+  ],
+  "curKeyFiles": 0,
+  "equiv": false
+ },
+ {
+  "key": "_excludeProblemPatterns",
+  "family": "_excludeProblemPatterns",
+  "preFiles": [
+   ".\\_archives\\pre-v1-rollback_20260817_161034\\deploy\\selectors.json",
+   ".\\_archives\\pre-v1-rollback_20260817_161034\\unified-extension\\selectors.json"
+  ],
+  "curKeyFiles": 0,
+  "equiv": false
+ }
+]

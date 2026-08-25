@@ -214,3 +214,57 @@ console. واحد فقط في cs (الكل عبر sysLog/sendSmartLog → smart-
 ملفات المشروع 7,697/455MB (بدون .git) · backups 354MB/94 جيلًا · src/unified-extension 82 ملفًا · deploy 81 (80 مطابق هاش) · cs الحالي 146,844B/90 دالة · popup.html 265 id · dock 10 أدوات · userscripts فريدة 7 · selectors 33 مقابل 80 · node_modules داخل الشجرة 12,063 ملفًا.
 ### ملحق ب) ملفات الأدلة المنتجة في هذا الجرد
 `_forensic_audit/out_external_census.txt` (6,022 سطرًا للمجلدات الخارجية) · `archaeology_census.json` · هذا التقرير.
+
+
+1️⃣ أولاً: خلّص الـ Feature Archaeology صح (p4 + p45)
+ما تكتفيش بـ "الشاشة موجودة". لازم تسأل:
+الشاشة دي بتعمل إيه بالظبط؟
+الأزرار فيها شغالة فعلاً ولا واجهة بس؟
+الـ API بتاعها بيرد ولا بيرجع error/empty؟
+الـ state management بتاعها سليم ولا بيحصل reset عشوائي؟
+قارن بالـ original app لو الكود الأصلي لسه موجود (git history أو backup). كل feature مش موجودة في الريسكن = LOST ومحتاج تتصنف.
+2️⃣ ثانياً: الـ Admin Panel مش رفاهية (p5)
+تطبيق الاختبارات من غير Admin Panel = جثة.
+لازم تكتشف:
+هل الـ PHP endpoints لسه بتتكلم مع الـ Flutter app؟
+هل الـ CRUD بتاع الأسئلة والأنمي شغال؟
+هل الـ authentication بين الـ app والـ panel سليم؟
+هل في API keys أو tokens اتغيرت/اتنسيت أثناء الريسكن؟
+3️⃣ ثالثاً: الـ Data Flow هو العمود الفقري (p6)
+Random questions: هل الـ shuffle/random بيشتغل فعلاً ولا بيجيب نفس الأسئلة كل مرة؟
+Fallback: لو الـ API وقع، الـ app بيعمل إيه؟ (crash ولا graceful fallback؟)
+Timing: الـ timer بتاع الاختبار بيعد صح ولا بيسرّع/يبطّأ؟
+Verification: إجابات المستخدم بتتصحح فين؟ (client-side ولا server-side؟)
+Logging: هل في logs بتتسجل عشان نعرف إيه اللي بيحصل فعلاً؟
+4️⃣ رابعاً: الـ Tests (p7)
+ما تكتبش tests جديدة لسه. الأول شوف الـ existing tests:
+كام test موجود؟
+كام واحد فيهم بيفشل؟
+الـ failures دي بسبب الـ reskin ولا كانت موجودة قبل كده؟
+الـ Playwright tests بتاع الـ Admin Panel مهمة جداً عشان تتأكد إن الـ endpoints شغالة.
+5️⃣ خامساً: الـ Master Feature Matrix (p8) — ده أهم deliverable
+عايزك تطلع جدول بالشكل ده:
+
+Feature	الأصلية	الريسكن	الحالة	التوصية
+Login	✅	✅	شغال	KEEP
+Random Quiz	✅	⚠️	جزئي	RECOVER
+Leaderboard	✅	❌	مفقود	RECOVER
+Timer	✅	❌	مفقود	RECOVER
+Anime Categories	❌	⚠️	جديد/ناقص	FIX
+⚠️ تحذير بخصوص الـ Context Compression
+أنا شايف إن الـ skills بتاعتك اتحذفت أثناء الـ compression. قبل ما تكمل أي task:
+
+أعد تحميل skill_view(name='runtime-log-forensics')
+راجع كل finding سجلته قبل الـ compression — ممكن يكون اتغير أو اتنسى
+اتأكد إن الـ task list لسه منطقي بناءً على اللي اكتشفته
+🎯 الخلاصة — الترتيب اللي عايزك تمشي بيه
+text
+
+1. خلّص p4 + p45 (الجرد الكامل)
+2. ابدأ p5 (الـ Admin Panel) فوراً بعد كده
+3. اعمل p6 (الـ Data Flow audit)
+4. اعمل p8 (الـ Matrix) — ده اللي هنبني عليه كل حاجة
+5. p7 (الـ Tests) آخر حاجة
+6. p9 (التقرير النهائي) بعد ما كل حاجة تخلص
+أنا مستني ردك الكامل عشان أدق التوجيهات وأقولك بالظبط إيه اللي يتعمل الأول وإيه اللي يتأجل.
+
