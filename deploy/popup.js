@@ -734,14 +734,14 @@ const STATUS_ICON = {
 function buildTaskItems(tasks) {
   taskList.innerHTML = '';
   taskItems = {};
-  tasks.forEach((t, idx) => {
+  tasks.forEach(t => {
     const div = document.createElement('div');
     div.className = 'task-item pending';
     div.id = 'ti-' + t.taskId;
     div.innerHTML = `
       <span class="task-icon">${STATUS_ICON.pending}</span>
       <div class="task-body">
-        <div class="task-order-id">#${idx + 1} — ${escapeHtml(t.orderId)}</div>
+        <div class="task-order-id">${escapeHtml(t.orderId)}</div>
         <div class="task-message">في الانتظار...</div>
       </div>
       <div class="task-actions">
@@ -982,20 +982,18 @@ btnSearchBatch.addEventListener('click', async () => {
       return { taskId: generateTaskId(), orderId: oid, line: finalLine, data: { forceDrainCleaning, shahnEnabled: shahnForTasks, forceOverwrite, secondVisitMode: true, masahaMode: false } };
     }).filter(t => t.orderId);
   } else {
-    // Normal mode — strict input order preservation (no sorting)
-    const groupedTasks = new Map();
-    lines.forEach((line, idx) => {
+    // Normal mode
+    const groupedTasks = {};
+    lines.forEach(line => {
       const oid = extractOrderId(line) || line.trim().substring(0, 30);
-      if (!groupedTasks.has(oid)) {
-        groupedTasks.set(oid, { orderId: oid, lines: [line], firstIndex: idx });
+      if (!groupedTasks[oid]) {
+        groupedTasks[oid] = { orderId: oid, lines: [line] };
       } else {
-        groupedTasks.get(oid).lines.push(line);
+        groupedTasks[oid].lines.push(line);
       }
     });
 
-    tasks = Array.from(groupedTasks.values())
-      .sort((a, b) => a.firstIndex - b.firstIndex)
-      .map(group => {
+    tasks = Object.values(groupedTasks).map(group => {
       let mergedLine = group.lines[0];
       if (group.lines.length > 1) {
         const obj2 = parseLineToObject(group.lines[1]);
@@ -1022,7 +1020,6 @@ btnSearchBatch.addEventListener('click', async () => {
   }
 
   buildTaskItems(tasks);
-  console.log('[QUEUE_ORDER] preserved input order:', tasks.map((t,i)=> `#${i+1}:${t.orderId}`).join(' | '));
   await chrome.storage.local.set({ taskResults: [], lastStatusUpdate: null });
 
   setSearchStatusHtml('<span class="spinner"></span> جارٍ بدء التشغيل المتعدد...', 'info');

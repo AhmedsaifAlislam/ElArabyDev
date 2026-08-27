@@ -30,7 +30,8 @@
     totalPages: 1,
     isScraping: false,
     orderIdFilter: new Set(), // Set of CAS numbers to filter by
-    sortMode: 'scraped', // scraped, cas-asc, cas-desc, name-asc, name-desc, date-asc, date-desc
+    orderIdFilterOrder: [], // Array to preserve input order
+    sortMode: 'scraped', // scraped, cas-asc, cas-desc, name-asc, name-desc, date-asc, date-desc, input-order
   };
 
   // ══════════════════════════════════════════════════════════════════
@@ -345,6 +346,7 @@
     style: 'width:100%;padding:8px;border:1px solid #2a4a7a;border-radius:6px;background:#0d1117;color:#c8d0e0;font-size:11px;'
   }, [
     el('option', { value: 'scraped', textContent: 'ترتيب الاستخراج (الأولوية)' }),
+    el('option', { value: 'input-order', textContent: 'ترتيب الإدخال (كما أدخلته)' }),
     el('option', { value: 'cas-asc', textContent: 'رقم البلاغ (تصاعدي)' }),
     el('option', { value: 'cas-desc', textContent: 'رقم البلاغ (تنازلي)' }),
     el('option', { value: 'name-asc', textContent: 'اسم العميل (أ-ي)' }),
@@ -846,6 +848,12 @@
           return db - da;
         });
         break;
+      case 'input-order':
+        if (state.orderIdFilter.size > 0 && state.orderIdFilterOrder.length > 0) {
+          const orderMap = new Map(state.orderIdFilterOrder.map((cas, i) => [cas, i]));
+          reports.sort((a, b) => (orderMap.get(a.casNo) ?? 9999) - (orderMap.get(b.casNo) ?? 9999));
+        }
+        break;
       // 'scraped' keeps original order
     }
 
@@ -1164,7 +1172,11 @@
       });
     
     state.orderIdFilter = new Set(casNumbers);
+    state.orderIdFilterOrder = casNumbers; // Preserve input order
     state._selectedDate = ''; // Clear date filter when order filter is active
+    state.sortMode = 'input-order'; // Auto-select input order
+    document.getElementById('rp-sort-select').value = 'input-order'; // Update UI
+    
     document.getElementById('rp-order-filter-status').style.display = 'block';
     document.getElementById('rp-order-filter-status').textContent = `✅ تم تصفية ${state.orderIdFilter.size} رقم طلب`;
     document.getElementById('rp-order-filter-status').style.color = '#2bd46f';
@@ -1175,16 +1187,19 @@
     if (allChip) allChip.classList.add('selected');
     
     renderReportsList();
-    console.log('[RP] Order ID filter applied:', state.orderIdFilter.size, 'numbers');
+    console.log('[RP] Order ID filter applied:', state.orderIdFilter.size, 'numbers, sortMode=input-order');
   });
 
   // Order ID Filter - Clear
   document.getElementById('rp-clear-order-filter').addEventListener('click', () => {
     document.getElementById('rp-order-id-filter').value = '';
     state.orderIdFilter.clear();
+    state.orderIdFilterOrder = [];
+    state.sortMode = 'scraped';
+    document.getElementById('rp-sort-select').value = 'scraped';
     document.getElementById('rp-order-filter-status').style.display = 'none';
     renderReportsList();
-    console.log('[RP] Order ID filter cleared');
+    console.log('[RP] Order ID filter cleared, sortMode=scraped');
   });
 
   // Sort Select
