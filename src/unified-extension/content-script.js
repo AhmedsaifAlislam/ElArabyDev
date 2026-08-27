@@ -2127,26 +2127,35 @@ async function findOrderAndOpen(orderId, cfg) {
 }
 
 async function processQueueOnLoad() {
+  log('[QUEUE_TRACE] phase=processQueueOnLoad url="' + location.href + '"');
   await sleep(500); 
   const { currentTask, processingTabId } = await storageGet({ currentTask: null, processingTabId: null });
-  if (!currentTask) return;
+  log('[QUEUE_TRACE] phase=storage currentTask=' + (currentTask ? 'yes' : 'no') + ' taskId="' + (currentTask?.taskId || '') + '" orderId="' + (currentTask?.orderId || '') + '" processingTabId="' + (processingTabId || '') + '"');
+  if (!currentTask) { log('[QUEUE_TRACE] phase=guard result=return reason=no_current_task url="' + location.href + '"'); return; }
 
   // ── Tab Lock with race-condition retry (fix: new tab may start before background updates processingTabId)
   let myTabId = null;
+  log('[QUEUE_TRACE] phase=tab_lock myTabId="pending" processingTabId="' + (processingTabId || '') + '" pageType="' + getPageType() + '" url="' + location.href + '"');
   if (processingTabId) {
     const myTabIdResp = await new Promise(r => chrome.runtime.sendMessage({ type: 'GET_MY_TAB_ID' }, r));
     myTabId = myTabIdResp?.tabId || null;
+    if (!myTabId) log('[QUEUE_TRACE] phase=tab_id result=warning reason=get_my_tab_id_failed processingTabId="' + (processingTabId || '') + '"');
+    else log('[QUEUE_TRACE] phase=tab_lock myTabId="' + myTabId + '" processingTabId="' + processingTabId + '" pageType="' + getPageType() + '"');
     if (myTabId && myTabId !== processingTabId) {
+        log('[QUEUE_TRACE] phase=tab_lock result=retry_or_return reason=processing_tab_mismatch myTabId="' + myTabId + '" processingTabId="' + processingTabId + '" pageType="' + getPageType() + '"');
         await sleep(1500);
         const retry = await storageGet({ processingTabId: null });
         const updatedId = retry.processingTabId;
+        log('[QUEUE_TRACE] phase=tab_lock result=retry_check updatedId="' + (updatedId || '') + '" myTabId="' + myTabId + '"');
         if (updatedId && myTabId !== updatedId) {
             const pCheck = getPageType();
+            log('[QUEUE_TRACE] phase=tab_lock result=decision pCheck="' + pCheck + '" myTabId="' + myTabId + '" updatedId="' + updatedId + '"');
             if (pCheck === 'ORDERS') {
                 log(`⚠️ Tab Lock race on ORDERS: claiming lock for tab ${myTabId} (was ${updatedId})`);
                 await storageSet({ processingTabId: myTabId });
             } else {
                 log(`⛔ Tab Lock: This tab (${myTabId}) is not the active processing tab (${updatedId}). Ignoring.`);
+                log('[QUEUE_TRACE] phase=tab_lock result=return reason=tab_lock_mismatch_not_orders myTabId="' + myTabId + '" processingTabId="' + updatedId + '" pageType="' + pCheck + '"');
                 return;
             }
         } else if (updatedId) {
@@ -2155,17 +2164,23 @@ async function processQueueOnLoad() {
     }
   } else {
     // No lock yet — claim it for ORDERS page so queue can start
+    log('[QUEUE_TRACE] phase=tab_lock result=no_lock_yet url="' + location.href + '"');
     const myTabIdResp2 = await new Promise(r => chrome.runtime.sendMessage({ type: 'GET_MY_TAB_ID' }, r));
     myTabId = myTabIdResp2?.tabId || null;
+    if (!myTabId) log('[QUEUE_TRACE] phase=tab_id result=warning reason=get_my_tab_id_failed_no_lock');
+    else log('[QUEUE_TRACE] phase=tab_lock myTabId="' + myTabId + '" pageType="' + getPageType() + '" result=claim_check');
     if (myTabId && getPageType() === 'ORDERS') {
+        log('[QUEUE_TRACE] phase=tab_lock result=claim myTabId="' + myTabId + '"');
         await storageSet({ processingTabId: myTabId });
     }
   }
 
   const p = getPageType(); const cfg = await loadSelectors();
+  log('[QUEUE_TRACE] phase=page_type result="' + p + '" url="' + location.href + '" orderId="' + (currentTask?.orderId || '') + '" taskId="' + (currentTask?.taskId || '') + '"');
   document.body.dataset.isAutofilling = 'true';
   sendSmartLog('TASK_START', { orderId: currentTask.orderId, mode: currentTask.mode || 'search' });
   if (p === 'ORDERS') {
+     log('[QUEUE_TRACE] phase=workflow action=findOrderAndOpen taskId="' + currentTask.taskId + '" orderId="' + currentTask.orderId + '"');
      notifyStatus(currentTask.taskId, 'searching', `البحث عن: ${currentTask.orderId}`);
      if (!await findOrderAndOpen(currentTask.orderId, cfg)) {
          sendSmartLog('TASK_COMPLETE', { orderId: currentTask.orderId, success: false, reason: 'not-found', mode: currentTask.mode || 'search' });
@@ -2178,6 +2193,7 @@ async function processQueueOnLoad() {
      }
      notifyStatus(currentTask.taskId, 'navigating', 'جارٍ الانتقال...');
   } else if (p === 'WORK_ORDER_REVIEW') {
+     log('[QUEUE_TRACE] phase=workflow action=runSingleLineWithRouter taskId="' + currentTask.taskId + '" orderId="' + currentTask.orderId + '"');
      notifyStatus(currentTask.taskId, 'filling', `جاري التفريغ لـ: ${currentTask.orderId}`);
      try {
        const { taskRetryFlag } = await storageGet({ taskRetryFlag: false });
@@ -2243,7 +2259,7 @@ async function processQueueOnLoad() {
           chrome.runtime.sendMessage({ type: 'BATCH_DONE_STORAGE' }).catch(()=>{}); 
        }
      }
-  } else { location.href = ORDERS_URL; }
+   } else { log('[QUEUE_TRACE] phase=page_type result=redirect target="ORDERS_URL" url="' + location.href + '" orderId="' + (currentTask?.orderId || '') + '"'); location.href = ORDERS_URL; }
 }
 
 // ── SESSION ENGINE ─────────────────────────────────────────────────────────────

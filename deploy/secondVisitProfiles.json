@@ -56,7 +56,11 @@
       "problemCode": "*GS04",
       "faultSearch": "*صيانه",
       "subFault": "first",
-      "page1Defaults": { "brand": "", "model1": "", "serial": "0" }
+      "page1Defaults": {
+        "brand": "بوتجاز و مسطح و فرن - LA Germania",
+        "model1": "9M10GUB1X4AWW _ (Lagermania moderna 90cm cooling+conv fan)",
+        "serial": "0"
+      }
     },
     {
       "name": "غسالة أطباق",
@@ -109,7 +113,11 @@
       "problemCode": "*AC15",
       "faultSearch": "*AC076",
       "subFaultCode": "I37",
-      "page1Defaults": { "brand": "", "model1": "", "serial": "0" }
+      "page1Defaults": {
+        "brand": "بوتجاز و مسطح و فرن - LA Germania",
+        "model1": "9M10GUB1X4AWW _ (Lagermania moderna 90cm cooling+conv fan)",
+        "serial": "0"
+      }
     },
     {
       "name": "غسالة أطباق",

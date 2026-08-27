@@ -29,6 +29,8 @@
     scrapedPages: new Set(),
     totalPages: 1,
     isScraping: false,
+    orderIdFilter: new Set(), // Set of CAS numbers to filter by
+    sortMode: 'scraped', // scraped, cas-asc, cas-desc, name-asc, name-desc, date-asc, date-desc
   };
 
   // ══════════════════════════════════════════════════════════════════
@@ -320,8 +322,36 @@
   const settingsClose = el('button', { id: 'rp-settings-close', textContent: '✕' });
   const settingsHeader = el('div', { id: 'rp-settings-header' }, [settingsTitle, settingsClose]);
 
+  // Order ID Filter Section
+  const orderIdSectionTitle = el('div', { className: 'rp-section-title', innerHTML: '🔢 تصفية بأرقام الطلبات' });
+  const orderIdTextarea = el('textarea', { 
+    id: 'rp-order-id-filter', 
+    placeholder: 'الصق أرقام الطلبات هنا (كل سطر رقم)\nمثال:\nCAS2026082553172366\nCAS2026081552971241\nCAS2026082353144001',
+    style: 'width:100%;min-height:80px;padding:8px;border:1px solid #2a4a7a;border-radius:6px;background:#0d1117;color:#c8d0e0;font-family:monospace;font-size:11px;resize:vertical;box-sizing:border-box;margin-bottom:8px;'
+  });
+  const orderIdActions = el('div', { style: 'display:flex;gap:6px;margin-bottom:8px;' }, [
+    el('button', { id: 'rp-apply-order-filter', className: 'rp-btn rp-btn-primary', style: 'flex:1;padding:8px;font-size:11px;', textContent: '✅ تطبيق التصفية' }),
+    el('button', { id: 'rp-clear-order-filter', className: 'rp-btn rp-btn-danger', style: 'flex:1;padding:8px;font-size:11px;', textContent: '🗑 مسح التصفية' }),
+  ]);
+  const orderIdStatus = el('div', { id: 'rp-order-filter-status', style: 'font-size:10px;color:#7a9cc8;text-align:center;padding:4px;display:none;' });
+
   const dateSectionTitle = el('div', { className: 'rp-section-title', innerHTML: '📅 اختر التاريخ' });
   const dateGrid = el('div', { className: 'rp-date-grid', id: 'rp-date-grid' });
+
+  // Sort Section
+  const sortSectionTitle = el('div', { className: 'rp-section-title', innerHTML: '🔃 ترتيب القائمة' });
+  const sortSelect = el('select', { 
+    id: 'rp-sort-select',
+    style: 'width:100%;padding:8px;border:1px solid #2a4a7a;border-radius:6px;background:#0d1117;color:#c8d0e0;font-size:11px;'
+  }, [
+    el('option', { value: 'scraped', textContent: 'ترتيب الاستخراج (الأولوية)' }),
+    el('option', { value: 'cas-asc', textContent: 'رقم البلاغ (تصاعدي)' }),
+    el('option', { value: 'cas-desc', textContent: 'رقم البلاغ (تنازلي)' }),
+    el('option', { value: 'name-asc', textContent: 'اسم العميل (أ-ي)' }),
+    el('option', { value: 'name-desc', textContent: 'اسم العميل (ي-أ)' }),
+    el('option', { value: 'date-asc', textContent: 'التاريخ (الأقدم أولاً)' }),
+    el('option', { value: 'date-desc', textContent: 'التاريخ (الأحدث أولاً)' }),
+  ]);
 
   const reportsSectionTitle = el('div', { className: 'rp-section-title', innerHTML: '📋 البلاغات المتاحة' });
   const selectAllLabel = el('label', { className: 'rp-select-all' }, [
@@ -337,7 +367,10 @@
   const btnRow = el('div', { className: 'rp-btn-row' }, [startBtn, cancelBtn]);
 
   const settingsBody = el('div', { id: 'rp-settings-body' }, [
-    dateSectionTitle, dateGrid, reportsSectionTitle, selectAllLabel, reportsList, selectedCountEl, btnRow,
+    orderIdSectionTitle, orderIdTextarea, orderIdActions, orderIdStatus,
+    dateSectionTitle, dateGrid,
+    sortSectionTitle, sortSelect,
+    reportsSectionTitle, selectAllLabel, reportsList, selectedCountEl, btnRow,
   ]);
   const settingsModal = el('div', { id: 'rp-settings' }, [settingsHeader, settingsBody]);
 
@@ -661,6 +694,13 @@
     dateGrid.innerHTML = '';
     state.selectedReports = [];
     state._selectedDate = '';
+    state.orderIdFilter.clear();
+    state.sortMode = 'scraped';
+
+    // Reset UI elements
+    document.getElementById('rp-order-id-filter').value = '';
+    document.getElementById('rp-order-filter-status').style.display = 'none';
+    document.getElementById('rp-sort-select').value = 'scraped';
 
     await scrapeAllPages();
 
@@ -764,20 +804,77 @@
     }
   }
 
+  function getFilteredAndSortedReports() {
+    let reports = [...state.allReports];
+
+    // Apply order ID filter if active
+    if (state.orderIdFilter.size > 0) {
+      reports = reports.filter(r => state.orderIdFilter.has(r.casNo));
+    }
+
+    // Apply date filter (only if no order ID filter is active)
+    const selectedDate = state._selectedDate || '';
+    if (state.orderIdFilter.size === 0 && selectedDate) {
+      reports = reports.filter(r => r.date === selectedDate);
+    }
+
+    // Apply sorting
+    switch (state.sortMode) {
+      case 'cas-asc':
+        reports.sort((a, b) => a.casNo.localeCompare(b.casNo));
+        break;
+      case 'cas-desc':
+        reports.sort((a, b) => b.casNo.localeCompare(a.casNo));
+        break;
+      case 'name-asc':
+        reports.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+        break;
+      case 'name-desc':
+        reports.sort((a, b) => (b.name || '').localeCompare(a.name || ''));
+        break;
+      case 'date-asc':
+        reports.sort((a, b) => {
+          const da = a.date ? new Date(a.date.split('/').reverse().join('-')) : new Date(0);
+          const db = b.date ? new Date(b.date.split('/').reverse().join('-')) : new Date(0);
+          return da - db;
+        });
+        break;
+      case 'date-desc':
+        reports.sort((a, b) => {
+          const da = a.date ? new Date(a.date.split('/').reverse().join('-')) : new Date(0);
+          const db = b.date ? new Date(b.date.split('/').reverse().join('-')) : new Date(0);
+          return db - da;
+        });
+        break;
+      // 'scraped' keeps original order
+    }
+
+    return reports;
+  }
+
   function renderReportsList() {
     reportsList.innerHTML = '';
     state.selectedReports = [];
 
+    const filtered = getFilteredAndSortedReports();
     const selectedDate = state._selectedDate || '';
-    const filtered = selectedDate
-      ? state.allReports.filter(r => r.date === selectedDate)
-      : state.allReports;
-    console.log(`[RP] renderReportsList: selectedDate="${selectedDate}", filtered=${filtered.length} from ${state.allReports.length}`);
+    const totalCount = state.orderIdFilter.size > 0 ? state.allReports.length : (selectedDate ? state.allReports.filter(r => r.date === selectedDate).length : state.allReports.length);
 
-    reportsSectionTitle.innerHTML = `📋 البلاغات المتاحة (${filtered.length}/${state.allReports.length})`;
+    console.log(`[RP] renderReportsList: orderFilter=${state.orderIdFilter.size}, selectedDate="${selectedDate}", sort=${state.sortMode}, filtered=${filtered.length} from ${totalCount}`);
+
+    const titleSuffix = state.orderIdFilter.size > 0 
+      ? ` (مصفاة: ${filtered.length} من ${state.allReports.length})`
+      : ` (${filtered.length}/${totalCount})`;
+    reportsSectionTitle.innerHTML = `📋 البلاغات المتاحة${titleSuffix}`;
 
     if (filtered.length === 0) {
-      reportsList.innerHTML = '<div style="color:#7a9cc8;font-size:11px;padding:12px;text-align:center;">لا توجد بلاغات</div>';
+      let msg = 'لا توجد بلاغات';
+      if (state.orderIdFilter.size > 0) {
+        msg = `لم يتم العثور على أي من ${state.orderIdFilter.size} رقم طلب تم تصفيته`;
+      } else if (selectedDate) {
+        msg = `لا توجد بلاغات في ${selectedDate}`;
+      }
+      reportsList.innerHTML = `<div style="color:#7a9cc8;font-size:11px;padding:12px;text-align:center;">${msg}</div>`;
       return;
     }
 
@@ -1048,13 +1145,53 @@
 
   document.getElementById('rp-select-all').addEventListener('change', (e) => {
     const checked = e.target.checked;
-    const selectedDate = state._selectedDate || '';
-    const filtered = selectedDate
-      ? state.allReports.filter(r => r.date === selectedDate)
-      : state.allReports;
+    const filtered = getFilteredAndSortedReports();
     state.selectedReports = checked ? [...filtered] : [];
     document.querySelectorAll('.rp-report-item input[type="checkbox"]').forEach(cb => { cb.checked = checked; });
     updateSelectedCount();
+  });
+
+  // Order ID Filter - Apply
+  document.getElementById('rp-apply-order-filter').addEventListener('click', () => {
+    const text = document.getElementById('rp-order-id-filter').value;
+    const casNumbers = text.split('\n')
+      .map(line => line.trim())
+      .filter(line => line.length > 0)
+      .map(line => {
+        // Extract CAS number from line (handles "CAS2026..." or "رقم الطلب CAS2026..." or "CAS2026... | Serial: ...")
+        const match = line.match(/CAS\d+/);
+        return match ? match[0] : line;
+      });
+    
+    state.orderIdFilter = new Set(casNumbers);
+    state._selectedDate = ''; // Clear date filter when order filter is active
+    document.getElementById('rp-order-filter-status').style.display = 'block';
+    document.getElementById('rp-order-filter-status').textContent = `✅ تم تصفية ${state.orderIdFilter.size} رقم طلب`;
+    document.getElementById('rp-order-filter-status').style.color = '#2bd46f';
+    
+    // Update date chips selection
+    document.querySelectorAll('.rp-date-chip').forEach(c => c.classList.remove('selected'));
+    const allChip = document.querySelector('.rp-date-chip.all-dates');
+    if (allChip) allChip.classList.add('selected');
+    
+    renderReportsList();
+    console.log('[RP] Order ID filter applied:', state.orderIdFilter.size, 'numbers');
+  });
+
+  // Order ID Filter - Clear
+  document.getElementById('rp-clear-order-filter').addEventListener('click', () => {
+    document.getElementById('rp-order-id-filter').value = '';
+    state.orderIdFilter.clear();
+    document.getElementById('rp-order-filter-status').style.display = 'none';
+    renderReportsList();
+    console.log('[RP] Order ID filter cleared');
+  });
+
+  // Sort Select
+  document.getElementById('rp-sort-select').addEventListener('change', (e) => {
+    state.sortMode = e.target.value;
+    renderReportsList();
+    console.log('[RP] Sort mode changed to:', state.sortMode);
   });
 
   startBtn.addEventListener('click', run);
