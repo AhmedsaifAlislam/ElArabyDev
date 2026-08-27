@@ -1830,6 +1830,7 @@ async function startNextTask(queue) {
     chrome.runtime.sendMessage({ type: 'BATCH_DONE_STORAGE' }).catch(()=>{});
     return;
   }
+  log('[QUEUE_TRACE] phase=startNextTask current="' + queue[0]?.orderId + '" remaining=' + (queue.length-1) + ' queue="' + queue.map(t=>t.orderId).join('|') + '"');
   await storageSet({ currentTask: queue[0], taskQueue: queue.slice(1) });
   // Open next order in a new tab, keep current tab open
   try {
@@ -2379,6 +2380,7 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
       if (msg.action === 'RUN_SINGLE') sendResponse(await runSingleLineWithRouter(msg));
       else if (msg.action === 'START_QUEUE') {
         const tasks = msg.tasks || [];
+        log('[QUEUE_TRACE] phase=start_queue tasks=' + tasks.length + ' order="' + tasks.map((t,i)=> (i+1)+':'+t.orderId).join('|') + '"');
         const batchId = 'batch-' + Date.now();
         await openSession(batchId, tasks);
         
