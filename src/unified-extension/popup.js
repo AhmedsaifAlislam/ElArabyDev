@@ -697,11 +697,29 @@ async function getActiveTab() {
 }
 
 // ── Send to Content Script ────────────────────────────────
-async function sendToTab(tabId, message, timeout = 8000) {
+const PENDING_MESSAGES = new Map();
+
+async function sendToTab(tabId, message, timeout = 300000) {
+  // Long timeout for RUN_SINGLE/START_QUEUE (5 min), shorter for others
+  const isLongRunning = message?.action === 'RUN_SINGLE' || message?.action === 'START_QUEUE';
+  const effectiveTimeout = isLongRunning ? 300000 : (timeout || 30000);
+
   return new Promise(resolve => {
-    const timer = setTimeout(() => resolve({ error: 'timeout — تأكد من فتح صفحة البوابة وانتظر تحميلها' }), timeout);
-    chrome.tabs.sendMessage(tabId, message, resp => {
+    const msgId = `${message?.action || 'unknown'}-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
+    const timer = setTimeout(() => {
+      PENDING_MESSAGES.delete(msgId);
+      resolve({ error: `timeout (${effectiveTimeout/1000}s) — تأكد من فتح صفحة البوابة وانتظر تحميلها` });
+    }, effectiveTimeout);
+
+    const cleanup = () => {
       clearTimeout(timer);
+      PENDING_MESSAGES.delete(msgId);
+    };
+
+    PENDING_MESSAGES.set(msgId, cleanup);
+
+    chrome.tabs.sendMessage(tabId, message, resp => {
+      cleanup();
       if (chrome.runtime.lastError) {
         const msg = chrome.runtime.lastError.message || '';
         if (msg.includes('Receiving end does not exist')) {
@@ -715,6 +733,14 @@ async function sendToTab(tabId, message, timeout = 8000) {
     });
   });
 }
+
+// Cancel all pending messages on popup unload (fixes Escape key timeout errors)
+window.addEventListener('beforeunload', () => {
+  for (const cleanup of PENDING_MESSAGES.values()) {
+    cleanup();
+  }
+  PENDING_MESSAGES.clear();
+});
 
 // ── Task Status UI ────────────────────────────────────────
 const STATUS_ICON = {

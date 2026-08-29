@@ -2376,7 +2376,11 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
   if (!msg?.action) return;
   (async () => {
     try {
-      if (msg.action === 'RUN_SINGLE') sendResponse(await runSingleLineWithRouter(msg));
+      if (msg.action === 'RUN_SINGLE') {
+        // Respond immediately, run router async (like START_QUEUE) to avoid timeout
+        sendResponse({ ok: true });
+        await runSingleLineWithRouter(msg);
+      }
       else if (msg.action === 'START_QUEUE') {
         const tasks = msg.tasks || [];
         const batchId = 'batch-' + Date.now();
