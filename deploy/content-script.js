@@ -195,72 +195,8 @@ function findFieldByLabel(labelTexts, tagName = null) {
 }
 
 // ═══════════════════════════════════════════════════════════════════
-// SERIAL NORMALIZATION HELPER
-// ═══════════════════════════════════════════════════════════════════
-function normalizeSerialForField(value, fieldEl) {
-  if (!value || !fieldEl) return value;
-
-  const maxLen = fieldEl.getAttribute('maxlength') ? parseInt(fieldEl.getAttribute('maxlength'), 10) : null;
-  const minLen = fieldEl.getAttribute('minlength') ? parseInt(fieldEl.getAttribute('minlength'), 10) : null;
-  const pattern = fieldEl.getAttribute('pattern') || null;
-
-  let normalized = String(value).trim().replace(/[\s\-_]/g, '');
-
-  if (maxLen && normalized.length > maxLen) {
-    warn(`Serial normalized length (${normalized.length}) exceeds maxlength (${maxLen}), truncating`);
-    normalized = normalized.slice(0, maxLen);
-  }
-
-  if (pattern) {
-    try {
-      const regex = new RegExp(pattern);
-      if (!regex.test(normalized)) {
-        warn(`Serial "${normalized}" doesn't match pattern ${pattern}`);
-      }
-    } catch (e) {}
-  }
-
-  if (minLen && normalized.length < minLen) {
-    warn(`Serial length (${normalized.length}) less than minlength (${minLen})`);
-  }
-
-  return normalized;
-}
-
-// ═══════════════════════════════════════════════════════════════════
-// SAFE SERIAL2 FILL - with validation & normalization
-// ═══════════════════════════════════════════════════════════════════
-async function fillSerial2Safely(data, cfg) {
-  if (!data.serial2) {
-    return { ok: false, skipped: true, reason: 'no-serial2-data' };
-  }
-
-  const serial2El = findFirst(cfg.serial2) || findFieldByLabel(['الرقم المسلسل 2', 'Serial 2'], 'input');
-  if (!serial2El) {
-    return { ok: false, skipped: true, reason: 'serial2-field-not-found' };
-  }
-
-  const normalizedSerial2 = normalizeSerialForField(data.serial2, serial2El);
-
-  if (!normalizedSerial2 || normalizedSerial2.length < 3) {
-    warn(`Serial2 "${data.serial2}" normalized to "${normalizedSerial2}" - too short, skipping`);
-    return { ok: false, skipped: true, reason: 'serial2-too-short-after-normalize' };
-  }
-
-  try {
-    return await fillAndVerify('Serial2', normalizedSerial2,
-      () => fillElement(serial2El, normalizedSerial2),
-      createInputVerifier(() => serial2El)
-    );
-  } catch (e) {
-    err(`Serial2 fill failed: ${e}`);
-    return { ok: false, error: e.message };
-  }
-}
-
-// ═══════════════════════════════════════════════════════════════════
 // UI INTERACTIONS & MODALS
-// ══════════════════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════════════════
 async function fillElement(el, value) {
   if (!el || !value) return { ok: false };
   el.scrollIntoView({ block: 'center', behavior: 'auto' });
@@ -1280,8 +1216,7 @@ async function executePage1_Review(data, cfg) {
   FR.model = await fillAndVerify('Model1', data.model, () => fillPowerAppsLookup(findFirst(cfg.modelInput)||findFieldByLabel(['الموديل الفعلي 1','Model']), 'Model1', data.model, cfg.modelBtn), createLookupVerifier(()=>findFirst(cfg.modelInput)||findFieldByLabel(['الموديل الفعلي 1','Model'])));
   FR.serial = await fillAndVerify('Serial1', data.serial, () => fillElement(findFirst(cfg.serial)||findFieldByLabel(['الرقم المسلسل 1','الرقم المسلسل','Serial'],'input'), data.serial), createInputVerifier(()=>findFirst(cfg.serial)||findFieldByLabel(['الرقم المسلسل 1','الرقم المسلسل','Serial'],'input')));
   FR.model2 = await fillAndVerify('Model2', data.model2, () => fillPowerAppsLookup(findFirst(cfg.modelInput2)||findFieldByLabel(['الموديل الفعلي 2','Model 2']), 'Model2', data.model2, cfg.modelBtn), createLookupVerifier(()=>findFirst(cfg.modelInput2)||findFieldByLabel(['الموديل الفعلي 2','Model 2'])));
-  // Serial2: use safe filler with normalization & validation
-  FR.serial2 = await fillSerial2Safely(data, cfg);
+  FR.serial2 = await fillAndVerify('Serial2', data.serial2, () => fillElement(findFirst(cfg.serial2)||findFieldByLabel(['الرقم المسلسل 2','Serial 2'],'input'), data.serial2), createInputVerifier(()=>findFirst(cfg.serial2)||findFieldByLabel(['الرقم المسلسل 2','Serial 2'],'input')));
   FR.status = await fillAndVerify('Status', data.status, async () => {
     let el = findFirst(cfg.statusSelect) || findFieldByLabel(['حالة الضمان','Warranty Status'],'select');
     if (!el) el = Array.from(document.querySelectorAll('select')).find(s => /warranty|ضمان/i.test(s.getAttribute('aria-label')||'') || /warranty|ضمان/i.test(s.name||'') || /warranty|ضمان/i.test(s.id||''));
