@@ -194,6 +194,128 @@ function findFieldByLabel(labelTexts, tagName = null) {
   } return null;
 }
 
+// ════════════════════════════════════════════════════════════════════
+// DEVICE DATA CLEAR — Manual trigger, one-time, non-persistent
+// mode: 'all' (default) | 'hidden-only'
+// ═══════════════════════════════════════════════════════════════════
+function findInAllFrames(selectors) {
+  const docs = [document];
+  document.querySelectorAll('iframe').forEach(f => {
+    try { const d = f.contentDocument || f.contentWindow?.document; if (d) docs.push(d); } catch(e) {}
+  });
+  for (const doc of docs) {
+    for (const s of Array.isArray(selectors) ? selectors : [selectors]) {
+      try { const el = doc.querySelector(s); if (el) return { el, doc }; } catch(_) {}
+    }
+  }
+  return null;
+}
+
+async function clearAllDeviceFields(mode = 'all') {
+  const cfg = await loadSelectors();
+  const cleared = [];
+  const isHiddenOnly = mode === 'hidden-only';
+  
+  // Helper: clear visible input + dispatch events (ONLY if not hidden-only)
+  async function clearVisible(el, label) {
+    if (!el || isHiddenOnly) return false;
+    try {
+      nativeSetValue(el, '');
+      el.dispatchEvent(new Event('input', { bubbles: true }));
+      el.dispatchEvent(new Event('change', { bubbles: true }));
+      cleared.push(label + ' (مرئي)');
+      return true;
+    } catch (e) { warn(`clearVisible failed for ${label}: ${e.message}`); return false; }
+  }
+  
+  // Helper: click clear lookup button (ONLY if not hidden-only)
+  function clickClearLookup(inputEl, label) {
+    if (!inputEl || isHiddenOnly) return false;
+    try {
+      const container = inputEl.closest('.input-group') || inputEl.parentElement;
+      if (!container) return false;
+      const clearBtn = container.querySelector('button.clearlookupfield, button[aria-label*="Clear lookup"], button[title*="Clear lookup"]');
+      if (clearBtn && clearBtn.offsetParent !== null) {
+        safeClick(clearBtn, `Clear lookup for ${label}`);
+        cleared.push(label + ' (clear-btn)');
+        return true;
+      }
+      return false;
+    } catch (e) { warn(`clickClearLookup failed for ${label}: ${e.message}`); return false; }
+  }
+  
+  // Helper: clear hidden lookup fields (ALWAYS — both modes)
+  function clearHiddenLookups(baseId, label) {
+    const hiddenId = document.getElementById(baseId);
+    const hiddenEntity = document.getElementById(baseId + '_entityname');
+    let didClear = false;
+    if (hiddenId) { nativeSetValue(hiddenId, ''); didClear = true; }
+    if (hiddenEntity) { nativeSetValue(hiddenEntity, ''); didClear = true; }
+    if (didClear) cleared.push(label + ' (مخفي)');
+    return didClear;
+  }
+  
+  // ✅ يعمل في كل الأوضاع — مسح الحقول المخفية
+  clearHiddenLookups('ats_producttypebrand', 'العلامة التجارية');
+  clearHiddenLookups('ldv_actualmodel', 'الموديل 1');
+  clearHiddenLookups('ldv_actualmodel2', 'الموديل 2');
+  
+  // ❌ يعمل فقط في mode='all' — مسح المرئي + ضغط clear lookup
+  if (!isHiddenOnly) {
+    // Brand
+    let brandRes = findInAllFrames(cfg.brandInput);
+    const brandEl = brandRes?.el || findFieldByLabel(['العلامة التجاريه','العلامة التجارية','Brand']);
+    if (brandEl) { await clearVisible(brandEl, 'العلامة التجارية'); clickClearLookup(brandEl, 'العلامة التجارية'); }
+    
+    // Model 1
+    let model1Res = findInAllFrames(cfg.modelInput);
+    const model1El = model1Res?.el || findFieldByLabel(['الموديل الفعلي 1','Model']);
+    if (model1El) { await clearVisible(model1El, 'الموديل 1'); clickClearLookup(model1El, 'الموديل 1'); }
+    
+    // Model 2
+    let model2Res = findInAllFrames(cfg.modelInput2);
+    const model2El = model2Res?.el || findFieldByLabel(['الموديل الفعلي 2','Model 2']);
+    if (model2El) { await clearVisible(model2El, 'الموديل 2'); clickClearLookup(model2El, 'الموديل 2'); }
+    
+    // Serial 1
+    let serial1Res = findInAllFrames(cfg.serial);
+    const serial1El = serial1Res?.el || findFieldByLabel(['الرقم المسلسل 1','الرقم المسلسل','Serial'],'input');
+    if (serial1El) await clearVisible(serial1El, 'السيريال 1');
+    
+    // Serial 2
+    let serial2Res = findInAllFrames(cfg.serial2);
+    const serial2El = serial2Res?.el || findFieldByLabel(['الرقم المسلسل 2','Serial 2'],'input');
+    if (serial2El) await clearVisible(serial2El, 'السيريال 2');
+    
+    // Warranty Status
+    let statusRes = findInAllFrames(cfg.statusSelect);
+    const statusEl = statusRes?.el || findFieldByLabel(['حالة الضمان','Warranty Status'],'select');
+    if (statusEl) await clearVisible(statusEl, 'حالة الضمان');
+    
+    // Warranty Date
+    let dateRes = findInAllFrames(cfg.dateInput);
+    const dateEl = dateRes?.el || findFieldByLabel(['تاريخ الضمان','Warranty Date'],'input');
+    if (dateEl) await clearVisible(dateEl, 'تاريخ الضمان');
+    
+    // Second Technical Serial
+    const secSerialEl = document.getElementById('ldv_secondtechnicalserial');
+    if (secSerialEl) await clearVisible(secSerialEl, 'السيريال التقني الثاني');
+    
+    // Second Product Barcode
+    const secBarcodeEl = document.getElementById('new_secondproductbarcode');
+    if (secBarcodeEl) await clearVisible(secBarcodeEl, 'باركود المنتج الثاني');
+  }
+  
+  // Log + Toast
+  sendSmartLog('DEVICE_CLEARED_MANUAL', { mode, fields: cleared });
+  const msg = isHiddenOnly 
+    ? '✅ تم مسح الحقول المخفية فقط: ' + cleared.join('، ')
+    : '✅ تم مسح ' + cleared.length + ' حقل: ' + cleared.join('، ');
+  showPageToast(msg, 'success');
+  
+  return { ok: true, mode, cleared };
+}
+
 // ═══════════════════════════════════════════════════════════════════
 // UI INTERACTIONS & MODALS
 // ═══════════════════════════════════════════════════════════════════
@@ -2456,6 +2578,10 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
         }
         sendResponse({ ok: true });
       }
+      else if (msg.action === 'CLEAR_DEVICE_DATA') {
+        const mode = msg.mode || 'all';
+        clearAllDeviceFields(mode).then(result => sendResponse(result));
+      }
       else warn('Unhandled action: ' + msg.action + ' — not claiming it (other listeners may own it)');
     } catch { sendResponse({ ok: false }); }
   })(); return true;
@@ -2812,3 +2938,90 @@ async function initSessionCapture() {
   }, 5000);
 }
 initSessionCapture();
+
+// ════════════════════════════════════════════════════════════════════
+// FAB: Clear Device Data — فقط على workorderreview/followup
+// ═══════════════════════════════════════════════════════════════════
+function injectClearDeviceFAB() {
+  if (!/workorderreview|followup/i.test(location.href)) return;
+  if (document.getElementById('ea-clear-device-fab')) return;
+  
+  const fab = document.createElement('button');
+  fab.id = 'ea-clear-device-fab';
+  fab.innerHTML = '🗑️';
+  fab.title = 'مسح بيانات الجهاز (خيارات: الكل / المخفي فقط)';
+  Object.assign(fab.style, {
+    position: 'fixed', bottom: '90px', left: '20px', zIndex: 999999,
+    width: '48px', height: '48px', borderRadius: '50%',
+    background: 'linear-gradient(135deg, #dc2626, #b91c1c)',
+    border: 'none', color: '#fff', fontSize: '20px',
+    cursor: 'pointer', boxShadow: '0 4px 20px rgba(220,38,38,0.4)',
+    display: 'flex', alignItems: 'center', justifyContent: 'center',
+    transition: 'all 0.2s'
+  });
+  
+  fab.onmouseenter = () => { fab.style.transform = 'scale(1.1)'; fab.style.boxShadow = '0 6px 25px rgba(220,38,38,0.6)'; };
+  fab.onmouseleave = () => { fab.style.transform = 'scale(1)'; fab.style.boxShadow = '0 4px 20px rgba(220,38,38,0.4)'; };
+  
+  fab.onclick = async () => {
+    const choice = await showFABClearDialog();
+    if (!choice || choice === 'cancel') return;
+    
+    fab.disabled = true;
+    fab.textContent = '⏳';
+    try {
+      await clearAllDeviceFields(choice);
+    } finally {
+      fab.disabled = false;
+      fab.textContent = '🗑️';
+    }
+  };
+  
+  document.body.appendChild(fab);
+}
+
+function showFABClearDialog() {
+  return new Promise(resolve => {
+    const existing = document.getElementById('ea-fab-clear-dialog');
+    if (existing) existing.remove();
+    
+    const dialog = document.createElement('div');
+    dialog.id = 'ea-fab-clear-dialog';
+    Object.assign(dialog.style, {
+      position: 'fixed', bottom: '150px', left: '20px', zIndex: 1000000,
+      direction: 'rtl', fontFamily: 'Cairo, sans-serif',
+      background: '#1e293b', border: '1px solid #334155', borderRadius: '12px',
+      padding: '16px', minWidth: '260px', boxShadow: '0 25px 50px rgba(0,0,0,0.5)'
+    });
+    
+    dialog.innerHTML = `
+      <div style="font-size:13px; font-weight:700; color:#e2e8f0; margin-bottom:12px;">🗑️ مسح بيانات الجهاز</div>
+      <div style="display:flex; flex-direction:column; gap:6px;">
+        <button class="ea-fab-choice" data-mode="all" style="padding:10px; border-radius:8px; border:none; background:#dc2626; color:#fff; font-weight:700; cursor:pointer;">🗑️ نعم — مسح الكل</button>
+        <button class="ea-fab-choice" data-mode="hidden-only" style="padding:10px; border-radius:8px; border:none; background:#f59e0b; color:#fff; font-weight:700; cursor:pointer;">🔧 الحقول المخفية فقط</button>
+        <button class="ea-fab-choice" data-mode="cancel" style="padding:10px; border-radius:8px; border:none; background:#334155; color:#94a3b8; font-weight:700; cursor:pointer;">❌ لا</button>
+      </div>
+    `;
+    
+    document.body.appendChild(dialog);
+    
+    dialog.querySelectorAll('.ea-fab-choice').forEach(btn => {
+      btn.onclick = () => { dialog.remove(); resolve(btn.dataset.mode); };
+    });
+    
+    setTimeout(() => {
+      document.addEventListener('click', function closeOutside(e) {
+        if (!dialog.contains(e.target) && e.target !== fab) {
+          dialog.remove(); resolve('cancel');
+          document.removeEventListener('click', closeOutside);
+        }
+      });
+    }, 0);
+  });
+}
+
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', injectClearDeviceFAB);
+} else {
+  injectClearDeviceFAB();
+}
