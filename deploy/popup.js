@@ -36,8 +36,83 @@ let taskItems          = {};   // taskId → div element
 let statusPollInterval = null;
 
 // ── Helpers ───────────────────────────────────────────────
-const escapeHtml = s => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;').replace(/`/g,'&#96;');
+const escapeHtml = s => String(s).replace(/&/g,'&').replace(/</g,'<').replace(/>/g,'>').replace(/"/g,'"').replace(/'/g,"'").replace(/`/g,'&#96;');
 const sleep      = ms => new Promise(r => setTimeout(r, ms));
+
+// ── Multi-Run Runtime Trace (Diagnostic) ──────────────────
+const TRACE_KEY = 'multiRunRuntimeTrace';
+const MAX_TRACE_ENTRIES = 150;
+
+function traceEvent(event, details = {}) {
+  const entry = {
+    timestamp: new Date().toISOString(),
+    event,
+    tabId: details.tabId || null,
+    taskId: details.taskId || null,
+    orderId: details.orderId || null,
+    url: details.url || (typeof location !== 'undefined' ? location.href : null),
+    processingTabId: details.processingTabId || null,
+    currentTaskPresent: details.currentTaskPresent || false,
+    queueLength: details.queueLength || 0,
+    details: details.details || null
+  };
+  
+  chrome.storage.local.get({ [TRACE_KEY]: [] }, (data) => {
+    const trace = data[TRACE_KEY] || [];
+    trace.push(entry);
+    if (trace.length > MAX_TRACE_ENTRIES) {
+      trace.shift();
+    }
+    chrome.storage.local.set({ [TRACE_KEY]: trace });
+  });
+}
+
+function clearMultiRunTrace() {
+  chrome.storage.local.set({ [TRACE_KEY]: [] });
+}
+
+function getMultiRunTrace() {
+  return new Promise(resolve => {
+    chrome.storage.local.get({ [TRACE_KEY]: [] }, (data) => {
+      resolve(data[TRACE_KEY] || []);
+    });
+  });
+}
+
+function formatTraceForCopy(trace) {
+  if (!trace.length) return 'EMPTY TRACE';
+  
+  return trace.map(e => {
+    const ts = new Date(e.timestamp).toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit', fractionalSecondDigits: 3 });
+    const parts = [`[${ts}] event=${e.event}`];
+    if (e.tabId) parts.push(`tabId=${e.tabId}`);
+    if (e.taskId) parts.push(`taskId=${e.taskId}`);
+    if (e.orderId) parts.push(`orderId=${e.orderId}`);
+    if (e.processingTabId) parts.push(`processingTabId=${e.processingTabId}`);
+    if (e.queueLength !== undefined) parts.push(`queueLength=${e.queueLength}`);
+    if (e.currentTaskPresent !== undefined) parts.push(`currentTask=${e.currentTaskPresent}`);
+    if (e.details) {
+      Object.entries(e.details).forEach(([k, v]) => parts.push(`${k}=${v}`));
+    }
+    return parts.join(' ');
+  }).join('\n');
+}
+
+function copyTraceToClipboard() {
+  getMultiRunTrace().then(trace => {
+    const text = 'MULTI RUN RUNTIME TRACE\n\n' + formatTraceForCopy(trace);
+    navigator.clipboard.writeText(text).then(() => {
+      setSearchStatus('✅ Runtime trace copied to clipboard', 'ok');
+    }).catch(() => {
+      setSearchStatus('❌ Failed to copy trace', 'error');
+    });
+  });
+}
+
+function clearRuntimeTrace() {
+  clearMultiRunTrace();
+  setSearchStatus('Runtime trace cleared', 'info');
+}
 
 function parseLines(text) {
   return text.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
@@ -1045,15 +1120,24 @@ btnSearchBatch.addEventListener('click', async () => {
     return;
   }
 
+  // === MULTI RUN RUNTIME TRACE: Clear previous trace and start new ===
+  clearMultiRunTrace();
+  const firstOrderId = tasks[0]?.orderId || 'unknown';
+  traceEvent('MULTI_RUN_CLICK', { tabId: tab.id, orderId: firstOrderId, queueLength: tasks.length });
+
   buildTaskItems(tasks);
   await chrome.storage.local.set({ taskResults: [], lastStatusUpdate: null });
+
+  traceEvent('QUEUE_INITIALIZED', { queueLength: tasks.length, taskIds: tasks.map(t => t.taskId) });
 
   setSearchStatusHtml('<span class="spinner"></span> جارٍ بدء التشغيل المتعدد...', 'info');
   setBatchSearchUI(true);
   updateSearchProgress(0, tasks.length, 0, 0);
 
   const delay = parseInt(searchDelaySlider?.value || 2000, 10);
+  traceEvent('START_QUEUE_SEND', { tabId: tab.id, queueLength: tasks.length, delay });
   const resp = await sendToTab(tab.id, { action: 'START_QUEUE', tasks, tabId: tab.id, delay });
+  traceEvent('START_QUEUE_RESPONSE', { ok: !resp.error, error: resp.error || null });
 
   if (resp.error) {
     setSearchStatus('خطأ: ' + resp.error, 'error');
@@ -1081,7 +1165,16 @@ btnSearchStop.addEventListener('click', async () => {
   setBatchSearchUI(false);
   setSearchStatus('تم الإيقاف', 'warn');
 });
-
+ 
+// ── Runtime Trace Buttons ──
+document.getElementById('btn-copy-runtime-trace')?.addEventListener('click', () => {
+  copyTraceToClipboard();
+});
+ 
+document.getElementById('btn-clear-runtime-trace')?.addEventListener('click', () => {
+  clearRuntimeTrace();
+});
+ 
 btnExtractDevice?.addEventListener('click', async () => {
   const tab = await getActiveTab();
   if (!tab) { setSearchStatus('افتح صفحة البلاغ أولاً', 'warn'); return; }

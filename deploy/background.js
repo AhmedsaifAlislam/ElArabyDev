@@ -116,14 +116,16 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
       });
       return true;
 
-    // Open next task in a new tab (keeps current tab open)
+// Open next task in a new tab (keeps current tab open)
     case 'OPEN_NEXT_TAB':
       chrome.tabs.create({ url: msg.url, active: true }, (newTab) => {
         if (newTab && newTab.id) {
           chrome.storage.local.set({ processingTabId: newTab.id }, () => {
-             sendResponse({ ok: true });
+            chrome.runtime.sendMessage({ type: 'STORAGE_SET', data: { multiRunRuntimeTrace: [{ timestamp: new Date().toISOString(), event: 'TAB_CREATE_SUCCESS', tabId: newTab.id, url: msg.url, details: { type: 'extension_created' } }] } }).catch(()=>{});
+            sendResponse({ ok: true });
           });
         } else {
+          chrome.runtime.sendMessage({ type: 'STORAGE_SET', data: { multiRunRuntimeTrace: [{ timestamp: new Date().toISOString(), event: 'TAB_CREATE_ERROR', url: msg.url, details: { error: 'Failed to create tab' } }] } }).catch(()=>{});
           sendResponse({ ok: false });
         }
       });
@@ -131,6 +133,8 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
 
     case 'GET_MY_TAB_ID':
       sendResponse({ tabId: sender.tab?.id });
+      // Trace the tab ID request
+      chrome.runtime.sendMessage({ type: 'STORAGE_SET', data: { multiRunRuntimeTrace: [{ timestamp: new Date().toISOString(), event: 'GET_MY_TAB_ID', tabId: sender.tab?.id, details: { type: 'tab_id_request' } }] } }).catch(()=>{});
       return true;
 
     case 'BATCH_DONE':

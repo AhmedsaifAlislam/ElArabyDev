@@ -48,6 +48,31 @@ const log  = (...a) => sysLog(a.join(' '), 'info');
 const warn = (...a) => sysLog(a.join(' '), 'warn');
 const err  = (...a) => sysLog(a.join(' '), 'error');
 
+// ── Multi-Run Runtime Trace (Diagnostic) ──────────────────
+const TRACE_KEY = 'multiRunRuntimeTrace';
+const MAX_TRACE_ENTRIES = 150;
+
+function traceEvent(event, details = {}) {
+  const entry = {
+    timestamp: new Date().toISOString(),
+    event,
+    tabId: details.tabId || null,
+    taskId: details.taskId || null,
+    orderId: details.orderId || null,
+    url: details.url || location.href,
+    processingTabId: details.processingTabId || null,
+    currentTaskPresent: details.currentTaskPresent || false,
+    queueLength: details.queueLength || 0,
+    details: details.details || null
+  };
+  
+  chrome.runtime.sendMessage({ type: 'STORAGE_SET', data: { [TRACE_KEY]: [{ ...entry, _append: true }] } }).catch(()=>{});
+}
+
+function clearMultiRunTrace() {
+  chrome.runtime.sendMessage({ type: 'STORAGE_SET', data: { [TRACE_KEY]: [] } }).catch(()=>{});
+}
+
 // ── Utility: Safe Click to catch and log silent UI errors ──
 function safeClick(element, description = 'element') {
   if (!element) { warn(`safeClick: ${description} is null or undefined.`); return false; }
@@ -1952,7 +1977,10 @@ async function startNextTask(queue) {
     chrome.runtime.sendMessage({ type: 'BATCH_DONE_STORAGE' }).catch(()=>{});
     return;
   }
+  traceEvent('START_NEXT_TASK_ENTER', { queueLength: queue.length, nextOrderId: queue[0]?.orderId });
   await storageSet({ currentTask: queue[0], taskQueue: queue.slice(1) });
+  traceEvent('CURRENT_TASK_SET', { taskId: queue[0]?.taskId, orderId: queue[0]?.orderId, queueLength: queue.length - 1 });
+  traceEvent('OPEN_NEXT_TAB_REQUEST', { url: ORDERS_URL });
   // Open next order in a new tab, keep current tab open
   try {
     await chrome.runtime.sendMessage({ type: 'OPEN_NEXT_TAB', url: ORDERS_URL });
@@ -2249,11 +2277,16 @@ async function findOrderAndOpen(orderId, cfg) {
 }
 
 async function processQueueOnLoad() {
+  traceEvent('PROCESS_QUEUE_ON_LOAD_ENTER', { url: location.href });
   log('[QUEUE_TRACE] phase=processQueueOnLoad url="' + location.href + '"');
   await sleep(500); 
   const { currentTask, processingTabId } = await storageGet({ currentTask: null, processingTabId: null });
   log('[QUEUE_TRACE] phase=storage currentTask=' + (currentTask ? 'yes' : 'no') + ' taskId="' + (currentTask?.taskId || '') + '" orderId="' + (currentTask?.orderId || '') + '" processingTabId="' + (processingTabId || '') + '"');
-  if (!currentTask) { log('[QUEUE_TRACE] phase=guard result=return reason=no_current_task url="' + location.href + '"'); return; }
+  traceEvent('PROCESS_QUEUE_STORAGE_READ', { currentTaskPresent: !!currentTask, taskId: currentTask?.taskId, orderId: currentTask?.orderId, processingTabId: processingTabId || null });
+  if (!currentTask) { 
+    traceEvent('PROCESS_QUEUE_ABORT', { reason: 'no_current_task', url: location.href });
+    log('[QUEUE_TRACE] phase=guard result=return reason=no_current_task url="' + location.href + '"'); return; 
+  }
 
   // ── Tab Lock with race-condition retry (fix: new tab may start before background updates processingTabId)
   let myTabId = null;
@@ -2295,16 +2328,20 @@ async function processQueueOnLoad() {
         log('[QUEUE_TRACE] phase=tab_lock result=claim myTabId="' + myTabId + '"');
         await storageSet({ processingTabId: myTabId });
     }
-  }
-
+}
+  
+  traceEvent('PAGE_TYPE_DETECTED', { pageType: p, url: location.href, taskId: currentTask?.taskId, orderId: currentTask?.orderId });
   const p = getPageType(); const cfg = await loadSelectors();
   log('[QUEUE_TRACE] phase=page_type result="' + p + '" url="' + location.href + '" orderId="' + (currentTask?.orderId || '') + '" taskId="' + (currentTask?.taskId || '') + '"');
+  traceEvent('PAGE_TYPE_DETECTED', { pageType: p, url: location.href, taskId: currentTask?.taskId, orderId: currentTask?.orderId });
   document.body.dataset.isAutofilling = 'true';
   sendSmartLog('TASK_START', { orderId: currentTask.orderId, mode: currentTask.mode || 'search' });
   if (p === 'ORDERS') {
+     traceEvent('FIND_ORDER_START', { taskId: currentTask.taskId, orderId: currentTask.orderId });
      log('[QUEUE_TRACE] phase=workflow action=findOrderAndOpen taskId="' + currentTask.taskId + '" orderId="' + currentTask.orderId + '"');
      notifyStatus(currentTask.taskId, 'searching', `البحث عن: ${currentTask.orderId}`);
      if (!await findOrderAndOpen(currentTask.orderId, cfg)) {
+         traceEvent('FIND_ORDER_FAILURE', { taskId: currentTask.taskId, orderId: currentTask.orderId });
          sendSmartLog('TASK_COMPLETE', { orderId: currentTask.orderId, success: false, reason: 'not-found', mode: currentTask.mode || 'search' });
          delete document.body.dataset.isAutofilling;
          notifyStatus(currentTask.taskId, 'not-found', `لم يُعثر : ${currentTask.orderId}`);
@@ -2313,10 +2350,10 @@ async function processQueueOnLoad() {
          if (taskQueue.length > 0) { await startNextTask(taskQueue); } else { notifyStatus('batch', 'batch-done', 'اكتمل Batch'); await finalizeSession(); chrome.runtime.sendMessage({ type: 'BATCH_DONE_STORAGE' }).catch(()=>{}); }
          return;
      }
-     notifyStatus(currentTask.taskId, 'navigating', 'جارٍ الانتقال...');
-  } else if (p === 'WORK_ORDER_REVIEW') {
-     log('[QUEUE_TRACE] phase=workflow action=runSingleLineWithRouter taskId="' + currentTask.taskId + '" orderId="' + currentTask.orderId + '"');
-     notifyStatus(currentTask.taskId, 'filling', `جاري التفريغ لـ: ${currentTask.orderId}`);
+     traceEvent('FIND_ORDER_SUCCESS', { taskId: currentTask.taskId, orderId: currentTask.orderId });
+     traceEvent('AUTOFILL_START', { taskId: currentTask.taskId, orderId: currentTask.orderId });
+     log('[QUEUE_TRACE] phase=workflow action=findOrderAndOpen taskId="' + currentTask.taskId + '" orderId="' + currentTask.orderId + '"');
+     notifyStatus(currentTask.taskId, 'searching', `البحث عن: ${currentTask.orderId}`);
      try {
        const { taskRetryFlag } = await storageGet({ taskRetryFlag: false });
        const routerRes = await runSingleLineWithRouter(currentTask);
@@ -2500,10 +2537,13 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
     try {
       if (msg.action === 'RUN_SINGLE') {
         // Respond immediately, run router async (like START_QUEUE) to avoid timeout
+        traceEvent('RUN_SINGLE_RECEIVED', { tabId: null, taskId: msg.task?.taskId, orderId: msg.task?.orderId });
         sendResponse({ ok: true });
+        traceEvent('ROUTER_START', { taskId: msg.task?.taskId, orderId: msg.task?.orderId });
         await runSingleLineWithRouter(msg);
       }
       else if (msg.action === 'START_QUEUE') {
+        traceEvent('START_QUEUE_RECEIVED', { tabId: msg.tabId, queueLength: msg.tasks?.length });
         const tasks = msg.tasks || [];
         const batchId = 'batch-' + Date.now();
         await openSession(batchId, tasks);
@@ -2516,8 +2556,10 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
         });
         await storageRemove(['taskRetryFlag']);
         await clearCurrentTask();
+        traceEvent('QUEUE_INITIALIZED', { queueLength: msg.tasks?.length });
         // Respond BEFORE startNextTask — it may navigate away, killing this context
         sendResponse({ ok: true });
+        traceEvent('START_NEXT_TASK_ENTER', { queueLength: msg.tasks?.length });
         await startNextTask(tasks);
       }
       else if (msg.action === 'STOP_QUEUE') {
