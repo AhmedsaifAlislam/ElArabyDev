@@ -1,4 +1,4 @@
-﻿// =========================================================
+// =========================================================
 // content-script.js — Portal AutoFiller v3.0
 // TARGET: Modular Architecture (Page1 & Page 2) + ClearBtn Verifier
 // =========================================================
@@ -50,7 +50,6 @@ const err  = (...a) => sysLog(a.join(' '), 'error');
 
 // ── Multi-Run Runtime Trace (Diagnostic) ──────────────────
 const TRACE_KEY = 'multiRunRuntimeTrace';
-const MAX_TRACE_ENTRIES = 150;
 
 function traceEvent(event, details = {}) {
   const entry = {
@@ -66,12 +65,25 @@ function traceEvent(event, details = {}) {
     details: details.details || null
   };
   
-  chrome.runtime.sendMessage({ type: 'STORAGE_SET', data: { [TRACE_KEY]: [{ ...entry, _append: true }] } }).catch(()=>{});
+  chrome.runtime.sendMessage({ 
+    type: 'TRACE_APPEND', 
+    entry
+  }).catch(()=>{});
 }
 
 function clearMultiRunTrace() {
-  chrome.runtime.sendMessage({ type: 'STORAGE_SET', data: { [TRACE_KEY]: [] } }).catch(()=>{});
+  chrome.runtime.sendMessage({ type: 'TRACE_CLEAR' }).catch(()=>{});
 }
+
+// Self-test trace presence for content script
+chrome.runtime.sendMessage({
+  type: 'TRACE_APPEND',
+  entry: {
+    timestamp: new Date().toISOString(),
+    event: 'TRACE_SELF_TEST',
+    source: 'content-script'
+  }
+}).catch(()=>{});
 
 // ── Utility: Safe Click to catch and log silent UI errors ──
 function safeClick(element, description = 'element') {

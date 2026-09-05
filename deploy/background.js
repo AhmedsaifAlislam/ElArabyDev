@@ -6,6 +6,76 @@
 
 const MAX_REPORTS = 200;
 const MAX_VALIDATION_PATTERNS = 2000;
+const TRACE_KEY = 'multiRunRuntimeTrace';
+const MAX_TRACE_ENTRIES = 150;
+
+// ── Serialized Trace Write Queue (Single Writer / Owner) ──
+let traceWriteQueue = Promise.resolve();
+
+function enqueueTraceWrite(operation) {
+  traceWriteQueue = traceWriteQueue
+    .then(operation)
+    .catch(err => {
+      console.error('[TRACE]', err);
+    });
+  return traceWriteQueue;
+}
+
+function appendTrace(entries) {
+  const items = Array.isArray(entries) ? entries : (entries ? [entries] : []);
+  if (!items.length) return Promise.resolve([]);
+  return enqueueTraceWrite(async () => {
+    try {
+      const data = await chrome.storage.local.get({ [TRACE_KEY]: [] });
+      const existing = Array.isArray(data[TRACE_KEY]) ? data[TRACE_KEY] : [];
+      const combined = existing.concat(items).slice(-MAX_TRACE_ENTRIES);
+      await chrome.storage.local.set({ [TRACE_KEY]: combined });
+      return combined;
+    } catch (e) {
+      console.error('[TRACE append error]', e);
+      return [];
+    }
+  });
+}
+
+function clearTrace() {
+  return enqueueTraceWrite(async () => {
+    try {
+      await chrome.storage.local.set({ [TRACE_KEY]: [] });
+      return [];
+    } catch (e) {
+      console.error('[TRACE clear error]', e);
+      return [];
+    }
+  });
+}
+
+async function getTrace() {
+  await traceWriteQueue;
+  const data = await chrome.storage.local.get({ [TRACE_KEY]: [] });
+  return Array.isArray(data[TRACE_KEY]) ? data[TRACE_KEY] : [];
+}
+
+async function runDiagnosticSelfTest() {
+  await clearTrace();
+  await appendTrace({ event: 'TRACE_TEST_1' });
+  await appendTrace({ event: 'TRACE_TEST_2' });
+  await appendTrace({ event: 'TRACE_TEST_3' });
+  await appendTrace({ event: 'TRACE_TEST_4' });
+  await appendTrace({ event: 'TRACE_TEST_5' });
+  const trace = await getTrace();
+  const suffix = trace.slice(-5).map(e => e.event);
+  const expected = ['TRACE_TEST_1', 'TRACE_TEST_2', 'TRACE_TEST_3', 'TRACE_TEST_4', 'TRACE_TEST_5'];
+  const pass = expected.length === 5 && expected.every((ev, i) => suffix[i] === ev);
+  return { ok: pass, pass, suffix, count: trace.length };
+}
+
+// Background self-test event directly queued
+appendTrace({
+  timestamp: new Date().toISOString(),
+  event: 'TRACE_SELF_TEST',
+  source: 'background'
+});
 
 // ── One-time migration: telemetryLogs → smartLogs ──────
 (async function migrateOldStorage() {
@@ -121,11 +191,22 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
       chrome.tabs.create({ url: msg.url, active: true }, (newTab) => {
         if (newTab && newTab.id) {
           chrome.storage.local.set({ processingTabId: newTab.id }, () => {
-            chrome.runtime.sendMessage({ type: 'STORAGE_SET', data: { multiRunRuntimeTrace: [{ timestamp: new Date().toISOString(), event: 'TAB_CREATE_SUCCESS', tabId: newTab.id, url: msg.url, details: { type: 'extension_created' } }] } }).catch(()=>{});
+            appendTrace({
+              timestamp: new Date().toISOString(),
+              event: 'TAB_CREATE_SUCCESS',
+              tabId: newTab.id,
+              url: msg.url,
+              details: { type: 'extension_created' }
+            });
             sendResponse({ ok: true });
           });
         } else {
-          chrome.runtime.sendMessage({ type: 'STORAGE_SET', data: { multiRunRuntimeTrace: [{ timestamp: new Date().toISOString(), event: 'TAB_CREATE_ERROR', url: msg.url, details: { error: 'Failed to create tab' } }] } }).catch(()=>{});
+          appendTrace({
+            timestamp: new Date().toISOString(),
+            event: 'TAB_CREATE_ERROR',
+            url: msg.url,
+            details: { error: 'Failed to create tab' }
+          });
           sendResponse({ ok: false });
         }
       });
@@ -133,8 +214,40 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
 
     case 'GET_MY_TAB_ID':
       sendResponse({ tabId: sender.tab?.id });
-      // Trace the tab ID request
-      chrome.runtime.sendMessage({ type: 'STORAGE_SET', data: { multiRunRuntimeTrace: [{ timestamp: new Date().toISOString(), event: 'GET_MY_TAB_ID', tabId: sender.tab?.id, details: { type: 'tab_id_request' } }] } }).catch(()=>{});
+      // Trace the tab ID request directly
+      appendTrace({
+        timestamp: new Date().toISOString(),
+        event: 'GET_MY_TAB_ID',
+        tabId: sender.tab?.id,
+        details: { type: 'tab_id_request' }
+      });
+      return true;
+
+    // ── Dedicated Trace Protocol (Single Writer / Serialized) ──
+    case 'TRACE_APPEND': {
+      const items = msg.entries || (msg.entry ? [msg.entry] : (msg.data || []));
+      appendTrace(items).then((trace) => {
+        sendResponse({ ok: true, count: trace?.length || 0 });
+      });
+      return true;
+    }
+
+    case 'TRACE_CLEAR':
+      clearTrace().then(() => {
+        sendResponse({ ok: true });
+      });
+      return true;
+
+    case 'TRACE_GET':
+      getTrace().then((trace) => {
+        sendResponse({ ok: true, trace });
+      });
+      return true;
+
+    case 'TRACE_SELF_TEST_RUN':
+      runDiagnosticSelfTest().then((result) => {
+        sendResponse(result);
+      });
       return true;
 
     case 'BATCH_DONE':

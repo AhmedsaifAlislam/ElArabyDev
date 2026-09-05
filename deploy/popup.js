@@ -35,13 +35,18 @@ let allSessionLogs     = [];   // full unfiltered sessions
 let taskItems          = {};   // taskId → div element
 let statusPollInterval = null;
 
-// ── Helpers ───────────────────────────────────────────────
-const escapeHtml = s => String(s).replace(/&/g,'&').replace(/</g,'<').replace(/>/g,'>').replace(/"/g,'"').replace(/'/g,"'").replace(/`/g,'&#96;');
-const sleep      = ms => new Promise(r => setTimeout(r, ms));
+// ── Multi-Run Runtime Trace (Diagnostic) — Self-Test Presence ─
+chrome.runtime.sendMessage({
+  type: 'TRACE_APPEND',
+  entry: {
+    timestamp: new Date().toISOString(),
+    event: 'TRACE_SELF_TEST',
+    source: 'popup'
+  }
+}).catch(() => {});
 
-// ── Multi-Run Runtime Trace (Diagnostic) ──────────────────
+// ── Helpers ───────────────────────────────────────────────
 const TRACE_KEY = 'multiRunRuntimeTrace';
-const MAX_TRACE_ENTRIES = 150;
 
 function traceEvent(event, details = {}) {
   const entry = {
@@ -57,24 +62,30 @@ function traceEvent(event, details = {}) {
     details: details.details || null
   };
   
-  chrome.storage.local.get({ [TRACE_KEY]: [] }, (data) => {
-    const trace = data[TRACE_KEY] || [];
-    trace.push(entry);
-    if (trace.length > MAX_TRACE_ENTRIES) {
-      trace.shift();
-    }
-    chrome.storage.local.set({ [TRACE_KEY]: trace });
-  });
+  chrome.runtime.sendMessage({
+    type: 'TRACE_APPEND',
+    entry
+  }).catch(() => {});
 }
 
 function clearMultiRunTrace() {
-  chrome.storage.local.set({ [TRACE_KEY]: [] });
+  return new Promise(resolve => {
+    chrome.runtime.sendMessage({ type: 'TRACE_CLEAR' }, () => {
+      resolve({ ok: true });
+    });
+  });
 }
 
 function getMultiRunTrace() {
   return new Promise(resolve => {
-    chrome.storage.local.get({ [TRACE_KEY]: [] }, (data) => {
-      resolve(data[TRACE_KEY] || []);
+    chrome.runtime.sendMessage({ type: 'TRACE_GET' }, (res) => {
+      if (res?.ok && Array.isArray(res.trace)) {
+        resolve(res.trace);
+      } else {
+        chrome.storage.local.get({ [TRACE_KEY]: [] }, (data) => {
+          resolve(data[TRACE_KEY] || []);
+        });
+      }
     });
   });
 }
@@ -110,8 +121,54 @@ function copyTraceToClipboard() {
 }
 
 function clearRuntimeTrace() {
-  clearMultiRunTrace();
-  setSearchStatus('Runtime trace cleared', 'info');
+  clearMultiRunTrace().then(() => {
+    setSearchStatus('Runtime trace cleared', 'info');
+  });
+}
+
+function showTraceSystemStatus() {
+  getMultiRunTrace().then((trace) => {
+    const popupSeen = trace.some(e => e.source === 'popup');
+    const backgroundSeen = trace.some(e => e.source === 'background');
+    const contentScriptSeen = trace.some(e => e.source === 'content-script');
+    
+    const statusHtml = `
+      <div style="font-family: monospace; font-size: 11px; line-height: 1.6; text-align: right; direction: rtl;">
+        <b>حالة بنية التتبع (Static Status):</b><br>
+        • مالك التتبع (Background Owner): <b style="color:var(--ea-success, green);">YES</b><br>
+        • بروتوكول TRACE_APPEND مخصص: <b style="color:var(--ea-success, green);">YES</b><br>
+        • بروتوكول TRACE_CLEAR مخصص: <b style="color:var(--ea-success, green);">YES</b><br>
+        • كتابة متسلسلة (Serialized Writes): <b style="color:var(--ea-success, green);">YES</b><br>
+        • مفتاح التخزين: <code>multiRunRuntimeTrace</code><br>
+        <br>
+        <b>الملاحظات الحية (Runtime Observations):</b><br>
+        • ظهور self-test من popup: <b>${popupSeen ? 'YES' : 'NO'}</b><br>
+        • ظهور self-test من background: <b>${backgroundSeen ? 'YES' : 'NO'}</b><br>
+        • ظهور self-test من content-script: <b>${contentScriptSeen ? 'YES' : 'NO'}</b><br>
+        • إجمالي سجلات التتبع الحالية: <b>${trace.length}</b><br>
+        <br>
+        <div style="display:flex; gap:8px; margin-top:8px;">
+          <button id="btn-refresh-trace-status" class="btn btn-secondary btn-small">تحديث الحالة</button>
+          <button id="btn-run-trace-selftest" class="btn btn-primary btn-small">اختبار تسلسل التتبع</button>
+        </div>
+      </div>
+    `;
+    setSearchStatusHtml(statusHtml, 'info');
+    
+    document.getElementById('btn-refresh-trace-status')?.addEventListener('click', showTraceSystemStatus);
+    document.getElementById('btn-run-trace-selftest')?.addEventListener('click', runTraceDiagnosticUiTest);
+  });
+}
+
+function runTraceDiagnosticUiTest() {
+  setSearchStatusHtml('<span class="spinner"></span> جارٍ تشغيل اختبار تسلسل التتبع (1..5)...', 'info');
+  chrome.runtime.sendMessage({ type: 'TRACE_SELF_TEST_RUN' }, (res) => {
+    if (res?.ok) {
+      setSearchStatus(`✅ نجح اختبار التسلسل: ${res.suffix?.join(' → ')} (${res.count} عنصر)`, 'ok');
+    } else {
+      setSearchStatus(`❌ فشل اختبار التسلسل: ${res?.suffix?.join(' → ') || 'خطأ'}`, 'error');
+    }
+  });
 }
 
 function parseLines(text) {
@@ -1173,6 +1230,10 @@ document.getElementById('btn-copy-runtime-trace')?.addEventListener('click', () 
  
 document.getElementById('btn-clear-runtime-trace')?.addEventListener('click', () => {
   clearRuntimeTrace();
+});
+ 
+document.getElementById('btn-trace-status')?.addEventListener('click', () => {
+  showTraceSystemStatus();
 });
  
 btnExtractDevice?.addEventListener('click', async () => {
