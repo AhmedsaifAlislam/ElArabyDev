@@ -1158,14 +1158,29 @@ btnSearchBatch.addEventListener('click', async () => {
   }
 
   // === MULTI RUN RUNTIME TRACE: Clear previous trace and start new ===
-  clearMultiRunTrace();
-  const firstOrderId = tasks[0]?.orderId || 'unknown';
   traceEvent('MULTI_RUN_CLICK', { tabId: tab.id, orderId: firstOrderId, queueLength: tasks.length });
 
-  buildTaskItems(tasks);
-  await chrome.storage.local.set({ taskResults: [], lastStatusUpdate: null });
+  // === DIAGNOSTIC: trace every step between MULTI_RUN_CLICK and QUEUE_INITIALIZED ===
+  try {
+    traceEvent('BEFORE_BUILD_TASK_ITEMS', { queueLength: tasks.length });
+    buildTaskItems(tasks);
+    traceEvent('AFTER_BUILD_TASK_ITEMS', { queueLength: tasks.length, taskListLength: taskList?.children?.length || -1 });
 
-  traceEvent('QUEUE_INITIALIZED', { queueLength: tasks.length, taskIds: tasks.map(t => t.taskId) });
+    traceEvent('BEFORE_TASK_RESULTS_RESET', { queueLength: tasks.length });
+    await chrome.storage.local.set({ taskResults: [], lastStatusUpdate: null });
+    traceEvent('AFTER_TASK_RESULTS_RESET', { queueLength: tasks.length });
+
+    traceEvent('QUEUE_INITIALIZED', { queueLength: tasks.length, taskIds: tasks.map(t => t.taskId) });
+  } catch (e) {
+    traceEvent('MULTI_RUN_STARTUP_ERROR', {
+      name: e?.name,
+      message: e?.message,
+      stack: e?.stack,
+      stage: 'startup'
+    });
+    // Re-throw to preserve existing behavior
+    throw e;
+  }
 
   setSearchStatusHtml('<span class="spinner"></span> جارٍ بدء التشغيل المتعدد...', 'info');
   setBatchSearchUI(true);
