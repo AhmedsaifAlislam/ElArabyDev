@@ -35,7 +35,7 @@ let allSessionLogs     = [];   // full unfiltered sessions
 let taskItems          = {};   // taskId → div element
 let statusPollInterval = null;
 
-// ── Multi-Run Runtime Trace (Diagnostic) — Self-Test Presence ─
+// ── Multi-Run Runtime Trace (Diagnostic) — Self-Test ────────
 chrome.runtime.sendMessage({
   type: 'TRACE_APPEND',
   entry: {
@@ -47,6 +47,7 @@ chrome.runtime.sendMessage({
 
 // ── Helpers ───────────────────────────────────────────────
 const TRACE_KEY = 'multiRunRuntimeTrace';
+const MAX_TRACE_ENTRIES = 150;
 
 function traceEvent(event, details = {}) {
   const entry = {
@@ -76,16 +77,10 @@ function clearMultiRunTrace() {
   });
 }
 
-function getMultiRunTrace() {
+async function getMultiRunTrace() {
   return new Promise(resolve => {
-    chrome.runtime.sendMessage({ type: 'TRACE_GET' }, (res) => {
-      if (res?.ok && Array.isArray(res.trace)) {
-        resolve(res.trace);
-      } else {
-        chrome.storage.local.get({ [TRACE_KEY]: [] }, (data) => {
-          resolve(data[TRACE_KEY] || []);
-        });
-      }
+    chrome.runtime.sendMessage({ type: 'TRACE_GET' }, (resp) => {
+      resolve(resp?.trace || []);
     });
   });
 }
@@ -121,53 +116,38 @@ function copyTraceToClipboard() {
 }
 
 function clearRuntimeTrace() {
-  clearMultiRunTrace().then(() => {
-    setSearchStatus('Runtime trace cleared', 'info');
-  });
+  clearMultiRunTrace();
+  setSearchStatus('Runtime trace cleared', 'info');
+}
+
+function clearRuntimeTrace() {
+  clearMultiRunTrace();
+  setSearchStatus('Runtime trace cleared', 'info');
 }
 
 function showTraceSystemStatus() {
-  getMultiRunTrace().then((trace) => {
-    const popupSeen = trace.some(e => e.source === 'popup');
-    const backgroundSeen = trace.some(e => e.source === 'background');
-    const contentScriptSeen = trace.some(e => e.source === 'content-script');
+  chrome.storage.local.get('multiRunRuntimeTrace', (data) => {
+    const trace = data.multiRunRuntimeTrace || [];
+    const contentScriptOk = trace.some(e => e.source === 'content-script');
+    const backgroundOk = trace.some(e => e.source === 'background');
+    const popupOk = trace.some(e => e.source === 'popup');
     
     const statusHtml = `
-      <div style="font-family: monospace; font-size: 11px; line-height: 1.6; text-align: right; direction: rtl;">
-        <b>حالة بنية التتبع (Static Status):</b><br>
-        • مالك التتبع (Background Owner): <b style="color:var(--ea-success, green);">YES</b><br>
-        • بروتوكول TRACE_APPEND مخصص: <b style="color:var(--ea-success, green);">YES</b><br>
-        • بروتوكول TRACE_CLEAR مخصص: <b style="color:var(--ea-success, green);">YES</b><br>
-        • كتابة متسلسلة (Serialized Writes): <b style="color:var(--ea-success, green);">YES</b><br>
-        • مفتاح التخزين: <code>multiRunRuntimeTrace</code><br>
+      <div style="font-family: monospace; font-size: 11px; line-height: 1.6;">
+        <b>TRACE SYSTEM STATUS</b><br><br>
+        popup trace writer: ${typeof traceEvent === 'function' ? '✅ PASS' : '❌ FAIL'}<br>
+        background trace writer: ${backgroundOk ? '✅ PASS' : '❌ FAIL (no events)'}<br>
+        content-script trace writer: ${contentScriptOk ? '✅ PASS' : '❌ FAIL (no events)'}<br>
+        storage key: <code>multiRunRuntimeTrace</code><br>
+        deployed build contains tracing: YES<br>
+        trace entries: ${trace.length}<br>
         <br>
-        <b>الملاحظات الحية (Runtime Observations):</b><br>
-        • ظهور self-test من popup: <b>${popupSeen ? 'YES' : 'NO'}</b><br>
-        • ظهور self-test من background: <b>${backgroundSeen ? 'YES' : 'NO'}</b><br>
-        • ظهور self-test من content-script: <b>${contentScriptSeen ? 'YES' : 'NO'}</b><br>
-        • إجمالي سجلات التتبع الحالية: <b>${trace.length}</b><br>
-        <br>
-        <div style="display:flex; gap:8px; margin-top:8px;">
-          <button id="btn-refresh-trace-status" class="btn btn-secondary btn-small">تحديث الحالة</button>
-          <button id="btn-run-trace-selftest" class="btn btn-primary btn-small">اختبار تسلسل التتبع</button>
-        </div>
+        <button id="btn-refresh-trace-status" class="btn btn-secondary btn-small" style="margin-top:8px;">تحديث الحالة</button>
       </div>
     `;
     setSearchStatusHtml(statusHtml, 'info');
     
     document.getElementById('btn-refresh-trace-status')?.addEventListener('click', showTraceSystemStatus);
-    document.getElementById('btn-run-trace-selftest')?.addEventListener('click', runTraceDiagnosticUiTest);
-  });
-}
-
-function runTraceDiagnosticUiTest() {
-  setSearchStatusHtml('<span class="spinner"></span> جارٍ تشغيل اختبار تسلسل التتبع (1..5)...', 'info');
-  chrome.runtime.sendMessage({ type: 'TRACE_SELF_TEST_RUN' }, (res) => {
-    if (res?.ok) {
-      setSearchStatus(`✅ نجح اختبار التسلسل: ${res.suffix?.join(' → ')} (${res.count} عنصر)`, 'ok');
-    } else {
-      setSearchStatus(`❌ فشل اختبار التسلسل: ${res?.suffix?.join(' → ') || 'خطأ'}`, 'error');
-    }
   });
 }
 

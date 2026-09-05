@@ -50,6 +50,7 @@ const err  = (...a) => sysLog(a.join(' '), 'error');
 
 // ── Multi-Run Runtime Trace (Diagnostic) ──────────────────
 const TRACE_KEY = 'multiRunRuntimeTrace';
+const MAX_TRACE_ENTRIES = 150;
 
 function traceEvent(event, details = {}) {
   const entry = {
@@ -75,7 +76,7 @@ function clearMultiRunTrace() {
   chrome.runtime.sendMessage({ type: 'TRACE_CLEAR' }).catch(()=>{});
 }
 
-// Self-test trace presence for content script
+// Self-test trace for content script
 chrome.runtime.sendMessage({
   type: 'TRACE_APPEND',
   entry: {
