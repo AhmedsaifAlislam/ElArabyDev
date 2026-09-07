@@ -1110,3 +1110,93 @@ textarea::placeholder { color: var(--ea-muted-2); direction: rtl; text-align: ri
 .sr-status-body { display: flex; flex-direction: column; gap: 2px; }
 .sr-status-text { font-size: 14px; font-weight: var(--ea-fw-700); }
 .sr-status-detail { font-size: var(--ea-fs-sm); color: var(--ea-muted); }
+/* ── Fill Options Card (قسم خيارات التعبئة المنفصل) ── */
+.fill-options-card {
+  margin-top: 10px;
+  background: var(--ea-surface-2);
+  border: 1px solid var(--ea-border);
+  border-radius: var(--ea-radius-md);
+  padding: 10px 12px;
+  transition: var(--ea-transition);
+}
+.fill-options-card:hover {
+  border-color: var(--ea-border-strong, #3a5375);
+}
+.foc-header, .dac-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+.foc-title, .dac-title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  font-weight: var(--ea-fw-600);
+  color: var(--ea-brand);
+}
+
+.opt-chip:has(input:checked) {
+  background: var(--ea-brand-bg);
+  border-color: var(--ea-brand);
+  color: var(--ea-text);
+  box-shadow: 0 0 8px var(--ea-brand-glow);
+}
+
+/* Conditional dropdowns wrap */
+.conditional-dropdowns-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  margin-top: 8px;
+}
+.cond-field {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--ea-surface);
+  border: 1px dashed var(--ea-border-strong, #3a5375);
+  border-radius: var(--ea-radius-sm);
+  padding: 6px 10px;
+  animation: fadeIn 0.2s ease-out;
+}
+.cond-field label {
+  font-size: 11px;
+  color: var(--ea-muted);
+  white-space: nowrap;
+  font-weight: var(--ea-fw-500);
+}
+.cond-field select {
+  flex: 1;
+  padding: 5px 8px;
+  background: var(--ea-surface-2);
+  color: var(--ea-text);
+  border: 1px solid var(--ea-border);
+  border-radius: 4px;
+  font-size: 11px;
+  font-family: inherit;
+  cursor: pointer;
+}
+.cond-field select:focus {
+  outline: none;
+  border-color: var(--ea-brand);
+}
+
+/* ── Device Actions Card (خارج الأكورديون) ── */
+.device-actions-card {
+  margin-top: 10px;
+  background: var(--ea-surface-2);
+  border: 1px solid var(--ea-border);
+  border-radius: var(--ea-radius-md);
+  padding: 10px 12px;
+  transition: var(--ea-transition);
+}
+.device-actions-card:hover {
+  border-color: var(--ea-border-strong, #3a5375);
+}
+
+/* Hide duplicate sub-tabs in panel-tools */
+#tools-sub-tabs {
+  display: none !important;
+}

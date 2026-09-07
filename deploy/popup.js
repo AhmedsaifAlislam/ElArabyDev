@@ -211,7 +211,27 @@ document.querySelectorAll('.tab-btn').forEach(btn => {
     document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
     document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
     btn.classList.add('active');
-    document.getElementById('panel-' + btn.dataset.tab).classList.add('active');
+
+    const directPanel = document.getElementById('panel-' + btn.dataset.tab);
+    if (directPanel) {
+      directPanel.classList.add('active');
+    } else {
+      // Map quick-tool to panel-tools and activate corresponding sub-panel
+      const toolsPanel = document.getElementById('panel-tools');
+      if (toolsPanel) {
+        toolsPanel.classList.add('active');
+        const subId = 'sub-panel-tools-' + btn.dataset.tab;
+        const subPanel = document.getElementById(subId);
+        if (subPanel) {
+          toolsPanel.querySelectorAll('.sub-tab-panel').forEach(p => p.classList.remove('active'));
+          toolsPanel.querySelectorAll('.sub-tab-btn').forEach(b => b.classList.remove('active'));
+          subPanel.classList.add('active');
+          const subBtn = document.getElementById('sub-tab-tools-' + btn.dataset.tab);
+          if (subBtn) subBtn.classList.add('active');
+        }
+      }
+    }
+
     if (btn.dataset.tab === 'logs') loadSmartLog();
     if (btn.dataset.tab === 'smart-log') { loadSmartLogDashboard(); }
     if (btn.dataset.tab === 'tampermonkey') loadTampermonkeyScripts();
@@ -239,6 +259,16 @@ document.querySelectorAll('.sub-tab-btn').forEach(btn => {
     const subId = 'sub-panel-' + btn.dataset.subTab;
     const subPanel = parentPanel.querySelector('#' + subId) || document.getElementById(subId);
     if (subPanel) subPanel.classList.add('active');
+
+    // Keep quick-tool button active state in sync
+    if (btn.dataset.subTab && btn.dataset.subTab.startsWith('tools-')) {
+      const toolKey = btn.dataset.subTab.replace('tools-', '');
+      const quickBtn = document.querySelector(`.quick-tool-btn[data-tab="${toolKey}"]`);
+      if (quickBtn) {
+        document.querySelectorAll('.quick-tool-btn').forEach(b => b.classList.remove('active'));
+        quickBtn.classList.add('active');
+      }
+    }
     // Sub-tab specific init
     if (btn.dataset.subTab === 'parts-search') initPartsSearchContent();
     if (btn.dataset.subTab === 'tools-telemetry') initTelemetry();
@@ -698,32 +728,55 @@ searchInput.addEventListener('keydown', (e) => {
   }
 });
 
-// ── Second Visit: Product Type Dropdown ─────────────────────
+// ── Second Visit / Masaha / Drain Conditional Inputs ───────
 const chkSecondVisit = document.getElementById('chk-second-visit');
 const svProductType  = document.getElementById('sv-product-type');
+const wrapSvProductType = document.getElementById('wrap-sv-product-type');
 const chkMasaha      = document.getElementById('chk-masaha');
 const masahaProductType = document.getElementById('masaha-product-type');
+const wrapMasahaProductType = document.getElementById('wrap-masaha-product-type');
+const chkDrain       = document.getElementById('chk-force-drain-cleaning');
+const wrapShahn      = document.getElementById('wrap-shahn');
+
+function syncConditionalInputs() {
+  const svActive = chkSecondVisit?.checked || false;
+  if (wrapSvProductType) wrapSvProductType.style.display = svActive ? 'flex' : 'none';
+  if (svProductType) svProductType.style.display = svActive ? '' : 'none';
+  if (!svActive && svProductType) svProductType.value = '';
+
+  const masahaActive = chkMasaha?.checked || false;
+  if (wrapMasahaProductType) wrapMasahaProductType.style.display = masahaActive ? 'flex' : 'none';
+  if (masahaProductType) masahaProductType.style.display = masahaActive ? '' : 'none';
+  if (!masahaActive && masahaProductType) masahaProductType.value = '';
+
+  const drainActive = chkDrain?.checked || false;
+  if (wrapShahn) wrapShahn.style.display = drainActive ? 'flex' : 'none';
+  if (!drainActive) {
+    const shahnSel = document.getElementById('chk-shahn');
+    if (shahnSel) shahnSel.value = 'no';
+  }
+}
 
 chkSecondVisit?.addEventListener('change', () => {
-  svProductType.style.display = chkSecondVisit.checked ? '' : 'none';
-  if (!chkSecondVisit.checked) svProductType.value = '';
-  if (chkSecondVisit.checked && chkMasaha?.checked) { chkMasaha.checked = false; masahaProductType.style.display = 'none'; masahaProductType.value = ''; }
+  if (chkSecondVisit.checked && chkMasaha?.checked) {
+    chkMasaha.checked = false;
+  }
+  syncConditionalInputs();
 });
 
 chkMasaha?.addEventListener('change', () => {
-  masahaProductType.style.display = chkMasaha.checked ? '' : 'none';
-  if (!chkMasaha.checked) masahaProductType.value = '';
-  if (chkMasaha.checked && chkSecondVisit?.checked) { chkSecondVisit.checked = false; svProductType.style.display = 'none'; svProductType.value = ''; }
+  if (chkMasaha.checked && chkSecondVisit?.checked) {
+    chkSecondVisit.checked = false;
+  }
+  syncConditionalInputs();
 });
 
-const chkDrain = document.getElementById('chk-force-drain-cleaning');
-const lblShahn = document.getElementById('lbl-shahn');
-if (chkDrain && lblShahn) {
-  chkDrain.addEventListener('change', () => {
-    lblShahn.style.display = chkDrain.checked ? '' : 'none';
-    if (!chkDrain.checked) document.getElementById('chk-shahn').value = 'no';
-  });
-}
+chkDrain?.addEventListener('change', () => {
+  syncConditionalInputs();
+});
+
+// Run initial sync on load
+syncConditionalInputs();
 
 let svProfiles = null;
 async function loadSvProfiles() {
@@ -1236,12 +1289,21 @@ btnSearchStop.addEventListener('click', async () => {
 document.getElementById('btn-copy-runtime-trace')?.addEventListener('click', () => {
   copyTraceToClipboard();
 });
+document.getElementById('btn-settings-copy-trace')?.addEventListener('click', () => {
+  copyTraceToClipboard();
+});
  
 document.getElementById('btn-clear-runtime-trace')?.addEventListener('click', () => {
   clearRuntimeTrace();
 });
+document.getElementById('btn-settings-clear-trace')?.addEventListener('click', () => {
+  clearRuntimeTrace();
+});
  
 document.getElementById('btn-trace-status')?.addEventListener('click', () => {
+  showTraceSystemStatus();
+});
+document.getElementById('btn-settings-trace-status')?.addEventListener('click', () => {
   showTraceSystemStatus();
 });
  
@@ -1341,13 +1403,16 @@ function showClearDeviceDialog() {
   });
 }
 
-document.getElementById('btn-clear-device-data')?.addEventListener('click', async () => {
+async function handleClearDeviceData(sourceBtnId = 'btn-clear-device-data') {
   const choice = await showClearDeviceDialog();
   if (!choice || choice === 'cancel') return;
   
-  const btn = document.getElementById('btn-clear-device-data');
-  btn.disabled = true;
-  btn.textContent = '⏳ جاري المسح...';
+  const btn = document.getElementById(sourceBtnId);
+  const oldText = btn ? btn.textContent : '';
+  if (btn) {
+    btn.disabled = true;
+    btn.textContent = '⏳ جاري المسح...';
+  }
   
   try {
     const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
@@ -1368,10 +1433,15 @@ document.getElementById('btn-clear-device-data')?.addEventListener('click', asyn
     showToast('❌ خطأ: ' + e.message, 'error');
     setSearchStatus('خطأ: ' + e.message, 'error');
   } finally {
-    btn.disabled = false;
-    btn.textContent = '🗑️ مسح بيانات الجهاز';
+    if (btn) {
+      btn.disabled = false;
+      btn.textContent = oldText || '🗑️ مسح بيانات الجهاز';
+    }
   }
-});
+}
+
+document.getElementById('btn-clear-device-data')?.addEventListener('click', () => handleClearDeviceData('btn-clear-device-data'));
+document.getElementById('btn-settings-clear-device')?.addEventListener('click', () => handleClearDeviceData('btn-settings-clear-device'));
 
 // ── Portal Tab Check ──────────────────────────────────────
 function isPortalTab(tab) {

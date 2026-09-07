@@ -1,4 +1,4 @@
-﻿<!doctype html>
+<!doctype html>
 <html lang="ar" dir="rtl">
 <head>
   <meta charset="utf-8" />
@@ -169,56 +169,74 @@
       <input type="file" id="search-csv-input" accept=".csv,.txt" />
     </label>
 
-    <div class="delay-row">
-      <label for="search-delay-slider">تأخير بين الأوامر</label>
-      <input type="range" id="search-delay-slider" min="500" max="8000" step="200" value="2000" />
-      <span id="search-delay-label">2.0 ث</span>
+    <input type="hidden" id="search-delay-slider" value="2000" />
+
+    <!-- ── خيارات التعبئة التلقائية (قسم منفصل بتصميم أنيق) ── -->
+    <div class="fill-options-card">
+      <div class="foc-header">
+        <span class="foc-title">
+          <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
+          خيارات التعبئة التلقائية
+        </span>
+      </div>
+      <div class="options-grid">
+        <label class="opt-chip">
+          <input type="checkbox" id="chk-force-drain-cleaning" />
+          <span>صيانة دورية</span>
+        </label>
+        <label class="opt-chip">
+          <input type="checkbox" id="chk-force-overwrite" />
+          <span>حقن إجباري</span>
+        </label>
+        <label class="opt-chip">
+          <input type="checkbox" id="chk-second-visit" />
+          <span>زيارة تانية</span>
+        </label>
+        <label class="opt-chip">
+          <input type="checkbox" id="chk-masaha" />
+          <span>مساحة</span>
+        </label>
+      </div>
+
+      <!-- القوائم المنسدلة المشروطة (تظهر فقط عند تفعيل الخيار المقابل) -->
+      <div class="conditional-dropdowns-wrap">
+        <div class="cond-field" id="wrap-shahn" style="display: none;">
+          <label for="chk-shahn">شحن الفريون:</label>
+          <select id="chk-shahn">
+            <option value="no">لا (بدون شحن فريون)</option>
+            <option value="yes">نعم (مع شحن فريون)</option>
+          </select>
+        </div>
+
+        <div class="cond-field" id="wrap-sv-product-type" style="display: none;">
+          <label for="sv-product-type">نوع منتج الزيارة التانية:</label>
+          <select id="sv-product-type">
+            <option value="">اختر نوع المنتج...</option>
+            <option value="تكييف">تكييف (AC)</option>
+            <option value="غسالة">غسالة</option>
+            <option value="ثلاجة">ثلاجة</option>
+            <option value="بوتوجاز">بوتوجاز</option>
+            <option value="غسالة أطباق">غسالة أطباق</option>
+            <option value="سخان">سخان</option>
+          </select>
+        </div>
+
+        <div class="cond-field" id="wrap-masaha-product-type" style="display: none;">
+          <label for="masaha-product-type">نوع منتج المساحة:</label>
+          <select id="masaha-product-type">
+            <option value="">اختر نوع المنتج...</option>
+            <option value="تكييف">تكييف (AC)</option>
+            <option value="غسالة">غسالة</option>
+            <option value="ثلاجة">ثلاجة</option>
+            <option value="بوتوجاز">بوتوجاز</option>
+            <option value="غسالة أطباق">غسالة أطباق</option>
+            <option value="سخان">سخان</option>
+          </select>
+        </div>
+      </div>
     </div>
 
-    <div class="options-grid">
-      <label class="opt-chip">
-        <input type="checkbox" id="chk-force-drain-cleaning" />
-        <span>صيانة دورية</span>
-      </label>
-      <label class="opt-chip" id="lbl-shahn">
-        <span>شحن</span>
-        <select id="chk-shahn">
-          <option value="no">لا</option>
-          <option value="yes">نعم</option>
-        </select>
-      </label>
-      <label class="opt-chip">
-        <input type="checkbox" id="chk-second-visit" />
-        <span>زيارة تانية</span>
-      </label>
-      <label class="opt-chip">
-        <input type="checkbox" id="chk-masaha" />
-        <span>مساحة</span>
-      </label>
-      <label class="opt-chip">
-        <input type="checkbox" id="chk-force-overwrite" />
-        <span>حقن إجباري</span>
-      </label>
-      <select id="sv-product-type">
-        <option value="">نوع المنتج (زيارة تانية)...</option>
-        <option value="تكييف">تكييف (AC)</option>
-        <option value="غسالة">غسالة</option>
-        <option value="ثلاجة">ثلاجة</option>
-        <option value="بوتوجاز">بوتوجاز</option>
-        <option value="غسالة أطباق">غسالة أطباق</option>
-        <option value="سخان">سخان</option>
-      </select>
-      <select id="masaha-product-type">
-        <option value="">نوع المنتج (مساحة)...</option>
-        <option value="تكييف">تكييف (AC)</option>
-        <option value="غسالة">غسالة</option>
-        <option value="ثلاجة">ثلاجة</option>
-        <option value="بوتوجاز">بوتوجاز</option>
-        <option value="غسالة أطباق">غسالة أطباق</option>
-        <option value="سخان">سخان</option>
-      </select>
-    </div>
-
+    <!-- ── أزرار التشغيل الأساسية ── -->
     <div class="btn-row">
       <button class="btn btn-primary" id="btn-search-single">
         <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
@@ -234,38 +252,58 @@
       </button>
     </div>
 
-    <!-- Runtime Trace Buttons -->
-    <div class="btn-row" style="margin-top: 8px;">
-      <button class="btn btn-secondary btn-small" id="btn-copy-runtime-trace" title="نسخ تتبع التشغيل للتصحيح">
-        <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h9M15 3h4a2 2 0 0 1 2 2v4"/></svg>
-        نسخ التتبع
-      </button>
-      <button class="btn btn-danger btn-small" id="btn-clear-runtime-trace" title="مسح سجل التتبع">
-        <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
-        مسح التتبع
-      </button>
-      <button class="btn btn-secondary btn-small" id="btn-trace-status" title="حالة نظام التتبع">
-        <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
-        حالة التتبع
-      </button>
+    <!-- ── بيانات الجهاز والأرشفة (في الخارج) ── -->
+    <div class="device-actions-card">
+      <div class="dac-header">
+        <span class="dac-title">
+          <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="2" width="14" height="20" rx="2"/><path d="M12 18h.01"/></svg>
+          بيانات الجهاز والأرشفة الفنية
+        </span>
+      </div>
+      <div class="btn-row btn-row-narrow" style="margin-top: 4px;">
+        <button class="btn btn-secondary btn-purple btn-small" id="btn-extract-device">
+          <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="2" width="14" height="20" rx="2"/><path d="M12 18h.01"/></svg>
+          جلب بيانات الجهاز
+        </button>
+        <button class="btn btn-secondary btn-teal btn-small" id="btn-technical-archive">
+          <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="M12 18v-6"/><path d="m9 15 3 3 3-3"/></svg>
+          المراجعة الفنية
+        </button>
+        <button class="btn btn-danger-subtle btn-small" id="btn-clear-device-data" title="مسح بيانات الجهاز — خيارات: كل الحقول / الحقول المخفية فقط / إلغاء">
+          <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/></svg>
+          مسح البيانات
+        </button>
+      </div>
     </div>
 
-    <div class="btn-row btn-row-narrow">
-      <button class="btn btn-secondary btn-purple" id="btn-extract-device">
-        <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="2" width="14" height="20" rx="2"/><path d="M12 18h.01"/></svg>
-        جلب بيانات الجهاز
-      </button>
-      <button class="btn btn-secondary btn-teal" id="btn-technical-archive">
-        <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="M12 18v-6"/><path d="m9 15 3 3 3-3"/></svg>
-        المراجعة الفنية
-      </button>
-    </div>
-
-    <div class="btn-row" style="margin-top: 12px;">
-      <button class="btn btn-danger" id="btn-clear-device-data" title="مسح بيانات الجهاز — خيارات: كل الحقول / الحقول المخفية فقط / إلغاء">
-        🗑️ مسح بيانات الجهاز
-      </button>
-    </div>
+    <!-- ── سجل تتبع التشغيل (الأكورديون للتتبع فقط) ── -->
+    <details class="accordion-card" id="advanced-tools-accordion">
+      <summary class="accordion-header">
+        <span class="accordion-title">
+          <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+          سجل تتبع التشغيل (Runtime Trace)
+        </span>
+        <span class="accordion-chevron">
+          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>
+        </span>
+      </summary>
+      <div class="accordion-body">
+        <div class="btn-row" style="margin-top: 0;">
+          <button class="btn btn-secondary btn-small" id="btn-copy-runtime-trace" title="نسخ تتبع التشغيل للتصحيح">
+            <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h9M15 3h4a2 2 0 0 1 2 2v4"/></svg>
+            نسخ التتبع
+          </button>
+          <button class="btn btn-secondary btn-small" id="btn-trace-status" title="حالة نظام التتبع">
+            <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+            حالة التتبع
+          </button>
+          <button class="btn btn-danger-subtle btn-small" id="btn-clear-runtime-trace" title="مسح سجل التتبع">
+            <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/></svg>
+            مسح التتبع
+          </button>
+        </div>
+      </div>
+    </details>
 
     <div id="search-status-bar">
       <div class="status-msg info" id="search-status-msg">
@@ -854,7 +892,7 @@
   <div class="tab-panel" id="panel-tools" role="tabpanel">
 
     <!-- Sub-tabs for Tools -->
-    <div class="sub-tabs" id="tools-sub-tabs">
+    <div class="sub-tabs" id="tools-sub-tabs" style="display: none !important;">
       <button class="sub-tab-btn active" data-sub-tab="tools-telemetry" id="sub-tab-tools-telemetry" role="tab">📈 تحليل السلوك</button>
       <button class="sub-tab-btn" data-sub-tab="tools-n8n" id="sub-tab-tools-n8n" role="tab">🔗 n8n</button>
       <button class="sub-tab-btn" data-sub-tab="tools-excel-autofix" id="sub-tab-tools-excel-autofix" role="tab">📊 Excel Autofix</button>
@@ -977,8 +1015,8 @@
     <!-- SUB-TAB: Excel Autofix -->
     <div class="sub-tab-panel" id="sub-panel-tools-excel-autofix" role="tabpanel">
       <div class="format-hint">
-        <span class="hint-title">📊 Excel Autofix</span>
-        <span class="hint-note">تنسيق ملف الإكسيل الأسبوعي عبر الخدمة المحلية</span>
+        <span class="hint-title">📊 Excel Autofix — أداة محلية 100% (Offline Local Tool)</span>
+        <span class="hint-note">تنسيق ومعالجة ملف الإكسيل الأسبوعي محلياً على جهازك عبر Python (127.0.0.1:8765) دون رفع لأي سيرفر خارجي</span>
       </div>
 
       <div id="excel-autofix-status" style="display:flex;align-items:center;gap:8px;padding:9px 11px;background:var(--ea-surface-2);border-radius:6px;font-size:11px;color:var(--muted);border:1px solid var(--ea-border);">
@@ -1056,6 +1094,21 @@
             <input type="checkbox" id="settings-notifications" checked />
             <span>إشعارات سطح المكتب</span>
           </label>
+        </div>
+
+        <div style="background:var(--ea-surface-2); border:1px solid var(--ea-border); border-radius:var(--ea-radius-md); padding:10px;">
+          <div style="font-weight:700;margin-bottom:8px;color:var(--ea-brand);display:flex;align-items:center;gap:6px;">
+            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>
+            أدوات التشخيص والتتبع والذاكرة
+          </div>
+          <div style="display:flex;flex-direction:column;gap:8px;">
+            <div class="btn-row" style="margin-top:0;">
+              <button class="btn btn-secondary btn-small" id="btn-settings-copy-trace" title="نسخ سجل تتبع التشغيل">📋 نسخ التتبع</button>
+              <button class="btn btn-secondary btn-small" id="btn-settings-trace-status" title="فحص حالة نظام التتبع">ℹ️ حالة التتبع</button>
+              <button class="btn btn-danger-subtle btn-small" id="btn-settings-clear-trace" title="مسح سجل التتبع">🗑️ مسح التتبع</button>
+            </div>
+            <button class="btn btn-danger-subtle btn-small full-width" id="btn-settings-clear-device" title="مسح بيانات الجهاز المخزنة">⚠️ مسح بيانات الجهاز المخزنة</button>
+          </div>
         </div>
       </div>
     </div>
