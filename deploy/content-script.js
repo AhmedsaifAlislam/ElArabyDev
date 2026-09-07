@@ -2343,7 +2343,6 @@ async function processQueueOnLoad() {
     }
 }
   
-  traceEvent('PAGE_TYPE_DETECTED', { pageType: p, url: location.href, taskId: currentTask?.taskId, orderId: currentTask?.orderId });
   const p = getPageType(); const cfg = await loadSelectors();
   log('[QUEUE_TRACE] phase=page_type result="' + p + '" url="' + location.href + '" orderId="' + (currentTask?.orderId || '') + '" taskId="' + (currentTask?.taskId || '') + '"');
   traceEvent('PAGE_TYPE_DETECTED', { pageType: p, url: location.href, taskId: currentTask?.taskId, orderId: currentTask?.orderId });
@@ -2364,9 +2363,11 @@ async function processQueueOnLoad() {
          return;
      }
      traceEvent('FIND_ORDER_SUCCESS', { taskId: currentTask.taskId, orderId: currentTask.orderId });
+     notifyStatus(currentTask.taskId, 'navigating', 'جارٍ الانتقال...');
+  } else if (p === 'WORK_ORDER_REVIEW') {
      traceEvent('AUTOFILL_START', { taskId: currentTask.taskId, orderId: currentTask.orderId });
-     log('[QUEUE_TRACE] phase=workflow action=findOrderAndOpen taskId="' + currentTask.taskId + '" orderId="' + currentTask.orderId + '"');
-     notifyStatus(currentTask.taskId, 'searching', `البحث عن: ${currentTask.orderId}`);
+     log('[QUEUE_TRACE] phase=workflow action=runSingleLineWithRouter taskId="' + currentTask.taskId + '" orderId="' + currentTask.orderId + '"');
+     notifyStatus(currentTask.taskId, 'filling', `جاري التفريغ لـ: ${currentTask.orderId}`);
      try {
        const { taskRetryFlag } = await storageGet({ taskRetryFlag: false });
        const routerRes = await runSingleLineWithRouter(currentTask);

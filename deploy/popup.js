@@ -1158,6 +1158,7 @@ btnSearchBatch.addEventListener('click', async () => {
   }
 
   // === MULTI RUN RUNTIME TRACE: Clear previous trace and start new ===
+  const firstOrderId = tasks[0]?.orderId || 'unknown';
   traceEvent('MULTI_RUN_CLICK', { tabId: tab.id, orderId: firstOrderId, queueLength: tasks.length });
 
   // === DIAGNOSTIC: trace every step between MULTI_RUN_CLICK and QUEUE_INITIALIZED ===
