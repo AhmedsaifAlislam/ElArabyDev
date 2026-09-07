@@ -93,6 +93,11 @@
         "shared/portal-config.js",
         "shared/ai-client.js",
         "shared/n8n-client.js",
+        "modules/autofill/engine-lookups.js",
+        "modules/autofill/engine-page1.js",
+        "modules/autofill/engine-page2.js",
+        "modules/autofill/engine-page3.js",
+        "modules/autofill/engine-orchestrator.js",
         "content-script.js"
       ],
       "run_at": "document_idle"
