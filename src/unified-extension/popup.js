@@ -46,21 +46,34 @@ chrome.runtime.sendMessage({
 }).catch(() => {});
 
 // ── Helpers ───────────────────────────────────────────────
+const escapeHtml = s => String(s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;").replace(/`/g, "&#96;");
 const TRACE_KEY = 'multiRunRuntimeTrace';
 const MAX_TRACE_ENTRIES = 150;
 
 function traceEvent(event, details = {}) {
+  const {
+    tabId = null,
+    taskId = null,
+    orderId = null,
+    url = (typeof location !== 'undefined' ? location.href : null),
+    processingTabId = null,
+    currentTaskPresent = false,
+    queueLength = 0,
+    details: innerDetails,
+    ...rest
+  } = details;
+
   const entry = {
     timestamp: new Date().toISOString(),
     event,
-    tabId: details.tabId || null,
-    taskId: details.taskId || null,
-    orderId: details.orderId || null,
-    url: details.url || (typeof location !== 'undefined' ? location.href : null),
-    processingTabId: details.processingTabId || null,
-    currentTaskPresent: details.currentTaskPresent || false,
-    queueLength: details.queueLength || 0,
-    details: details.details || null
+    tabId,
+    taskId,
+    orderId,
+    url,
+    processingTabId,
+    currentTaskPresent,
+    queueLength,
+    details: innerDetails !== undefined ? innerDetails : (Object.keys(rest).length ? rest : null)
   };
   
   chrome.runtime.sendMessage({
