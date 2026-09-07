@@ -1458,8 +1458,9 @@ async function executePage2_FollowUp(data, cfg) {
   const deviceName = readDeviceTypeFromPage() || autofiller_ProductType || data.reportType || '';
   const isInstall = /تركيب/.test(data.reportType) || isInstallationReport();
   
-  // For Second Visit: use problemCode from profile directly
-  const probCode = data.secondVisitMode && data.problemCode ? data.problemCode : getProblemCode(deviceName, isInstall);
+  // For Second Visit & Masaha: use problemCode from profile directly
+  const isProfileMode = data.secondVisitMode || data.masahaMode;
+  const probCode = isProfileMode && data.problemCode ? data.problemCode : (data.problemCode || getProblemCode(deviceName, isInstall));
   if (probCode) {
     log('▶ï¸ Adding Actual Problem: ' + probCode);
     // Exclude: ترصيد، ارضي، بلاغ — these are not valid actual problems
@@ -2020,6 +2021,10 @@ async function runSingleLineWithRouter(task) {
 async function _runSingleLineWithRouterInner(task) {
   const cfg = await loadSelectors(); 
   let data = parseDataLine(task.line || task);
+  // Support structured payload if provided by TaskModel
+  if (task.payload && typeof task.payload === 'object') {
+    data = Object.assign({}, data, task.payload);
+  }
   if (task.data && task.data.forceDrainCleaning) {
     data.forceDrainCleaning = true;
   }
@@ -2152,7 +2157,7 @@ async function _runSingleLineWithRouterInner(task) {
     const res3 = await executePage3_Resolution(data, cfg);
     Object.assign(resFR, res3.report.fieldResults);
     
-    if (data.notes === 'مساحة') {
+    if (data.masahaMode || data.notes === 'مساحة') {
       // Masaha: DON'T auto-save — user must attach image manually
       log('PAGE 3 filled (مساحة). Waiting for user to attach image and save manually.');
       showMasahaOverlay();
