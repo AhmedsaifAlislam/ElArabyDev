@@ -293,8 +293,8 @@ window.AutoFillEngine = window.AutoFillEngine || {};
     let modal = null;
     const deadline = Date.now() + 10000;
     while (Date.now() < deadline) {
-      modal = document.querySelector('.modal.show, .modal.in, div[role="dialog"]');
-      if (modal && modal.offsetParent !== null) break;
+      modal = document.querySelector('section.modal.modal-lookup.in, .modal.show, .modal.in, div[role="dialog"]');
+      if (modal && isModalOpen(modal)) break;
       modal = null;
       await sleep(400);
     }
@@ -336,7 +336,7 @@ window.AutoFillEngine = window.AutoFillEngine || {};
       saveBtn.click();
       const saveDeadline = Date.now() + 10000;
       while (Date.now() < saveDeadline) {
-        if (modal.offsetParent === null || !document.body.contains(modal)) break;
+        if (!isModalOpen(modal) || !document.body.contains(modal)) break;
         await sleep(400);
       }
       await sleep(1000);
@@ -364,22 +364,23 @@ window.AutoFillEngine = window.AutoFillEngine || {};
 
   async function waitForModalStable(timeoutMs = 5000) {
     const start = Date.now();
-    let prevHeight = 0;
     let stableCount = 0;
+    let prevRowCount = -1;
     while (Date.now() - start < timeoutMs) {
-      const modal = document.querySelector('.modal.show, .modal.in, div[role="dialog"]');
-      if (!modal) { await sleep(200); continue; }
-      const h = modal.offsetHeight;
-      if (h > 0 && h === prevHeight) {
+      const modal = document.querySelector('section.modal.modal-lookup.in, .modal.show, .modal.in, div[role="dialog"]');
+      if (!modal || !isModalOpen(modal)) { await sleep(200); continue; }
+      // Stability check via row count (doesn't rely on offsetHeight which may be 0 for position:fixed)
+      const rowCount = modal.querySelectorAll('table tbody tr').length;
+      if (rowCount > 0 && rowCount === prevRowCount) {
         stableCount++;
         if (stableCount >= 2) return modal;
       } else {
         stableCount = 0;
-        prevHeight = h;
+        prevRowCount = rowCount;
       }
       await sleep(250);
     }
-    return document.querySelector('.modal.show, .modal.in, div[role="dialog"]');
+    return document.querySelector('section.modal.modal-lookup.in, .modal.show, .modal.in, div[role="dialog"]') || null;
   }
 
   async function handleSubgridIframeModal(btnRegex, targetName, pickRandomIfTargetMissing = true, excludePattern = null, priorityPattern = null) {
