@@ -1,6 +1,9 @@
 // ============================================================================
 // AutoFill Engine — Page 2 Follow-Up, Problems & Technicians Subsystem
 // File: modules/autofill/engine-page2.js
+// Dependencies:
+// - window.AutoFillEngine.Page1: readComplaintCodeFromPage, readDeviceTypeFromPage, isInstallationReport
+// - window.AutoFillEngine.Lookups: handleSubgridIframeModal (problems), handlePage2Modal (technicians), findSafeLookupButton
 // Responsibilities:
 // - Problem Code resolution (device mapping, complaint parsing, profile codes)
 // - Strict deterministic technician matching (P0-B.1)

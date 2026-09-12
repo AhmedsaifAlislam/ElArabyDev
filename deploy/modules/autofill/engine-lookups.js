@@ -45,9 +45,21 @@ window.AutoFillEngine = window.AutoFillEngine || {};
     return true;
   }
 
+  // Checks if a modal element is currently "open/visible" on screen.
+  // NOTE: Portal modals use position:fixed — offsetParent is ALWAYS null even when fully visible.
+  //       Portal modals also always carry class "fade" — excluding it was incorrect.
+  //       Use class .in / .show + display:block as the visibility signal.
+  function isModalOpen(modal) {
+    if (!modal) return false;
+    return modal.classList.contains('in') ||
+           modal.classList.contains('show') ||
+           modal.style.display === 'block' ||
+           document.body.classList.contains('modal-open');
+  }
+
   async function waitForModalCloseIfOpen() {
-    const openModals = () => Array.from(document.querySelectorAll('.modal.show, .modal.in, div[role="dialog"][style*="display: block"]'))
-      .filter(m => m.offsetParent !== null && !m.classList.contains('fade'));
+    const openModals = () => Array.from(document.querySelectorAll('.modal.show, .modal.in, div[role="dialog"]'))
+      .filter(m => isModalOpen(m));
     if (openModals().length === 0) return true;
     log('Waiting for open modal to close before clicking...');
     const start = Date.now();
@@ -87,18 +99,20 @@ window.AutoFillEngine = window.AutoFillEngine || {};
     if (!btn || !searchValue) return { ok: false };
     if (!rootDoc) rootDoc = document;
     const clearBtn = btn.parentElement?.querySelector('button[aria-label*="Clear"], button[aria-label*="مسح"]');
-    if (clearBtn && clearBtn.offsetParent !== null) {
+    if (clearBtn) {
       clearBtn.click();
-      await sleep(400);
+      await sleep(500);
     }
+    log('Opening Modal for:', searchValue);
     btn.click();
-    await sleep(700);
+    await sleep(1800);
 
+    // Wait for modal to appear — do NOT use offsetParent (Portal modals are position:fixed → null always)
     let modal = null;
     const deadline = Date.now() + 8000;
     while (Date.now() < deadline) {
-      modal = rootDoc.querySelector('.modal.show, .modal.in, div[role="dialog"]');
-      if (modal && modal.offsetParent !== null) break;
+      modal = rootDoc.querySelector('section.modal.modal-lookup.in, .modal.show, .modal.in, div[role="dialog"]');
+      if (modal && isModalOpen(modal)) break;
       modal = null;
       await sleep(300);
     }
@@ -107,95 +121,157 @@ window.AutoFillEngine = window.AutoFillEngine || {};
       return { ok: false, reason: 'modal-not-found' };
     }
 
-    const searchInput = modal.querySelector('input.form-control[type="text"], input[aria-label*="Search"], input[placeholder*="Search"], input[placeholder*="بحث"]');
-    if (searchInput) {
-      if (typeof window.emulateUserInput === 'function') {
-        await window.emulateUserInput(searchInput, searchValue);
-      } else {
-        searchInput.focus();
-        searchInput.value = searchValue;
-        searchInput.dispatchEvent(new Event('input', { bubbles: true }));
-      }
-      await sleep(300);
-      const searchBtn = modal.querySelector('button[aria-label*="Search"], button[aria-label*="بحث"], .input-group-btn button');
-      if (searchBtn) {
-        searchBtn.click();
-      } else {
-        searchInput.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', keyCode: 13, bubbles: true }));
-      }
-      await sleep(1500);
-    }
+    // Extract model code (before " _ " or "(") for search — mirrors backup logic
+    const modelCodeOnly = (searchValue || '').split(/\s*[_–—]\s*/)[0].split('(')[0].trim();
+    const searchFor = modelCodeOnly || searchValue;
 
-    const waitStart = Date.now();
-    let rows = [];
-    while (Date.now() - waitStart < 8000) {
-      rows = Array.from(modal.querySelectorAll('table tbody tr, [role="row"], .entity-grid tr:not(:first-child)'))
-        .filter(r => r.offsetParent !== null && r.innerText.trim() && !/no\s*records|لا\s*توجد/i.test(r.innerText));
-      if (rows.length > 0) break;
+    // ── Try direct pick first (Brand modal shows all items on open) ──
+    const getVisibleItems = () => {
+      const selectors = ['section.modal.modal-lookup .modal table tbody tr', '.modal table tbody tr', '.modal [role="row"]'];
+      let all = [];
+      for (const sel of selectors) {
+        try {
+          all.push(...Array.from(rootDoc.querySelectorAll(sel)).filter(r =>
+            r.innerText.trim().length > 0 &&
+            !/norecords|لاتوجد|no\s*records|لا\s*توجد/i.test(r.innerText.replace(/\s/g, ''))
+          ));
+        } catch (_) {}
+      }
+      return [...new Set(all)];
+    };
+
+    // Wait briefly for items to appear without searching
+    let visibleItems = [];
+    for (let w = 0; w < 6; w++) {
+      visibleItems = getVisibleItems();
+      if (visibleItems.length > 0) break;
       await sleep(400);
     }
 
-    if (rows.length === 0) {
-      warn('No results found in lookup modal for:', searchValue);
-      const closeBtn = modal.querySelector('[data-dismiss="modal"], button.close, button[aria-label="Close"], button[aria-label="إغلاق"]');
+    const normalize = s => (s || '').replace(/[\s\-_/()\[\]#*]/g, '').toLowerCase();
+    const target = normalize(searchValue);
+    const targetCode = normalize(modelCodeOnly);
+    const rawTarget = (searchValue || '').replace(/[\s()\[\]_#*]/g, '').toLowerCase();
+    const rawTargetCode = modelCodeOnly.replace(/[\s()\[\]_#*]/g, '').toLowerCase();
+
+    const getRowCode = row => {
+      const txt = row.innerText.trim();
+      // Model code is typically the first segment before " _ " or before Arabic description
+      const codePart = txt.split(/\s*[_–—]\s*/)[0].trim();
+      return codePart;
+    };
+
+    // Priority: input[type=radio] > input[type=checkbox] > span[role="checkbox"] (Portal ARIA pattern) > row click
+    const clickRow = async (row) => {
+      const radio = row.querySelector('input[type="radio"]');
+      const chk = row.querySelector('input[type="checkbox"]');
+      const spanChk = row.querySelector('span[role="checkbox"], span.fa');
+      if (radio) { await dispatchClickSequence(radio); }
+      else if (chk) { await dispatchClickSequence(chk); }
+      else if (spanChk) { await dispatchClickSequence(spanChk); }
+      else { await dispatchClickSequence(row); }
+    };
+
+    const pickAndConfirm = async (items) => {
+      let match;
+      if (searchValue === '*') {
+        match = items[0];
+        if (!match) return { ok: false, reason: 'no-match' };
+        log('Wildcard * — picking first available item');
+      } else {
+        // Exact match: raw code or normalized code
+        const exactMatch = items.find(i => {
+          const code = getRowCode(i).toLowerCase();
+          return code === rawTarget || normalize(code) === target ||
+                 code === rawTargetCode || normalize(code) === targetCode;
+        });
+        // Starts-with + boundary
+        const startsMatch = !exactMatch ? items.find(i => {
+          const norm = normalize(getRowCode(i));
+          const searchTarget = targetCode.length > target.length / 2 ? targetCode : target;
+          return norm.startsWith(searchTarget) && (norm.length === searchTarget.length || !/[a-z0-9]/.test(norm[searchTarget.length]));
+        }) : null;
+        // Code-part includes match (NOT full row text — prevents Arabic description false positives)
+        const includesMatch = (!exactMatch && !startsMatch) ? items.find(i => {
+          const code = normalize(getRowCode(i));
+          return code.includes(targetCode) || code.includes(target);
+        }) : null;
+
+        match = exactMatch || startsMatch || includesMatch || null;
+        if (opts && opts.strictExact) {
+          match = exactMatch || null;
+          log(`Strict deterministic pick — exactMatch only: ${!!exactMatch}`);
+          if (!match) return { ok: false, reason: 'no-exact-match' };
+        }
+        log(`Model pick — exact:${!!exactMatch} starts:${!!startsMatch} includes:${!!includesMatch} → "${match?.innerText?.trim().slice(0,60)}"`);
+        if (!match) return { ok: false, reason: 'no-match' };
+      }
+
+      await clickRow(match);
+      await sleep(1500);
+
+      // Select button — search all docs: do NOT use offsetParent (position:fixed)
+      const selBtnList = Array.from(rootDoc.querySelectorAll(
+        '.modal button.primary, .modal button[aria-label*="Select"], .modal button[aria-label*="تحديد"], .modal button[aria-label*="اختر"], .modal input[value="اختر"], .modal input[value="Select"]'
+      ));
+      const selectBtn = selBtnList.reverse().find(b => /اختر|select/i.test((b.innerText || b.value || '').trim()) && !b.hasAttribute('disabled'));
+      if (selectBtn) {
+        try { selectBtn.focus(); } catch(_) {}
+        await dispatchClickSequence(selectBtn);
+        await sleep(1500);
+      }
+      return { ok: true, selected: match.innerText?.trim() };
+    };
+
+    // Direct pick attempt (works for Brand modal which pre-lists all brands)
+    if (visibleItems.length > 0) {
+      log(`Direct pick mode: found ${visibleItems.length} items without searching.`);
+      const res = await pickAndConfirm(visibleItems);
+      if (res.ok) return res;
+      log('No match in direct list, falling back to search...');
+    }
+
+    // ── Fallback: search mode ──
+    const searchInput = modal.querySelector('input.query.form-control, input.form-control[type="text"], input[type="search"], input[placeholder*="Search"], input[placeholder*="بحث"]');
+    if (searchInput) {
+      if (typeof window.emulateUserInput === 'function') {
+        await window.emulateUserInput(searchInput, searchFor);
+      } else {
+        searchInput.focus();
+        searchInput.value = searchFor;
+        searchInput.dispatchEvent(new Event('input', { bubbles: true }));
+      }
+      await sleep(400);
+      const searchBtn = searchInput.parentElement?.querySelector('button') ||
+        modal.querySelector('button.btn-hg, button[aria-label*="Search"], button[aria-label*="بحث"]');
+      if (searchBtn) {
+        searchBtn.click();
+      } else {
+        ['keydown', 'keypress', 'keyup'].forEach(ev => {
+          try { searchInput.dispatchEvent(new KeyboardEvent(ev, { key: 'Enter', keyCode: 13, bubbles: true })); } catch(_) {}
+        });
+      }
+
+      log('⏳ Waiting for search results...');
+      const startWait = Date.now();
+      while (Date.now() - startWait < 12000) {
+        visibleItems = getVisibleItems();
+        const matchFound = visibleItems.some(i =>
+          normalize(i.innerText).includes(targetCode) || normalize(i.innerText).includes(target)
+        );
+        if (matchFound) break;
+        await sleep(400);
+      }
+    }
+
+    visibleItems = getVisibleItems();
+    if (!visibleItems.length) {
+      const closeBtn = modal.querySelector('[data-dismiss="modal"], button.close, button[aria-label*="Close"], button[aria-label*="إغلاق"]');
       if (closeBtn) closeBtn.click();
       return { ok: false, reason: 'no-results' };
     }
 
-    const normalize = s => (s || '').replace(/[\s\-_/\()]/g, '').toLowerCase();
-    const target = normalize(searchValue);
-
-    const getRowCode = row => {
-      const cells = row.querySelectorAll('td');
-      for (const cell of cells) {
-        const text = cell.innerText.trim();
-        if (text && !cell.querySelector('input[type="checkbox"], input[type="radio"]')) return text;
-      }
-      return row.innerText.trim();
-    };
-
-    const exactMatch = rows.find(i => normalize(getRowCode(i)) === target);
-    const startsMatch = !exactMatch ? rows.find(i => normalize(getRowCode(i)).startsWith(target)) : null;
-    const includesMatch = (!exactMatch && !startsMatch) ? rows.find(i => {
-      const code = normalize(getRowCode(i));
-      return code.includes(target) || target.includes(code);
-    }) : null;
-
-    let match = exactMatch || startsMatch || includesMatch || null;
-    if (opts && opts.strictExact) {
-      // P0-B.1: deterministic mode (technician) — accept ONLY exact matches, never starts-with/includes/first-row.
-      match = exactMatch || null;
-      log(`Strict deterministic pick — exactMatch only: ${!!exactMatch}`);
-      if (!match) return { ok: false, reason: 'no-exact-match' };
-    }
-    log(`Model pick — exact:${!!exactMatch} starts:${!!startsMatch} includes:${!!includesMatch} → "${match?.innerText?.trim().slice(0,60)}"`);
-    if (!match) return { ok: false, reason: 'no-match' };
-
-    const radio = match.querySelector('input[type="radio"], input[type="checkbox"]');
-    if (radio) {
-      await dispatchClickSequence(radio);
-    } else {
-      await dispatchClickSequence(match);
-    }
-    await sleep(400);
-
-    const selectBtn = Array.from(modal.querySelectorAll('button, input[type="button"]'))
-      .find(b => b.offsetParent !== null && /اختر|select/i.test((b.innerText || b.value || '').trim()) && !b.hasAttribute('disabled'));
-    if (selectBtn) {
-      await dispatchClickSequence(selectBtn);
-      log('Clicked lookup Select/اختر button');
-    } else {
-      const primaryBtn = modal.querySelector('.modal-footer button.btn-primary, button.primary');
-      if (primaryBtn) await dispatchClickSequence(primaryBtn);
-    }
-
-    const closeDeadline = Date.now() + 6000;
-    while (Date.now() < closeDeadline) {
-      if (modal.offsetParent === null || !document.body.contains(modal)) break;
-      await sleep(300);
-    }
-    await sleep(400);
-    return { ok: true, selected: match.innerText.trim() };
+    return await pickAndConfirm(visibleItems) || { ok: false };
   }
 
   async function handlePage2Modal(btnRegex, searchValue, opts = {}) {
@@ -217,8 +293,8 @@ window.AutoFillEngine = window.AutoFillEngine || {};
     let modal = null;
     const deadline = Date.now() + 10000;
     while (Date.now() < deadline) {
-      modal = document.querySelector('.modal.show, .modal.in, div[role="dialog"]');
-      if (modal && modal.offsetParent !== null) break;
+      modal = document.querySelector('section.modal.modal-lookup.in, .modal.show, .modal.in, div[role="dialog"]');
+      if (modal && isModalOpen(modal)) break;
       modal = null;
       await sleep(400);
     }
@@ -260,7 +336,7 @@ window.AutoFillEngine = window.AutoFillEngine || {};
       saveBtn.click();
       const saveDeadline = Date.now() + 10000;
       while (Date.now() < saveDeadline) {
-        if (modal.offsetParent === null || !document.body.contains(modal)) break;
+        if (!isModalOpen(modal) || !document.body.contains(modal)) break;
         await sleep(400);
       }
       await sleep(1000);
@@ -288,22 +364,23 @@ window.AutoFillEngine = window.AutoFillEngine || {};
 
   async function waitForModalStable(timeoutMs = 5000) {
     const start = Date.now();
-    let prevHeight = 0;
     let stableCount = 0;
+    let prevRowCount = -1;
     while (Date.now() - start < timeoutMs) {
-      const modal = document.querySelector('.modal.show, .modal.in, div[role="dialog"]');
-      if (!modal) { await sleep(200); continue; }
-      const h = modal.offsetHeight;
-      if (h > 0 && h === prevHeight) {
+      const modal = document.querySelector('section.modal.modal-lookup.in, .modal.show, .modal.in, div[role="dialog"]');
+      if (!modal || !isModalOpen(modal)) { await sleep(200); continue; }
+      // Stability check via row count (doesn't rely on offsetHeight which may be 0 for position:fixed)
+      const rowCount = modal.querySelectorAll('table tbody tr').length;
+      if (rowCount > 0 && rowCount === prevRowCount) {
         stableCount++;
         if (stableCount >= 2) return modal;
       } else {
         stableCount = 0;
-        prevHeight = h;
+        prevRowCount = rowCount;
       }
       await sleep(250);
     }
-    return document.querySelector('.modal.show, .modal.in, div[role="dialog"]');
+    return document.querySelector('section.modal.modal-lookup.in, .modal.show, .modal.in, div[role="dialog"]') || null;
   }
 
   async function handleSubgridIframeModal(btnRegex, targetName, pickRandomIfTargetMissing = true, excludePattern = null, priorityPattern = null) {

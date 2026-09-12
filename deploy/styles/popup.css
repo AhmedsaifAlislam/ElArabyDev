@@ -1200,3 +1200,56 @@ textarea::placeholder { color: var(--ea-muted-2); direction: rtl; text-align: ri
 #tools-sub-tabs {
   display: none !important;
 }
+
+/* ── Monitoring & Settings Cards Styling ── */
+.monitoring-pills-bar {
+  scrollbar-width: thin;
+  scrollbar-color: var(--ea-border) transparent;
+}
+.monitoring-pills-bar::-webkit-scrollbar {
+  height: 4px;
+}
+.monitoring-pills-bar::-webkit-scrollbar-thumb {
+  background: var(--ea-border);
+  border-radius: 4px;
+}
+
+.monitoring-pill-btn {
+  white-space: nowrap;
+  font-size: 10.5px;
+  font-weight: var(--ea-fw-500);
+  padding: 4px 11px;
+  border-radius: 20px;
+  background: var(--ea-surface-2);
+  border: 1px solid var(--ea-border);
+  color: var(--ea-muted);
+  cursor: pointer;
+  transition: var(--ea-transition);
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.monitoring-pill-btn:hover {
+  border-color: var(--ea-brand);
+  color: var(--ea-text);
+  background: var(--ea-surface-3, #22344d);
+}
+.monitoring-pill-btn.active {
+  background: var(--ea-brand);
+  border-color: var(--ea-brand);
+  color: #ffffff !important;
+  font-weight: var(--ea-fw-600);
+  box-shadow: 0 1px 6px var(--ea-brand-glow);
+}
+
+.monitoring-card[open],
+.settings-card[open] {
+  border-color: var(--ea-brand-border, #2a4365);
+}
+
+.monitoring-card .accordion-header,
+.settings-card .accordion-header {
+  padding: 9px 12px;
+  font-size: 11.5px;
+}
+

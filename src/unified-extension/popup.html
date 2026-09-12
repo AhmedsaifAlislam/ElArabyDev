@@ -50,12 +50,6 @@
       </span>
       <span class="main-tab-label">بحث وتعبئة</span>
     </button>
-    <button class="tab-btn main-tab-btn" data-tab="extract" id="tab-extract" role="tab">
-      <span class="main-tab-icon">
-        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m7 10 5 5 5-5"/><path d="M12 15V3"/></svg>
-      </span>
-      <span class="main-tab-label">الاستخراج</span>
-    </button>
     <button class="tab-btn main-tab-btn" data-tab="search-report" id="tab-search-report" role="tab">
       <span class="main-tab-icon">
         <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="M12 18v-6"/><path d="m9 15 3 3 3-3"/></svg>
@@ -84,17 +78,11 @@
 
   <!-- ── Quick Tools Row (أزرار سريعة تحت القائمة الرئيسية) ── -->
   <div class="quick-tools" id="quick-tools" role="tablist">
-    <button class="tab-btn quick-tool-btn" data-tab="logs" id="tab-logs" role="tab" title="التقارير">
+    <button class="tab-btn quick-tool-btn" data-tab="monitoring" id="tab-monitoring" role="tab" title="الرصد والمراقبة">
       <span class="qt-icon">
         <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="M16 13H8M16 17H8M10 9H8"/></svg>
       </span>
-      <span class="qt-label">التقارير</span>
-    </button>
-    <button class="tab-btn quick-tool-btn" data-tab="smart-log" id="tab-smart-log" role="tab" title="اللوج الذكي">
-      <span class="qt-icon">
-        <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="m19 9-5 5-4-4-3 3"/></svg>
-      </span>
-      <span class="qt-label">اللوج الذكي</span>
+      <span class="qt-label">الرصد والمراقبة</span>
     </button>
     <button class="tab-btn quick-tool-btn" data-tab="tampermonkey" id="tab-tampermonkey" role="tab" title="سكريبتات">
       <span class="qt-icon">
@@ -102,41 +90,17 @@
       </span>
       <span class="qt-label">سكريبتات</span>
     </button>
-    <button class="tab-btn quick-tool-btn" data-tab="session" id="tab-session" role="tab" title="الجلسة">
-      <span class="qt-icon">
-        <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
-      </span>
-      <span class="qt-label">الجلسة</span>
-    </button>
-    <button class="tab-btn quick-tool-btn" data-tab="telemetry" id="tab-telemetry" role="tab" title="تحليل السلوك">
-      <span class="qt-icon">
-        <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 20V10"/><path d="M12 20V4"/><path d="M6 20v-6"/></svg>
-      </span>
-      <span class="qt-label">تحليل السلوك</span>
-    </button>
     <button class="tab-btn quick-tool-btn" data-tab="n8n" id="tab-n8n" role="tab" title="n8n">
       <span class="qt-icon">
         <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13.5 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9.5"/><path d="M11 3v4h4"/></svg>
       </span>
       <span class="qt-label">n8n</span>
     </button>
-    <button class="tab-btn quick-tool-btn" data-tab="excel-autofix" id="tab-excel-autofix" role="tab" title="Excel Autofix">
-      <span class="qt-icon">
-        <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><path d="M14 2v6h6"/></svg>
-      </span>
-      <span class="qt-label">Excel Autofix</span>
-    </button>
-    <button class="tab-btn quick-tool-btn" data-tab="settings" id="tab-settings" role="tab" title="الإعدادات">
+    <button class="tab-btn quick-tool-btn" data-tab="settings" id="tab-settings" role="tab" title="الإعدادات والمزامنة">
       <span class="qt-icon">
         <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
       </span>
-      <span class="qt-label">الإعدادات</span>
-    </button>
-    <button class="tab-btn quick-tool-btn" data-tab="sync" id="tab-sync" role="tab" title="المزامنة">
-      <span class="qt-icon">
-        <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 4v6"/><path d="M1 20v-6"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
-      </span>
-      <span class="qt-label">المزامنة</span>
+      <span class="qt-label">الإعدادات والمزامنة</span>
     </button>
     <button class="tab-btn quick-tool-btn" data-tab="ai" id="tab-ai" role="tab" title="المساعد الذكي">
       <span class="qt-icon">
@@ -321,142 +285,280 @@
   </div>
 
   <!-- ══════════════════════════════════════════════════════ -->
-  <!-- TAB 2: الاستخراج (Order Extractor)                    -->
+  <!-- TAB: الرصد والمراقبة والتشخيص (Unified Monitoring)      -->
   <!-- ══════════════════════════════════════════════════════ -->
-  <div class="tab-panel" id="panel-extract" role="tabpanel">
+  <div class="tab-panel" id="panel-monitoring" role="tabpanel">
 
-    <div class="format-hint">
-      <span class="hint-title">استخراج البلاغات من جدول البورتال</span>
-      <span class="hint-note">افتح صفحة البلاغات (Orders) في البورتال ثم استخدم الأدوات أسفله</span>
-    </div>
-
-    <div id="extract-status-bar">
-      <div class="status-msg info" id="extract-status-msg">
-        <span>جاهز — افتح صفحة Orders في البورتال ثم اضغط استخراج</span>
+    <div class="format-hint" style="margin-bottom:10px;">
+      <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:6px;">
+        <div>
+          <span class="hint-title">📊 مركز الرصد والمراقبة والتشخيص</span>
+          <span class="hint-note">سجل الجلسات، اللوج الذكي، قياسات السلوك، لقطات الشاشة، وأدوات التشخيص والتتبع</span>
+        </div>
+        <div style="display:flex; gap:5px;">
+          <button class="btn btn-secondary btn-small" id="btn-mon-expand-all" type="button" title="فتح جميع الأقسام">↕️ فتح الكل</button>
+          <button class="btn btn-secondary btn-small" id="btn-mon-collapse-all" type="button" title="طي جميع الأقسام">⏹️ طي الكل</button>
+        </div>
       </div>
     </div>
 
-    <div class="btn-row">
-      <button class="btn btn-secondary btn-teal" id="btn-extract-open-orders">
-        <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h6v6"/><path d="M10 14 21 3"/><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/></svg>
-        فتح صفحة Orders
-      </button>
-      <button class="btn btn-primary" id="btn-extract-run">
-        <svg viewBox="0 0 24 24" width="13" height="13" fill="currentColor"><path d="M5 3l14 9-14 9V3z"/></svg>
-        استخراج كل الصفحات
-      </button>
+    <!-- شريط كبسولات التنقل السريع بين أقسام المراقبة -->
+    <div class="monitoring-pills-bar" style="display:flex; gap:6px; margin-bottom:12px; overflow-x:auto; padding-bottom:4px;" role="tablist">
+      <button class="sub-tab-btn active monitoring-pill-btn" data-target-card="card-mon-sessions" type="button">📋 الجلسات</button>
+      <button class="sub-tab-btn monitoring-pill-btn" data-target-card="card-mon-smartlog" type="button">🧠 اللوج الذكي</button>
+      <button class="sub-tab-btn monitoring-pill-btn" data-target-card="card-mon-telemetry" type="button">📈 تحليل السلوك</button>
+      <button class="sub-tab-btn monitoring-pill-btn" data-target-card="card-mon-session" type="button">📸 لقطات الجلسة</button>
+      <button class="sub-tab-btn monitoring-pill-btn" data-target-card="card-mon-diagnostics" type="button">🔬 التشخيص والتتبع</button>
     </div>
 
-    <div class="btn-row btn-row-narrow">
-      <button class="btn btn-secondary" id="btn-extract-current-page">
-        <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg>
-        الصفحة الحالية
-      </button>
-    </div>
+    <!-- ── CARD 1: سجل الجلسات وبلاغات التشغيل ── -->
+    <details class="accordion-card monitoring-card" id="card-mon-sessions" open style="margin-top:6px;">
+      <summary class="accordion-header">
+        <span class="accordion-title">
+          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="M16 13H8M16 17H8M10 9H8"/></svg>
+          <b>سجل الجلسات وبلاغات التشغيل (Sessions Log)</b>
+        </span>
+        <span class="accordion-chevron">
+          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>
+        </span>
+      </summary>
+      <div class="accordion-body">
+        <div class="log-stats-bar">
+          <span id="log-stat-sessions">جلسات: 0</span>
+          <span id="log-stat-orders">بلاغات: 0</span>
+          <span class="stat-ok" id="log-stat-success">نجح: 0</span>
+          <span class="stat-fail" id="log-stat-failed">فشل: 0</span>
+        </div>
 
-    <div class="info-card">
-      <b>ملاحظات:</b>
-      <ul>
-        <li>لوحة الاستخراج تظهر تلقائياً في صفحة البورتال</li>
-        <li>يمكنك تحديد الأعمدة المطلوبة من اللوحة</li>
-        <li>الملف يُحمّل بصيغة Excel (.xlsx)</li>
-      </ul>
-    </div>
+        <div class="reports-toolbar">
+          <input type="text" id="search-logs" placeholder="بحث باسم العميل أو رقم البلاغ..." />
+          <button class="btn btn-secondary" id="btn-export-sessions" title="تصدير الجلسات كـ JSON">
+            <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m7 10 5 5 5-5"/><path d="M12 15V3"/></svg>
+          </button>
+          <button class="btn btn-secondary" id="btn-refresh-logs" title="تحديث">
+            <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-9-9c2.5 0 4.8 1 6.5 2.6L21 8"/><path d="M21 3v5h-5"/></svg>
+          </button>
+          <button class="btn btn-danger" id="btn-clear-logs" title="مسح كل الجلسات">
+            <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+          </button>
+        </div>
 
-  </div>
-
-  <!-- ══════════════════════════════════════════════════════ -->
-  <!-- TAB 3: التقارير (Unified Smart Sessions Log)        -->
-  <!-- ══════════════════════════════════════════════════════ -->
-  <div class="tab-panel" id="panel-logs" role="tabpanel">
-
-    <div class="log-stats-bar">
-      <span id="log-stat-sessions">جلسات: 0</span>
-      <span id="log-stat-orders">بلاغات: 0</span>
-      <span class="stat-ok" id="log-stat-success">نجح: 0</span>
-      <span class="stat-fail" id="log-stat-failed">فشل: 0</span>
-    </div>
-
-    <div class="reports-toolbar">
-      <input type="text" id="search-logs" placeholder="بحث باسم العميل أو رقم البلاغ..." />
-      <button class="btn btn-secondary" id="btn-export-sessions" title="تصدير الجلسات كـ JSON">
-        <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m7 10 5 5 5-5"/><path d="M12 15V3"/></svg>
-      </button>
-      <button class="btn btn-secondary" id="btn-refresh-logs" title="تحديث">
-        <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-9-9c2.5 0 4.8 1 6.5 2.6L21 8"/><path d="M21 3v5h-5"/></svg>
-      </button>
-      <button class="btn btn-danger" id="btn-clear-logs" title="مسح كل الجلسات">
-        <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
-      </button>
-    </div>
-
-    <div class="log-container" id="log-list">
-      <div class="empty-state"><div class="icon">📜</div><div>لا توجد جلسات مسجلة بعد</div></div>
-    </div>
-  </div>
-
-  <!-- ══════════════════════════════════════════════════════ -->
-  <!-- TAB 4: اللوج الذكي (Smart Log)                       -->
-  <!-- ══════════════════════════════════════════════════════ -->
-  <div class="tab-panel" id="panel-smart-log" role="tabpanel">
-
-    <div class="sl-stats-grid">
-      <div class="sl-stat">
-        <div id="sl-stat-events">0</div>
-        <span>إجمالي الأحداث</span>
-      </div>
-      <div class="sl-stat sl-stat-ok">
-        <div id="sl-stat-auto">0</div>
-        <span>آلي</span>
-      </div>
-      <div class="sl-stat sl-stat-warn">
-        <div id="sl-stat-manual">0</div>
-        <span>يدوي</span>
-      </div>
-    </div>
-
-    <div class="sl-toolbar">
-      <button id="sl-btn-refresh" title="تحديث">
-        <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-9-9c2.5 0 4.8 1 6.5 2.6L21 8"/><path d="M21 3v5h-5"/></svg>
-      </button>
-      <button id="sl-btn-analyze" title="تحليل">
-        <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="m19 9-5 5-4-4-3 3"/></svg>
-      </button>
-      <button id="sl-btn-excel" title="تصدير Excel">
-        <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m7 10 5 5 5-5"/><path d="M12 15V3"/></svg>
-      </button>
-      <button id="sl-btn-ai" title="تحليل AI">
-        <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M18.4 5.6l-2.1 2.1M7.7 16.3l-2.1 2.1"/><circle cx="12" cy="12" r="4"/></svg>
-      </button>
-      <button id="sl-btn-clear" title="مسح">
-        <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
-      </button>
-    </div>
-
-    <div id="sl-analysis"></div>
-
-    <div id="sl-manual-list">
-      <div class="sl-empty">لا توجد أحداث يدوية مسجلة</div>
-    </div>
-
-    <details class="sl-details sl-details-warn">
-      <summary>تعديلات الحقول</summary>
-      <div id="sl-field-changes">
-        <div class="sl-empty">لا توجد تعديلات</div>
+        <div class="log-container" id="log-list">
+          <div class="empty-state"><div class="icon">📜</div><div>لا توجد جلسات مسجلة بعد</div></div>
+        </div>
       </div>
     </details>
 
-    <details class="sl-details sl-details-info">
-      <summary>أخطاء الشبكة</summary>
-      <div id="sl-network-errors">
-        <div class="sl-empty">لا توجد أخطاء شبكة</div>
+    <!-- ── CARD 2: اللوج الذكي ومسار الأحداث ── -->
+    <details class="accordion-card monitoring-card" id="card-mon-smartlog" open style="margin-top:10px;">
+      <summary class="accordion-header">
+        <span class="accordion-title">
+          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="m19 9-5 5-4-4-3 3"/></svg>
+          <b>اللوج الذكي ومسار الأحداث (Smart Log)</b>
+        </span>
+        <span class="accordion-chevron">
+          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>
+        </span>
+      </summary>
+      <div class="accordion-body">
+        <div class="sl-stats-grid">
+          <div class="sl-stat">
+            <div id="sl-stat-events">0</div>
+            <span>إجمالي الأحداث</span>
+          </div>
+          <div class="sl-stat sl-stat-ok">
+            <div id="sl-stat-auto">0</div>
+            <span>آلي</span>
+          </div>
+          <div class="sl-stat sl-stat-warn">
+            <div id="sl-stat-manual">0</div>
+            <span>يدوي</span>
+          </div>
+        </div>
+
+        <div class="sl-toolbar">
+          <button id="sl-btn-refresh" title="تحديث">
+            <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-9-9c2.5 0 4.8 1 6.5 2.6L21 8"/><path d="M21 3v5h-5"/></svg>
+          </button>
+          <button id="sl-btn-analyze" title="تحليل">
+            <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="m19 9-5 5-4-4-3 3"/></svg>
+          </button>
+          <button id="sl-btn-excel" title="تصدير Excel">
+            <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m7 10 5 5 5-5"/><path d="M12 15V3"/></svg>
+          </button>
+          <button id="sl-btn-ai" title="تحليل AI">
+            <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M18.4 5.6l-2.1 2.1M7.7 16.3l-2.1 2.1"/><circle cx="12" cy="12" r="4"/></svg>
+          </button>
+          <button id="sl-btn-clear" title="مسح">
+            <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+          </button>
+        </div>
+
+        <div id="sl-analysis"></div>
+
+        <div id="sl-manual-list">
+          <div class="sl-empty">لا توجد أحداث يدوية مسجلة</div>
+        </div>
+
+        <details class="sl-details sl-details-warn">
+          <summary>تعديلات الحقول</summary>
+          <div id="sl-field-changes">
+            <div class="sl-empty">لا توجد تعديلات</div>
+          </div>
+        </details>
+
+        <details class="sl-details sl-details-info">
+          <summary>أخطاء الشبكة</summary>
+          <div id="sl-network-errors">
+            <div class="sl-empty">لا توجد أخطاء شبكة</div>
+          </div>
+        </details>
+
+        <details class="sl-details sl-details-ok" open>
+          <summary>الحركات</summary>
+          <div id="sl-action-log">
+            <div class="sl-empty">لا توجد حركات</div>
+          </div>
+        </details>
       </div>
     </details>
 
-    <details class="sl-details sl-details-ok" open>
-      <summary>الحركات</summary>
-      <div id="sl-action-log">
-        <div class="sl-empty">لا توجد حركات</div>
+    <!-- ── CARD 3: تحليل السلوك وقياسات الأداء (Telemetry) ── -->
+    <details class="accordion-card monitoring-card" id="card-mon-telemetry" style="margin-top:10px;">
+      <summary class="accordion-header">
+        <span class="accordion-title">
+          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 20V10"/><path d="M12 20V4"/><path d="M6 20v-6"/></svg>
+          <b>تحليل السلوك وقياسات الأداء (Telemetry)</b>
+        </span>
+        <span class="accordion-chevron">
+          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>
+        </span>
+      </summary>
+      <div class="accordion-body">
+        <div id="telemetry-dashboard" style="display:grid; grid-template-columns:repeat(3,1fr); gap:6px; margin-bottom:10px;">
+          <div style="background:var(--ea-surface);padding:8px;border-radius:6px;text-align:center;border:1px solid var(--ea-border);">
+            <div style="font-size:18px;font-weight:700;color:var(--ea-brand);" id="tel-stat-events">0</div>
+            <div style="font-size:10px;color:var(--muted);">أحداث</div>
+          </div>
+          <div style="background:var(--ea-surface);padding:8px;border-radius:6px;text-align:center;border:1px solid var(--ea-border);">
+            <div style="font-size:18px;font-weight:700;color:var(--ea-success);" id="tel-stat-auto">0</div>
+            <div style="font-size:10px;color:var(--muted);">آلي</div>
+          </div>
+          <div style="background:var(--ea-surface);padding:8px;border-radius:6px;text-align:center;border:1px solid var(--ea-border);">
+            <div style="font-size:18px;font-weight:700;color:var(--ea-warning);" id="tel-stat-manual">0</div>
+            <div style="font-size:10px;color:var(--muted);">يدوي</div>
+          </div>
+          <div style="background:var(--ea-surface);padding:8px;border-radius:6px;text-align:center;border:1px solid var(--ea-border);">
+            <div style="font-size:18px;font-weight:700;color:var(--ea-error);" id="tel-stat-errors">0</div>
+            <div style="font-size:10px;color:var(--muted);">أخطاء</div>
+          </div>
+          <div style="background:var(--ea-surface);padding:8px;border-radius:6px;text-align:center;border:1px solid var(--ea-border);">
+            <div style="font-size:18px;font-weight:700;color:var(--ea-brand);" id="tel-stat-sessions">0</div>
+            <div style="font-size:10px;color:var(--muted);">جلسات</div>
+          </div>
+          <div style="background:var(--ea-surface);padding:8px;border-radius:6px;text-align:center;border:1px solid var(--ea-border);">
+            <div style="font-size:18px;font-weight:700;color:var(--ea-info);" id="tel-stat-duration">0</div>
+            <div style="font-size:10px;color:var(--muted);">دقيقة</div>
+          </div>
+        </div>
+
+        <details id="tel-error-analysis" style="margin-bottom:10px;">
+          <summary style="cursor:pointer;font-size:12px;font-weight:700;color:var(--ea-error);padding:6px 8px;background:var(--ea-error-bg);border-radius:6px;border:1px solid var(--ea-error-border);">🔴 تحليل الأخطاء</summary>
+          <div id="tel-error-list" style="max-height:200px;overflow-y:auto;padding:6px;"></div>
+        </details>
+
+        <details id="tel-session-timeline" style="margin-bottom:10px;" open>
+          <summary style="cursor:pointer;font-size:12px;font-weight:700;color:var(--ea-brand);padding:6px 8px;background:var(--ea-brand-bg);border-radius:6px;border:1px solid var(--ea-brand-border);">📊 الجلسات</summary>
+          <div id="tel-timeline-list" style="max-height:200px;overflow-y:auto;padding:6px;"></div>
+        </details>
+
+        <div style="display:flex;flex-wrap:wrap;align-items:center;gap:4px;margin-bottom:8px;">
+          <select id="tel-filter-type" style="padding:4px 6px;background:var(--ea-input-bg);color:var(--ea-text);border:1px solid var(--ea-border);border-radius:4px;font-size:11px;">
+            <option value="">الكل</option>
+            <option value="CLICK">ضغطات</option>
+            <option value="FIELD_CHANGE">تعديلات</option>
+            <option value="PAGE_ERROR">أخطاء</option>
+            <option value="PAGE_ENTER">دخول</option>
+            <option value="PAGE_LEAVE">خروج</option>
+            <option value="TASK_START">بداية مهمة</option>
+            <option value="TASK_COMPLETE">اكتمال مهمة</option>
+          </select>
+          <button class="btn btn-secondary" id="btn-toggle-auto" style="padding:4px 8px;font-size:11px;" title="إظهار/إخفاء الأحداث الآلية">🤖</button>
+          <button class="btn btn-primary" id="btn-copy-telemetry" style="padding:4px 8px;">📋</button>
+          <button class="btn btn-primary" id="btn-export-telemetry" style="padding:4px 8px;" title="تصدير">📥</button>
+          <button class="btn btn-danger" id="btn-clear-telemetry" style="padding:4px 8px;" title="مسح">🗑</button>
+        </div>
+
+        <div style="font-size:11px;color:var(--muted);margin-bottom:8px;text-align:center;">
+          <span id="telemetry-count">الأحداث المسجلة: 0</span>
+        </div>
+
+        <div id="tel-analysis" style="display:none;margin-bottom:8px;padding:8px;background:var(--ea-surface);border-radius:4px;font-size:11px;max-height:300px;overflow-y:auto;line-height:1.6;"></div>
+
+        <div id="telemetry-list" style="max-height: 350px; overflow-y: auto;">
+          <div class="empty-state"><div class="icon">📉</div><div>لا توجد بيانات تتبع حتى الآن</div></div>
+        </div>
+      </div>
+    </details>
+
+    <!-- ── CARD 4: لقطات الجلسة والتصوير الفوري ── -->
+    <details class="accordion-card monitoring-card" id="card-mon-session" style="margin-top:10px;">
+      <summary class="accordion-header">
+        <span class="accordion-title">
+          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+          <b>لقطات الجلسة والتصوير الفوري (Session Capture Viewer)</b>
+        </span>
+        <span class="accordion-chevron">
+          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>
+        </span>
+      </summary>
+      <div class="accordion-body">
+        <div id="session-stat-bar" style="display:flex; gap:8px; flex-wrap:wrap; margin-bottom:10px; font-size:11px; color:#a8c7fa;">
+          <span id="session-stat-orders" style="background:#1e304b;padding:3px 8px;border-radius:4px;">أوامر: 0</span>
+          <span id="session-stat-pages"  style="background:#1e304b;padding:3px 8px;border-radius:4px;">لقطات صفحات: 0</span>
+          <span id="session-stat-events" style="background:#1e304b;padding:3px 8px;border-radius:4px;">أحداث: 0</span>
+        </div>
+
+        <div style="display:flex; gap:6px; margin-bottom:8px;">
+          <input type="text" id="search-session" placeholder="🔍 بحث بمعرّف الأمر أو الصفحة..." style="flex:1;"/>
+          <button class="btn btn-secondary" id="btn-refresh-session" style="flex:0 0 auto;padding:5px 10px;" title="تحديث">🔄</button>
+          <button class="btn btn-secondary" id="btn-export-session" style="flex:0 0 auto;padding:5px 10px;background:var(--success-bg);color:var(--success);border-color:var(--success);" title="تصدير كل الجلسات JSON">📥</button>
+          <button class="btn btn-danger"    id="btn-clear-session" style="flex:0 0 auto;padding:5px 10px;" title="مسح كل الجلسات">🗑</button>
+        </div>
+
+        <div class="session-container" id="session-list" style="max-height:350px;overflow-y:auto;">
+          <div class="empty-state"><div class="icon">📸</div><div>لا توجد جلسات مسجلة بعد — افتح صفحة أمر شغل (workorderreview) لتسجيل لحظاتها</div></div>
+        </div>
+
+        <div style="margin-top:8px; padding:6px 10px; background:var(--ea-surface); border-radius:6px; font-size:10px; color:var(--muted); line-height:1.6;">
+          <b>ملاحظة:</b> التسجيل يتم تلقائياً من سكربت المحتوى كل 5 ثوانٍ + عند كل كليك مهم.
+        </div>
+      </div>
+    </details>
+
+    <!-- ── CARD 5: أدوات التشخيص والتتبع والذاكرة ── -->
+    <details class="accordion-card monitoring-card" id="card-mon-diagnostics" style="margin-top:10px;">
+      <summary class="accordion-header">
+        <span class="accordion-title">
+          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>
+          <b>أدوات التشخيص والتتبع والذاكرة (Diagnostics & Runtime Trace)</b>
+        </span>
+        <span class="accordion-chevron">
+          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>
+        </span>
+      </summary>
+      <div class="accordion-body">
+        <div class="format-hint" style="margin-bottom:8px;">
+          <span class="hint-note">فحص وتفريغ سجلات الـ Runtime Trace ومسح بيانات الجهاز والذاكرة المؤقتة</span>
+        </div>
+        <div class="btn-row" style="margin-top:0;">
+          <button class="btn btn-secondary btn-small" id="btn-settings-copy-trace" title="نسخ تتبع التشغيل">📋 نسخ التتبع</button>
+          <button class="btn btn-secondary btn-small" id="btn-settings-trace-status" title="فحص حالة نظام التتبع">ℹ️ حالة التتبع</button>
+          <button class="btn btn-danger-subtle btn-small" id="btn-settings-clear-trace" title="مسح سجل التتبع">🗑️ مسح التتبع</button>
+        </div>
+        <div class="btn-row" style="margin-top:6px;">
+          <button class="btn btn-danger-subtle btn-small full-width" id="btn-settings-clear-device" title="مسح بيانات الجهاز والذاكرة المخزنة">⚠️ مسح بيانات الجهاز المخزنة والذاكرة</button>
+        </div>
       </div>
     </details>
 
@@ -893,84 +995,9 @@
 
     <!-- Sub-tabs for Tools -->
     <div class="sub-tabs" id="tools-sub-tabs" style="display: none !important;">
-      <button class="sub-tab-btn active" data-sub-tab="tools-telemetry" id="sub-tab-tools-telemetry" role="tab">📈 تحليل السلوك</button>
+      <button class="sub-tab-btn active" data-sub-tab="tools-settings" id="sub-tab-tools-settings" role="tab">⚙️ الإعدادات</button>
       <button class="sub-tab-btn" data-sub-tab="tools-n8n" id="sub-tab-tools-n8n" role="tab">🔗 n8n</button>
-      <button class="sub-tab-btn" data-sub-tab="tools-excel-autofix" id="sub-tab-tools-excel-autofix" role="tab">📊 Excel Autofix</button>
-      <button class="sub-tab-btn" data-sub-tab="tools-settings" id="sub-tab-tools-settings" role="tab">⚙️ الإعدادات</button>
-      <button class="sub-tab-btn" data-sub-tab="tools-sync" id="sub-tab-tools-sync" role="tab">🔄 المزامنة</button>
       <button class="sub-tab-btn" data-sub-tab="tools-ai" id="sub-tab-tools-ai" role="tab">🤖 المساعد الذكي</button>
-    </div>
-
-    <!-- SUB-TAB: تحليل السلوك (Telemetry) -->
-    <div class="sub-tab-panel active" id="sub-panel-tools-telemetry" role="tabpanel">
-      <div class="format-hint">
-        <span class="hint-title">📈 تحليل السلوك (Telemetry)</span>
-        <span class="hint-note">إحصائيات الأحداث والأخطاء والجلسات</span>
-      </div>
-
-      <div id="telemetry-dashboard" style="display:grid; grid-template-columns:repeat(3,1fr); gap:6px; margin-bottom:10px;">
-        <div style="background:var(--ea-surface-2);padding:8px;border-radius:6px;text-align:center;border:1px solid var(--ea-border);">
-          <div style="font-size:18px;font-weight:700;color:var(--ea-brand);" id="tel-stat-events">0</div>
-          <div style="font-size:10px;color:var(--muted);">أحداث</div>
-        </div>
-        <div style="background:var(--ea-surface-2);padding:8px;border-radius:6px;text-align:center;border:1px solid var(--ea-border);">
-          <div style="font-size:18px;font-weight:700;color:var(--ea-success);" id="tel-stat-auto">0</div>
-          <div style="font-size:10px;color:var(--muted);">آلي</div>
-        </div>
-        <div style="background:var(--ea-surface-2);padding:8px;border-radius:6px;text-align:center;border:1px solid var(--ea-border);">
-          <div style="font-size:18px;font-weight:700;color:var(--ea-warning);" id="tel-stat-manual">0</div>
-          <div style="font-size:10px;color:var(--muted);">يدوي</div>
-        </div>
-        <div style="background:var(--ea-surface-2);padding:8px;border-radius:6px;text-align:center;border:1px solid var(--ea-border);">
-          <div style="font-size:18px;font-weight:700;color:var(--ea-error);" id="tel-stat-errors">0</div>
-          <div style="font-size:10px;color:var(--muted);">أخطاء</div>
-        </div>
-        <div style="background:var(--ea-surface-2);padding:8px;border-radius:6px;text-align:center;border:1px solid var(--ea-border);">
-          <div style="font-size:18px;font-weight:700;color:var(--ea-brand);" id="tel-stat-sessions">0</div>
-          <div style="font-size:10px;color:var(--muted);">جلسات</div>
-        </div>
-        <div style="background:var(--ea-surface-2);padding:8px;border-radius:6px;text-align:center;border:1px solid var(--ea-border);">
-          <div style="font-size:18px;font-weight:700;color:var(--ea-info);" id="tel-stat-duration">0</div>
-          <div style="font-size:10px;color:var(--muted);">دقيقة</div>
-        </div>
-      </div>
-
-      <details id="tel-error-analysis" style="margin-bottom:10px;">
-        <summary style="cursor:pointer;font-size:12px;font-weight:700;color:var(--ea-error);padding:6px 8px;background:var(--ea-error-bg);border-radius:6px;border:1px solid var(--ea-error-border);">🔴 تحليل الأخطاء</summary>
-        <div id="tel-error-list" style="max-height:200px;overflow-y:auto;padding:6px;"></div>
-      </details>
-
-      <details id="tel-session-timeline" style="margin-bottom:10px;" open>
-        <summary style="cursor:pointer;font-size:12px;font-weight:700;color:var(--ea-brand);padding:6px 8px;background:var(--ea-brand-bg);border-radius:6px;border:1px solid var(--ea-brand-border);">📊 الجلسات</summary>
-        <div id="tel-timeline-list" style="max-height:200px;overflow-y:auto;padding:6px;"></div>
-      </details>
-
-      <div style="display:flex;flex-wrap:wrap;align-items:center;gap:4px;margin-bottom:8px;">
-        <select id="tel-filter-type" style="padding:4px 6px;background:var(--ea-input-bg);color:var(--ea-text);border:1px solid var(--ea-border);border-radius:4px;font-size:11px;">
-          <option value="">الكل</option>
-          <option value="CLICK">ضغطات</option>
-          <option value="FIELD_CHANGE">تعديلات</option>
-          <option value="PAGE_ERROR">أخطاء</option>
-          <option value="PAGE_ENTER">دخول</option>
-          <option value="PAGE_LEAVE">خروج</option>
-          <option value="TASK_START">بداية مهمة</option>
-          <option value="TASK_COMPLETE">اكتمال مهمة</option>
-        </select>
-        <button class="btn btn-secondary" id="btn-toggle-auto" style="padding:4px 8px;font-size:11px;" title="إظهار/إخفاء الأحداث الآلية">🤖</button>
-        <button class="btn btn-primary" id="btn-copy-telemetry" style="padding:4px 8px;">📋</button>
-        <button class="btn btn-primary" id="btn-export-telemetry" style="padding:4px 8px;" title="تصدير">📥</button>
-        <button class="btn btn-danger" id="btn-clear-telemetry" style="padding:4px 8px;" title="مسح">🗑</button>
-      </div>
-
-      <div style="font-size:11px;color:var(--muted);margin-bottom:8px;text-align:center;">
-        <span id="telemetry-count">الأحداث المسجلة: 0</span>
-      </div>
-
-      <div id="tel-analysis" style="display:none;margin-bottom:8px;padding:8px;background:var(--ea-surface-2);border-radius:4px;font-size:11px;max-height:300px;overflow-y:auto;line-height:1.6;"></div>
-
-      <div id="telemetry-list" style="max-height: 400px; overflow-y: auto;">
-        <div class="empty-state"><div class="icon">📉</div><div>لا توجد بيانات تتبع حتى الآن</div></div>
-      </div>
     </div>
 
     <!-- SUB-TAB: n8n Integration -->
@@ -1012,136 +1039,115 @@
       <div id="n8n-result" style="display:none;padding:9px 11px;background:var(--ea-surface-2);border-radius:6px;font-size:11px;color:var(--muted);line-height:1.7;border:1px solid var(--ea-border);"></div>
     </div>
 
-    <!-- SUB-TAB: Excel Autofix -->
-    <div class="sub-tab-panel" id="sub-panel-tools-excel-autofix" role="tabpanel">
-      <div class="format-hint">
-        <span class="hint-title">📊 Excel Autofix — أداة محلية 100% (Offline Local Tool)</span>
-        <span class="hint-note">تنسيق ومعالجة ملف الإكسيل الأسبوعي محلياً على جهازك عبر Python (127.0.0.1:8765) دون رفع لأي سيرفر خارجي</span>
+    <!-- SUB-TAB: الإعدادات المنظمة بكروت أكورديون والمزامنة المدمجة -->
+    <div class="sub-tab-panel active" id="sub-panel-tools-settings" role="tabpanel">
+      <div class="format-hint" style="margin-bottom:10px;">
+        <span class="hint-title">⚙️ إعدادات النظام والمزامنة</span>
+        <span class="hint-note">إدارة المظهر، النسخ الاحتياطي والمزامنة السحابية، الـ Selectors، وبروفايلات الزيارة الثانية</span>
       </div>
 
-      <div id="excel-autofix-status" style="display:flex;align-items:center;gap:8px;padding:9px 11px;background:var(--ea-surface-2);border-radius:6px;font-size:11px;color:var(--muted);border:1px solid var(--ea-border);">
-        <span id="excel-autofix-dot" style="width:9px;height:9px;border-radius:50%;background:#888;flex-shrink:0;"></span>
-        <span id="excel-autofix-status-text" style="flex:1;">جارٍ فحص الخدمة المحلية...</span>
-        <button class="btn btn-secondary" id="btn-excel-autofix-rescan" style="padding:3px 8px;font-size:10px;">إعادة فحص</button>
-      </div>
-
-      <div style="margin-top:10px;">
-        <label style="display:block;font-size:11px;font-weight:700;color:var(--ea-text);margin-bottom:5px;">ملف الإكسيل (xlsx / xls)</label>
-        <input type="file" id="excel-autofix-file" accept=".xlsx,.xls" style="width:100%;font-size:11px;">
-      </div>
-
-      <div style="margin-top:8px;">
-        <label style="display:block;font-size:11px;font-weight:700;color:var(--ea-text);margin-bottom:5px;">صف العنوان (اختياري)</label>
-        <input type="text" id="excel-autofix-title" placeholder="2000043359 // الامين-ASC-AC522" style="width:100%;padding:7px 9px;border:1px solid var(--ea-border);border-radius:5px;background:var(--ea-surface-2);color:var(--ea-text);font-size:11px;box-sizing:border-box;">
-      </div>
-
-      <div class="btn-row" style="margin-top:10px;">
-        <button class="btn btn-primary" id="btn-excel-autofix-process" disabled style="flex:1;">⚡ معالجة وتحميل</button>
-      </div>
-
-      <div id="excel-autofix-result" style="display:none;margin-top:10px;padding:10px;background:var(--ea-surface-2);border-radius:6px;font-size:11px;line-height:1.7;border:1px solid var(--ea-border);">
-        <div id="excel-autofix-result-text" style="color:var(--muted);"></div>
-        <button class="btn btn-primary" id="btn-excel-autofix-download" style="margin-top:8px;width:100%;">💾 تنزيل الملف المعالج</button>
-      </div>
-
-      <details style="margin-top:12px;">
-        <summary style="cursor:pointer;font-weight:700;color:var(--ea-brand);">▶ خطوات تشغيل الخدمة المحلية</summary>
-        <div style="font-size:11px;color:var(--muted);padding:8px 4px;line-height:2;">
-          1. افتح مجلد <code>excel_autofix</code> في المشروع.<br>
-          2. شغّل <code>service.bat</code> (يبدأ الخدمة على 127.0.0.1:8765).<br>
-          3. ارجع هنا واضغط "إعادة فحص" ثم اختر الملف.
+      <!-- Card 1: المظهر وسلوك النظام -->
+      <details class="accordion-card settings-card" id="card-set-general" open style="margin-top:6px;">
+        <summary class="accordion-header">
+          <span class="accordion-title">
+            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+            <b>المظهر وسلوك النظام (General & Appearance)</b>
+          </span>
+          <span class="accordion-chevron">
+            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>
+          </span>
+        </summary>
+        <div class="accordion-body">
+          <label style="display:flex;align-items:center;gap:10px;margin-bottom:8px;">
+            <input type="checkbox" id="settings-dark-mode" checked />
+            <span>الوضع الداكن (Dark Mode)</span>
+          </label>
+          <label style="display:flex;align-items:center;gap:10px;margin-bottom:8px;">
+            <input type="checkbox" id="settings-auto-refresh" checked />
+            <span>تحديث تلقائي للوحات (Auto Refresh)</span>
+          </label>
+          <label style="display:flex;align-items:center;gap:10px;">
+            <input type="checkbox" id="settings-notifications" checked />
+            <span>إشعارات سطح المكتب (Desktop Notifications)</span>
+          </label>
         </div>
       </details>
-    </div>
 
-    <!-- SUB-TAB: الإعدادات -->
-    <div class="sub-tab-panel" id="sub-panel-tools-settings" role="tabpanel">
-      <div class="format-hint">
-        <span class="hint-title">⚙️ إعدادات النظام</span>
-        <span class="hint-note">إدارة الـ Selectors والبروفايلات والتفضيلات</span>
-      </div>
+      <!-- Card 2: المزامنة والنسخ الاحتياطي (Sync & Cloud Backup) -->
+      <details class="accordion-card settings-card" id="card-set-sync" open style="margin-top:10px;">
+        <summary class="accordion-header">
+          <span class="accordion-title">
+            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 4v6"/><path d="M1 20v-6"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+            <b>المزامنة والنسخ الاحتياطي السحابي (Sync & Backup)</b>
+          </span>
+          <span class="accordion-chevron">
+            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>
+          </span>
+        </summary>
+        <div class="accordion-body">
+          <div class="btn-row" style="margin-top:0; margin-bottom:8px;">
+            <button class="btn btn-primary" id="btn-sync-export">📥 تصدير جميع الإعدادات</button>
+            <button class="btn btn-secondary" id="btn-sync-import">📤 استيراد الإعدادات</button>
+          </div>
 
-      <div style="margin-top:10px;display:flex;flex-direction:column;gap:15px;">
-        <div>
-          <div style="font-weight:700;margin-bottom:8px;color:var(--ea-brand);">📝 محرر الـ Selectors</div>
-          <textarea id="settings-selectors-editor" style="width:100%;min-height:200px;background:var(--ea-input-bg);color:var(--ea-text);border:1px solid var(--ea-border);border-radius:6px;padding:8px;font-family:monospace;font-size:11px;" placeholder="سيتم تحميل selectors.json هنا..."></textarea>
+          <div class="btn-row" style="margin-bottom:8px;">
+            <button class="btn btn-primary" id="btn-sync-cloud-backup">☁️ نسخ احتياطي سحابي</button>
+            <button class="btn btn-secondary" id="btn-sync-cloud-restore">⬇️ استعادة من السحابة</button>
+          </div>
+
+          <div id="sync-status" style="padding:8px 10px;background:var(--ea-surface);border-radius:6px;font-size:11px;color:var(--muted);border:1px solid var(--ea-border);">
+            جاهز للمزامنة
+          </div>
+
+          <details style="margin-top:8px;">
+            <summary style="cursor:pointer;font-size:11px;font-weight:700;color:var(--ea-brand);">📋 محتويات ملف التصدير</summary>
+            <div style="font-size:10.5px;color:var(--muted);padding:6px;line-height:1.8;">
+              • selectors.json<br>
+              • secondVisitProfiles.json<br>
+              • إعدادات المظهر والسلوك<br>
+              • سجلات الجلسات وبيانات Telemetry (اختياري)
+            </div>
+          </details>
+        </div>
+      </details>
+
+      <!-- Card 3: محرر الـ Selectors -->
+      <details class="accordion-card settings-card" id="card-set-selectors" style="margin-top:10px;">
+        <summary class="accordion-header">
+          <span class="accordion-title">
+            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+            <b>محرر محددات العناصر (Selectors Editor)</b>
+          </span>
+          <span class="accordion-chevron">
+            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>
+          </span>
+        </summary>
+        <div class="accordion-body">
+          <textarea id="settings-selectors-editor" style="width:100%;min-height:180px;background:var(--ea-input-bg);color:var(--ea-text);border:1px solid var(--ea-border);border-radius:6px;padding:8px;font-family:monospace;font-size:11px;box-sizing:border-box;" placeholder="سيتم تحميل selectors.json هنا..."></textarea>
           <div class="btn-row" style="margin-top:8px;">
             <button class="btn btn-primary" id="btn-settings-selectors-save">💾 حفظ</button>
             <button class="btn btn-secondary" id="btn-settings-selectors-reload">🔄 إعادة تحميل</button>
           </div>
         </div>
+      </details>
 
-        <div>
-          <div style="font-weight:700;margin-bottom:8px;color:var(--ea-brand);">⚡ بروفايلات الزيارة التانية</div>
-          <textarea id="settings-sv-profiles-editor" style="width:100%;min-height:200px;background:var(--ea-input-bg);color:var(--ea-text);border:1px solid var(--ea-border);border-radius:6px;padding:8px;font-family:monospace;font-size:11px;" placeholder="سيتم تحميل secondVisitProfiles.json هنا..."></textarea>
+      <!-- Card 4: بروفايلات الزيارة الثانية والمساحة -->
+      <details class="accordion-card settings-card" id="card-set-profiles" style="margin-top:10px;">
+        <summary class="accordion-header">
+          <span class="accordion-title">
+            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+            <b>بروفايلات الزيارة التانية والمساحة (Profiles)</b>
+          </span>
+          <span class="accordion-chevron">
+            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>
+          </span>
+        </summary>
+        <div class="accordion-body">
+          <textarea id="settings-sv-profiles-editor" style="width:100%;min-height:180px;background:var(--ea-input-bg);color:var(--ea-text);border:1px solid var(--ea-border);border-radius:6px;padding:8px;font-family:monospace;font-size:11px;box-sizing:border-box;" placeholder="سيتم تحميل secondVisitProfiles.json هنا..."></textarea>
           <div class="btn-row" style="margin-top:8px;">
             <button class="btn btn-primary" id="btn-settings-sv-profiles-save">💾 حفظ</button>
             <button class="btn btn-secondary" id="btn-settings-sv-profiles-reload">🔄 إعادة تحميل</button>
           </div>
-        </div>
-
-        <div>
-          <div style="font-weight:700;margin-bottom:8px;color:var(--ea-brand);">🎨 المظهر والسلوك</div>
-          <label style="display:flex;align-items:center;gap:10px;margin-bottom:8px;">
-            <input type="checkbox" id="settings-dark-mode" checked />
-            <span>الوضع الداكن</span>
-          </label>
-          <label style="display:flex;align-items:center;gap:10px;margin-bottom:8px;">
-            <input type="checkbox" id="settings-auto-refresh" checked />
-            <span>تحديث تلقائي للوحات</span>
-          </label>
-          <label style="display:flex;align-items:center;gap:10px;">
-            <input type="checkbox" id="settings-notifications" checked />
-            <span>إشعارات سطح المكتب</span>
-          </label>
-        </div>
-
-        <div style="background:var(--ea-surface-2); border:1px solid var(--ea-border); border-radius:var(--ea-radius-md); padding:10px;">
-          <div style="font-weight:700;margin-bottom:8px;color:var(--ea-brand);display:flex;align-items:center;gap:6px;">
-            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>
-            أدوات التشخيص والتتبع والذاكرة
-          </div>
-          <div style="display:flex;flex-direction:column;gap:8px;">
-            <div class="btn-row" style="margin-top:0;">
-              <button class="btn btn-secondary btn-small" id="btn-settings-copy-trace" title="نسخ سجل تتبع التشغيل">📋 نسخ التتبع</button>
-              <button class="btn btn-secondary btn-small" id="btn-settings-trace-status" title="فحص حالة نظام التتبع">ℹ️ حالة التتبع</button>
-              <button class="btn btn-danger-subtle btn-small" id="btn-settings-clear-trace" title="مسح سجل التتبع">🗑️ مسح التتبع</button>
-            </div>
-            <button class="btn btn-danger-subtle btn-small full-width" id="btn-settings-clear-device" title="مسح بيانات الجهاز المخزنة">⚠️ مسح بيانات الجهاز المخزنة</button>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- SUB-TAB: المزامنة -->
-    <div class="sub-tab-panel" id="sub-panel-tools-sync" role="tabpanel">
-      <div class="format-hint">
-        <span class="hint-title">🔄 المزامنة والنسخ الاحتياطي</span>
-        <span class="hint-note">تصدير/استيراد الإعدادات، مزامنة مع السحابة</span>
-      </div>
-
-      <div class="btn-row" style="margin-bottom:10px;">
-        <button class="btn btn-primary" id="btn-sync-export">📥 تصدير جميع الإعدادات</button>
-        <button class="btn btn-secondary" id="btn-sync-import">📤 استيراد الإعدادات</button>
-      </div>
-
-      <div class="btn-row" style="margin-bottom:10px;">
-        <button class="btn btn-primary" id="btn-sync-cloud-backup">☁️ نسخ احتياطي سحابي</button>
-        <button class="btn btn-secondary" id="btn-sync-cloud-restore">⬇️ استعادة من السحابة</button>
-      </div>
-
-      <div id="sync-status" style="padding:10px;background:var(--ea-surface-2);border-radius:6px;font-size:11px;color:var(--muted);border:1px solid var(--ea-border);">
-        جاهز للمزامنة
-      </div>
-
-      <details style="margin-top:15px;">
-        <summary style="cursor:pointer;font-weight:700;color:var(--ea-brand);">📋 محتويات التصدير</summary>
-        <div style="font-size:11px;color:var(--muted);padding:10px;line-height:1.8;">
-          • selectors.json<br>
-          • secondVisitProfiles.json<br>
-          • إعدادات المظهر والسلوك<br>
-          • سجلات الجلسات (اختياري)<br>
-          • بيانات Telemetry (اختياري)
         </div>
       </details>
     </div>
@@ -1188,40 +1194,7 @@
 
   </div>
 
-    <!-- ══════════════════════════════════════════════════════ -->
-  <!-- TAB: الجلسة (Session Capture Viewer)                  -->
-  <!-- ══════════════════════════════════════════════════════ -->
-  <div class="tab-panel" id="panel-session" role="tabpanel">
-
-    <div class="format-hint">
-      <span class="hint-title">📸 تسجيل الجلسة لحظة بلحظة</span>
-      <span class="hint-note">لقطات دورية لكل صفحة أمر شغل (workorderreview) + الأزرار/الحقول/الكليكات — مرتبطة بمعرّف الأمر لتتبع البيانات قبل أي انتقال</span>
-    </div>
-
-    <div id="session-stat-bar" style="display:flex; gap:8px; flex-wrap:wrap; margin-bottom:10px; font-size:11px; color:#a8c7fa;">
-      <span id="session-stat-orders" style="background:#1e304b;padding:3px 8px;border-radius:4px;">أوامر: 0</span>
-      <span id="session-stat-pages"  style="background:#1e304b;padding:3px 8px;border-radius:4px;">لقطات صفحات: 0</span>
-      <span id="session-stat-events" style="background:#1e304b;padding:3px 8px;border-radius:4px;">أحداث: 0</span>
-    </div>
-
-    <div style="display:flex; gap:6px; margin-bottom:8px;">
-      <input type="text" id="search-session" placeholder="🔍 بحث بمعرّف الأمر أو الصفحة..." style="flex:1;"/>
-      <button class="btn btn-secondary" id="btn-refresh-session" style="flex:0 0 auto;padding:5px 10px;" title="تحديث">🔄</button>
-      <button class="btn btn-secondary" id="btn-export-session" style="flex:0 0 auto;padding:5px 10px;background:var(--success-bg);color:var(--success);border-color:var(--success);" title="تصدير كل الجلسات JSON">📥</button>
-      <button class="btn btn-danger"    id="btn-clear-session" style="flex:0 0 auto;padding:5px 10px;" title="مسح كل الجلسات">🗑</button>
-    </div>
-
-    <div class="session-container" id="session-list" style="max-height:430px;overflow-y:auto;">
-      <div class="empty-state"><div class="icon">📸</div><div>لا توجد جلسات مسجلة بعد — افتح صفحة أمر شغل (workorderreview) لتسجيل لحظاتها</div></div>
-    </div>
-
-    <div style="margin-top:8px; padding:6px 10px; background:var(--surface-2); border-radius:6px; font-size:10px; color:var(--muted); line-height:1.6;">
-      <b>ملاحظة:</b> التسجيل يتم تلقائياً من سكربت المحتوى كل 5 ثوانٍ + عند كل كليك مهم. تحتاج إعادة تحميل (F5) صفحة البورتال بعد تحديث الإضافة لتسجيل الدخول.
-    </div>
-
-  </div>
-
-<footer class="popup-footer">
+  <footer class="popup-footer">
     <span>مساعد التقفيلات — جلسة آمنة محلية 100%</span>
     <div class="araby-cover ar--footer" role="banner" aria-label="غلاف العربي">
       <div class="araby-cover-inner">

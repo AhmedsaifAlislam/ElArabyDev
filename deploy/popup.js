@@ -107,16 +107,21 @@ document.querySelectorAll('.tab-btn').forEach(btn => {
       }
     }
 
+    if (btn.dataset.tab === 'monitoring') {
+      loadSmartLog();
+      loadSmartLogDashboard();
+      initTelemetry();
+      loadSessionCaptures();
+    }
     if (btn.dataset.tab === 'logs') loadSmartLog();
-    if (btn.dataset.tab === 'smart-log') { loadSmartLogDashboard(); }
+    if (btn.dataset.tab === 'smart-log') loadSmartLogDashboard();
     if (btn.dataset.tab === 'tampermonkey') loadTampermonkeyScripts();
     if (btn.dataset.tab === 'session') loadSessionCaptures();
     if (btn.dataset.tab === 'dashboard') initDashboard();
     if (btn.dataset.tab === 'parts-search') initPartsSearch();
     if (btn.dataset.tab === 'telemetry') initTelemetry();
     if (btn.dataset.tab === 'n8n') initN8n();
-    if (btn.dataset.tab === 'excel-autofix') initExcelAutofix();
-    if (btn.dataset.tab === 'settings') initSettings();
+    if (btn.dataset.tab === 'settings') { initSettings(); initSync(); }
     if (btn.dataset.tab === 'sync') initSync();
     if (btn.dataset.tab === 'ai') initAI();
     if (btn.dataset.tab === 'financial') initFinancial();
@@ -1191,42 +1196,28 @@ function setExtractStatus(text, type = 'info') {
   el.innerHTML = `<span>${icons[type] || ''} ${escapeHtml(text)}</span>`;
 }
 
-// Open Orders page in portal
-document.getElementById('btn-extract-open-orders')?.addEventListener('click', async () => {
-  chrome.tabs.create({ url: 'https://elarabyportalpfs.powerappsportals.com/en-US/Orders/' });
-  setExtractStatus('جاري فتح صفحة Orders في البورتال...', 'info');
+// ══════════════════════════════════════════════════════════
+// MONITORING & DIAGNOSTICS SUB-NAV & CARD CONTROLS
+// ══════════════════════════════════════════════════════════
+document.querySelectorAll('.monitoring-pill-btn').forEach(pill => {
+  pill.addEventListener('click', () => {
+    document.querySelectorAll('.monitoring-pill-btn').forEach(p => p.classList.remove('active'));
+    pill.classList.add('active');
+    const targetId = pill.dataset.targetCard;
+    const targetCard = document.getElementById(targetId);
+    if (targetCard) {
+      targetCard.open = true;
+      targetCard.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+  });
 });
 
-// Extract all pages
-document.getElementById('btn-extract-run')?.addEventListener('click', async () => {
-  const tab = await getActiveTab();
-  if (!isPortalTab(tab)) {
-    setExtractStatus('افتح صفحة Orders في البورتال أولاً', 'warn');
-    return;
-  }
-  setExtractStatus('جاري استخراج كل الصفحات...', 'warn');
-  const resp = await sendToTab(tab.id, { action: 'EXTRACT_ALL_PAGES' }, 120000);
-  if (resp?.ok) {
-    setExtractStatus('✅ تم التحميل بنجاح', 'ok');
-  } else {
-    setExtractStatus(resp?.error || 'فشل الاستخراج', 'error');
-  }
+document.getElementById('btn-mon-expand-all')?.addEventListener('click', () => {
+  document.querySelectorAll('.monitoring-card').forEach(card => card.open = true);
 });
 
-// Extract current page only
-document.getElementById('btn-extract-current-page')?.addEventListener('click', async () => {
-  const tab = await getActiveTab();
-  if (!isPortalTab(tab)) {
-    setExtractStatus('افتح صفحة Orders في البورتال أولاً', 'warn');
-    return;
-  }
-  setExtractStatus('جاري استخراج الصفحة الحالية...', 'warn');
-  const resp = await sendToTab(tab.id, { action: 'EXTRACT_CURRENT_PAGE' }, 30000);
-  if (resp?.ok) {
-    setExtractStatus(`✅ تم تحميل ${resp.count || 0} بلاغ`, 'ok');
-  } else {
-    setExtractStatus(resp?.error || 'فشل الاستخراج', 'error');
-  }
+document.getElementById('btn-mon-collapse-all')?.addEventListener('click', () => {
+  document.querySelectorAll('.monitoring-card').forEach(card => card.open = false);
 });
 
 // ══════════════════════════════════════════════════════════
