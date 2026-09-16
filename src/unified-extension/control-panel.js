@@ -66,18 +66,32 @@
     }) || null;
   }
 
-  async function ensureReady() {
-    for (let i = 0; i < 100; i++) {
-      if (typeof findFirst !== 'undefined') {
+  function findFirst(list) {
+    if (!list) return null;
+    const arr = Array.isArray(list) ? list : [list];
+    for (const s of arr) {
+      if (!s) continue;
+      if (s instanceof HTMLElement) return s;
+      if (typeof s === 'string') {
         try {
-          if (typeof loadSelectors === 'function') CFG = await loadSelectors();
+          const el = document.querySelector(s);
+          if (el) return el;
         } catch (_) {}
-        if (!CFG) CFG = getFallbackCfg();
-        return true;
       }
-      await new Promise(r => setTimeout(r, 150));
     }
-    return false;
+    return null;
+  }
+
+  async function ensureReady() {
+    try {
+      if (typeof loadSelectors === 'function') {
+        CFG = await loadSelectors();
+      }
+    } catch (_) {}
+    if (!CFG) {
+      CFG = getFallbackCfg();
+    }
+    return true;
   }
 
   function getFallbackCfg() {
@@ -192,7 +206,7 @@
   function injectPanel() {
     const host = document.createElement('div');
     host.id = PANEL_ID;
-    const shadow = host.attachShadow({ mode: 'closed' });
+    const shadow = host.attachShadow({ mode: 'open' });
 
     const saved = loadState();
 
@@ -291,6 +305,7 @@
 <div class="cp-body" id="cp-body">
   <div class="cp-tab" data-page="PAGE_1" id="tab-p1">
     <div class="cp-tab-title">📋 الصفحة الأولى — بيانات الجهاز</div>
+    <button class="cp-btn cp-btn-inject" id="btn-default-p1" type="button" style="margin-bottom:6px">📦 تعبئة بيانات افتراضية (زيارة ثانية)</button>
     <label class="cp-check"><input type="checkbox" id="chk-duplicate" checked> <span>تكرار بيانات الجهاز (model→model2, serial→serial2)</span></label>
     <label class="cp-check"><input type="checkbox" id="chk-next1" checked> <span>الانتقال للصفحة التالية</span></label>
     <button class="cp-btn cp-btn-exec" id="btn-exec1">▶ تنفيذ</button>
@@ -368,23 +383,80 @@
       let total = 0;
 
       rows.forEach(tr => {
-        const name = tr.getAttribute('data-name') || '';
+        let rawName = tr.getAttribute('data-name') || '';
+
+        const codeTd = tr.querySelector('td[data-attribute="ats_productcode"], td[data-attribute="productnumber"], td[data-attribute*="code"]');
+        const prodTd = tr.querySelector('td[data-attribute="msdyn_product"], td[data-attribute*="product"]:not([data-attribute*="code"]):not([data-attribute*="price"])');
+        const qtyTd = tr.querySelector('td[data-attribute="ats_quantity"], td[data-attribute="quantity"]');
         const priceTd = tr.querySelector('td[data-attribute="ats_price"]');
         const totalTd = tr.querySelector('td[data-attribute="ats_totalprice"]');
+
+        let code = '';
+        if (codeTd) {
+          code = (codeTd.getAttribute('data-value') || codeTd.innerText || '').trim();
+        }
+
+        let name = '';
+        if (prodTd) {
+          name = (prodTd.getAttribute('data-value') || prodTd.innerText || '').trim();
+        }
+
+        // If code or name not in specific cells, extract from data-name or tr text
+        if (!code && !name && rawName) {
+          // Check if data-name is formatted like "CODE (NAME)" or "CODE_ (NAME)" or "CODE - NAME"
+          const parenMatch = rawName.match(/^([^(]+?)\s*\((.+)\)\s*$/);
+          if (parenMatch) {
+            code = parenMatch[1].trim();
+            name = parenMatch[2].trim();
+          } else {
+            const dashMatch = rawName.match(/^([^-]+?)\s*-\s*(.+)$/);
+            if (dashMatch) {
+              code = dashMatch[1].trim();
+              name = dashMatch[2].trim();
+            } else {
+              name = rawName.trim();
+            }
+          }
+        } else if (!name && rawName) {
+          name = rawName.trim();
+        } else if (!code && rawName && name && rawName !== name) {
+          code = rawName.replace(name, '').replace(/[()_-]/g, '').trim();
+        }
+
+        let qty = 1;
+        if (qtyTd) {
+          const qVal = parseFloat((qtyTd.getAttribute('data-value') || qtyTd.innerText || '1').replace(/[^0-9.]/g, ''));
+          if (!isNaN(qVal) && qVal > 0) qty = qVal;
+        }
 
         let priceVal = 0;
         let totalVal = 0;
 
         if (priceTd) {
-          try { priceVal = JSON.parse(priceTd.getAttribute('data-value') || '{}').Value || 0; } catch(_) {}
+          try { priceVal = JSON.parse(priceTd.getAttribute('data-value') || '{}').Value || 0; } catch(_) {
+            priceVal = parseFloat((priceTd.getAttribute('data-value') || priceTd.innerText || '0').replace(/[^0-9.]/g, '')) || 0;
+          }
         }
         if (totalTd) {
-          try { totalVal = JSON.parse(totalTd.getAttribute('data-value') || '{}').Value || 0; } catch(_) {}
+          try { totalVal = JSON.parse(totalTd.getAttribute('data-value') || '{}').Value || 0; } catch(_) {
+            totalVal = parseFloat((totalTd.getAttribute('data-value') || totalTd.innerText || '0').replace(/[^0-9.]/g, '')) || 0;
+          }
         }
 
-        if (name && (priceVal > 0 || totalVal > 0)) {
-          parts.push({ name, price: priceVal, total: totalVal });
-          total += totalVal;
+        // If unit price is 0 but line total and qty exist, deduce unit price
+        if (priceVal === 0 && totalVal > 0 && qty > 0) {
+          priceVal = totalVal / qty;
+        }
+
+        if ((name || code) && (priceVal > 0 || totalVal > 0 || tr.innerText.trim().length > 0)) {
+          parts.push({
+            code: code || '',
+            name: name || rawName || '',
+            price: priceVal,
+            qty: qty,
+            total: totalVal || (priceVal * qty)
+          });
+          total += (totalVal || (priceVal * qty));
         }
       });
 
@@ -392,6 +464,45 @@
     }
 
     return { parts: [], total: 0 };
+  }
+
+  function readOfficialSparePartsTotal() {
+    let el = document.querySelector('#ldv_originaltotalusedsparepartscost, input[name*="originaltotalusedsparepartscost"]');
+    if (!el) {
+      const iframes = document.querySelectorAll('iframe');
+      for (const ifr of iframes) {
+        try {
+          const iDoc = ifr.contentDocument || ifr.contentWindow?.document;
+          if (iDoc) {
+            el = iDoc.querySelector('#ldv_originaltotalusedsparepartscost, input[name*="originaltotalusedsparepartscost"]');
+            if (el) break;
+          }
+        } catch (_) {}
+      }
+    }
+    if (el) {
+      const raw = (el.value || el.innerText || '').replace(/[^0-9.]/g, '');
+      const val = parseFloat(raw);
+      return isNaN(val) ? 0 : val;
+    }
+    return 0;
+  }
+
+  function readSparePartsStatusFromPage() {
+    let el = document.getElementById('ats_sparepartsstatus') || document.querySelector('select[name*="sparepartsstatus"], select[aria-label*="قطع الغيار"]');
+    if (!el) {
+      const iframes = document.querySelectorAll('iframe');
+      for (const ifr of iframes) {
+        try {
+          const iDoc = ifr.contentDocument || ifr.contentWindow?.document;
+          if (iDoc) {
+            el = iDoc.getElementById('ats_sparepartsstatus') || iDoc.querySelector('select[name*="sparepartsstatus"], select[aria-label*="قطع الغيار"]');
+            if (el) break;
+          }
+        } catch (_) {}
+      }
+    }
+    return el ? String(el.value || '').trim() : '';
   }
 
   async function executePartsShortcut(shadow) {
@@ -404,14 +515,43 @@
       return;
     }
 
-    logEvent('PARTS', `تم العثور على ${parts.length} قطعة - الإجمالي: ${total}`);
+    const officialTotal = readOfficialSparePartsTotal();
+    const spareStatus = readSparePartsStatusFromPage();
 
-    const lines = ['يحتاج:'];
-    parts.forEach(p => {
-      lines.push(`[ ${p.name} ${p.price} ]`);
-    });
-    lines.push(`// والتكلفة [ ${total} ]`);
-    const text = lines.join('\n');
+    logEvent('PARTS', `تم العثور على ${parts.length} قطعة - إجمالي الجدول: ${total} - الإجمالي الرسمي: ${officialTotal} - الحالة: ${spareStatus}`);
+
+    let text = '';
+    if (spareStatus === '963400000') {
+      // مستعمل USED
+      if (officialTotal <= 0) {
+        // إذا كان الإجمالي الرسمي = 0 لا تكتب أي أسعار نهائياً
+        const blocks = parts.map(p => {
+          if (p.code && p.name) {
+            return `[ ${p.code} (${p.name}) ]`;
+          } else {
+            return `[ ${p.name || p.code} ]`;
+          }
+        }).join('');
+        text = `تم تغيير :${blocks}`;
+      } else {
+        // رسمي > 0 : كل قطعة بسعر الوحدة + والتكلفة [ الإجمالي الرسمي ]
+        const blocks = parts.map(p => {
+          if (p.code && p.name) {
+            return `[ ${p.code} (${p.name}) ${p.price} ]`;
+          } else {
+            return `[ ${p.name || p.code} ${p.price} ]`;
+          }
+        }).join('');
+        text = `تم تغيير :${blocks}// والتكلفة [ ${officialTotal} ]`;
+      }
+    } else {
+      // منتظر WAITING (963400001 أو أي افتراضي آخر)
+      const lines = parts.map(p => {
+        const title = (p.code && p.name) ? `${p.code} (${p.name})` : (p.name || p.code);
+        return `يحتاج ${title} بالتكلفة ${p.price}`;
+      });
+      text = lines.join('\n');
+    }
 
     logEvent('PARTS', `النص:\n${text}`);
 
@@ -430,10 +570,20 @@
     }
 
     if (notesEl) {
+      const currentVal = (notesEl.value || '').trim();
+      let textToSet = text;
+      if (currentVal) {
+        if (!currentVal.includes(text)) {
+          textToSet = `${text}\n${currentVal}`;
+        } else {
+          textToSet = currentVal;
+        }
+      }
+
       if (typeof emulateUserInput === 'function') {
-        await emulateUserInput(notesEl, text);
+        await emulateUserInput(notesEl, textToSet);
       } else {
-        notesEl.value = text;
+        notesEl.value = textToSet;
         notesEl.dispatchEvent(new Event('input', { bubbles: true }));
         notesEl.dispatchEvent(new Event('change', { bubbles: true }));
       }
@@ -444,14 +594,16 @@
     }
 
     const amtEl = shadow.getElementById('cp-amount');
-    if (amtEl) amtEl.value = total;
+    if (amtEl) amtEl.value = officialTotal;
 
-    setStatus(shadow, `✅ ${parts.length} قطعة — الإجمالي: ${total} ج.م`, 'success');
+    setStatus(shadow, `✅ ${parts.length} قطعة — الإجمالي المعتمد: ${officialTotal} ج.م`, 'success');
   }
 
   function bindEvents(shadow) {
     shadow.getElementById('cp-toggle').onclick = () => { logEvent('CLICK', 'نقر على زر التبديل'); toggle(shadow); };
     shadow.getElementById('cp-dock').onclick = () => { logEvent('CLICK', 'نقر على زر الإرساء'); toggleDock(shadow); };
+    const defaultBtn = shadow.getElementById('btn-default-p1');
+    if (defaultBtn) defaultBtn.onclick = () => { logEvent('CLICK', 'نقر على تعبئة بيانات افتراضية'); fillDefaultDeviceData(shadow); };
     shadow.getElementById('btn-exec1').onclick = () => { logEvent('CLICK', 'نقر على تنفيذ الصفحة 1'); executePage1(shadow); };
     shadow.getElementById('btn-exec2').onclick = () => { logEvent('CLICK', 'نقر على تنفيذ الصفحة 2'); executePage2(shadow); };
     shadow.querySelectorAll('.p2-sc').forEach(btn => {
@@ -1001,33 +1153,271 @@
     }
   }
 
-  async function doDuplicate(shadow) {
-    logEvent('EXEC_PAGE1', 'تكرار بيانات الجهاز');
-    const modelEl = findFirst(CFG.modelInput) || findFieldByLabel(['الموديل الفعلي 1', 'الموديل الفعلي', 'Model']);
-    const modelVal = modelEl?.value?.trim();
-    if (!modelVal) { setStatus(shadow, '⚠️ لا توجد بيانات موديل', 'warn'); return; }
-    const serialEl = findFirst(CFG.serial) || findFieldByLabel(['الرقم المسلسل 1', 'الرقم المسلسل', 'Serial'], 'input');
-    const serialVal = serialEl?.value?.trim();
+  function isEmptyValue(val) {
+    if (val == null) return true;
+    if (typeof val === 'string') return val.trim() === '';
+    return false;
+  }
 
-    const model2El = findFirst(CFG.modelInput2) || findFieldByLabel(['الموديل الفعلي 2', 'Model 2']);
-    if (model2El) {
-      if (typeof fillPowerAppsLookup === 'function') {
-        await fillPowerAppsLookup(model2El, 'Model2', modelVal, CFG.modelBtn);
-        await sleep(800);
-      } else if (typeof emulateUserInput === 'function') {
-        await emulateUserInput(model2El, modelVal);
-      }
+  async function fillLookupField(inputEl, val, btnSel) {
+    if (!inputEl || !val) return false;
+    if (typeof window.fillPowerAppsLookup === 'function') {
+      try {
+        const res = await window.fillPowerAppsLookup(inputEl, inputEl.id || 'Lookup', val, btnSel);
+        if (res && res.ok !== false) return true;
+      } catch (_) {}
     }
-    const serial2El = findFirst(CFG.serial2) || findFieldByLabel(['الرقم المسلسل 2', 'Serial 2'], 'input');
-    if (serial2El && serialVal) {
+    if (typeof window.AutoFillEngine?.Lookups?.fillPowerAppsLookup === 'function') {
+      try {
+        const res = await window.AutoFillEngine.Lookups.fillPowerAppsLookup(inputEl, val, btnSel);
+        if (res && res.ok !== false) return true;
+      } catch (_) {}
+    }
+    try {
       if (typeof emulateUserInput === 'function') {
-        await emulateUserInput(serial2El, serialVal);
+        await emulateUserInput(inputEl, val);
       } else {
-        serial2El.value = serialVal;
-        serial2El.dispatchEvent(new Event('input', { bubbles: true }));
+        inputEl.value = val;
+        inputEl.dispatchEvent(new Event('input', { bubbles: true }));
+        inputEl.dispatchEvent(new Event('change', { bubbles: true }));
+      }
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  async function fillInputField(inputEl, val) {
+    if (!inputEl || val == null) return false;
+    try {
+      if (typeof emulateUserInput === 'function') {
+        await emulateUserInput(inputEl, val);
+      } else {
+        inputEl.value = val;
+        inputEl.dispatchEvent(new Event('input', { bubbles: true }));
+        inputEl.dispatchEvent(new Event('change', { bubbles: true }));
+      }
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  function fillSelectField(selectEl, targetValOrText) {
+    if (!selectEl || selectEl.tagName !== 'SELECT' || !targetValOrText) return false;
+    try {
+      const target = String(targetValOrText).trim().toLowerCase();
+      const opts = Array.from(selectEl.options || []);
+      const match = opts.find(o => o.value === target || o.text.trim().toLowerCase() === target) ||
+                    opts.find(o => o.text.trim().toLowerCase().includes(target)) ||
+                    opts.find(o => target.includes(o.text.trim().toLowerCase()) && o.text.trim() !== '');
+      if (match) {
+        selectEl.value = match.value;
+        selectEl.dispatchEvent(new Event('change', { bubbles: true }));
+        return true;
+      }
+    } catch (_) {}
+    return false;
+  }
+
+  let _svProfilesCache = null;
+  async function loadSvProfiles() {
+    if (_svProfilesCache) return _svProfilesCache;
+    try {
+      const resp = await fetch(chrome.runtime.getURL('secondVisitProfiles.json'));
+      if (resp.ok) {
+        _svProfilesCache = await resp.json();
+        return _svProfilesCache;
+      }
+    } catch (e) {
+      logEvent('DEFAULT_P1', `خطأ تحميل secondVisitProfiles.json: ${e.message || e}`);
+    }
+    return null;
+  }
+
+  async function doDuplicate(shadow) {
+    logEvent('EXEC_PAGE1', 'بدء فحص تكرار بيانات الجهاز (AC)');
+
+    // AC / Dual-unit Guard: verify device is AC using reliable existing detector
+    const isAC = getDeviceAC();
+    if (!isAC) {
+      logEvent('EXEC_PAGE1', 'تخطي التكرار: الجهاز ليس تكييف');
+      setStatus(shadow, '⚠️ التكرار متاح للتكييف فقط', 'warn');
+      return;
+    }
+
+    const modelEl = findFirst(CFG.modelInput) || findFieldByLabel(['الموديل الفعلي 1', 'الموديل الفعلي', 'Model']);
+    const model2El = findFirst(CFG.modelInput2) || findFieldByLabel(['الموديل الفعلي 2', 'Model 2']);
+    const serialEl = findFirst(CFG.serial) || findFieldByLabel(['الرقم المسلسل 1', 'الرقم المسلسل', 'Serial'], 'input');
+    const serial2El = findFirst(CFG.serial2) || findFieldByLabel(['الرقم المسلسل 2', 'Serial 2'], 'input');
+
+    const model1Val = (modelEl?.value || modelEl?.getAttribute?.('value') || '').trim();
+    const model2Val = (model2El?.value || model2El?.getAttribute?.('value') || '').trim();
+    const serial1Val = (serialEl?.value || serialEl?.getAttribute?.('value') || '').trim();
+    const serial2Val = (serial2El?.value || serial2El?.getAttribute?.('value') || '').trim();
+
+    let modelDuplicated = false;
+    let serialDuplicated = false;
+    let preservedModel = false;
+    let preservedSerial = false;
+
+    // Rule: Model 1 -> Model 2
+    if (!isEmptyValue(model1Val)) {
+      if (isEmptyValue(model2Val)) {
+        if (model2El) {
+          logEvent('EXEC_PAGE1', `نسخ الموديل 1 إلى الموديل 2: "${model1Val}"`);
+          await fillLookupField(model2El, model1Val, CFG.modelBtn);
+          modelDuplicated = true;
+        }
+      } else {
+        logEvent('EXEC_PAGE1', `الموديل 2 يحتوي بالفعل على قيمة: "${model2Val}" — الحفاظ عليها وعدم التعديل`);
+        preservedModel = true;
+      }
+    } else {
+      logEvent('EXEC_PAGE1', 'الموديل 1 فارغ — عدم اختراع قيمة وعدم تعديل الموديل 2');
+    }
+
+    // Rule: Serial 1 -> Serial 2
+    if (!isEmptyValue(serial1Val)) {
+      if (isEmptyValue(serial2Val)) {
+        if (serial2El) {
+          logEvent('EXEC_PAGE1', `نسخ السيريال 1 إلى السيريال 2: "${serial1Val}"`);
+          await fillInputField(serial2El, serial1Val);
+          serialDuplicated = true;
+        }
+      } else {
+        logEvent('EXEC_PAGE1', `السيريال 2 يحتوي بالفعل على قيمة: "${serial2Val}" — الحفاظ عليها وعدم التعديل`);
+        preservedSerial = true;
+      }
+    } else {
+      logEvent('EXEC_PAGE1', 'السيريال 1 فارغ — عدم اختراع قيمة وعدم تعديل السيريال 2');
+    }
+
+    if (modelDuplicated || serialDuplicated) {
+      setStatus(shadow, '✅ تم تكرار بيانات التكييف للحقول الفارغة فقط', 'success');
+    } else if (preservedModel || preservedSerial) {
+      setStatus(shadow, 'ℹ️ الحقول ممتلئة بالفعل (تم الحفاظ عليها)', 'success');
+    } else {
+      setStatus(shadow, '⚠️ لا توجد بيانات في الموديل 1 أو السيريال 1 للنسخ', 'warn');
+    }
+  }
+
+  async function fillDefaultDeviceData(shadow) {
+    logEvent('DEFAULT_P1', 'بدء طلب تعبئة البيانات الافتراضية');
+    setStatus(shadow, '⏳ جاري تحميل البيانات الافتراضية...');
+
+    const svData = await loadSvProfiles();
+    if (!svData || !svData.profiles) {
+      setStatus(shadow, '❌ تعذر تحميل secondVisitProfiles.json', 'error');
+      return;
+    }
+
+    const deviceHint = (readDeviceHint() || (typeof readDeviceTypeFromPage === 'function' ? readDeviceTypeFromPage() : '') || '').trim();
+    logEvent('DEFAULT_P1', `deviceHint="${deviceHint}"`);
+
+    let matchedProfile = null;
+    if (deviceHint) {
+      matchedProfile = svData.profiles.find(p => p.pattern && new RegExp(p.pattern, 'i').test(deviceHint));
+    }
+    if (!matchedProfile && getDeviceAC()) {
+      matchedProfile = svData.profiles.find(p => p.name === 'تكييف');
+    }
+    if (!matchedProfile && svData.profiles.length > 0) {
+      matchedProfile = svData.profiles[0];
+    }
+
+    if (!matchedProfile) {
+      setStatus(shadow, '⚠️ لم يتم العثور على بروفايل مطابق', 'warn');
+      return;
+    }
+
+    const p1 = matchedProfile.page1Defaults || {};
+    let filledCount = 0;
+    let preservedCount = 0;
+
+    // 1. العلامة التجارية (Brand) - fill only if empty
+    const brandEl = findFirst(CFG.brandInput) || findFieldByLabel(['العلامة التجاريه', 'العلامة التجارية', 'Brand']);
+    if (brandEl) {
+      const curVal = (brandEl.value || brandEl.getAttribute?.('value') || '').trim();
+      if (isEmptyValue(curVal) && p1.brand) {
+        const ok = await fillLookupField(brandEl, p1.brand, CFG.brandBtn);
+        if (ok) filledCount++;
+      } else if (!isEmptyValue(curVal)) {
+        preservedCount++;
       }
     }
-    setStatus(shadow, '✅ تم تكرار بيانات الجهاز', 'success');
+
+    // 2. الموديل الفعلي الأول (Model 1) - fill only if empty
+    const model1El = findFirst(CFG.modelInput) || findFieldByLabel(['الموديل الفعلي 1', 'الموديل الفعلي', 'Model']);
+    if (model1El) {
+      const curVal = (model1El.value || model1El.getAttribute?.('value') || '').trim();
+      if (isEmptyValue(curVal) && p1.model1) {
+        const ok = await fillLookupField(model1El, p1.model1, CFG.modelBtn);
+        if (ok) filledCount++;
+      } else if (!isEmptyValue(curVal)) {
+        preservedCount++;
+      }
+    }
+
+    // 3. الموديل الفعلي الثاني (Model 2) - fill only if empty
+    const model2El = findFirst(CFG.modelInput2) || findFieldByLabel(['الموديل الفعلي 2', 'Model 2']);
+    if (model2El && (p1.model2 || matchedProfile.hasDualUnits)) {
+      const curVal = (model2El.value || model2El.getAttribute?.('value') || '').trim();
+      const targetModel2 = p1.model2 || p1.model1;
+      if (isEmptyValue(curVal) && targetModel2) {
+        const ok = await fillLookupField(model2El, targetModel2, CFG.modelBtn);
+        if (ok) filledCount++;
+      } else if (!isEmptyValue(curVal)) {
+        preservedCount++;
+      }
+    }
+
+    // 4. الرقم المسلسل الأول (Serial 1) - fill only if empty
+    const serial1El = findFirst(CFG.serial) || findFieldByLabel(['الرقم المسلسل 1', 'الرقم المسلسل', 'Serial'], 'input');
+    if (serial1El) {
+      const curVal = (serial1El.value || serial1El.getAttribute?.('value') || '').trim();
+      if (isEmptyValue(curVal) && p1.serial != null) {
+        const ok = await fillInputField(serial1El, p1.serial);
+        if (ok) filledCount++;
+      } else if (!isEmptyValue(curVal)) {
+        preservedCount++;
+      }
+    }
+
+    // 5. الرقم المسلسل الثاني (Serial 2) - fill only if empty
+    const serial2El = findFirst(CFG.serial2) || findFieldByLabel(['الرقم المسلسل 2', 'Serial 2'], 'input');
+    if (serial2El && (p1.serial2 != null || matchedProfile.hasDualUnits)) {
+      const curVal = (serial2El.value || serial2El.getAttribute?.('value') || '').trim();
+      const targetSerial2 = p1.serial2 != null ? p1.serial2 : p1.serial;
+      if (isEmptyValue(curVal) && targetSerial2 != null) {
+        const ok = await fillInputField(serial2El, targetSerial2);
+        if (ok) filledCount++;
+      } else if (!isEmptyValue(curVal)) {
+        preservedCount++;
+      }
+    }
+
+    // 6. حالة الضمان (Warranty Status) - fill only if empty or default unselected
+    const statusEl = findFirst(CFG.statusSelect) || findFieldByLabel(['حالة الضمان', 'Warranty Status'], 'select');
+    if (statusEl && statusEl.tagName === 'SELECT') {
+      const curVal = (statusEl.value || '').trim();
+      if (isEmptyValue(curVal) || curVal === '0') {
+        const targetStatus = svData.defaultStatus || 'Out warranty';
+        const ok = fillSelectField(statusEl, targetStatus);
+        if (ok) filledCount++;
+      } else {
+        preservedCount++;
+      }
+    }
+
+    logEvent('DEFAULT_P1', `اكتمل: تم تعبئة ${filledCount} حقل، والحفاظ على ${preservedCount} حقل`);
+    if (filledCount > 0) {
+      setStatus(shadow, `✅ تم تعبئة ${filledCount} حقل افتراضي (${matchedProfile.name})`, 'success');
+    } else if (preservedCount > 0) {
+      setStatus(shadow, `ℹ️ جميع الحقول ممتلئة بالفعل (تم الحفاظ عليها)`, 'success');
+    } else {
+      setStatus(shadow, '⚠️ لم يتم العثور على حقول لتعبئتها', 'warn');
+    }
   }
 
   async function doNext(shadow) {
@@ -1183,13 +1573,7 @@
       }
 
       // 1. حقن أكواد الأعطال
-      let checkedCodes = shadow.querySelectorAll('.fault-cb:checked');
-      // لو مفيش حاجة مختارة، اختار الـ 4 كلهم
-      if (checkedCodes.length === 0) {
-        logEvent('EXEC_PAGE3', 'مفيش كود محدد — اختيار الكل');
-        shadow.querySelectorAll('.fault-cb').forEach(cb => cb.checked = true);
-        checkedCodes = shadow.querySelectorAll('.fault-cb:checked');
-      }
+      const checkedCodes = shadow.querySelectorAll('.fault-cb:checked');
       logEvent('EXEC_PAGE3', `عدد أكواد الأعطال: ${checkedCodes.length}`);
       for (const cb of checkedCodes) {
         const parts = cb.value.split(',');
@@ -1235,10 +1619,20 @@
             }
           }
           if (notesEl) {
+            const currentVal = (notesEl.value || '').trim();
+            let textToSet = combined;
+            if (currentVal) {
+              if (!currentVal.includes(combined)) {
+                textToSet = `${currentVal}\n${combined}`;
+              } else {
+                textToSet = currentVal;
+              }
+            }
+
             if (typeof emulateUserInput === 'function') {
-              await emulateUserInput(notesEl, combined);
+              await emulateUserInput(notesEl, textToSet);
             } else {
-              notesEl.value = combined;
+              notesEl.value = textToSet;
               notesEl.dispatchEvent(new Event('input', { bubbles: true }));
               notesEl.dispatchEvent(new Event('change', { bubbles: true }));
             }
