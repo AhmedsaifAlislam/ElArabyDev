@@ -274,6 +274,7 @@ function getCSS() {
 .cp-maintenance{color:#a8c7fa;font-size:11px}
 .cp-empty{color:#445577;padding:5px;text-align:center;font-size:10px}
 .cp-notes-title{font-weight:700;color:#fbbf24;margin:6px 0 3px;padding-top:5px;border-top:1px solid #232840;font-size:11px}
+.cp-model-note{display:none;background:#7c4d00;border:1px solid #f59e0b;border-radius:6px;padding:6px 8px;margin-bottom:8px;font-size:11px;color:#fef3c7;line-height:1.5;text-align:center}
 .cp-note-item{background:#0f1a2e;padding:3px 6px;border-radius:5px;margin-bottom:1px;cursor:grab;font-size:10px;line-height:1.4;border:1px solid transparent;transition:all .12s;display:flex;align-items:flex-start;gap:4px;user-select:none}
 .cp-note-item:hover{background:#162a45;border-color:#2a4a6a}
 .cp-note-item:active{cursor:grabbing}
@@ -313,6 +314,7 @@ function getCSS() {
 <div class="cp-body" id="cp-body">
   <div class="cp-tab" data-page="PAGE_1" id="tab-p1">
     <div class="cp-tab-title">📋 الصفحة الأولى — بيانات الجهاز</div>
+    <div id="cp-model-note" class="cp-model-note" role="note"></div>
     <button class="cp-btn cp-btn-inject" id="btn-default-p1" type="button" style="margin-bottom:6px">📦 تعبئة بيانات افتراضية (زيارة ثانية)</button>
     <label class="cp-check"><input type="checkbox" id="chk-duplicate" checked> <span>تكرار بيانات الجهاز (model→model2, serial→serial2)</span></label>
     <label class="cp-check"><input type="checkbox" id="chk-next1" checked> <span>الانتقال للصفحة التالية</span></label>
@@ -971,6 +973,15 @@ function getCSS() {
     shadow.querySelectorAll('.cp-tab').forEach(t => t.classList.remove('active'));
     const tab = shadow.querySelector(`.cp-tab[data-page="${page}"]`);
     if (tab) tab.classList.add('active');
+    if (page === 'PAGE_1') {
+      renderModelNote(shadow);
+    } else {
+      const noteEl = shadow.getElementById('cp-model-note');
+      if (noteEl) {
+        noteEl.style.display = 'none';
+        noteEl.textContent = '';
+      }
+    }
     if (page === 'PAGE_2') updateDeviceInfo(shadow);
     if (page === 'PAGE_3') updateDeviceCodes(shadow);
   }
@@ -1249,6 +1260,52 @@ function getCSS() {
       logEvent('DEFAULT_P1', `خطأ تحميل secondVisitProfiles.json: ${e.message || e}`);
     }
     return null;
+  }
+
+  let _modelNotesCache = null;
+  async function loadModelNotes() {
+    if (_modelNotesCache) return _modelNotesCache;
+    try {
+      const resp = await fetch(chrome.runtime.getURL('model-notes.json'));
+      if (resp.ok) {
+        _modelNotesCache = await resp.json();
+        return _modelNotesCache;
+      }
+    } catch (e) {
+      logEvent('MODEL_NOTE', `fetch failed: ${e.message || e}`);
+    }
+    return null;
+  }
+
+  let _lastModelNoteValue = '';
+  async function renderModelNote(shadow) {
+    const el = shadow.getElementById('cp-model-note');
+    if (!el) return;
+    const mEl = findFirst(CFG.modelInput) || findFieldByLabel(['الموديل الفعلي 1', 'Model']);
+    const raw = ((mEl?.value || mEl?.getAttribute?.('value') || '').trim().split(' _ ')[0].trim());
+    if (!raw) {
+      el.style.display = 'none';
+      el.textContent = '';
+      _lastModelNoteValue = '';
+      return;
+    }
+    if (raw === _lastModelNoteValue) return;
+    const data = await loadModelNotes();
+    if (!data) {
+      el.style.display = 'none';
+      el.textContent = '';
+      return;
+    }
+    const hit = data.find(e => (e.model || '').trim() === raw);
+    if (!hit) {
+      el.style.display = 'none';
+      el.textContent = '';
+      _lastModelNoteValue = raw;
+      return;
+    }
+    el.textContent = hit.message;
+    el.style.display = 'block';
+    _lastModelNoteValue = raw;
   }
 
   async function doDuplicate(shadow) {
@@ -1716,6 +1773,13 @@ function getCSS() {
       if (page !== lastPage) {
         lastPage = page;
         if (host && host.shadowRoot) updateTab(host.shadowRoot);
+      } else if (page === 'PAGE_1' && host && host.shadowRoot) {
+        // Check for model change and re-render note
+        const mEl = findFirst(CFG.modelInput) || findFieldByLabel(['الموديل الفعلي 1', 'Model']);
+        const cur = ((mEl?.value || mEl?.getAttribute?.('value') || '').trim().split(' _ ')[0].trim());
+        if (cur !== _lastModelNoteValue) {
+          renderModelNote(host.shadowRoot);
+        }
       } else if (page === 'PAGE_2' && host && host.shadowRoot) {
         const warn = host.shadowRoot.getElementById('cp-install-warn');
         if (warn) {
