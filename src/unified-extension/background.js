@@ -324,29 +324,54 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     // Storage proxy — Edge Tracking Prevention blocks chrome.storage.local from content scripts
     case 'STORAGE_GET':
       chrome.storage.local.get(msg.keys || {}, (data) => {
-        sendResponse({ ok: true, data });
+        if (chrome.runtime.lastError) {
+          sendResponse({ ok: false, error: chrome.runtime.lastError.message });
+          appendTrace({ event: 'STORAGE_ERROR', operation: 'GET', error: chrome.runtime.lastError.message, timestamp: new Date().toISOString() }).catch(()=>{});
+        } else {
+          sendResponse({ ok: true, data });
+        }
       });
       return true;
 
     case 'STORAGE_SET':
       if (msg.append && msg.key) {
         chrome.storage.local.get(msg.key, (data) => {
+          if (chrome.runtime.lastError) {
+            sendResponse({ ok: false, error: chrome.runtime.lastError.message });
+            appendTrace({ event: 'STORAGE_ERROR', operation: 'SET', error: chrome.runtime.lastError.message, timestamp: new Date().toISOString() }).catch(()=>{});
+            return;
+          }
           const existing = data[msg.key] || [];
           const combined = existing.concat(msg.data || []);
           chrome.storage.local.set({ [msg.key]: combined }, () => {
-            sendResponse({ ok: true });
+            if (chrome.runtime.lastError) {
+              sendResponse({ ok: false, error: chrome.runtime.lastError.message });
+              appendTrace({ event: 'STORAGE_ERROR', operation: 'SET', error: chrome.runtime.lastError.message, timestamp: new Date().toISOString() }).catch(()=>{});
+            } else {
+              sendResponse({ ok: true });
+            }
           });
         });
       } else {
         chrome.storage.local.set(msg.data || {}, () => {
-          sendResponse({ ok: true });
+          if (chrome.runtime.lastError) {
+            sendResponse({ ok: false, error: chrome.runtime.lastError.message });
+            appendTrace({ event: 'STORAGE_ERROR', operation: 'SET', error: chrome.runtime.lastError.message, timestamp: new Date().toISOString() }).catch(()=>{});
+          } else {
+            sendResponse({ ok: true });
+          }
         });
       }
       return true;
 
     case 'STORAGE_REMOVE':
       chrome.storage.local.remove(msg.keys || [], () => {
-        sendResponse({ ok: true });
+        if (chrome.runtime.lastError) {
+          sendResponse({ ok: false, error: chrome.runtime.lastError.message });
+          appendTrace({ event: 'STORAGE_ERROR', operation: 'REMOVE', error: chrome.runtime.lastError.message, timestamp: new Date().toISOString() }).catch(()=>{});
+        } else {
+          sendResponse({ ok: true });
+        }
       });
       return true;
   }

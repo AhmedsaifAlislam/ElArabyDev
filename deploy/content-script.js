@@ -20,13 +20,15 @@ async function storageGet(keys) {
 }
 async function storageSet(data) {
   try {
-    await chrome.runtime.sendMessage({ type: 'STORAGE_SET', data });
-  } catch(e) {}
+    const resp = await chrome.runtime.sendMessage({ type: 'STORAGE_SET', data });
+    return { ok: resp?.ok === true, error: resp?.error };
+  } catch(e) { return { ok: false, error: String(e) }; }
 }
 async function storageRemove(keys) {
   try {
-    await chrome.runtime.sendMessage({ type: 'STORAGE_REMOVE', keys });
-  } catch(e) {}
+    const resp = await chrome.runtime.sendMessage({ type: 'STORAGE_REMOVE', keys });
+    return { ok: resp?.ok === true, error: resp?.error };
+  } catch(e) { return { ok: false, error: String(e) }; }
 }
 
 function sendSmartLog(eventType, details) {

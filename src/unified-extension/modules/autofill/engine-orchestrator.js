@@ -146,9 +146,55 @@ window.AutoFillEngine = window.AutoFillEngine || {};
       chrome.runtime.sendMessage({ type: 'BATCH_DONE_STORAGE' }).catch(()=>{});
       return;
     }
-    traceEvent('START_NEXT_TASK_ENTER', { queueLength: queue.length, nextOrderId: queue[0]?.orderId });
-    await storageSet({ currentTask: queue[0], taskQueue: queue.slice(1) });
-    traceEvent('CURRENT_TASK_SET', { taskId: queue[0]?.taskId, orderId: queue[0]?.orderId, queueLength: queue.length - 1 });
+    const task = queue[0];
+    const taskId = task?.taskId;
+    const orderId = task?.orderId;
+    const tabId = (typeof chrome !== 'undefined' && chrome.runtime?.id) ? chrome.runtime.id : null;
+    
+    traceEvent('QUEUE_WRITE_ATTEMPT', { taskId, orderId, tabId });
+    
+    const setResult = await storageSet({ currentTask: task, taskQueue: queue.slice(1) });
+    if (!setResult.ok) {
+      traceEvent('QUEUE_WRITE_FAILED', { 
+        taskId, 
+        orderId, 
+        expectedTaskId: taskId, 
+        expectedOrderId: orderId, 
+        expectedPresent: true, 
+        actualPresent: false, 
+        storageError: setResult.error 
+      });
+      return;
+    }
+    
+    const readResult = await storageGet({ currentTask: null });
+    const stored = readResult.currentTask;
+    const storedPresent = !!stored;
+    const taskIdMatch = storedPresent && stored.taskId === taskId;
+    const orderIdMatch = storedPresent && stored.orderId === orderId;
+    const verified = storedPresent && taskIdMatch && orderIdMatch;
+    
+    if (!verified) {
+      traceEvent('QUEUE_WRITE_FAILED', { 
+        taskId, 
+        orderId, 
+        expectedTaskId: taskId, 
+        expectedOrderId: orderId, 
+        expectedPresent: true, 
+        actualPresent: storedPresent, 
+        actualTaskId: stored?.taskId, 
+        actualOrderId: stored?.orderId,
+        taskIdMatch,
+        orderIdMatch,
+        storageError: readResult.error 
+      });
+      return;
+    }
+    
+    traceEvent('QUEUE_WRITE_VERIFIED', { taskId, orderId, tabId });
+    traceEvent('QUEUE_HANDOFF_EXPECTED', { taskId, orderId, tabId });
+    
+    traceEvent('CURRENT_TASK_SET', { taskId: task?.taskId, orderId: task?.orderId, queueLength: queue.length - 1 });
     traceEvent('OPEN_NEXT_TAB_REQUEST', { url: ORDERS_URL });
     try {
       await chrome.runtime.sendMessage({ type: 'OPEN_NEXT_TAB', url: ORDERS_URL });
