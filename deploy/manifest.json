@@ -108,6 +108,7 @@
         "shared/storage-proxy.js",
         "shared/ai-client.js",
         "control-panel.js",
+        "features/attachments/multi-uploader.js",
         "unified-dock.js"
       ],
       "run_at": "document_idle"

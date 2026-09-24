@@ -296,6 +296,12 @@ const Page2        = window.AutoFillEngine.Page2 || {};
 const Page3        = window.AutoFillEngine.Page3 || {};
 const Orchestrator = window.AutoFillEngine.Orchestrator || {};
 
+traceEvent('ORCHESTRATOR_READY', {
+  hasOrchestrator: !!window.AutoFillEngine?.Orchestrator,
+  hasProcessQueueOnLoad:
+    typeof window.AutoFillEngine?.Orchestrator?.processQueueOnLoad === 'function'
+});
+
 // Lookups
 const findSafeLookupButton     = Lookups.findSafeLookupButton;
 const dispatchClickSequence    = Lookups.dispatchClickSequence;
@@ -380,6 +386,7 @@ if (Orchestrator.registerMessageListener) {
   Orchestrator.registerMessageListener();
 }
 if (Orchestrator.processQueueOnLoad) {
+  traceEvent('PROCESS_QUEUE_ON_LOAD_INVOKED', { url: location.href });
   Orchestrator.processQueueOnLoad().catch(()=>{});
 }
 
