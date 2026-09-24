@@ -285,12 +285,12 @@ window.AutoFillEngine = window.AutoFillEngine || {};
             let clicked = false;
             for (const sel of selectors) {
               const btn = targetRow.querySelector(sel);
-              if (btn) { safeClick(btn, step.target); clicked = true; break; }
+              if (btn) { traceEvent('ORDER_ROW_CLICKED', { branch: 'workflow-click_row', tag: btn?.tagName || null, href: btn?.getAttribute?.('href') || null }); safeClick(btn, step.target); clicked = true; break; }
             }
             if (!clicked) {
                const a = targetRow.querySelector('a[href]');
-               if (a) { safeClick(a, 'Fallback Link in Row'); }
-               else { safeClick(targetRow, 'Row directly'); }
+               if (a) { traceEvent('ORDER_ROW_CLICKED', { branch: 'workflow-click_row', tag: a?.tagName || null, href: a?.getAttribute?.('href') || null }); safeClick(a, 'Fallback Link in Row'); }
+               else { traceEvent('ORDER_ROW_CLICKED', { branch: 'workflow-click_row', tag: targetRow?.tagName || null, href: targetRow?.getAttribute?.('href') || null }); safeClick(targetRow, 'Row directly'); }
             }
             break;
           }
@@ -298,13 +298,25 @@ window.AutoFillEngine = window.AutoFillEngine || {};
         }
         if (!rowFound) {
           const a = Array.from(document.querySelectorAll('a[href]')).find(l => (l.innerText||'').includes(matchText) || (l.href||'').toLowerCase().includes(matchText.toLowerCase()));
-          if (a) { safeClick(a, 'Fallback Global Link'); }
+          if (a) { traceEvent('ORDER_ROW_CLICKED', { branch: 'workflow-click_row', tag: a?.tagName || null, href: a?.getAttribute?.('href') || null }); safeClick(a, 'Fallback Global Link'); }
           else { warn(`[Engine] Row matching ${matchText} not found`); return false; }
         }
       }
       await sleep(400);
     }
     return true;
+  }
+
+  // ── ORDER NAVIGATION VERIFY (diagnostic only — no behavior change) ────────────
+  async function verifyOrderNavigation() {
+    try {
+      await sleep(2500);
+      const href = location.href || '';
+      traceEvent('ORDER_NAVIGATION_VERIFY', {
+        navigated: /workorderreview|followup/i.test(href),
+        href
+      });
+    } catch (_) {}
   }
 
   // ── ORDER FIND & OPEN ────────────────────────────────────────────────────────
@@ -318,7 +330,7 @@ window.AutoFillEngine = window.AutoFillEngine || {};
 
     if (cfg.workflows?.page1_search) {
       const success = await executeWorkflow('page1_search', { orderId }, cfg);
-      if (success) return true;
+      if (success) { await verifyOrderNavigation(); return true; }
       warn('[Engine] Workflow failed or timed out. Falling back to legacy search logic.');
     }
 
@@ -344,10 +356,12 @@ window.AutoFillEngine = window.AutoFillEngine || {};
         if ((row.innerText||'').includes(orderId)) {
           const v = (cfg.ordersViewLink || []).join(',');
           const vl = v ? row.querySelector(v) : null;
-          if (vl) { safeClick(vl, 'View Link'); return true; }
+          if (vl) { traceEvent('ORDER_ROW_CLICKED', { branch: 'legacy-view-link', tag: vl?.tagName || null, href: vl?.getAttribute?.('href') || null }); safeClick(vl, 'View Link'); await verifyOrderNavigation(); return true; }
           const a = row.querySelector('a[href]');
-          if (a) { safeClick(a, 'View Link a'); return true; }
+          if (a) { traceEvent('ORDER_ROW_CLICKED', { branch: 'legacy-a', tag: a?.tagName || null, href: a?.getAttribute?.('href') || null }); safeClick(a, 'View Link a'); await verifyOrderNavigation(); return true; }
+          traceEvent('ORDER_ROW_CLICKED', { branch: 'legacy-row', tag: row?.tagName || null, href: row?.getAttribute?.('href') || null });
           safeClick(row, 'Row');
+          await verifyOrderNavigation();
           return true;
         }
       }
@@ -355,8 +369,7 @@ window.AutoFillEngine = window.AutoFillEngine || {};
     }
 
     const a = Array.from(document.querySelectorAll('a[href]')).find(l => l.innerText?.includes(orderId) || l.href?.toLowerCase().includes(orderId.toLowerCase()));
-    if (a) { safeClick(a, 'Fallback Link'); return true; }
-    return false;
+    if (a) { traceEvent('ORDER_ROW_CLICKED', { branch: 'fallback', tag: a?.tagName || null, href: a?.getAttribute?.('href') || null }); safeClick(a, 'Fallback Link'); await verifyOrderNavigation(); return true; } return false;
   }
 
   // ── ROUTER EXECUTION ────────────────────────────────────────────────────────
