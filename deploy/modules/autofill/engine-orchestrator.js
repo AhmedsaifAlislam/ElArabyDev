@@ -400,6 +400,7 @@ window.AutoFillEngine = window.AutoFillEngine || {};
     }
 
     let feature = await getActivePageFeature();
+    traceEvent('ROUTER_FEATURE', { feature });
 
     if (feature === 'PAGE_1') {
       await sleep(800);
