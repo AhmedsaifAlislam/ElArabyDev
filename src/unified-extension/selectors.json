@@ -30,14 +30,14 @@
   ],
 
   "brandBtn": [
-    "button[aria-label*='Launch lookup modal']", // 1st occurrence near brand input
+    "button[aria-label*='Launch lookup modal']",
     "button.launchentitylookup",
     "button[aria-label*='العلامة التجاريه']",
     ".lookup-brand button"
   ],
 
   "modelBtn": [
-    "button[aria-label*='Launch lookup modal']", // 2nd occurrence near model input
+    "button[aria-label*='Launch lookup modal']",
     "button.launchentitylookup",
     "button[aria-label*='الموديل الفعلي']",
     ".lookup-model button"
