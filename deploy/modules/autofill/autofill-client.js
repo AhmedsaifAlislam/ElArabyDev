@@ -507,12 +507,16 @@
     updateSearchProgress(0, tasks.length, 0, 0);
 
     const delay = parseInt(searchDelaySlider?.value || 2000, 10);
+
     if (typeof window.traceEvent === 'function') window.traceEvent('START_QUEUE_SEND', { tabId: tab.id, queueLength: tasks.length, delay });
     const resp = await sendToTab(tab.id, { action: 'START_QUEUE', tasks, tabId: tab.id, delay });
     if (typeof window.traceEvent === 'function') window.traceEvent('START_QUEUE_RESPONSE', { ok: !resp.error, error: resp.error || null });
 
     if (resp.error) {
-      setSearchStatus('خطأ: ' + resp.error, 'error');
+      const msg = resp.error.includes('Receiving end does not exist') || resp.error.includes('Could not establish connection')
+        ? 'أعد تحميل صفحة البوابة (F5) ثم اضغط تشغيل متعدد تاني'
+        : resp.error;
+      setSearchStatus('خطأ: ' + msg, 'error');
       setBatchSearchUI(false);
       return;
     }

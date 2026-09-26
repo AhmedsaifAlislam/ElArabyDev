@@ -1,0 +1,143 @@
+- generic [ref=f9e1]:
+  - navigation [ref=f9e2]:
+    - generic [ref=f9e4]:
+      - paragraph [ref=f9e8]
+      - button "Toggle navigation" [ref=f9e9] [cursor=pointer]
+  - generic [ref=f9e16]:
+    - generic [ref=f9e18]:
+      - list [ref=f9e19]:
+        - listitem [ref=f9e20]:
+          - link "الصفحة الرئيسية" [ref=f9e21] [cursor=pointer]:
+            - /url: /en-US/
+        - listitem [ref=f9e22]: "> اوامر الشغل"
+      - generic [ref=f9e23]:
+        - heading "اوامر الشغل" [level=1] [ref=f9e24]
+        - alert "اوامر الشغل" [ref=f9e26]
+    - generic [ref=f9e35]:
+      - generic [ref=f9e37]:
+        - generic [ref=f9e38]:
+          - generic [ref=f9e39]: "Filter:"
+          - text: رقم الطلب
+        - generic [ref=f9e40]:
+          - generic [aria-hidden] [ref=f9e42]: 
+          - 'textbox "Filter: رقم الطلب" [ref=f9e43]'
+        - generic [ref=f9e44]:
+          - generic [ref=f9e45]: "Filter:"
+          - text: الرقم الأرضي
+        - generic [ref=f9e46]:
+          - generic [aria-hidden] [ref=f9e48]: 
+          - 'textbox "Filter: الرقم الأرضي" [ref=f9e49]'
+        - generic [ref=f9e50]:
+          - generic [ref=f9e51]: "Filter:"
+          - text: رقم الموبايل
+        - generic [ref=f9e52]:
+          - generic [aria-hidden] [ref=f9e54]: 
+          - 'textbox "Filter: رقم الموبايل" [ref=f9e55]'
+        - generic [ref=f9e56]:
+          - generic [ref=f9e57]: "Filter:"
+          - text: ملاحظات المكتب
+        - generic [ref=f9e59] [cursor=pointer]:
+          - textbox "Filter ملاحظات المكتب:" [ref=f9e60]
+          - generic [ref=f9e61]: "Filter ملاحظات المكتب:"
+        - generic [ref=f9e62]:
+          - generic [ref=f9e63]: "Filter:"
+          - text: رقم الحساب
+        - generic [ref=f9e64]:
+          - generic [aria-hidden] [ref=f9e66]: 
+          - 'textbox "Filter: رقم الحساب" [ref=f9e67]'
+        - generic [ref=f9e68]: تاريخ الحجز
+        - generic [ref=f9e69]:
+          - generic [ref=f9e70]: 
+          - text: 09/26/2026 - 09/29/2026
+        - button "بحث" [ref=f9e72] [cursor=pointer]
+      - generic [ref=f9e74]:
+        - generic [ref=f9e75]:
+          - list: 
+          - generic [ref=f9e76]:
+            - textbox "To search on partial text, use the asterisk (*) wildcard character." [ref=f9e77]:
+              - /placeholder: بحث
+              - text: CAS2026092653733593
+            - button "Search Results" [ref=f9e78] [cursor=pointer]:
+              - generic [ref=f9e80]: 
+            - button "استخراج" [ref=f9e82] [cursor=pointer]
+            - link "اضافة امر شغل صيانة" [ref=f9e84] [cursor=pointer]:
+              - /url: /WorkOrderCreate/
+            - link "اضافة امر شغل تركيب" [ref=f9e86] [cursor=pointer]:
+              - /url: /WorkOrderCreateInstallation/
+        - alert [ref=f9e148]: 1 records found
+        - table [ref=f9e88]:
+          - rowgroup [ref=f9e89]:
+            - row [ref=f9e90]:
+              - columnheader [ref=f9e91]:
+                - button "رقم الطلب" [ref=f9e92] [cursor=pointer]:
+                  - text: رقم الطلب
+                  - generic [ref=f9e93]: . sort descending
+              - columnheader [ref=f9e94]:
+                - button "اسم العميل" [ref=f9e95] [cursor=pointer]:
+                  - text: اسم العميل
+                  - generic [ref=f9e96]: . sort descending
+              - columnheader [ref=f9e97]:
+                - button "رقم العقار" [ref=f9e98] [cursor=pointer]:
+                  - text: رقم العقار
+                  - generic [ref=f9e99]: . sort descending
+              - columnheader [ref=f9e100]:
+                - button "العنوان" [ref=f9e101] [cursor=pointer]:
+                  - text: العنوان
+                  - generic [ref=f9e102]: . sort descending
+              - columnheader [ref=f9e103]:
+                - button "نوع المنتج" [ref=f9e104] [cursor=pointer]:
+                  - text: نوع المنتج
+                  - generic [ref=f9e105]: . sort descending
+              - columnheader [ref=f9e106]:
+                - button "شكوى العميل" [ref=f9e107] [cursor=pointer]:
+                  - text: شكوى العميل
+                  - generic [ref=f9e108]: . sort descending
+              - columnheader [ref=f9e109]:
+                - button "تاريخ الحجز" [ref=f9e110] [cursor=pointer]:
+                  - text: تاريخ الحجز
+                  - generic [aria-hidden] [ref=f9e111]: 
+                  - generic [ref=f9e112]: . sort descending
+              - columnheader "ملاحظات المكتب" [ref=f9e113]
+              - columnheader "ملاحظات الكول سنتر" [ref=f9e114]
+              - columnheader [ref=f9e115]:
+                - button "نوع الخدمة" [ref=f9e116] [cursor=pointer]:
+                  - text: نوع الخدمة
+                  - generic [ref=f9e117]: . sort descending
+              - columnheader [ref=f9e118]:
+                - button "يوجد شكوى" [ref=f9e119] [cursor=pointer]:
+                  - text: يوجد شكوى
+                  - generic [ref=f9e120]: . sort descending
+              - columnheader [ref=f9e121]:
+                - button "SAPرقم ال" [ref=f9e122] [cursor=pointer]:
+                  - text: SAPرقم ال
+                  - generic [ref=f9e123]: . sort descending
+              - columnheader [ref=f9e124]:
+                - button "جهة البلاغ" [ref=f9e125] [cursor=pointer]:
+                  - text: جهة البلاغ
+                  - generic [ref=f9e126]: . sort descending
+              - columnheader [ref=f9e127]:
+                - button "الفنى المسؤول" [ref=f9e128] [cursor=pointer]:
+                  - text: الفنى المسؤول
+                  - generic [ref=f9e129]: . sort descending
+              - columnheader "Actions" [ref=f9e130]
+          - rowgroup [ref=f9e149]:
+            - row [ref=f9e150]:
+              - cell "CAS2026092653733593" [ref=f9e151]
+              - cell "مدحت ابراهيم يونس" [ref=f9e152]
+              - cell "47" [ref=f9e153]
+              - cell "47,-اسماعيله تانى حى السلام -شارع طنطا وبحرى-حاره الطحاوى,0,0,منزل خاص -مكتبه الشربينى -محل صن صاين للمنظفات" [ref=f9e154]
+              - cell "ثلاجات" [ref=f9e155]
+              - cell "GR01 - (لا تبرد فى الكابينه نهائيا)" [ref=f9e156]
+              - cell "26/09/2026" [ref=f9e157]:
+                - time [ref=f9e158]: 26/09/2026
+              - cell [ref=f9e159]
+              - cell [ref=f9e160]
+              - cell "Maintenance" [ref=f9e161]: صيانة
+              - cell "No" [ref=f9e162]: لا
+              - cell "734615765" [ref=f9e163]
+              - cell "متنقلة" [ref=f9e164]
+              - cell [ref=f9e165]
+              - cell "action menu" [ref=f9e166]:
+                - button "action menu" [active] [ref=f9e168] [cursor=pointer]:
+                  - generic [aria-hidden] [ref=f9e169]: 
+        - text:    

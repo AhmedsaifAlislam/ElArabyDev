@@ -1,9 +1,9 @@
 {
-  "_comment": "عدّل الـ selectors حسب الـ DOM الحقيقي. أولوية الـ selectors من الأعلى للأدنى.",
+  "_comment": "Verified selectors from portal analysis (2026-09-26). Priority: top to bottom.",
 
   "serial": [
     "#ldv_serialnumber",
-    "#ldv_technicalserialnumber",
+    "textbox[aria-label*='الرقم المسلسل']",
     "[aria-label*='الرقم المسلسل']",
     "[aria-label*='مسلسل']",
     "[name*='serial']",
@@ -19,7 +19,8 @@
 
   "brandInput": [
     "#ats_producttypebrand_name",
-    "input[aria-label='العلامة التجاريه']",
+    "textbox[aria-label*='العلامة التجاريه']",
+    "textbox[aria-label*='العلامة التجارية']",
     "input[aria-label*='العلامة التجاريه']",
     "input[aria-label*='العلامة التجارية']",
     "input[aria-label*='العلامة']",
@@ -29,24 +30,23 @@
   ],
 
   "brandBtn": [
-    "button[aria-label*='العلامة التجاريه Launch lookup modal']",
-    "button[aria-label*='العلامة التجارية Launch lookup modal']",
-    ".launchentitylookup",
-    "button[aria-label*='Brand']",
+    "button[aria-label*='Launch lookup modal']", // 1st occurrence near brand input
+    "button.launchentitylookup",
+    "button[aria-label*='العلامة التجاريه']",
     ".lookup-brand button"
   ],
 
   "modelBtn": [
-    "button[aria-label*='الموديل الفعلي Launch lookup modal']",
-    "button[aria-label*='الموديل الفعلي 1 Launch lookup modal']",
-    ".launchentitylookup",
-    "button[aria-label*='Model']",
+    "button[aria-label*='Launch lookup modal']", // 2nd occurrence near model input
+    "button.launchentitylookup",
+    "button[aria-label*='الموديل الفعلي']",
     ".lookup-model button"
   ],
 
   "modelInput": [
     "#ldv_actualmodel_name",
-    "input[aria-label='الموديل الفعلي 1']",
+    "textbox[aria-label*='الموديل الفعلي 1']",
+    "textbox[aria-label*='الموديل الفعلي']",
     "input[aria-label*='الموديل الفعلي']",
     "input[name*='actualmodel']",
     "input[name*='model']",
@@ -55,22 +55,23 @@
 
   "modelInput2": [
     "#ldv_actualmodel2_name",
-    "input[aria-label='الموديل الفعلي 2']",
+    "textbox[aria-label*='الموديل الفعلي 2']",
     "input[aria-label*='الموديل الفعلي 2']"
   ],
 
   "statusSelect": [
     "#ldv_warrantystatus",
-    "select[name*='warranty']",
+    "combobox[aria-label*='حالة الضمان']",
+    "combobox[aria-label*='Warranty']",
     "select[aria-label*='Warranty']",
-    "select[id*='warranty']",
     "select[aria-label*='Warranty Status']",
     "select[aria-label*='حالة الضمان']",
-    "select[name*='status']"
+    "select[name*='status']",
+    "select[name*='warranty']"
   ],
 
   "dateInput": [
-    "#ldv_warrantydate_datepicker_description",
+    "#ldv_warrantydate",
     "input[aria-label*='Warranty Date']",
     "input[aria-label*='تاريخ الضمان']",
     "input[name*='warrantyDate']",
@@ -96,26 +97,80 @@
 
   "nextBtn": [
     "#NextButton",
-    "input[type='button'][value='Next']",
-    "input[type='button'][value='التالي']",
+    "button:has-text('Next')",
+    "button:has-text('التالي')",
     "button[aria-label='Next']",
     "button[aria-label='التالي']",
-    "button[type='submit']"
+    "button[type='submit']",
+    "input[type='button'][value='Next']",
+    "input[type='button'][value='التالي']"
   ],
 
-  "lookupModalItem": [
-    "[role='dialog'] li",
-    "[role='listbox'] [role='option']",
-    ".lookup-modal .result-item",
-    ".modal .result-item",
-    ".entitylist-items li",
-    ".lookup-results li"
+  "lookupModal": [
+    "section.modal.modal-lookup.in",
+    ".modal.show",
+    ".modal.in",
+    "div[role='dialog']",
+    ".modal-lookup"
   ],
 
   "lookupSearchInput": [
+    "input[placeholder*='Search']",
+    "input[placeholder*='بحث']",
+    "input.query.form-control",
+    "input.form-control[type='text']",
+    "input[type='search']",
     "[role='dialog'] input[type='search']",
     "[role='dialog'] input[type='text']",
     ".lookup-modal input"
+  ],
+
+  "lookupSearchBtn": [
+    "button:has-text('Search Results')",
+    "button:has-text('بحث')",
+    "button[aria-label*='Search']",
+    "button[aria-label*='بحث']",
+    ".modal button.btn-hg",
+    ".modal button"
+  ],
+
+  "lookupRows": [
+    "section.modal.modal-lookup .modal table tbody tr",
+    ".modal table tbody tr",
+    ".modal [role='row']",
+    ".lookup-modal .modal table tbody tr"
+  ],
+
+  "lookupRowSelect": [
+    "input[type='radio']",
+    "input[type='checkbox']",
+    "span[role='checkbox']",
+    "span.fa",
+    "checkbox"
+  ],
+
+  "lookupSelectBtn": [
+    "button:has-text('Select')",
+    "button:has-text('اختر')",
+    "button[aria-label*='Select']",
+    "button[aria-label*='تحديد']",
+    "button[aria-label*='اختر']",
+    ".modal button.primary",
+    ".modal input[value='اختر']",
+    ".modal input[value='Select']"
+  ],
+
+  "lookupCancelBtn": [
+    "button:has-text('Cancel')",
+    "button:has-text('إلغاء')",
+    "button[data-dismiss='modal']",
+    ".modal-header .close"
+  ],
+
+  "lookupClearBtn": [
+    "button[aria-label*='Clear lookup field']",
+    "button[aria-label*='مسح']",
+    "button[aria-label*='clear']"
   ],
 
   "successIndicator": [
@@ -138,10 +193,11 @@
     "[class*='workorder-id']"
   ],
 
-  "_ORDERS_PAGE_SELECTORS_NOTE": "الـ selectors التالية خاصة بصفحة /Orders — عدّلها أولاً",
+  "_ORDERS_PAGE_SELECTORS_NOTE": "الـ selectors التالية خاصة بصفحة /Orders — تم التحقق منها",
 
   "ordersSearchInput": [
-    "input[aria-label*='Search']",
+    "textbox[aria-label*='Filter: رقم الطلب']",
+    "input[aria-label*='Filter: رقم الطلب']",
     "input[placeholder*='Search']",
     "input[placeholder*='بحث']",
     "#searchOrders",
@@ -151,6 +207,8 @@
   ],
 
   "ordersSearchBtn": [
+    "button:has-text('بحث')",
+    "button:has-text('Search')",
     "button[type='submit']",
     "button[aria-label*='Search']",
     "button[aria-label*='بحث']",
@@ -159,6 +217,7 @@
   ],
 
   "ordersTableRow": [
+    "table.entity-grid tbody tr",
     "table tbody tr",
     "[role='row']",
     ".entitylist-items > li",
@@ -167,16 +226,29 @@
     ".list-item"
   ],
 
-  "ordersViewLink": [
-    "a[href*='workorderreview']",
-    "a[href*='followup']",
-    "a[href*='review']",
-    "button[aria-label*='View']",
-    "button[aria-label*='Open']",
-    "button[aria-label*='متابعة']",
-    "a[aria-label*='View']",
-    "td:last-child a",
-    ".view-btn"
+  "ordersActionMenu": [
+    "button:has-text('action menu')",
+    "button[aria-label*='action menu']",
+    "button[aria-label*='القائمة']",
+    "button[aria-label*='خيارات']"
+  ],
+
+  "ordersFollowUpMenuItem": [
+    "menuitem:has-text('متابعة')",
+    "[role='menuitem']:has-text('متابعة')",
+    "a:has-text('متابعة')"
+  ],
+
+  "ordersReturnMenuItem": [
+    "menuitem:has-text('ارجاع')",
+    "[role='menuitem']:has-text('ارجاع')",
+    "a:has-text('ارجاع')"
+  ],
+
+  "ordersDistributeMenuItem": [
+    "menuitem:has-text('توزيع البلاغ')",
+    "[role='menuitem']:has-text('توزيع البلاغ')",
+    "a:has-text('توزيع البلاغ')"
   ],
 
   "_batchDelay": 1200,
@@ -185,7 +257,8 @@
   "_ordersSearchWait": 2000,
   "_retryCount": 3,
 
-  "_PROBLEM_CODES_NOTE": "خريطة أكواد المشاكل — عدّل الـ pattern (regex) أو الـ codes حسب الحاجة",
+  "_PROBLEM_CODES_NOTE": "خريطة أكواد المشاكل — تم التحقق من GR01 للثلاجات",
+
   "problemCodes": [
     { "pattern": "تكييف|ac|air.?cond|split|شباك|inverter", "codes": ["*AC02", "*AC03"] },
     { "pattern": "بوتوجاز|طباخ|cooker",                    "codes": ["*GS04"] },
@@ -196,6 +269,7 @@
   ],
 
   "_WORKFLOWS_NOTE": "خط سير الإضافة — المحرك سيقرأ هذه الخطوات تباعاً. action: نوع الإجراء, target: مفتاح من المحددات أو CSS مباشر",
+
   "workflows": {
     "page1_search": [
       { "action": "wait", "target": "ordersSearchInput", "timeout": 10000 },

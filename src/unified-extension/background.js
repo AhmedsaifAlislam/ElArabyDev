@@ -321,6 +321,17 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
       sendResponse({ ok: true, version: '2.0.0' });
       return true;
 
+    // Invoke processQueueOnLoad in a specific tab (fallback for new tabs)
+    case 'INVOKE_PROCESS_QUEUE_ON_LOAD':
+      if (sender?.tab?.id) {
+        chrome.scripting.executeScript({
+          target: { tabId: sender.tab.id },
+          func: () => window.AutoFillEngine?.Orchestrator?.processQueueOnLoad?.()
+        }).catch(e => console.error('[BG] INVOKE_PROCESS_QUEUE_ON_LOAD failed:', e));
+      }
+      sendResponse({ ok: true });
+      return true;
+
     // Storage proxy — Edge Tracking Prevention blocks chrome.storage.local from content scripts
     case 'STORAGE_GET':
       chrome.storage.local.get(msg.keys || {}, (data) => {

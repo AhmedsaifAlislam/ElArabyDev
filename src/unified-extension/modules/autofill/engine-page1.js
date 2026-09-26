@@ -153,7 +153,11 @@ window.AutoFillEngine = window.AutoFillEngine || {};
           const parent = el.closest('.input-group') || el.parentElement;
           const clearBtn = parent ? parent.querySelector('button[aria-label*="Clear"], button[aria-label*="مسح"]') : null;
           if (clearBtn) {
-            clearBtn.click();
+            if (typeof window.dispatchClickSequence === 'function') {
+              await window.dispatchClickSequence(clearBtn);
+            } else {
+              clearBtn.click();
+            }
             clearActions.push(field.id + ' (via clear button)');
           } else {
             el.value = '';
@@ -170,20 +174,48 @@ window.AutoFillEngine = window.AutoFillEngine || {};
     const FR = {};
     log('【 PAGE 1 】 Review execution starting for order: ' + data.orderId);
 
-    // Status mapping (P0-B.2: no hardcoded fallback ID)
+    // Status mapping - handle PowerApps combobox
     if (data.status) {
       const statusEl = document.getElementById('ldv_warrantystatus') || findFirst(cfg.status);
-      if (statusEl && statusEl.tagName === 'SELECT') {
+      if (statusEl) {
         const lower = data.status.toLowerCase();
-        const opts = Array.from(statusEl.options || []);
-        const match = opts.find(o => o.text.toLowerCase() === lower) ||
-                      opts.find(o => o.text.toLowerCase().includes(lower)) ||
-                      opts.find(o => lower.includes(o.text.toLowerCase()) && o.text.trim() !== '');
-        if (match) {
-          statusEl.value = match.value;
-          try { statusEl.dispatchEvent(new Event('change', { bubbles: true })); } catch(_) {}
-          FR.status = { ok: true, selected: match.text };
+        let matched = false;
+        
+        if (statusEl.tagName === 'SELECT') {
+          const opts = Array.from(statusEl.options || []);
+          const match = opts.find(o => o.text.toLowerCase() === lower) ||
+                        opts.find(o => o.text.toLowerCase().includes(lower)) ||
+                        opts.find(o => lower.includes(o.text.toLowerCase()) && o.text.trim() !== '');
+          if (match) {
+            statusEl.value = match.value;
+            try { statusEl.dispatchEvent(new Event('change', { bubbles: true })); } catch(_) {}
+            FR.status = { ok: true, selected: match.text };
+            matched = true;
+          }
         } else {
+          // PowerApps combobox - click to open, then select option
+          try {
+            // Click the combobox to open dropdown
+            await window.dispatchClickSequence?.(statusEl) || statusEl.click();
+            await window.sleep(500);
+            
+            // Find and click the matching option
+            const options = document.querySelectorAll('[role="option"], .ms-Dropdown-option, .ms-ComboBox-option, li[data-value], option');
+            const option = Array.from(options).find(opt => 
+              (opt.textContent || opt.innerText || '').toLowerCase().includes(lower)
+            );
+            if (option) {
+              await window.dispatchClickSequence?.(option) || option.click();
+              await window.sleep(300);
+              FR.status = { ok: true, selected: option.textContent?.trim() };
+              matched = true;
+            }
+          } catch (e) {
+            warn('Combobox selection failed:', e);
+          }
+        }
+        
+        if (!matched) {
           FR.status = { ok: false, reason: 'status-not-matched' };
         }
       }
@@ -211,8 +243,41 @@ window.AutoFillEngine = window.AutoFillEngine || {};
     if (data.serial) {
       const s1 = document.getElementById('ldv_serialnumber');
       if (s1) {
+        // Handle potential "serial duplicate" alert
+        const alertHandler = (msg) => {
+          if (msg && msg.includes && msg.includes('هذا السيريال مكرر')) {
+            log('Serial duplicate alert detected, auto-accepting...');
+            return true; // accept the alert
+          }
+        };
+        
+        // Set up one-time alert handler
+        const originalAlert = window.alert;
+        window.alert = function(msg) {
+          if (msg && msg.includes && msg.includes('هذا السيريال مكرر')) {
+            log('Serial duplicate alert intercepted, auto-accepting...');
+            return; // suppress the alert
+          }
+          return originalAlert.apply(this, arguments);
+        };
+        
+        // Also handle native browser alert
+        const nativeAlert = window.alert.bind(window);
+        window.alert = function(msg) {
+          if (msg && msg.includes && msg.includes('هذا السيريال مكرر')) {
+            log('Serial duplicate native alert intercepted, auto-accepting...');
+            return;
+          }
+          return nativeAlert(msg);
+        };
+        
         await emulateUserInput(s1, data.serial);
         FR.serial = { ok: true, value: data.serial };
+        
+        // Restore original alert after a short delay
+        setTimeout(() => {
+          window.alert = originalAlert;
+        }, 2000);
       }
     }
 

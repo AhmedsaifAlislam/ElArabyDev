@@ -91,6 +91,9 @@ chrome.runtime.sendMessage({
   }
 }).catch(()=>{});
 
+// Version marker for deployment verification
+traceEvent('CONTENT_SCRIPT_VERSION', { version: '1.0.0-lifecycle-fix', url: location.href });
+
 // ── Utility: Safe Click to catch and log silent UI errors ──
 function safeClick(element, description = 'element') {
   if (!element) { warn(`safeClick: ${description} is null or undefined.`); return false; }
@@ -290,17 +293,64 @@ function parseDataLine(line) {
 
 // ── AUTOFIL ENGINE BACKWARD-COMPATIBILITY BRIDGES ───────────────────────────
 // Wire up window-level functions to point to the specialized engine modules
-const Lookups      = window.AutoFillEngine.Lookups || {};
-const Page1        = window.AutoFillEngine.Page1 || {};
-const Page2        = window.AutoFillEngine.Page2 || {};
-const Page3        = window.AutoFillEngine.Page3 || {};
-const Orchestrator = window.AutoFillEngine.Orchestrator || {};
+let Lookups, Page1, Page2, Page3;
+try {
+  Lookups = window.AutoFillEngine.Lookups || {};
+  Page1 = window.AutoFillEngine.Page1 || {};
+  Page2 = window.AutoFillEngine.Page2 || {};
+  Page3 = window.AutoFillEngine.Page3 || {};
+  traceEvent('BRIDGES_READY', { hasLookups: !!window.AutoFillEngine?.Lookups, hasPage1: !!window.AutoFillEngine?.Page1 });
+} catch (e) {
+  traceEvent('BRIDGES_ERROR', { error: String(e) });
+  Lookups = Page1 = Page2 = Page3 = {};
+}
 
-traceEvent('ORCHESTRATOR_READY', {
-  hasOrchestrator: !!window.AutoFillEngine?.Orchestrator,
-  hasProcessQueueOnLoad:
-    typeof window.AutoFillEngine?.Orchestrator?.processQueueOnLoad === 'function'
-});
+// ── REGISTER MESSAGE LISTENER EARLY (main frame only — prevents duplicate handlers in iframes) ──
+if (window === window.top && window.AutoFillEngine?.Orchestrator?.registerMessageListener) {
+  window.AutoFillEngine.Orchestrator.registerMessageListener();
+  traceEvent('MESSAGE_LISTENER_REGISTERED', { url: location.href, frame: 'top' });
+}
+
+// ── DEFENSIVE ORCHESTRATOR BOOTSTRAP ────────────────────────────────────────
+(async function bootstrapOrchestrator() {
+  try {
+    let Orchestrator = window.AutoFillEngine?.Orchestrator;
+
+    traceEvent('ORCHESTRATOR_BOOTSTRAP', {
+      hasGlobal: !!Orchestrator,
+      hasProcessQueueOnLoad: typeof Orchestrator?.processQueueOnLoad === 'function',
+      url: location.href,
+      frame: window !== window.top ? 'iframe' : 'top'
+    });
+
+    if (!Orchestrator?.processQueueOnLoad) {
+      await new Promise(r => queueMicrotask(r));
+      Orchestrator = window.AutoFillEngine?.Orchestrator;
+      traceEvent('ORCHESTRATOR_RETRY', {
+        hasGlobal: !!Orchestrator,
+        hasProcessQueueOnLoad: typeof Orchestrator?.processQueueOnLoad === 'function'
+      });
+    }
+
+    if (!Orchestrator?.processQueueOnLoad) {
+      traceEvent('ORCHESTRATOR_FALLBACK', { reason: 'direct_invoke' });
+      try {
+        await chrome.runtime.sendMessage({ type: 'INVOKE_PROCESS_QUEUE_ON_LOAD' });
+      } catch (e) {
+        traceEvent('ORCHESTRATOR_FALLBACK_FAILED', { error: String(e) });
+      }
+      return;
+    }
+
+    traceEvent('PROCESS_QUEUE_ON_LOAD_INVOKED', { url: location.href });
+    Orchestrator.processQueueOnLoad().catch(e =>
+      traceEvent('PROCESS_QUEUE_ON_LOAD_ERROR', { error: String(e) })
+    );
+  } catch (e) {
+    traceEvent('BOOTSTRAP_CRASH', { error: String(e), stack: e?.stack });
+  }
+})();
+// ──────────────────────────────────────────────────────────────────────────────
 
 // Lookups
 const findSafeLookupButton     = Lookups.findSafeLookupButton;
@@ -381,14 +431,7 @@ Object.assign(window, {
 
 
 
-// ── LIFECYCLE INITIALIZATION ────────────────────────────────────────────────
-if (Orchestrator.registerMessageListener) {
-  Orchestrator.registerMessageListener();
-}
-if (Orchestrator.processQueueOnLoad) {
-  traceEvent('PROCESS_QUEUE_ON_LOAD_INVOKED', { url: location.href });
-  Orchestrator.processQueueOnLoad().catch(()=>{});
-}
+
 
 
 

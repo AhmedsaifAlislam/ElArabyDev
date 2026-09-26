@@ -1,0 +1,122 @@
+- generic [active] [ref=f5e1]:
+  - navigation [ref=f5e2]:
+    - generic [ref=f5e4]:
+      - paragraph [ref=f5e8]
+      - button "Toggle navigation" [ref=f5e9] [cursor=pointer]
+  - generic [ref=f5e16]:
+    - generic [ref=f5e18]:
+      - list [ref=f5e19]:
+        - listitem [ref=f5e20]:
+          - link "الصفحة الرئيسية" [ref=f5e21] [cursor=pointer]:
+            - /url: /en-US/
+        - listitem [ref=f5e22]: "> اوامر الشغل"
+      - generic [ref=f5e23]:
+        - heading "اوامر الشغل" [level=1] [ref=f5e24]
+        - alert "اوامر الشغل" [ref=f5e26]
+    - generic [ref=f5e35]:
+      - generic [ref=f5e37]:
+        - generic [ref=f5e38]:
+          - generic [ref=f5e39]: "Filter:"
+          - text: رقم الطلب
+        - generic [ref=f5e40]:
+          - generic [aria-hidden] [ref=f5e42]: 
+          - 'textbox "Filter: رقم الطلب" [ref=f5e43]'
+        - generic [ref=f5e44]:
+          - generic [ref=f5e45]: "Filter:"
+          - text: الرقم الأرضي
+        - generic [ref=f5e46]:
+          - generic [aria-hidden] [ref=f5e48]: 
+          - 'textbox "Filter: الرقم الأرضي" [ref=f5e49]'
+        - generic [ref=f5e50]:
+          - generic [ref=f5e51]: "Filter:"
+          - text: رقم الموبايل
+        - generic [ref=f5e52]:
+          - generic [aria-hidden] [ref=f5e54]: 
+          - 'textbox "Filter: رقم الموبايل" [ref=f5e55]'
+        - generic [ref=f5e56]:
+          - generic [ref=f5e57]: "Filter:"
+          - text: ملاحظات المكتب
+        - generic [ref=f5e59] [cursor=pointer]:
+          - textbox "Filter ملاحظات المكتب:" [ref=f5e60]
+          - generic [ref=f5e61]: "Filter ملاحظات المكتب:"
+        - generic [ref=f5e62]:
+          - generic [ref=f5e63]: "Filter:"
+          - text: رقم الحساب
+        - generic [ref=f5e64]:
+          - generic [aria-hidden] [ref=f5e66]: 
+          - 'textbox "Filter: رقم الحساب" [ref=f5e67]'
+        - generic [ref=f5e68]: تاريخ الحجز
+        - generic [ref=f5e69]:
+          - generic [ref=f5e70]: 
+          - text: 09/26/2026 - 09/29/2026
+        - button "بحث" [ref=f5e72] [cursor=pointer]
+      - generic [ref=f5e74]:
+        - generic [ref=f5e75]:
+          - list: 
+          - generic [ref=f5e76]:
+            - textbox "To search on partial text, use the asterisk (*) wildcard character." [ref=f5e77]:
+              - /placeholder: بحث
+            - button "Search Results" [ref=f5e78] [cursor=pointer]:
+              - generic [ref=f5e80]: 
+            - button "استخراج" [ref=f5e82] [cursor=pointer]
+            - link "اضافة امر شغل صيانة" [ref=f5e84] [cursor=pointer]:
+              - /url: /WorkOrderCreate/
+            - link "اضافة امر شغل تركيب" [ref=f5e86] [cursor=pointer]:
+              - /url: /WorkOrderCreateInstallation/
+        - table [ref=f5e88]:
+          - rowgroup [ref=f5e89]:
+            - row [ref=f5e90]:
+              - columnheader [ref=f5e91]:
+                - button "رقم الطلب" [ref=f5e92] [cursor=pointer]:
+                  - text: رقم الطلب
+                  - generic [ref=f5e93]: . sort descending
+              - columnheader [ref=f5e94]:
+                - button "اسم العميل" [ref=f5e95] [cursor=pointer]:
+                  - text: اسم العميل
+                  - generic [ref=f5e96]: . sort descending
+              - columnheader [ref=f5e97]:
+                - button "رقم العقار" [ref=f5e98] [cursor=pointer]:
+                  - text: رقم العقار
+                  - generic [ref=f5e99]: . sort descending
+              - columnheader [ref=f5e100]:
+                - button "العنوان" [ref=f5e101] [cursor=pointer]:
+                  - text: العنوان
+                  - generic [ref=f5e102]: . sort descending
+              - columnheader [ref=f5e103]:
+                - button "نوع المنتج" [ref=f5e104] [cursor=pointer]:
+                  - text: نوع المنتج
+                  - generic [ref=f5e105]: . sort descending
+              - columnheader [ref=f5e106]:
+                - button "شكوى العميل" [ref=f5e107] [cursor=pointer]:
+                  - text: شكوى العميل
+                  - generic [ref=f5e108]: . sort descending
+              - columnheader [ref=f5e109]:
+                - button "تاريخ الحجز" [ref=f5e110] [cursor=pointer]:
+                  - text: تاريخ الحجز
+                  - generic [aria-hidden] [ref=f5e111]: 
+                  - generic [ref=f5e112]: . sort descending
+              - columnheader "ملاحظات المكتب" [ref=f5e113]
+              - columnheader "ملاحظات الكول سنتر" [ref=f5e114]
+              - columnheader [ref=f5e115]:
+                - button "نوع الخدمة" [ref=f5e116] [cursor=pointer]:
+                  - text: نوع الخدمة
+                  - generic [ref=f5e117]: . sort descending
+              - columnheader [ref=f5e118]:
+                - button "يوجد شكوى" [ref=f5e119] [cursor=pointer]:
+                  - text: يوجد شكوى
+                  - generic [ref=f5e120]: . sort descending
+              - columnheader [ref=f5e121]:
+                - button "SAPرقم ال" [ref=f5e122] [cursor=pointer]:
+                  - text: SAPرقم ال
+                  - generic [ref=f5e123]: . sort descending
+              - columnheader [ref=f5e124]:
+                - button "جهة البلاغ" [ref=f5e125] [cursor=pointer]:
+                  - text: جهة البلاغ
+                  - generic [ref=f5e126]: . sort descending
+              - columnheader [ref=f5e127]:
+                - button "الفنى المسؤول" [ref=f5e128] [cursor=pointer]:
+                  - text: الفنى المسؤول
+                  - generic [ref=f5e129]: . sort descending
+              - columnheader "Actions" [ref=f5e130]
+        - generic [ref=f5e132]: جارى التحميل
+        - text:    

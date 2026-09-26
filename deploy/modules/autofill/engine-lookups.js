@@ -37,11 +37,13 @@ window.AutoFillEngine = window.AutoFillEngine || {};
   async function dispatchClickSequence(el) {
     if (!el) return false;
     try { el.focus(); } catch(_) {}
+    try { el.dispatchEvent(new Event('focus', { bubbles: true })); } catch(_) {}
     for (const ev of ['pointerdown', 'mousedown', 'pointerup', 'mouseup', 'click']) {
       try {
         el.dispatchEvent(new MouseEvent(ev, { bubbles: true, cancelable: true, view: window }));
       } catch(_) {}
     }
+    try { el.dispatchEvent(new Event('blur', { bubbles: true })); } catch(_) {}
     return true;
   }
 
@@ -69,7 +71,7 @@ window.AutoFillEngine = window.AutoFillEngine || {};
       const closeBtn = active[0].querySelector('[data-dismiss="modal"], .modal-header .close, button[aria-label="Close"], button[aria-label="إغلاق"]');
       if (closeBtn && Date.now() - start > 3000) {
         log('Attempting to dismiss lingering modal...');
-        closeBtn.click();
+        await dispatchClickSequence(closeBtn);
       }
       await sleep(400);
     }
@@ -100,11 +102,11 @@ window.AutoFillEngine = window.AutoFillEngine || {};
     if (!rootDoc) rootDoc = document;
     const clearBtn = btn.parentElement?.querySelector('button[aria-label*="Clear"], button[aria-label*="مسح"]');
     if (clearBtn) {
-      clearBtn.click();
+      await dispatchClickSequence(clearBtn);
       await sleep(500);
     }
     log('Opening Modal for:', searchValue);
-    btn.click();
+    await dispatchClickSequence(btn);
     await sleep(1800);
 
     // Wait for modal to appear — do NOT use offsetParent (Portal modals are position:fixed → null always)
@@ -119,6 +121,13 @@ window.AutoFillEngine = window.AutoFillEngine || {};
     if (!modal) {
       warn('Lookup modal did not open for:', searchValue);
       return { ok: false, reason: 'modal-not-found' };
+    }
+
+    // Wait for iframe inside modal to load (for lookups that use iframe)
+    const iframeDoc = await waitForModalIframe(modal, 10000);
+    if (iframeDoc) {
+      log('Iframe detected and loaded in modal, using iframe document for lookup');
+      rootDoc = iframeDoc;
     }
 
     // Extract model code (before " _ " or "(") for search — mirrors backup logic
@@ -218,7 +227,13 @@ window.AutoFillEngine = window.AutoFillEngine || {};
       if (selectBtn) {
         try { selectBtn.focus(); } catch(_) {}
         await dispatchClickSequence(selectBtn);
-        await sleep(1500);
+        // Wait for modal to close after selection
+        const closeDeadline = Date.now() + 8000;
+        while (Date.now() < closeDeadline) {
+          if (!modal || !isModalOpen(modal)) break;
+          await sleep(250);
+        }
+        await sleep(500);
       }
       return { ok: true, selected: match.innerText?.trim() };
     };
@@ -245,7 +260,7 @@ window.AutoFillEngine = window.AutoFillEngine || {};
       const searchBtn = searchInput.parentElement?.querySelector('button') ||
         modal.querySelector('button.btn-hg, button[aria-label*="Search"], button[aria-label*="بحث"]');
       if (searchBtn) {
-        searchBtn.click();
+        await dispatchClickSequence(searchBtn);
       } else {
         ['keydown', 'keypress', 'keyup'].forEach(ev => {
           try { searchInput.dispatchEvent(new KeyboardEvent(ev, { key: 'Enter', keyCode: 13, bubbles: true })); } catch(_) {}
@@ -255,6 +270,12 @@ window.AutoFillEngine = window.AutoFillEngine || {};
       log('⏳ Waiting for search results...');
       const startWait = Date.now();
       while (Date.now() - startWait < 12000) {
+        // Check if iframe appeared after search
+        const newIframeDoc = await waitForModalIframe(modal, 3000);
+        if (newIframeDoc) {
+          log('Iframe appeared after search, switching to iframe document');
+          rootDoc = newIframeDoc;
+        }
         visibleItems = getVisibleItems();
         const matchFound = visibleItems.some(i =>
           normalize(i.innerText).includes(targetCode) || normalize(i.innerText).includes(target)
@@ -267,7 +288,7 @@ window.AutoFillEngine = window.AutoFillEngine || {};
     visibleItems = getVisibleItems();
     if (!visibleItems.length) {
       const closeBtn = modal.querySelector('[data-dismiss="modal"], button.close, button[aria-label*="Close"], button[aria-label*="إغلاق"]');
-      if (closeBtn) closeBtn.click();
+      if (closeBtn) await dispatchClickSequence(closeBtn);
       return { ok: false, reason: 'no-results' };
     }
 
@@ -287,7 +308,7 @@ window.AutoFillEngine = window.AutoFillEngine || {};
     }
 
     log(`Clicking add button: "${(addBtn.innerText || addBtn.title || addBtn.value || '').trim().slice(0,30)}"`);
-    addBtn.click();
+    await dispatchClickSequence(addBtn);
     await sleep(1000);
 
     let modal = null;
@@ -307,7 +328,7 @@ window.AutoFillEngine = window.AutoFillEngine || {};
     if (!iframeDoc) {
       warn('handlePage2Modal: Iframe inside modal did not load');
       const closeBtn = modal.querySelector('[data-dismiss="modal"]');
-      if (closeBtn) closeBtn.click();
+      if (closeBtn) await dispatchClickSequence(closeBtn);
       return { ok: false, reason: 'iframe-not-loaded' };
     }
 
@@ -316,7 +337,7 @@ window.AutoFillEngine = window.AutoFillEngine || {};
     if (!lookupBtn) {
       warn('handlePage2Modal: Lookup button not found inside iframe');
       const closeBtn = modal.querySelector('[data-dismiss="modal"]');
-      if (closeBtn) closeBtn.click();
+      if (closeBtn) await dispatchClickSequence(closeBtn);
       return { ok: false, reason: 'lookup-btn-not-found' };
     }
     await sleep(1500);
@@ -325,7 +346,7 @@ window.AutoFillEngine = window.AutoFillEngine || {};
     if (!result || !result.ok) {
       warn(`handlePage2Modal: Lookup failed: ${result?.reason || 'unknown'}`);
       const closeBtn = modal.querySelector('[data-dismiss="modal"]');
-      if (closeBtn) closeBtn.click();
+      if (closeBtn) await dispatchClickSequence(closeBtn);
       return result;
     }
 
@@ -333,7 +354,7 @@ window.AutoFillEngine = window.AutoFillEngine || {};
     const saveBtn = iframeDoc.querySelector('#InsertButton, #SubmitButton, button[type="submit"], input[type="submit"], button.btn-primary');
     if (saveBtn) {
       log('Clicking Save/Submit inside iframe modal');
-      saveBtn.click();
+      await dispatchClickSequence(saveBtn);
       const saveDeadline = Date.now() + 10000;
       while (Date.now() < saveDeadline) {
         if (!isModalOpen(modal) || !document.body.contains(modal)) break;
@@ -391,7 +412,7 @@ window.AutoFillEngine = window.AutoFillEngine || {};
     if (!addBtn) return null;
 
     log(`Opening subgrid modal for: ${btnRegex.source}...`);
-    addBtn.click();
+    await dispatchClickSequence(addBtn);
     
     let iframeDoc = null, targetIframe = null, lookupBtn = null;
     
@@ -444,8 +465,7 @@ window.AutoFillEngine = window.AutoFillEngine || {};
       for (let attempt = 0; attempt < 3 && items.length === 0; attempt++) {
         if (attempt > 0) { log(`Retry #${attempt}: clicking magnifying glass...`); await sleep(1500); }
         try { lookupBtn.focus(); } catch(_) {}
-        lookupBtn.click();
-        try { lookupBtn.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true })); } catch(_) {}
+        await dispatchClickSequence(lookupBtn);
         
         for (let j = 0; j < 16; j++) {
           await sleep(500);
@@ -484,14 +504,14 @@ window.AutoFillEngine = window.AutoFillEngine || {};
         if (!rand) {
           log('No match for "' + cleanTarget + '" in ' + items.length + ' items — skipping');
           const cBtn = Array.from(iframeDoc.querySelectorAll('[data-dismiss="modal"]')).filter(b => b.offsetParent !== null).reverse()[0];
-          if (cBtn) cBtn.click();
+          if (cBtn) await dispatchClickSequence(cBtn);
           await sleep(1000);
           return { ok: false, reason: 'no-match' };
         }
         
         selectedName = rand.innerText.trim();
         const radio = rand.querySelector('input[type="radio"], input[type="checkbox"]');
-        if (radio) radio.click(); else rand.click();
+        if (radio) await dispatchClickSequence(radio); else await dispatchClickSequence(rand);
         await sleep(600);
         
         log(`Selected: ${selectedName.slice(0, 50)}, clicking اختر...`);
@@ -510,14 +530,13 @@ window.AutoFillEngine = window.AutoFillEngine || {};
         }
         if (selBtn) {
           try { selBtn.focus(); } catch(_) {}
-          selBtn.click();
-          try { selBtn.dispatchEvent(new Event('click', { bubbles: true })); } catch(_) {}
+          await dispatchClickSequence(selBtn);
         }
         await sleep(2000);
       } else {
         log('No items found in lookup! Closing modal.');
         const closeBtn = Array.from(iframeDoc.querySelectorAll('[data-dismiss="modal"]')).filter(b => b.offsetParent !== null).reverse()[0];
-        if (closeBtn) closeBtn.click();
+        if (closeBtn) await dispatchClickSequence(closeBtn);
         await sleep(1000);
         return { ok: false };
       }
@@ -534,7 +553,7 @@ window.AutoFillEngine = window.AutoFillEngine || {};
     log('Clicking Save on primary modal...');
     const subBtn = iframeDoc.getElementById('InsertButton') || iframeDoc.getElementById('SubmitButton') || Array.from(iframeDoc.querySelectorAll('input[type="submit"], button.btn-primary')).find(b => b.offsetParent !== null && /save|submit|حفظ|insert/i.test(b.innerText || b.value || b.title));
     if (subBtn) {
-      subBtn.click();
+      await dispatchClickSequence(subBtn);
       log('Waiting for primary modal to close...');
       const startClose = Date.now();
       while (Date.now() - startClose < 15000) {

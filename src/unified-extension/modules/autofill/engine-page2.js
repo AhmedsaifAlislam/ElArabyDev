@@ -133,7 +133,11 @@ window.AutoFillEngine = window.AutoFillEngine || {};
     }
     const btn = window.AutoFillEngine.Lookups.findSafeLookupButton(lab, ['.lookup-technician button', '.lookup-btn']);
     if (btn) {
-      btn.click();
+      if (typeof window.dispatchClickSequence === 'function') {
+        await window.dispatchClickSequence(btn);
+      } else {
+        btn.click();
+      }
       await sleep(2000); 
       const items = Array.from(document.querySelectorAll('.modal table tbody tr, .modal-body table tbody tr td:first-child'))
         .filter(i => i.offsetParent !== null && i.innerText.trim() && !/norecords|لاتوجد/.test(i.innerText.replace(/\s/g,'')));
@@ -143,24 +147,51 @@ window.AutoFillEngine = window.AutoFillEngine || {};
         if (!exactItem) {
           warn(`⚠️ P0-B.1: technician "${wantedTech}" not found in lookup modal — closing and failing explicitly (no random/first fallback)`);
           const closeX = document.querySelector('.modal.show [data-dismiss="modal"]');
-          if (closeX) closeX.click();
+          if (closeX) {
+            if (typeof window.dispatchClickSequence === 'function') {
+              await window.dispatchClickSequence(closeX);
+            } else {
+              closeX.click();
+            }
+          }
           return { ok: false, reason: 'technician-not-found' };
         }
         const rand = exactItem;
         const radio = rand.querySelector('input[type="radio"], input[type="checkbox"]');
-        if (radio) radio.click(); else rand.click();
+        if (radio) {
+          if (typeof window.dispatchClickSequence === 'function') {
+            await window.dispatchClickSequence(radio);
+          } else {
+            radio.click();
+          }
+        } else {
+          if (typeof window.dispatchClickSequence === 'function') {
+            await window.dispatchClickSequence(rand);
+          } else {
+            rand.click();
+          }
+        }
         await sleep(300);
         const sels = Array.from(document.querySelectorAll('.modal button.btn-primary, .modal input.btn-primary, .modal input[value="اختر"], .modal input[value="Select"], .modal button[aria-label*="Select"], .modal button[aria-label*="اختر"]'));
         const selectBtn = sels.reverse().find(b => b.offsetParent !== null);
         if (selectBtn) {
           try { selectBtn.focus(); } catch(_) {}
-          selectBtn.click();
-          try { selectBtn.dispatchEvent(new Event('click', { bubbles: true })); } catch(_) {}
+          if (typeof window.dispatchClickSequence === 'function') {
+            await window.dispatchClickSequence(selectBtn);
+          } else {
+            selectBtn.click();
+          }
         }
         return { ok: true, name: rand.innerText.trim() };
       }
       const closeBtn = document.querySelector('.modal.show [data-dismiss="modal"]');
-      if (closeBtn) closeBtn.click();
+      if (closeBtn) {
+        if (typeof window.dispatchClickSequence === 'function') {
+          await window.dispatchClickSequence(closeBtn);
+        } else {
+          closeBtn.click();
+        }
+      }
     }
     return { ok: false };
   }

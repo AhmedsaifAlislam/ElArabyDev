@@ -100,7 +100,9 @@
         "modules/autofill/engine-orchestrator.js",
         "content-script.js"
       ],
-      "run_at": "document_idle"
+      "run_at": "document_idle",
+      "all_frames": true,
+      "match_about_blank": true
     },
     {
       "matches": ["https://elarabyportalpfs.powerappsportals.com/*"],

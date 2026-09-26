@@ -1,0 +1,73 @@
+- generic [ref=f13e1]:
+  - navigation [ref=f13e2]:
+    - generic [ref=f13e4]:
+      - paragraph [ref=f13e8]
+      - button "Toggle navigation" [ref=f13e9] [cursor=pointer]
+  - generic [ref=f13e16]:
+    - generic [ref=f13e18]:
+      - list [ref=f13e19]:
+        - listitem [ref=f13e20]:
+          - link "الصفحة الرئيسية" [ref=f13e21] [cursor=pointer]:
+            - /url: /en-US/
+        - listitem [ref=f13e22]: "> متابعة امر الشغل"
+      - generic [ref=f13e23]:
+        - heading "متابعة امر الشغل" [level=1] [ref=f13e24]
+        - alert "متابعة امر الشغل" [ref=f13e26]
+    - form "متابعة امر الشغل" [ref=f13e35]:
+      - generic [ref=f13e36]:
+        - alert [ref=f13e82]:
+          - text: " The form could not be submitted for the following reasons:"
+          - list [ref=f13e83]:
+            - listitem [ref=f13e84]:
+              - link "العلامة التجاريه is a required field." [ref=f13e85] [cursor=pointer]:
+                - /url: "#ats_producttypebrand_label"
+            - listitem [ref=f13e86]:
+              - link "الموديل الفعلي 1 is a required field." [ref=f13e87] [cursor=pointer]:
+                - /url: "#ldv_actualmodel_label"
+            - listitem [ref=f13e88]:
+              - link "حالة الضمان is a required field." [ref=f13e89] [cursor=pointer]:
+                - /url: "#ldv_warrantystatus_label"
+        - generic [ref=f13e39]:
+          - group
+          - group "بيانات المنتج" [ref=f13e40]:
+            - heading "بيانات المنتج" [level=3] [ref=f13e42]
+            - generic [ref=f13e45]: فئة المنتج *
+            - textbox "فئة المنتج is a required field." [ref=f13e47]: HA
+            - generic [ref=f13e48]: نوع المنتج *
+            - textbox "نوع المنتج is a required field." [ref=f13e50]: ثلاجات
+            - generic [ref=f13e51]: العلامة التجاريه *
+            - generic [ref=f13e53]:
+              - textbox "العلامة التجاريه is a required field." [ref=f13e54]: ثلاجات - SHARP
+              - generic [aria-hidden] [ref=f13e55]: —
+              - generic [ref=f13e56]:
+                - button "العلامة التجاريه Clear lookup field" [ref=f13e157] [cursor=pointer]:
+                  - generic [ref=f13e158]: Clear lookup field
+                  - generic [aria-hidden] [ref=f13e159]: 
+                - button "العلامة التجاريه Launch lookup modal" [ref=f13e57] [cursor=pointer]:
+                  - generic [ref=f13e58]: Launch lookup modal
+                  - generic [aria-hidden] [ref=f13e59]: 
+              - generic:     
+            - generic [ref=f13e60]: الموديل الفعلي 1 *
+            - generic [ref=f13e62]:
+              - textbox "الموديل الفعلي 1 is a required field." [ref=f13e63]
+              - generic [aria-hidden] [ref=f13e64]: —
+              - generic [ref=f13e65]:
+                - text: 
+                - button "الموديل الفعلي 1 Launch lookup modal" [ref=f13e66] [cursor=pointer]:
+                  - generic [ref=f13e67]: Launch lookup modal
+                  - generic [aria-hidden] [ref=f13e68]: 
+              - generic:     
+            - text:       
+            - generic [ref=f13e69]: الرقم المسلسل
+            - textbox "الرقم المسلسل" [ref=f13e72]: 20D29#040475HG4C
+            - generic [ref=f13e73]: حالة الضمان *
+            - combobox "حالة الضمان *" [active] [invalid] [ref=f13e75]:
+              - option "Select" [selected]
+              - option "In warranty"
+              - option "Out warranty"
+            - text: 
+          - group
+        - generic [ref=f13e76]: Leave this field blank
+        - textbox [ref=f13e77]
+      - group [ref=f13e80]:
+        - button "Next" [ref=f13e81] [cursor=pointer]

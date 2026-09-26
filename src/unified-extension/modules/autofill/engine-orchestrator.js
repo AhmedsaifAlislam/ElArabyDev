@@ -74,6 +74,14 @@ window.AutoFillEngine = window.AutoFillEngine || {};
   }
   function waitForSaveComplete(url, cfg) { return (typeof window.waitForSaveComplete === 'function') ? window.waitForSaveComplete(url, cfg) : Promise.resolve(true); }
 
+  // ── SYNCHRONOUS MESSAGE LISTENER (registered at module load, handles PING only) ──
+  chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
+    if (!msg?.action) return;
+    if (msg.action === 'PING') { sendResponse({ ok: true, version: '2.0.0', orchestrator: true }); return true; }
+    // START_QUEUE, RUN_SINGLE, STOP_QUEUE, SKIP_TASK are handled by registerMessageListener()
+    // called ONCE from content-script.js (main frame only)
+  });
+
   const ORDERS_URL = 'https://elarabyportalpfs.powerappsportals.com/Orders/';
   let _routerRunning = false;
 
@@ -740,7 +748,13 @@ window.AutoFillEngine = window.AutoFillEngine || {};
   }
 
   // ── CHROME MESSAGE HANDLER ──────────────────────────────────────────────────
+  let _fullListenerRegistered = false;
   function registerMessageListener() {
+    if (_fullListenerRegistered) {
+      traceEvent('MESSAGE_LISTENER_SKIP_DUPLICATE', { reason: 'already_registered' });
+      return;
+    }
+    _fullListenerRegistered = true;
     chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
       if (!msg?.action) return;
       (async () => {

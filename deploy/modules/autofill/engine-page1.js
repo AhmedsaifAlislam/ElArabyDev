@@ -153,7 +153,11 @@ window.AutoFillEngine = window.AutoFillEngine || {};
           const parent = el.closest('.input-group') || el.parentElement;
           const clearBtn = parent ? parent.querySelector('button[aria-label*="Clear"], button[aria-label*="مسح"]') : null;
           if (clearBtn) {
-            clearBtn.click();
+            if (typeof window.dispatchClickSequence === 'function') {
+              await window.dispatchClickSequence(clearBtn);
+            } else {
+              clearBtn.click();
+            }
             clearActions.push(field.id + ' (via clear button)');
           } else {
             el.value = '';
