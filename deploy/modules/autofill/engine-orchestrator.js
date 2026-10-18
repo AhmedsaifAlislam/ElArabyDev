@@ -206,16 +206,16 @@ window.AutoFillEngine = window.AutoFillEngine || {};
         console.error('Queue write failed', e);
     }
     
+    // فتح البلاغ التالي في تبويب جديد مع إبقاء التبويب الحالي مفتوحًا
+    // (سلوك V1/V2 الأصلي — كل بلاغ له تبويب مستقل يُترك مفتوحًا للإكمال اليدوي)
     const targetUrl = getOrdersUrl();
     traceEvent('OPEN_NEXT_TAB_REQUEST', { url: targetUrl });
-    if (typeof location !== 'undefined' && location.href.includes('.powerappsportals.com')) {
+    try {
+      await chrome.runtime.sendMessage({ type: 'OPEN_NEXT_TAB', url: targetUrl });
+      traceEvent('OPEN_NEXT_TAB_SENT', { url: targetUrl });
+    } catch (e) {
+      traceEvent('OPEN_NEXT_TAB_FALLBACK', { url: targetUrl, error: e && e.message ? e.message : String(e) });
       location.href = targetUrl;
-    } else {
-      try {
-        await chrome.runtime.sendMessage({ type: 'OPEN_NEXT_TAB', url: targetUrl });
-      } catch(e) {
-        location.href = targetUrl;
-      }
     }
   }
 

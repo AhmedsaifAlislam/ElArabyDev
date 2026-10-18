@@ -151,6 +151,30 @@ function load(sandbox, file) {
     ok(!selfExport.test(read(f)), f + ': does not self-assign window.<shared fn>');
   }
 
+  console.log('-- 6) regression: كل بلاغ = تبويب جديد (لا اختطاف للتبويب الحالي) --');
+  const sentMessages = [];
+  sandbox.chrome.runtime.sendMessage = async (m) => { sentMessages.push(m); return { ok: true }; };
+  // نحاكي أننا واقفون على البوابة — وهو الشرط الذي كان يختطف التبويب الحالي
+  sandbox.location.href = 'https://elarabyportalpfs.powerappsportals.com/en-US/WorkOrderReview/case-1';
+  const hrefBefore = sandbox.location.href;
+
+  await sandbox.window.AutoFillEngine.Orchestrator.startNextTask([
+    { taskId: 'task-smoke-1', orderId: 'CAS0000001' }
+  ]);
+  const openTab = sentMessages.find((m) => m && m.type === 'OPEN_NEXT_TAB');
+  ok(!!openTab, 'startNextTask() يُرسل OPEN_NEXT_TAB (يمنع علّة "لا تبويب جديد")');
+  ok(!!openTab && /\/Orders\/?$/.test(openTab.url), 'OPEN_NEXT_TAB.url ينتهي بـ /Orders/ (' + (openTab && openTab.url) + ')');
+  ok(sandbox.location.href === hrefBefore, 'startNextTask() لا يُغيّر التبويب الحالي (يبقى البلاغ مفتوحًا)');
+
+  sentMessages.length = 0;
+  await sandbox.window.AutoFillEngine.Orchestrator.startNextTask([]);
+  ok(!sentMessages.some((m) => m && m.type === 'OPEN_NEXT_TAB'), 'startNextTask([]) لا يفتح تبويبًا');
+  ok(sentMessages.some((m) => m && m.type === 'BATCH_DONE_STORAGE'), 'startNextTask([]) يُعلن BATCH_DONE_STORAGE');
+
+  console.log('-- 7) static: لا يوجد فرع يختطف التبويب على البوابة --');
+  ok(!/location\.href\.includes\(\s*['"]\.powerappsportals\.com['"]\s*\)/.test(read('modules/autofill/engine-orchestrator.js')),
+    'engine-orchestrator.js: لا يوجد فرع (على البوابة) يعيد تحميل نفس التبويب');
+
   console.log('\n=== RESULT: ' + pass + ' passed, ' + fail + ' failed ===');
   if (fail > 0) {
     console.log('Failures:');
