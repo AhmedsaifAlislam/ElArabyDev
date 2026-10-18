@@ -266,7 +266,15 @@ window.AutoFillEngine = window.AutoFillEngine || {};
     // Serial Number 1
     if (data.serial) {
       const s1 = document.getElementById('ldv_serialnumber');
-      if (s1) {
+      // حماية «الزيارة الثانية» (قرار المستخدم): البروفايل يحمل مسلسلًا رمزيًا ('0')،
+      // فلا نكتب فوق مسلسل حقيقي موجود أصلًا على الصفحة. خيار «إجبار الكتابة»
+      // (forceOverwrite) يتجاوز الحماية عند الحاجة. الوضع العادي غير متأثر.
+      const existingSerial1Val = (s1?.value || s1?.getAttribute?.('value') || '').trim();
+      const keepExistingSerial1 = !!data.secondVisitMode && !!existingSerial1Val && !data.forceOverwrite;
+      if (keepExistingSerial1) {
+        log(`Second Visit: keeping existing serial "${existingSerial1Val}" — profile value "${data.serial}" not written.`);
+      }
+      if (s1 && !keepExistingSerial1) {
         // Handle potential "serial duplicate" alert
         const alertHandler = (msg) => {
           if (msg && msg.includes && msg.includes('هذا السيريال مكرر')) {
@@ -302,15 +310,24 @@ window.AutoFillEngine = window.AutoFillEngine || {};
         setTimeout(() => {
           window.alert = originalAlert;
         }, 2000);
+      } else if (s1 && keepExistingSerial1) {
+        FR.serial = { ok: true, value: existingSerial1Val, kept: true };
       }
     }
 
     // Serial Number 2
     if (data.serial2) {
       const s2 = document.getElementById('ldv_serialnumber1');
-      if (s2) {
+      const existingSerial2Val = (s2?.value || s2?.getAttribute?.('value') || '').trim();
+      const keepExistingSerial2 = !!data.secondVisitMode && !!existingSerial2Val && !data.forceOverwrite;
+      if (keepExistingSerial2) {
+        log(`Second Visit: keeping existing serial2 "${existingSerial2Val}" — profile value "${data.serial2}" not written.`);
+      }
+      if (s2 && !keepExistingSerial2) {
         await emulateUserInput(s2, data.serial2);
         FR.serial2 = { ok: true, value: data.serial2 };
+      } else if (s2 && keepExistingSerial2) {
+        FR.serial2 = { ok: true, value: existingSerial2Val, kept: true };
       }
     }
 
