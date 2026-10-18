@@ -65,17 +65,30 @@ const TRACE_KEY = 'multiRunRuntimeTrace';
 const MAX_TRACE_ENTRIES = 150;
 
 function traceEvent(event, details = {}) {
+  // ⚠️ نُبقي كل الحقول الإضافية ({ error, stack, ... }) وإلا تُضيع رسالة الخطأ
+  const {
+    tabId = null,
+    taskId = null,
+    orderId = null,
+    url = location.href,
+    processingTabId = null,
+    currentTaskPresent = false,
+    queueLength = 0,
+    details: innerDetails,
+    ...rest
+  } = details;
+
   const entry = {
     timestamp: new Date().toISOString(),
     event,
-    tabId: details.tabId || null,
-    taskId: details.taskId || null,
-    orderId: details.orderId || null,
-    url: details.url || location.href,
-    processingTabId: details.processingTabId || null,
-    currentTaskPresent: details.currentTaskPresent || false,
-    queueLength: details.queueLength || 0,
-    details: details.details || null
+    tabId,
+    taskId,
+    orderId,
+    url,
+    processingTabId,
+    currentTaskPresent,
+    queueLength,
+    details: innerDetails !== undefined ? innerDetails : (Object.keys(rest).length ? rest : null)
   };
   
   chrome.runtime.sendMessage({ 
@@ -171,8 +184,12 @@ function showPageToast(msg, type = 'info') {
 let _routerRunning = false; // Mutex: prevents parallel execution
 
 // ── دوال مشتركة: المصدر الوحيد في shared/portal-selectors.js ──
-async function loadSelectors() { return window.loadSelectors ? window.loadSelectors() : {}; }
-function findFirst(list) { return window.findFirst ? window.findFirst(list) : null; }
+// ⚠️ تُعرَّف بـ const وليست function declaration:
+// function declaration في ملف content script عادي (بدون IIFE) تُسجَّل على window،
+// فتستولي على الدالة الأصلية من portal-selectors.js وتصبح دالة تنادي نفسها،
+// والنتيجة: RangeError: Maximum call stack size exceeded عند أول استخدام.
+const loadSelectors = async () => (window.loadSelectors ? window.loadSelectors() : {});
+const findFirst = (list) => (window.findFirst ? window.findFirst(list) : null);
 
 function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
 
@@ -315,9 +332,16 @@ if (window === window.top && window.AutoFillEngine?.Orchestrator?.registerMessag
     }
 
     traceEvent('PROCESS_QUEUE_ON_LOAD_INVOKED', { url: location.href });
-    Orchestrator.processQueueOnLoad().catch(e =>
-      traceEvent('PROCESS_QUEUE_ON_LOAD_ERROR', { error: String(e) })
-    );
+    Orchestrator.processQueueOnLoad().catch(e => {
+      // نُظهر الخطأ نصًا + مكانه، وإلا تعذّر تشخيص توقّف الدورة
+      traceEvent('PROCESS_QUEUE_ON_LOAD_ERROR', {
+        error: String((e && e.message) || e),
+        name: (e && e.constructor && e.constructor.name) || 'Error',
+        stack: (e && e.stack) ? String(e.stack).split('\n').slice(0, 4).join(' | ') : null
+      });
+      try { showPageToast('⚠️ توقّف التشغيل: ' + ((e && e.message) || e), 'error'); } catch (_) {}
+      try { console.error('[AutoFill] processQueueOnLoad failed:', e); } catch (_) {}
+    });
   } catch (e) {
     traceEvent('BOOTSTRAP_CRASH', { error: String(e), stack: e?.stack });
   }
@@ -367,7 +391,8 @@ const executePage3_Resolution      = Page3.executePage3_Resolution;
 // Orchestrator & Router
 const normalizeTaskData       = Orchestrator.normalizeTaskData;
 const extractOrderIdFromLine  = Orchestrator.extractOrderIdFromLine;
-function generateTaskId() { return window.generateTaskId ? window.generateTaskId() : ('task-' + Date.now() + '-' + Math.random().toString(36).slice(2, 6)); }
+// ⚠️ const وليست function declaration — نفس السبب أعلاه (تجنّب الاستيلاء على window.generateTaskId)
+const generateTaskId = () => (window.generateTaskId ? window.generateTaskId() : ('task-' + Date.now() + '-' + Math.random().toString(36).slice(2, 6)));
 const buildTasksFromLines     = Orchestrator.buildTasksFromLines;
 const notifyStatus            = Orchestrator.notifyStatus;
 const clearCurrentTask        = Orchestrator.clearCurrentTask;

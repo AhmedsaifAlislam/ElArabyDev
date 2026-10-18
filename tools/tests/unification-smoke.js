@@ -70,13 +70,26 @@ function makeEnv() {
     HTMLElement,
     document: documentStub,
     localStorage: localStorageStub,
+    sessionStorage: { getItem() { return null; }, setItem() {}, removeItem() {} },
     location: { href: 'https://example.test/orders' },
+    navigator: { clipboard: { writeText: async () => {} }, userAgent: 'test' },
     chrome: chromeStub,
-    setTimeout, clearTimeout, setInterval, clearInterval,
+    setTimeout, clearTimeout, setInterval, clearInterval, queueMicrotask,
+    // needed by content-script.js (classic script, no IIFE)
+    addEventListener() {}, removeEventListener() {}, dispatchEvent() { return true; },
+    Event: class Event { constructor(t) { this.type = t; } },
+    CustomEvent: class CustomEvent { constructor(t, o) { Object.assign(this, o || {}); this.type = t; } },
+    KeyboardEvent: class KeyboardEvent { constructor(t, o) { Object.assign(this, o || {}); this.type = t; } },
+    MouseEvent: class MouseEvent { constructor(t, o) { Object.assign(this, o || {}); this.type = t; } },
+    HTMLInputElement: class HTMLInputElement {},
+    HTMLTextAreaElement: class HTMLTextAreaElement {},
+    HTMLSelectElement: class HTMLSelectElement {},
+    MutationObserver: class MutationObserver { observe() {} disconnect() {} },
     fetch: async () => { throw new Error('no-network-in-test'); }
   };
   sandbox.window = sandbox;
   sandbox.self = sandbox;
+  sandbox.top = sandbox;
   sandbox.globalThis = sandbox;
   vm.createContext(sandbox);
   return { sandbox, registry, el };
@@ -174,6 +187,47 @@ function load(sandbox, file) {
   console.log('-- 7) static: لا يوجد فرع يختطف التبويب على البوابة --');
   ok(!/location\.href\.includes\(\s*['"]\.powerappsportals\.com['"]\s*\)/.test(read('modules/autofill/engine-orchestrator.js')),
     'engine-orchestrator.js: لا يوجد فرع (على البوابة) يعيد تحميل نفس التبويب');
+
+  console.log('-- 8) regression: content-script.js لا يستولي على الدوال المشتركة --');
+  // العلّة الحقيقية: function declaration في ملف عادي (بدون IIFE) تُسجَّل على window
+  // فتستولي على نسخة portal-selectors.js → استدعاء ذاتي لا نهائي (RangeError).
+  const refLS = sandbox.window.loadSelectors;
+  const refFF = sandbox.window.findFirst;
+  const refGT = sandbox.window.generateTaskId;
+
+  for (const f of [
+    'shared/message-bus.js', 'shared/storage-proxy.js', 'modules/autofill/runtime-trace.js',
+    'shared/smart-log.js', 'shared/arabic-utils.js', 'shared/data-mapper.js',
+    'shared/frame-walker.js', 'shared/excel-exporter.js', 'shared/portal-config.js',
+    'shared/ai-client.js', 'shared/n8n-client.js',
+    'modules/autofill/engine-lookups.js', 'modules/autofill/engine-page1.js',
+    'modules/autofill/engine-page2.js', 'modules/autofill/engine-page3.js',
+    'content-script.js'
+  ]) {
+    try { load(sandbox, f); } catch (_) { /* بعض الملفات تتطلب DOM كامل — التعريفات مُثبَّتة على أي حال */ }
+  }
+
+  ok(sandbox.window.loadSelectors === refLS, 'content-script.js: لم يستولِ على window.loadSelectors');
+  ok(sandbox.window.findFirst === refFF, 'content-script.js: لم يستولِ على window.findFirst');
+  ok(sandbox.window.generateTaskId === refGT, 'content-script.js: لم يستولِ على window.generateTaskId');
+
+  let recErrLS = null, recErrFF = null, recErrGT = null;
+  try { await sandbox.window.loadSelectors(); } catch (e) { recErrLS = e; }
+  try { sandbox.window.findFirst(['#ldv_serialnumber']); } catch (e) { recErrFF = e; }
+  try { sandbox.window.generateTaskId(); } catch (e) { recErrGT = e; }
+  ok(!recErrLS, 'window.loadSelectors() يعمل بلا RangeError' + (recErrLS ? ' [' + recErrLS.message + ']' : ''));
+  ok(!recErrFF, 'window.findFirst() يعمل بلا RangeError' + (recErrFF ? ' [' + recErrFF.message + ']' : ''));
+  ok(!recErrGT, 'window.generateTaskId() يعمل بلا RangeError' + (recErrGT ? ' [' + recErrGT.message + ']' : ''));
+
+  console.log('-- 9) static: لا تعريف عام بنفس أسماء الدوال المشتركة --');
+  const SHARED_NAMES = ['findFirst', 'loadSelectors', 'parseDataLine', 'generateTaskId'];
+  const topLevelDecl = new RegExp('^(?:async\\s+)?function\\s+(?:' + SHARED_NAMES.join('|') + ')\\s*\\(');
+  for (const f of ['content-script.js', 'popup.js', 'control-panel.js',
+                   'modules/autofill/engine-page1.js', 'modules/autofill/engine-page2.js',
+                   'modules/autofill/engine-page3.js', 'modules/autofill/autofill-client.js']) {
+    const bad = read(f).split(/\r?\n/).find((l) => topLevelDecl.test(l));
+    ok(!bad, f + ': لا يوجد function declaration عام لدوال مشتركة' + (bad ? ' -> ' + bad.trim() : ''));
+  }
 
   console.log('\n=== RESULT: ' + pass + ' passed, ' + fail + ' failed ===');
   if (fail > 0) {

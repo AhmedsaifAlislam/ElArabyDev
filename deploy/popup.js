@@ -64,9 +64,10 @@ function extractOrderId(line) {
   return null;
 }
 
-function generateTaskId() {
-  return window.generateTaskId ? window.generateTaskId() : ('task-' + Date.now() + '-' + Math.random().toString(36).slice(2, 6));
-}
+// ⚠️ const وليست function declaration: popup.js ملف عادي (بدون IIFE) و portal-selectors.js
+// محمَّل قبله في popup.html (سطر 1293 قبل 1299) — فالتعريف بـ function يستولي على
+// window.generateTaskId ويجعلها تنادي نفسها → RangeError. نفس إصلاح content-script.js.
+const generateTaskId = () => (window.generateTaskId ? window.generateTaskId() : ('task-' + Date.now() + '-' + Math.random().toString(36).slice(2, 6)));
 
 // â”€â”€ Set Status (Search Tab) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 function setSearchStatus(text, type = 'info') {
