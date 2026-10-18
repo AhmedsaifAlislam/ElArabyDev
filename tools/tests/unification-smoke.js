@@ -249,6 +249,23 @@ function load(sandbox, file) {
   ok(!/\$\{pad\(dObj\.month\)\}/.test(p1src), 'engine-page1.js: لا يوجد بناء MM/DD/YYYY');
   ok(/window\.parsePortalDate/.test(p1src), 'engine-page1.js: يستخدم المصدر الوحيد window.parsePortalDate');
 
+  console.log('-- 12) static: قواعد «الزيارة الثانية» في الموجِّه مطابقة لـ V2 --');
+  // العلّة: تخطّي الصفحة 1 في وضع الزيارة الثانية يمنع كتابة تاريخ الضمان كليًّا،
+  // ثم يرفض السيرفر الحفظ برسالة صيغة التاريخ. V2 كان يستثني هذا الوضع صراحةً:
+  //   content-script.js L1306: `if (isPage1AlreadyFilled(cfg) && task.mode !== 'secondVisit')`
+  //   content-script.js L1355: `needsPage3 = task.mode === 'secondVisit' || ...`
+  const orchLines = read('modules/autofill/engine-orchestrator.js').split(/\r?\n/);
+  const filledCallIdx = orchLines.findIndex((l) => /isPage1AlreadyFilled\(cfg\)/.test(l));
+  let page1SkipLine = null;
+  for (let i = filledCallIdx; filledCallIdx >= 0 && i < orchLines.length; i++) {
+    if (/\bif\s*\(/.test(orchLines[i]) && /data\.forceOverwrite/.test(orchLines[i])) { page1SkipLine = orchLines[i]; break; }
+  }
+  ok(!!page1SkipLine && /!data\.secondVisitMode/.test(page1SkipLine),
+     'engine-orchestrator: تخطي الصفحة 1 يستثني وضع الزيارة الثانية' + (page1SkipLine ? ' -> ' + page1SkipLine.trim() : ' [لم يُعثر على شرط التخطي]'));
+  const needsPage3Line = orchLines.find((l) => /\bneedsPage3\s*=/.test(l));
+  ok(!!needsPage3Line && /data\.secondVisitMode/.test(needsPage3Line),
+     'engine-orchestrator: needsPage3 يشمل وضع الزيارة الثانية' + (needsPage3Line ? ' -> ' + needsPage3Line.trim().slice(0, 90) : ' [لم يُعثر على needsPage3]'));
+
   console.log('\n=== RESULT: ' + pass + ' passed, ' + fail + ' failed ===');
   if (fail > 0) {
     console.log('Failures:');

@@ -447,7 +447,20 @@ window.AutoFillEngine = window.AutoFillEngine || {};
 
     if (feature === 'PAGE_1') {
       await sleep(800);
-      if (!data.forceOverwrite && window.AutoFillEngine.Page1?.isPage1AlreadyFilled && window.AutoFillEngine.Page1.isPage1AlreadyFilled(cfg)) {
+      // ⚠️ استثناء «الزيارة الثانية» (مطابقة V2):
+      //    V2 كان يُلغي التخطي في هذا الوضع — content-script.js L1306:
+      //      `if (isPage1AlreadyFilled(cfg) && task.mode !== 'secondVisit')`
+      //    و L1315-1318: «Always fill Page 1 in secondVisit mode (even if partially filled)».
+      //    بدون الاستثناء: أمر «زيارة ثانية» سبق معالجته (فيه رقم مسلسل) تُتخطّى صفحته
+      //    الأولى بالكامل، فلا يُكتب تاريخ الضمان ولا العلامة/الموديل، ثم يرفض السيرفر الحفظ:
+      //    «تاريخ الضمان must have a valid date format. Example: {1}»
+      const page1Filled = window.AutoFillEngine.Page1?.isPage1AlreadyFilled
+        ? window.AutoFillEngine.Page1.isPage1AlreadyFilled(cfg)
+        : false;
+      if (page1Filled && data.secondVisitMode) {
+        log('Page 1 partially filled — Second Visit mode: filling remaining fields anyway (V2 parity).');
+      }
+      if (!data.forceOverwrite && !data.secondVisitMode && page1Filled) {
         warn('Page 1 already has data — marking task as done and skipping to next order.');
         try {
           const { currentTask } = await storageGet({ currentTask: null });
@@ -503,7 +516,9 @@ window.AutoFillEngine = window.AutoFillEngine || {};
       Object.assign(resFR, res2.report.fieldResults);
 
       const isInstall = /تركيب/.test(data.reportType) || (window.AutoFillEngine.Page1?.isInstallationReport && window.AutoFillEngine.Page1.isInstallationReport());
-      let needsPage3 = data.forceDrainCleaning || data.faultCode || (/تنظيف|صرف/.test(data.reportType) || /تنظيف|صرف/.test(data.notes || '')) || isInstall;
+      // V2 — content-script.js L1355: الزيارة الثانية تذهب دائمًا للصفحة الثالثة
+      // (أكواد العطل / قطع الغيار) حتى لو لم يكن هناك faultCode.
+      let needsPage3 = data.secondVisitMode || data.forceDrainCleaning || data.faultCode || (/تنظيف|صرف/.test(data.reportType) || /تنظيف|صرف/.test(data.notes || '')) || isInstall;
       log(`needsPage3=${needsPage3} | forceDrain=${!!data.forceDrainCleaning} | faultCode=${data.faultCode||'N/A'} | isInstall=${isInstall}`);
 
       if (!needsPage3) {
