@@ -5,6 +5,34 @@
 > **الإصدار:** يتبع [Semantic Versioning](https://semver.org/)
 ---
 
+## [2026-10-18] — الموجة 4 (فرعية): تقوية control-panel.js (Security, Performance, Maintainability)
+
+### الأمن (Security)
+- **XSS sanitization:** إضافة `escapeHtml` محلية (مطابقة لـ `popup.js`/`dashboard.js`) وتغليف القيم الديناميكية في موقعين `innerHTML`:
+  - سطر 1209 (`updateDeviceInfo`): اسم الجهاز من `readDeviceHint()`
+  - سطر 1952 (`refreshCopiedCodesPreview`): ملخص الأكواد من الحافظة/التخزين
+- **localStorage hardening:** دالة `safeParseJSON(raw, fallback)` مع تحقق شكل الكائن، مطبقة في `loadState()` و `refreshCopiedCodesPreview()`
+- **Eliminated `window.prompt`:** استبدال المسار الاحتياطي لـ "لصق JSON يدويًا" بحقل `textarea` داخل اللوحة (تبويب PAGE_3) مع أزرار تطبيق/إلغاء
+
+### الأداء (Performance)
+- **Consolidated timers:** دمج 4 `setInterval` منفصلين (4ث، 1.2ث، 1.5ث، 10ث) في **نبضة واحدة 1.2ث** مع عدادات
+- **Removed reinject guard:** إلغاء حارس إعادة الحقن الدوري (4ث) — الاعتماد على `MutationObserver` للكشف عن إزالة اللوحة
+- **MutationObserver throttling:** إضافة buffer للتفريغ مع النبضة، تقليل استدعاءات `logPage` بنسبة كبيرة
+
+### الصيانة (Maintainability)
+- **Unified iframe traversal:** 19 موضع عبور `iframe` يدوي مستبدل بدوال موحدة:
+  - `getShallowDocs()` — سلوك حالي (main + iframes مستوى أول)
+  - `getAllDocs()` — تعاقبي عبر `shared/frame-walker.js` عند الحاجة
+  - `findFirstInFrames()` / `findAllInFrames()` — بحث موحد
+- **manifest.json:** إضافة `shared/frame-walker.js` للكتلة الثانية لضمان ترتيب التحميل قبل `control-panel.js`
+- **TypeScript/Build-free:** لا تغييرات في مسار البناء — النشر يظل نسخ مباشر + بوابة `node --check`
+
+### تحقق
+- `node --check` نظيف على `src/unified-extension/control-panel.js` ✅
+- `tools/deploy.ps1` ناجح — `deploy/` محدّث ✅
+
+---
+
 ## [2026-09-29] — ميزة نسخ ولصق الأكواد وقطع الغيار (JSON) في الكنترول بانل (الصفحة 3)
 
 ### جديد في لوحة التحكم ومحرك الصفحة 3 (Control Panel & AutoFill Engine)

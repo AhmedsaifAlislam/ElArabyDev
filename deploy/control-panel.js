@@ -16,6 +16,61 @@
   let debugLog = [];
   let flushTimer = null;
 
+  // ===== Helpers: escapeHtml / safeParse (Wave A) =====
+const escapeHtml = s => String(s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;").replace(/`/g, "&#96;");
+
+  function safeParseJSON(raw, fallback) {
+    try {
+      if (!raw) return fallback;
+      const parsed = JSON.parse(raw);
+      // basic shape guard for our STATE_KEY
+      if (fallback && typeof fallback === 'object' && typeof parsed !== 'object') return fallback;
+      return parsed;
+    } catch (_) { return fallback; }
+  }
+
+  // ===== Unified iframe access (Wave B) =====
+  // Shallow walk: main doc + first-level iframes only (matches current behavior exactly)
+  function getShallowDocs(root = document) {
+    return [root, ...Array.from(root.querySelectorAll('iframe'))
+      .map(f => { try { return f.contentDocument || f.contentWindow?.document; } catch (_) { return null; } })
+      .filter(Boolean)];
+  }
+
+  // Recursive walk: uses shared/frame-walker.js if available
+  function getAllDocs(root = document) {
+    if (typeof window.getAccessibleDocs === 'function') {
+      try { return window.getAccessibleDocs(root); } catch (_) {}
+    }
+    return getShallowDocs(root);
+  }
+
+  // Find first matching element across shallow docs
+  function findFirstInFrames(selector, root = document) {
+    if (typeof window.findInFrames === 'function') {
+      try { return window.findInFrames(selector, root); } catch (_) {}
+    }
+    const docs = getShallowDocs(root);
+    for (const doc of docs) {
+      const el = doc.querySelector(selector);
+      if (el) return el;
+    }
+    return null;
+  }
+
+  // Find all matching elements across shallow docs
+  function findAllInFrames(selector, root = document) {
+    if (typeof window.findAllInFrames === 'function') {
+      try { return window.findAllInFrames(selector, root); } catch (_) {}
+    }
+    const results = [];
+    const docs = getShallowDocs(root);
+    for (const doc of docs) {
+      results.push(...doc.querySelectorAll(selector));
+    }
+    return results;
+  }
+
   // كتابة localStorage مؤجلة (debounce) — تُستبدل الكتابة المتزامنة في كل حدث
   function flushLogs() {
     flushTimer = null;
@@ -135,33 +190,20 @@
     await loadProductsDb();
     injectPanel();
     observePageChanges();
-    // حارس إعادة حقن: لو أعادت الصفحة رسم body وأزالت اللوحة (SPA re-render)
-    setInterval(() => {
-      if (!document.getElementById(PANEL_ID)) {
-        logEvent('INIT', 'اللوحة اختفت من الصفحة — إعادة حقن');
-        try { injectPanel(); } catch (e) { logEvent('INIT', 'فشل إعادة الحقن: ' + (e && e.message)); }
-      }
-    }, 4000);
     logEvent('INIT', 'تم تحميل لوحة التحكم');
   }
 
   function loadState() {
-    try {
-      const raw = localStorage.getItem(STATE_KEY);
-      if (raw) {
-        const s = JSON.parse(raw);
-        isMinimized = s.minimized !== false;
-        isDocked = s.docked === true;
-        return s;
-      }
-    } catch(e) {}
-    return { minimized: true, docked: false };
+    const raw = localStorage.getItem(STATE_KEY);
+    const s = safeParseJSON(raw, { minimized: true, docked: false });
+    isMinimized = s.minimized !== false;
+    isDocked = s.docked === true;
+    return s;
   }
 
   function saveState(shadow) {
     try {
-      let prev = {};
-      try { const raw = localStorage.getItem(STATE_KEY); if (raw) prev = JSON.parse(raw); } catch(_) {}
+      const prev = safeParseJSON(localStorage.getItem(STATE_KEY), {});
       const panel = shadow.querySelector('.cp-panel');
       const rect = panel.getBoundingClientRect();
       // لو اللوحة مخفية (تصغير) يكون rect = 0 → نحتفظ بالأبعاد السابقة بدل تصفيرها
@@ -205,11 +247,11 @@
     }
     let res = scanInDoc(doc);
     if (res) return res;
-    for (const iframe of doc.querySelectorAll('iframe')) {
-      try {
-        const iDoc = iframe.contentDocument || iframe.contentWindow?.document;
-        if (iDoc) { res = scanInDoc(iDoc); if (res) return res; }
-      } catch (_) {}
+    const docs = getShallowDocs(doc);
+    for (const d of docs) {
+      if (d === doc) continue; // skip main doc, already scanned
+      res = scanInDoc(d);
+      if (res) return res;
     }
     return 'PAGE_1';
   }
@@ -393,6 +435,15 @@ function getCSS() {
     <div id="cp-codes-preview" class="cp-codes-preview-box"></div>
     <label class="cp-label">أكواد إضافية (اختيار متعدد):</label>
     <div class="cp-codes" id="cp-codes-list"></div>
+    <!-- Manual JSON input (replaces window.prompt) -->
+    <div id="cp-manual-json-wrap" style="display:none;margin:8px 0">
+      <label class="cp-label">أو الصق JSON يدوياً:</label>
+      <textarea id="cp-manual-json" class="cp-amount" rows="3" placeholder='{"type":"ELARABY_CODES_BUNDLE","version":1,"faultCodes":[...],"spareParts":[...]}'></textarea>
+      <div style="display:flex;gap:4px;margin-top:4px">
+        <button class="cp-btn cp-btn-exec" id="cp-manual-json-apply" style="flex:1">✅ تطبيق</button>
+        <button class="cp-btn" id="cp-manual-json-cancel" style="flex:1;background:#334466">✕ إلغاء</button>
+      </div>
+    </div>
     <div class="cp-shortcuts" id="cp-shortcuts">
       <div class="cp-notes-title" style="margin:4px 0 2px;padding-top:3px">⚡ شورت كت</div>
       <div class="cp-shortcut-row">
@@ -424,9 +475,7 @@ function getCSS() {
   }
 
   function readPartsFromGrid() {
-    const allDocs = [document, ...Array.from(document.querySelectorAll('iframe'))
-      .map(f => { try { return f.contentDocument || f.contentWindow?.document; } catch(e) { return null; } })
-      .filter(Boolean)];
+    const allDocs = getShallowDocs();
 
     for (const doc of allDocs) {
       // البحث أولاً في شبكات قطع الغيار المحددة حصراً لتجنب قراءة شبكة أكواد الأعطال (WorkOrder_defect)
@@ -565,19 +614,7 @@ function getCSS() {
   }
 
   function readOfficialSparePartsTotal() {
-    let el = document.querySelector('#ldv_originaltotalusedsparepartscost, input[name*="originaltotalusedsparepartscost"]');
-    if (!el) {
-      const iframes = document.querySelectorAll('iframe');
-      for (const ifr of iframes) {
-        try {
-          const iDoc = ifr.contentDocument || ifr.contentWindow?.document;
-          if (iDoc) {
-            el = iDoc.querySelector('#ldv_originaltotalusedsparepartscost, input[name*="originaltotalusedsparepartscost"]');
-            if (el) break;
-          }
-        } catch (_) {}
-      }
-    }
+    let el = findFirstInFrames('#ldv_originaltotalusedsparepartscost, input[name*="originaltotalusedsparepartscost"]');
     if (el) {
       const raw = (el.value || el.innerText || '').replace(/[^0-9.]/g, '');
       const val = parseFloat(raw);
@@ -587,19 +624,7 @@ function getCSS() {
   }
 
   function readSparePartsStatusFromPage() {
-    let el = document.getElementById('ats_sparepartsstatus') || document.querySelector('select[name*="sparepartsstatus"], select[aria-label*="قطع الغيار"]');
-    if (!el) {
-      const iframes = document.querySelectorAll('iframe');
-      for (const ifr of iframes) {
-        try {
-          const iDoc = ifr.contentDocument || ifr.contentWindow?.document;
-          if (iDoc) {
-            el = iDoc.getElementById('ats_sparepartsstatus') || iDoc.querySelector('select[name*="sparepartsstatus"], select[aria-label*="قطع الغيار"]');
-            if (el) break;
-          }
-        } catch (_) {}
-      }
-    }
+    let el = findFirstInFrames('#ats_sparepartsstatus, select[name*="sparepartsstatus"], select[aria-label*="قطع الغيار"]');
     return el ? String(el.value || '').trim() : '';
   }
 
@@ -653,19 +678,7 @@ function getCSS() {
 
     logEvent('PARTS', `النص:\n${text}`);
 
-    let notesEl = document.querySelector('#ldv_resourcelastcomment, textarea[aria-label*="Notes"], textarea[aria-label*="ملاحظات"], textarea[id*="notes"], input[aria-label*="التعليق"], #notes');
-    if (!notesEl) {
-      const iframes = document.querySelectorAll('iframe');
-      for (const ifr of iframes) {
-        try {
-          const iDoc = ifr.contentDocument || ifr.contentWindow?.document;
-          if (iDoc) {
-            notesEl = iDoc.querySelector('#ldv_resourcelastcomment, textarea[aria-label*="Notes"], textarea[aria-label*="ملاحظات"], textarea[id*="notes"], input[aria-label*="التعليق"], #notes');
-            if (notesEl) break;
-          }
-        } catch(e) {}
-      }
-    }
+    let notesEl = findFirstInFrames('#ldv_resourcelastcomment, textarea[aria-label*="Notes"], textarea[aria-label*="ملاحظات"], textarea[id*="notes"], input[aria-label*="التعليق"], #notes');
 
     if (notesEl) {
       const currentVal = (notesEl.value || '').trim();
@@ -1120,9 +1133,7 @@ function getCSS() {
   }
 
   function detectInstallation() {
-    const allDocs = [document, ...Array.from(document.querySelectorAll('iframe'))
-      .map(f => { try { return f.contentDocument || f.contentWindow?.document; } catch(e) { return null; } })
-      .filter(Boolean)];
+    const allDocs = getShallowDocs();
     for (const doc of allDocs) {
       try {
         const nameEl = doc.querySelector('#ats_workordertype_name') || doc.querySelector('#ats_servicetype_name');
@@ -1165,9 +1176,7 @@ function getCSS() {
   const PAGE_WARN_ID = 'cp-page-install-warn';
 
   function findAttachmentsField() {
-    const allDocs = [document, ...Array.from(document.querySelectorAll('iframe'))
-      .map(f => { try { return f.contentDocument || f.contentWindow?.document; } catch(e) { return null; } })
-      .filter(Boolean)];
+    const allDocs = getShallowDocs();
     for (const doc of allDocs) {
       try {
         const fieldset = doc.querySelector('fieldset[aria-label="مرفقات"], fieldset[aria-label*="مرفق"], [data-name="tab_4_section_7"]');
@@ -1206,7 +1215,7 @@ function getCSS() {
     const isInstall = resolveIsInstall();
     const typeLabel = isInstall ? 'تركيب' : 'صيانة';
     const typeClass = isInstall ? 'cp-install' : 'cp-maintenance';
-    info.innerHTML = `الجهاز: <b>${device || 'غير معروف'}</b><br>نوع البلاغ: <span class="${typeClass}">${typeLabel}</span>`;
+    info.innerHTML = `الجهاز: <b>${escapeHtml(device || 'غير معروف')}</b><br>نوع البلاغ: <span class="${typeClass}">${typeLabel}</span>`;
     const installWarn = shadow.getElementById('cp-install-warn');
     if (installWarn) installWarn.style.display = isInstall ? 'block' : 'none';
     injectInstallWarnIntoPage();
@@ -1646,7 +1655,7 @@ function getCSS() {
     }
     // بحث في main + iframes
     let btn = null;
-    const allDocs = [document, ...Array.from(document.querySelectorAll('iframe')).map(f => { try { return f.contentDocument || f.contentWindow?.document; } catch(e) { return null; } }).filter(Boolean)];
+    const allDocs = getShallowDocs();
     for (const doc of allDocs) {
       // بحث بالسيلكتورز أولاً
       if (CFG.nextBtn) {
@@ -1686,16 +1695,7 @@ function getCSS() {
         let el = typeof findFieldByLabel === 'function' ? findFieldByLabel(['حالة قطع الغيار', 'Spare Parts'], 'select') : null;
         if (!el) el = document.getElementById('ats_sparepartsstatus');
         if (!el) {
-          const iframes = document.querySelectorAll('iframe');
-          for (const ifr of iframes) {
-            try {
-              const iDoc = ifr.contentDocument || ifr.contentWindow?.document;
-              if (iDoc) {
-                el = iDoc.querySelector('#ats_sparepartsstatus, select[aria-label*="قطع الغيار"], select[aria-label*="Spare"]');
-                if (el) break;
-              }
-            } catch(e) {}
-          }
+          el = findFirstInFrames('#ats_sparepartsstatus, select[aria-label*="قطع الغيار"], select[aria-label*="Spare"]');
         }
         if (el && el.tagName === 'SELECT') {
           el.value = statusVal;
@@ -1759,39 +1759,17 @@ function getCSS() {
   // PAGE 3 — نسخ ولصق أكواد الأعطال (JSON)
   // ════════════════════════════════════════════
   function readNotesFromPage() {
-    const el = document.querySelector('#ldv_resourcelastcomment, textarea[aria-label*="Notes"], textarea[aria-label*="ملاحظات"], textarea[id*="notes"], input[aria-label*="التعليق"], #notes');
-    if (el) return (el.value || el.innerText || '').trim();
-    for (const ifr of document.querySelectorAll('iframe')) {
-      try {
-        const iDoc = ifr.contentDocument || ifr.contentWindow?.document;
-        if (iDoc) {
-          const ifrEl = iDoc.querySelector('#ldv_resourcelastcomment, textarea[aria-label*="Notes"], textarea[aria-label*="ملاحظات"], textarea[id*="notes"], input[aria-label*="التعليق"], #notes');
-          if (ifrEl) return (ifrEl.value || ifrEl.innerText || '').trim();
-        }
-      } catch(_) {}
-    }
-    return '';
+    const el = findFirstInFrames('#ldv_resourcelastcomment, textarea[aria-label*="Notes"], textarea[aria-label*="ملاحظات"], textarea[id*="notes"], input[aria-label*="التعليق"], #notes');
+    return el ? (el.value || el.innerText || '').trim() : '';
   }
 
   function readCollectedAmountFromPage() {
-    const el = document.querySelector('#ldv_actualcollectedamount, input[aria-label*="المبلغ المحصل"], input.money.form-control');
-    if (el) return (el.value || el.innerText || '0').replace(/[^0-9.]/g, '') || '0';
-    for (const ifr of document.querySelectorAll('iframe')) {
-      try {
-        const iDoc = ifr.contentDocument || ifr.contentWindow?.document;
-        if (iDoc) {
-          const ifrEl = iDoc.querySelector('#ldv_actualcollectedamount, input[aria-label*="المبلغ المحصل"], input.money.form-control');
-          if (ifrEl) return (ifrEl.value || ifrEl.innerText || '0').replace(/[^0-9.]/g, '') || '0';
-        }
-      } catch(_) {}
-    }
-    return '0';
+    const el = findFirstInFrames('#ldv_actualcollectedamount, input[aria-label*="المبلغ المحصل"], input.money.form-control');
+    return el ? (el.value || el.innerText || '0').replace(/[^0-9.]/g, '') || '0' : '0';
   }
 
   function extractFaultCodesFromPage(shadow) {
-    const allDocs = [document, ...Array.from(document.querySelectorAll('iframe'))
-      .map(f => { try { return f.contentDocument || f.contentWindow?.document; } catch(e) { return null; } })
-      .filter(Boolean)];
+    const allDocs = getShallowDocs();
 
     const faultCodes = [];
     const seen = new Set();
@@ -1943,11 +1921,11 @@ function getCSS() {
         preview.innerHTML = '';
         return;
       }
-      const bundle = JSON.parse(raw);
+      const bundle = safeParseJSON(raw, null);
       if (bundle && ((Array.isArray(bundle.faultCodes) && bundle.faultCodes.length > 0) || (Array.isArray(bundle.spareParts) && bundle.spareParts.length > 0))) {
         const partsCount = bundle.spareParts?.length || 0;
         const codesCount = bundle.faultCodes?.length || 0;
-        const codesSummary = (bundle.faultCodes || []).map(c => c.fullCode || c.defectCode || c.majorCode).join('، ');
+        const codesSummary = (bundle.faultCodes || []).map(c => escapeHtml(c.fullCode || c.defectCode || c.majorCode)).join('، ');
         const partsText = partsCount > 0 ? ` + <b>${partsCount} قطعة غيار</b>` : '';
         preview.innerHTML = `<span>📋 <b>${codesCount} كود منسوخ</b>${partsText} جاهز للصق: ${codesSummary}</span>`;
         preview.style.display = 'block';
@@ -2179,9 +2157,7 @@ function getCSS() {
 
     // 2. العثور على زر إضافة قطعة غيار المرئي مع مهلة انتظار لتحديث الـ Ajax
     let addBtn = null;
-    const allDocs = [document, ...Array.from(document.querySelectorAll('iframe'))
-      .map(f => { try { return f.contentDocument || f.contentWindow?.document; } catch(e) { return null; } })
-      .filter(Boolean)];
+    const allDocs = getShallowDocs();
 
     const findBtnDeadline = Date.now() + 12000;
     while (Date.now() < findBtnDeadline) {
@@ -2335,9 +2311,7 @@ function getCSS() {
 
     // 1. العثور على زر إضافة كود عطل المرئي مع مهلة انتظار
     let addBtn = null;
-    const allDocs = [document, ...Array.from(document.querySelectorAll('iframe'))
-      .map(f => { try { return f.contentDocument || f.contentWindow?.document; } catch(e) { return null; } })
-      .filter(Boolean)];
+    const allDocs = getShallowDocs();
 
     const findBtnDeadline = Date.now() + 12000;
     while (Date.now() < findBtnDeadline) {
@@ -2475,8 +2449,8 @@ function getCSS() {
         const localRaw = localStorage.getItem('elaraby_copied_codes_bundle');
         if (localRaw) {
           try {
-            const parsed = JSON.parse(localRaw);
-            if (Array.isArray(parsed)) bundle = { faultCodes: parsed };
+            const parsed = safeParseJSON(localRaw, null);
+            if (parsed && Array.isArray(parsed)) bundle = { faultCodes: parsed };
             else if (parsed && (Array.isArray(parsed.faultCodes) || Array.isArray(parsed.spareParts))) bundle = parsed;
             logEvent('PASTE_CODES', 'تم قراءة الأكواد من localStorage');
           } catch(_) {}
@@ -2484,13 +2458,40 @@ function getCSS() {
       }
 
       if (!bundle || (!Array.isArray(bundle.faultCodes) && !Array.isArray(bundle.spareParts))) {
-        const manualInput = window.prompt('الصق كود JSON الخاص بالأكواد هنا (أو تم نسخه سابقاً):');
-        if (manualInput && manualInput.trim()) {
-          try {
-            const parsed = JSON.parse(manualInput.trim());
-            if (Array.isArray(parsed)) bundle = { faultCodes: parsed };
-            else if (parsed && (Array.isArray(parsed.faultCodes) || Array.isArray(parsed.spareParts))) bundle = parsed;
-          } catch(_) {}
+        // Show manual JSON input inline instead of window.prompt
+        const manualWrap = shadow.getElementById('cp-manual-json-wrap');
+        const manualInput = shadow.getElementById('cp-manual-json');
+        const applyBtn = shadow.getElementById('cp-manual-json-apply');
+        const cancelBtn = shadow.getElementById('cp-manual-json-cancel');
+        if (manualWrap && manualInput && applyBtn && cancelBtn) {
+          manualWrap.style.display = 'block';
+          manualInput.value = '';
+          manualInput.focus();
+          setStatus(shadow, '📋 الصق JSON في المربع واضغط "تطبيق"', 'warn');
+          await new Promise((resolve) => {
+            const onApply = () => {
+              const txt = manualInput.value.trim();
+              manualWrap.style.display = 'none';
+              applyBtn.removeEventListener('click', onApply);
+              cancelBtn.removeEventListener('click', onCancel);
+              if (txt) {
+                try {
+                  const parsed = safeParseJSON(txt, null);
+                  if (parsed && Array.isArray(parsed)) bundle = { faultCodes: parsed };
+                  else if (parsed && (Array.isArray(parsed.faultCodes) || Array.isArray(parsed.spareParts))) bundle = parsed;
+                } catch(_) {}
+              }
+              resolve();
+            };
+            const onCancel = () => {
+              manualWrap.style.display = 'none';
+              applyBtn.removeEventListener('click', onApply);
+              cancelBtn.removeEventListener('click', onCancel);
+              resolve();
+            };
+            applyBtn.addEventListener('click', onApply);
+            cancelBtn.addEventListener('click', onCancel);
+          });
         }
       }
 
@@ -2614,7 +2615,7 @@ function getCSS() {
         setStatus(shadow, '⏳ جاري فتح نافذة تمت الصيانة...');
         logEvent('EXEC_PAGE3', 'فتح نافذة تمت الصيانة');
         let lookupBtn = null, lookupDoc = document;
-        for (const doc of [document, ...[].slice.call(document.querySelectorAll('iframe')).map(f => { try { return f.contentDocument || f.contentWindow?.document; } catch(e) { return null; } }).filter(Boolean)]) {
+        for (const doc of getShallowDocs()) {
           const btns = doc.querySelectorAll('button.launchentitylookup');
           lookupBtn = Array.from(btns).find(b => {
             const aria = (b.getAttribute('aria-label') || '').toLowerCase();
@@ -2669,16 +2670,7 @@ function getCSS() {
           if (!notesEl) notesEl = document.querySelector('#ldv_resourcelastcomment, textarea[aria-label*="Notes"], textarea[aria-label*="ملاحظات"], textarea[id*="notes"], input[aria-label*="التعليق"], #notes');
           if (!notesEl) notesEl = document.querySelector('textarea.form-control, input.form-control[aria-label*="التعليق"]');
           if (!notesEl) {
-            const iframes = document.querySelectorAll('iframe');
-            for (const ifr of iframes) {
-              try {
-                const iDoc = ifr.contentDocument || ifr.contentWindow?.document;
-                if (iDoc) {
-                  notesEl = iDoc.querySelector('#ldv_resourcelastcomment, textarea[aria-label*="Notes"], textarea[aria-label*="ملاحظات"], textarea[id*="notes"], input[aria-label*="التعليق"], #notes');
-                  if (notesEl) break;
-                }
-              } catch(e) {}
-            }
+            notesEl = findFirstInFrames('#ldv_resourcelastcomment, textarea[aria-label*="Notes"], textarea[aria-label*="ملاحظات"], textarea[id*="notes"], input[aria-label*="التعليق"], #notes');
           }
           if (notesEl) {
             const currentVal = (notesEl.value || '').trim();
@@ -2711,17 +2703,7 @@ function getCSS() {
         const findAmt = () => {
           let el = document.querySelector('#ldv_actualcollectedamount, input[aria-label*="المبلغ المحصل"], input.money.form-control');
           if (el) return el;
-          const iframes = document.querySelectorAll('iframe');
-          for (const ifr of iframes) {
-            try {
-              const iDoc = ifr.contentDocument || ifr.contentWindow?.document;
-              if (iDoc) {
-                el = iDoc.querySelector('#ldv_actualcollectedamount, input[aria-label*="المبلغ المحصل"], input[aria-label*="المبلغ"], input.money.form-control, input[id*="actualcollected"], input[id*="collectedamount"]');
-                if (el) return el;
-              }
-            } catch(e) {}
-          }
-          return null;
+          return findFirstInFrames('#ldv_actualcollectedamount, input[aria-label*="المبلغ المحصل"], input[aria-label*="المبلغ"], input.money.form-control, input[id*="actualcollected"], input[id*="collectedamount"]');
         };
         for (let v = 0; v < 10; v++) {
           amtEl = findAmt();
@@ -2756,7 +2738,10 @@ function getCSS() {
 
   function observePageChanges() {
     let lastPage = detectPage();
-    setInterval(() => {
+    let heartbeatCounter = 0; // increments every 1200ms
+    const HEARTBEAT_MS = 1200;
+    const heartbeatId = setInterval(() => {
+      heartbeatCounter++;
       const page = detectPage();
       const host = document.getElementById(PANEL_ID);
       if (page !== lastPage) {
@@ -2777,7 +2762,36 @@ function getCSS() {
         }
         if (!document.getElementById(PAGE_WARN_ID)) injectInstallWarnIntoPage();
       }
-    }, 1200);
+
+      // Every ~1500ms (counter 1, 2, 3... = 1200, 2400, 3600...) -> watchFields
+      if (heartbeatCounter % 2 === 0) { // ~2400ms
+        const watchFields = [
+          { sel: '#ats_bookingstatus_name', name: 'حالة الحجز' },
+          { sel: '#ldv_actualcollectedamount', name: 'المبلغ المحصل' },
+          { sel: '#ats_sparepartsstatus', name: 'قطع الغيار' },
+          { sel: 'textarea[aria-label*="Notes"], textarea[aria-label*="ملاحظات"]', name: 'الملاحظات' },
+          { sel: '#ldv_resourcelastcomment', name: 'آخر تعليق' }
+        ];
+        for (const f of watchFields) {
+          const el = document.querySelector(f.sel);
+          if (el && el.value && el.value !== (el._lastVal || '')) {
+            el._lastVal = el.value;
+            logPage('FIELD_VAL', `${f.name}: ${el.value.slice(0, 80)}`);
+          }
+        }
+      }
+
+      // Every ~10000ms (counter ~8)
+      if (heartbeatCounter % 8 === 0) {
+        const url = location.href;
+        const title = document.title;
+        logPage('PAGE_STATE', `url=${url.slice(0,80)} title=${title.slice(0,40)}`);
+      }
+    }, HEARTBEAT_MS);
+
+    // Store for cleanup if needed
+    window._cpHeartbeatId = heartbeatId;
+
     observePageDOM();
   }
 
@@ -2819,12 +2833,27 @@ function getCSS() {
     logPage('SNAPSHOT', `  جداول: ${tables.length}`);
 
     // الـ iframes
-    const iframes = document.querySelectorAll('iframe');
-    logPage('SNAPSHOT', `  iframes: ${iframes.length}`);
+    const iframes = getShallowDocs().length - 1; // minus main document
+    logPage('SNAPSHOT', `  iframes: ${iframes}`);
   }
 
   function observePageDOM() {
     logPage('PAGE', 'بدء مراقبة الصفحة');
+
+    // Throttle buffer for MutationObserver logs (Wave B)
+    const moLogBuffer = [];
+    let moFlushTimer = null;
+    const flushMoLogs = () => {
+      if (moLogBuffer.length > 0) {
+        moLogBuffer.forEach(entry => logPage(entry.type, entry.detail));
+        moLogBuffer.length = 0;
+      }
+      moFlushTimer = null;
+    };
+    const enqueueMoLog = (type, detail) => {
+      moLogBuffer.push({ type, detail });
+      if (!moFlushTimer) moFlushTimer = setTimeout(flushMoLogs, 1200); // flush with heartbeat
+    };
 
     // مراقبة تغييرات DOM
     const observer = new MutationObserver((mutations) => {
@@ -2836,16 +2865,16 @@ function getCSS() {
           if (node.classList?.contains('modal') || node.querySelector?.('.modal')) {
             const isVisible = node.style.display !== 'none' && !node.classList.contains('hide');
             const id = node.id || node.className?.slice(0,50);
-            logPage('MODAL', isVisible ? `فتح: ${id}` : `إغلاق: ${id}`);
+            enqueueMoLog('MODAL', isVisible ? `فتح: ${id}` : `إغلاق: ${id}`);
             // تفاصيل النافذة
             if (isVisible) {
               const btns = node.querySelectorAll('button');
               const inputs = node.querySelectorAll('input, select, textarea');
-              logPage('MODAL', `  أزرار: ${btns.length}, حقول: ${inputs.length}`);
+              enqueueMoLog('MODAL', `  أزرار: ${btns.length}, حقول: ${inputs.length}`);
               btns.forEach(b => {
                 const txt = b.textContent?.trim().slice(0,30);
                 const aria = b.getAttribute('aria-label') || '';
-                if (txt || aria) logPage('MODAL', `  زر: "${txt}" aria="${aria}"`);
+                if (txt || aria) enqueueMoLog('MODAL', `  زر: "${txt}" aria="${aria}"`);
               });
             }
           }
@@ -2853,25 +2882,30 @@ function getCSS() {
           if (tag === 'button' && node.classList?.contains('launchentitylookup')) {
             const label = node.getAttribute('aria-label') || node.textContent?.trim().slice(0,30);
             const id = node.id || '';
-            logPage('LOOKUP_BTN', `"${label}" id=${id}`);
+            enqueueMoLog('LOOKUP_BTN', `"${label}" id=${id}`);
           }
           // حقل input/select
           if (['input', 'select', 'textarea'].includes(tag)) {
             const id = node.id || node.name || node.getAttribute('aria-label') || '';
             const type = node.type || tag;
-            logPage('FIELD_ADDED', `${tag}#${id} type=${type}`);
+            enqueueMoLog('FIELD_ADDED', `${tag}#${id} type=${type}`);
           }
           // جدول
           if (tag === 'table' || node.classList?.contains('entity-grid')) {
             const rows = node.querySelectorAll('tr').length;
-            logPage('TABLE', `جدول جديد: ${rows} صفوف`);
+            enqueueMoLog('TABLE', `جدول جديد: ${rows} صفوف`);
           }
         }
         // حذف عناصر
         for (const node of m.removedNodes) {
           if (node.nodeType !== 1) continue;
+          // Check for panel removal (reinject)
+          if (node.id === PANEL_ID) {
+            logEvent('INIT', 'اللوحة أزيلت من DOM — إعادة حقن');
+            try { injectPanel(); } catch (e) { logEvent('INIT', 'فشل إعادة الحقن: ' + (e && e.message)); }
+          }
           if (node.classList?.contains('modal')) {
-            logPage('MODAL', `إغلاق: ${node.id || 'unknown'}`);
+            enqueueMoLog('MODAL', `إغلاق: ${node.id || 'unknown'}`);
           }
         }
       }
@@ -2900,31 +2934,6 @@ function getCSS() {
         logPage('BTN_CLICK', `"${text}" aria="${aria}" id=${id} class=${cls}`);
       }
     }, true);
-
-    // مراقبة حقول محددة
-    const watchFields = [
-      { sel: '#ats_bookingstatus_name', name: 'حالة الحجز' },
-      { sel: '#ldv_actualcollectedamount', name: 'المبلغ المحصل' },
-      { sel: '#ats_sparepartsstatus', name: 'قطع الغيار' },
-      { sel: 'textarea[aria-label*="Notes"], textarea[aria-label*="ملاحظات"]', name: 'الملاحظات' },
-      { sel: '#ldv_resourcelastcomment', name: 'آخر تعليق' }
-    ];
-    setInterval(() => {
-      for (const f of watchFields) {
-        const el = document.querySelector(f.sel);
-        if (el && el.value && el.value !== (el._lastVal || '')) {
-          el._lastVal = el.value;
-          logPage('FIELD_VAL', `${f.name}: ${el.value.slice(0, 80)}`);
-        }
-      }
-    }, 1500);
-
-    // حالة الصفحة الحالية
-    setInterval(() => {
-      const url = location.href;
-      const title = document.title;
-      logPage('PAGE_STATE', `url=${url.slice(0,80)} title=${title.slice(0,40)}`);
-    }, 10000);
 
     logPage('PAGE', 'تم تفعيل مراقبة الصفحة');
   }
