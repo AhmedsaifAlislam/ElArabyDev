@@ -1,7 +1,7 @@
 # المشاكل المعروفة — Known Issues
 # El Araby System — Known Issues & Solutions
 
-> **آخر تحديث:** 2026-07-14
+> **آخر تحديث:** 2026-10-18
 
 ---
 
@@ -208,6 +208,108 @@ Entity 'account' With Id = 00000000-0000-0000-0000-000000000000 Does Not Exist
 - أو توحيد كلمة السر لكل الصفحات
 
 **الأدوات المتأثرة:** portal-other-section
+
+---
+
+## محلول مؤخراً — Security Hardening (الموجة 1)
+
+**التاريخ:** 2026-10-18
+
+**التغييرات المطبقة:**
+
+### 1. INJECT_SCRIPT_FILE Allowlist (حرجة)
+**المشكلة:** معالج `INJECT_SCRIPT_FILE` في `background.js` كان يقبل أي مسار ملف من content scripts، مما يسمح بحقن ملفات عشوائية بامتدادات الإضافة.
+**الحل:**
+- إضافة `ALLOWED_INJECT_FILES` allowlist يحتوي على 8 ملفات مسموحة فقط
+- دالة `normalizeInjectFiles()` موحّدة تُستدعى من المعالجين الاثنين (السطر 294 والسطر 576)
+- تحقق من امتداد `.js`، رفض المسارات المطلقة و `..`
+- تحقق `sender.id === chrome.runtime.id` قبل التنفيذ
+
+### 2. CDN Proxy SSRF Hardening (حرجة)
+**المشكلة:** دالة `isCdnUrl()` كانت تستخدم `host.endsWith(d)` مما يسمح بـ subdomain takeover (مثلاً `evil-fbcdn.net`).
+**الحل:**
+- مطابقة دقيقة: `host === d || host.endsWith('.' + d)`
+- تحقق `protocol === 'https:'` صراحةً
+- رفض أي بروتوكول غير https
+
+### 3. XSS via innerHTML في popup.js (حرجة)
+**المشكلة:** عدة مواضع في `popup.js` تُدرج بيانات من البورتال (أسماء فنيين، مناطق) عبر `innerHTML` بدون تعقيم.
+**المواضع المصلحة:**
+- `_renderRegionTechRows()` (السطور 1768-1773): `data-region`، `region`، `tech`، `_techRoster`
+- `_fillNewTechSelect()` (السطر 1801): `_techRoster`
+- `_renderRoster()` (السطر 1813): `_techRoster`
+- `populateSelect()` (السطر 388): خيارات من البورتال
+- `renderSearchResults()` (السطر 478): نتائج البحث
+- `renderInventory()` (السطر 538): بيانات العهدة من البورتال
+
+**الحل:** استخدام دالة `escapeHtml()` الموجودة في السطر 39 عند حدود المصدر.
+
+### 4. تنظيف ملفات النسخ الاحتياطي
+- حذف `src/unified-extension/popup.js.bak`
+- إضافة `*.bak` إلى قائمة الاستثناء في `tools/deploy.ps1`
+
+---
+
+## محلول مؤخراً — الموجة 2: متانة التخزين والموارد (2026-10-18)
+
+**التغييرات المطبقة:**
+
+### 5. سقف عام للتخزين في SessionCapture (عالي)
+**المشكلة:** `autofiller_sessionCaptures` كان ينمو بلا حدود — كل أمر شغل جديد يُضاف إلى القاموس بدون سقف عام، مما يهدد بتجاوز حصة 5MB من `chrome.storage.local`.
+**الحل:**
+- إضافة `MAX_TRACKED_ORDERS = 50` — عند تجاوز 50 أمر شغل، تُحذف الأوامر الأقدم (حسب `lastSeen`) قبل عملية `storageSet`
+- إضافة `MAX_FULL_OPTION_CAPTURES = 10` — للقطات التي تزيد عن 10 لكل أمر، تُسقط `options[]` (للـ `<select>`) وتُقلص `inputs`/`buttons` لتقليل حجم اللقطة الفردية
+
+### 6. تنظيف الموارد عند مغادرة الصفحة (عالي)
+**المشكلة:** `setInterval` (التصوير الدوري كل 5ث) و `MutationObserver` (مراقبة المودال كل 2ث) لم يُمسحوا أبدًا — causando تسرب ذاكرة في التنقلات SPA.
+**الحل:**
+- حفظ مراجع كل `sessionCaptureInterval` و `technicianModalInterval` و `technicianModalObserver`
+- دالة `cleanupSessionResources()` تُستدعى عند `pagehide` و `beforeunload` لمسحهم جميعًا
+- حماية من التهيئة المزدوجة عبر `window._sessionCaptureInitialized`
+
+---
+
+## محلول مؤخراً — الموجة 3: توحيد الدوال المكررة (2026-10-18)
+
+> ⚠️ **تصحيح مهم:** المحاولة الأولى للتوحيد (المُوثّقة سابقًا هنا كـ"مكتملة") كانت **معطوبة** وتم رفضها وإعادة تنفيذها بشكل صحيح. التفاصيل في البند 9 أدناه.
+
+**التغييرات المطبقة:**
+
+### 7. توحيد الدوال المساعدة في shared/portal-selectors.js (متوسطة)
+**المشكلة:** دوال `findFirst`، `generateTaskId`، `parseDataLine`، `loadSelectors` كانت مكررة في 3-5 ملفات مع اختلافات طفيفة — ومنها **3 نسخ** من المحددات الافتراضية (`getHardcodedDefaults` / `getHardcodedDefaultsLocal`)، مما يصعب الصيانة ويزيد خطر التناقض.
+
+**الحل النهائي:**
+- **المصدر الوحيد:** `shared/portal-selectors.js` يحتوي التطبيق الفعلي للدوال الأربع + `getHardcodedDefaults()` داخليًا. لا يوجد أي تطبيق فعلي مكرر في أي ملف آخر (تم التحقق بـ grep: تعريف واحد فقط).
+- **المستهلكون** يستخدمون اختصارًا رفيعًا يستدعي `window.*` عند وقت التنفيذ مع `fallback` آمن (وليس نسخًا للتطبيق، وليس التقاطًا مباشرًا قد يصبح `undefined`):
+  - `modules/autofill/engine-orchestrator.js` (4 دوال) — حُذفت نسخة `getHardcodedDefaults()` المكررة
+  - `content-script.js` (3 دوال) — حُذفت نسخة `getHardcodedDefaultsLocal()` المكررة و `let CFG` الميتة
+  - `control-panel.js` / `modules/autofill/engine-page1.js` / `modules/autofill/autofill-client.js` / `popup.js`
+- **ترتيب التحميل مضمون:** `shared/portal-selectors.js` يُحمَّل قبل كل المستهلكين في `manifest.json` (السطر 87 قبل 97/98) وفي `popup.html` (قبل `popup.js`).
+- **إزالة خطر الحلقة اللانهائية:** `generateTaskId` كان يُعاد تصديره إلى `window` عبر `Object.assign` بينما هو نفسه يستدعي `window.generateTaskId` → **استدعاء ذاتي لا نهائي** بمجرد إصلاح الأخطاء النحوية. أُزيل من قائمة إعادة التصدير؛ `window.generateTaskId` يُكتب الآن في `portal-selectors.js` فقط.
+- `control-panel.js`'s `let CFG` أُبقي لأنها حالة داخلية خاصة به (وليست تكرارًا).
+
+### 8. إضافة إذن unlimitedStorage إلى manifest.json (متوسطة)
+**المشكلة:** حصة `chrome.storage.local` محدودة بـ 5MB — حتى مع سقوف التخزين في الموجة 2، قد يزداد `autofiller_sessionCaptures` مع الاستخدام الطويل.
+**الحل:**
+- إضافة `"unlimitedStorage"` إلى `manifest.json` permissions
+- هذا يسمح للتخزين بتجاوز 5MB، بالتكامل مع سقفي `MAX_TRACKED_ORDERS` و `MAX_FULL_OPTION_CAPTURES` من الموجة 2
+
+### 9. إصلاح خرقين نحويين أدخلهما التوحيد الأول + بوابة تحقق عند النشر (حرجة)
+**المشكلة (خطأ ذاتي):** محاولة التوحيد الأولى تركت ملفين بخطأ نحوي حقيقي، ووصلا إلى `deploy/` (المجلد الذي يُحمَّل فعليًا)، وهذا يعني:
+- `content-script.js`: بقايا دالة `parseDataLine` القديمة (سطور يتيمة) بعد استبدال رأس الدالة فقط → `SyntaxError` يعطّل **كل** محرك الملء التلقائي.
+- `dashboard/dashboard.js`: سطر `escapeHtml` كُتب بترميز HTML entities مفكوك (`"` بدل `&quot;`) → `SyntaxError`.
+- **السبب الجذري:** `tools/deploy.ps1` كان ينسخ الملفات ويطبع `[OK]` دون أي تحقق نحوي — لذا مرّت الملفات المعطوبة بصمت.
+
+**الحل:**
+- حذف كتلة `parseDataLine` الميتة بالكامل من `content-script.js` (كانت غير مستخدمة أصلًا).
+- إعادة كتابة سطر `escapeHtml` في `dashboard.js` بالـ entities الصحيحة.
+- **بوابة نحوية إلزامية في `tools/deploy.ps1`:** تشغيل `node --check` على كل `src/**/*.js` **قبل** أي نسخ — وعند الفشل يُلغى النشر بـ `exit 1` ويُترك `deploy/` السابق سليمًا (تم التحقق باختبار سلبي). ثم تحقق ثانٍ على `deploy/**` بعد النسخ.
+
+### 10. تعقيم dashboard.js (XSS) — تفعيل escapeHtml فعليًا (متوسطة)
+**المشكلة:** `escapeHtml` كان مُعرّفًا في `dashboard/dashboard.js` لكنه **غير مستدعى إطلاقًا**، بينما توجد مواقع `innerHTML` تُدرج بيانات مصدرها Excel/Drive/البورتال (جدول البيانات الرئيسي، القوائم المنسدلة، جدول العهدة، سجل العمليات) → احتمال XSS داخل صفحة الإضافة (صلاحيات موسّعة).
+**الحل:** تفعيل `escapeHtml()` عند حدود المصدر لكل القيم الديناميكية (12 استدعاء)، مع ترك القيم الرقمية والثابتة كما هي. التحقق: `node --check` ناجح، ولا يوجد أي `innerHTML` متبقٍ يُدرج قيمة غير معقّمة.
+
+⚠️ **ملاحظة:** إضافة إذن جديد تتطلب إعادة موافقة المستخدم في المتصفح — عند تحميل الإضافة المحدثة في `edge://extensions`، سيُطلب قبول الأذونات الجديدة.
 
 ---
 

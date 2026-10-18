@@ -16,8 +16,21 @@ window.AutoFillEngine = window.AutoFillEngine || {};
   function log(...args) { if (typeof window.log === 'function') window.log(...args); else console.log('[Page1]', ...args); }
   function warn(...args) { if (typeof window.warn === 'function') window.warn(...args); else console.warn('[Page1]', ...args); }
   function sleep(ms) { return (typeof window.sleep === 'function') ? window.sleep(ms) : new Promise(r => setTimeout(r, ms)); }
-  function findFirst(sel) { return (typeof window.findFirst === 'function') ? window.findFirst(sel) : null; }
-  function emulateUserInput(el, val) { return (typeof window.emulateUserInput === 'function') ? window.emulateUserInput(el, val) : Promise.resolve(); }
+  function findFirst(sel) { return window.findFirst ? window.findFirst(sel) : null; }
+  function emulateUserInput(el, val) {
+    if (typeof window.emulateUserInput === 'function' && window.emulateUserInput !== emulateUserInput) {
+      return window.emulateUserInput(el, val);
+    }
+    if (!el) return Promise.resolve();
+    try { el.focus(); } catch(_) {}
+    document.body.dataset.isAutofilling = 'true';
+    const descriptor = Object.getOwnPropertyDescriptor(Object.getPrototypeOf(el), 'value') || Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value');
+    if (descriptor && descriptor.set) { try { descriptor.set.call(el, val); } catch(_) {} } else { el.value = val; }
+    try { el.dispatchEvent(new Event('input', { bubbles: true })); } catch(_) {}
+    try { el.dispatchEvent(new Event('change', { bubbles: true })); } catch(_) {}
+    try { el.dispatchEvent(new Event('blur', { bubbles: true })); } catch(_) {}
+    return sleep(100);
+  }
 
   function readDeviceTypeFromPage() {
     const el = document.getElementById('ldv_producttype_name') ||
@@ -115,18 +128,31 @@ window.AutoFillEngine = window.AutoFillEngine || {};
   function isPage1AlreadyFilled(cfg) {
     const serial1 = document.getElementById('ldv_serialnumber');
     const serial2 = document.getElementById('ldv_serialnumber1');
-    const model1  = document.getElementById('ldv_actualmodel_name');
-    const model2  = document.getElementById('ldv_actualmodel2_name');
-    const brand   = document.getElementById('ats_producttypebrand_name');
+    const isVal = el => el && (el.value || el.getAttribute('value') || '').trim().length >= 3;
 
-    const isVal = el => el && (el.value || el.getAttribute('value') || '').trim().length > 0;
-    const filledCount = [serial1, serial2, model1, model2, brand].filter(isVal).length;
-
-    if (filledCount >= 2) {
-      log(`Page 1 already filled: ${filledCount} fields have values (serial1=${isVal(serial1)}, model1=${isVal(model1)}, brand=${isVal(brand)})`);
+    // A work order on Page 1 is ONLY considered already filled if it has a Serial Number!
+    // Brand and Model are almost always pre-filled by customer service when opening the ticket.
+    if (isVal(serial1) || isVal(serial2)) {
+      log(`Page 1 has Serial Number: serial1="${serial1?.value || ''}", serial2="${serial2?.value || ''}" — marking as already filled.`);
       return true;
     }
     return false;
+  }
+
+  function extractExistingPage1Data() {
+    const getVal = id => {
+      const el = document.getElementById(id);
+      return el ? (el.value || el.getAttribute('value') || el.innerText || '').trim() : '';
+    };
+    return {
+      serial: getVal('ldv_serialnumber'),
+      serial2: getVal('ldv_serialnumber1'),
+      brand: getVal('ats_producttypebrand_name'),
+      model: getVal('ldv_actualmodel_name'),
+      model2: getVal('ldv_actualmodel2_name'),
+      warrantyDate: getVal('ldv_warrantydate'),
+      warrantyStatus: getVal('ldv_warrantystatus') || getVal('ldv_warrantystatus_name')
+    };
   }
 
   async function clearAllDeviceFields(mode = 'all') {
@@ -174,69 +200,67 @@ window.AutoFillEngine = window.AutoFillEngine || {};
     const FR = {};
     log('【 PAGE 1 】 Review execution starting for order: ' + data.orderId);
 
-    // Status mapping - handle PowerApps combobox
-    if (data.status) {
-      const statusEl = document.getElementById('ldv_warrantystatus') || findFirst(cfg.status);
-      if (statusEl) {
-        const lower = data.status.toLowerCase();
-        let matched = false;
-        
-        if (statusEl.tagName === 'SELECT') {
-          const opts = Array.from(statusEl.options || []);
-          const match = opts.find(o => o.text.toLowerCase() === lower) ||
-                        opts.find(o => o.text.toLowerCase().includes(lower)) ||
-                        opts.find(o => lower.includes(o.text.toLowerCase()) && o.text.trim() !== '');
-          if (match) {
-            statusEl.value = match.value;
-            try { statusEl.dispatchEvent(new Event('change', { bubbles: true })); } catch(_) {}
-            FR.status = { ok: true, selected: match.text };
-            matched = true;
-          }
-        } else {
-          // PowerApps combobox - click to open, then select option
-          try {
-            // Click the combobox to open dropdown
-            await window.dispatchClickSequence?.(statusEl) || statusEl.click();
-            await window.sleep(500);
-            
-            // Find and click the matching option
-            const options = document.querySelectorAll('[role="option"], .ms-Dropdown-option, .ms-ComboBox-option, li[data-value], option');
-            const option = Array.from(options).find(opt => 
-              (opt.textContent || opt.innerText || '').toLowerCase().includes(lower)
-            );
-            if (option) {
-              await window.dispatchClickSequence?.(option) || option.click();
-              await window.sleep(300);
-              FR.status = { ok: true, selected: option.textContent?.trim() };
-              matched = true;
-            }
-          } catch (e) {
-            warn('Combobox selection failed:', e);
-          }
-        }
-        
-        if (!matched) {
-          FR.status = { ok: false, reason: 'status-not-matched' };
-        }
-      }
+    // Wait for form to load (as in V2)
+    const startWait = Date.now();
+    while (Date.now() - startWait < 12000) {
+      if (document.querySelector('#ats_producttypebrand_name') || document.querySelector('#ldv_actualmodel_name') || document.getElementById('ldv_serialnumber')) break;
+      await sleep(250);
+    }
+    await sleep(800);
+
+    // Read and save product type for Page 2
+    const pType = readDeviceTypeFromPage() || data.reportType;
+    if (pType) {
+      try { await chrome.storage.local.set({ autofiller_ProductType: pType }); } catch(_) {}
     }
 
-    // Brand
-    if (data.brand) {
-      const brandRes = await window.AutoFillEngine.Lookups.fillPowerAppsLookup('#ats_producttypebrand_name', data.brand);
+    // 1. Brand (First, matching V2)
+    let brandVal = data.brand;
+    const existingBrandEl = document.getElementById('ats_producttypebrand_name') || document.querySelector('input[name*="producttypebrand"]');
+    const existingBrandVal = (existingBrandEl?.value || existingBrandEl?.getAttribute('value') || '').trim();
+    if (!brandVal && existingBrandVal) {
+      brandVal = existingBrandVal;
+      log(`Preserving existing Brand from portal: "${brandVal}"`);
+    } else if (!brandVal && data.model) {
+      const mUpper = data.model.toUpperCase();
+      if (mUpper.startsWith('SJ-') || mUpper.startsWith('ES-') || mUpper.startsWith('KC-')) brandVal = 'شارب';
+      else if (mUpper.startsWith('GR-') || mUpper.startsWith('AW-') || mUpper.startsWith('VH-')) brandVal = 'توشيبا';
+      else if (mUpper.startsWith('TH-') || mUpper.startsWith('TC-')) brandVal = 'تورنيدو';
+      else if (mUpper.startsWith('H-') || mUpper.startsWith('DX-')) brandVal = 'هوفر';
+      else if (mUpper.startsWith('KD-') || mUpper.startsWith('XR-') || mUpper.startsWith('ZS-')) brandVal = 'سوني';
+    }
+
+    if (brandVal) {
+      const brandSelectors = ['#ats_producttypebrand_name', 'input[id="ats_producttypebrand_name"]', 'input[aria-label*="العلامة التجاريه"]', 'input[aria-label*="العلامة التجارية"]'];
+      const brandRes = await window.AutoFillEngine.Lookups.fillPowerAppsLookup(brandSelectors, brandVal, {
+        fallbackButtons: cfg?.brandBtn || [],
+        isBrand: true,
+        forceOverwrite: !!data.forceOverwrite
+      });
       FR.brand = brandRes;
+      await sleep(600);
     }
 
-    // Actual Model 1
+    // 2. Actual Model 1
     if (data.model) {
-      const modelRes = await window.AutoFillEngine.Lookups.fillPowerAppsLookup('#ldv_actualmodel_name', data.model);
+      const modelSelectors = ['#ldv_actualmodel_name', 'input[id="ldv_actualmodel_name"]', 'input[aria-label*="الموديل الفعلي 1"]', 'input[aria-label*="الموديل الفعلي"]'];
+      const modelRes = await window.AutoFillEngine.Lookups.fillPowerAppsLookup(modelSelectors, data.model, {
+        fallbackButtons: cfg?.modelBtn || [],
+        isModel: true
+      });
       FR.model = modelRes;
+      await sleep(600);
     }
 
-    // Actual Model 2 (for AC or dual unit)
+    // 3. Actual Model 2 (for AC or dual unit)
     if (data.model2) {
-      const model2Res = await window.AutoFillEngine.Lookups.fillPowerAppsLookup('#ldv_actualmodel2_name', data.model2);
+      const model2Selectors = ['#ldv_actualmodel2_name', 'input[id="ldv_actualmodel2_name"]', 'input[aria-label*="الموديل الفعلي 2"]'];
+      const model2Res = await window.AutoFillEngine.Lookups.fillPowerAppsLookup(model2Selectors, data.model2, {
+        fallbackButtons: cfg?.modelBtn2 || cfg?.modelBtn || [],
+        isModel: true
+      });
       FR.model2 = model2Res;
+      await sleep(600);
     }
 
     // Serial Number 1
@@ -290,12 +314,136 @@ window.AutoFillEngine = window.AutoFillEngine || {};
       }
     }
 
+    // Robust PowerApps Date Helper
+    const setPowerAppsDate = async (baseId, rawDate) => {
+      if (!rawDate) return false;
+      const baseEl = document.getElementById(baseId) || document.querySelector(`[name*="${baseId}"]`);
+      const pickerEl = document.getElementById(`${baseId}_datepicker_description`) ||
+                       document.querySelector(`input[id*="${baseId}"][id*="datepicker"]`);
+
+      // Parse day, month, year from input
+      let dObj = null;
+      const mDmy = rawDate.match(/^(\d{1,2})[\/\-\.](\d{1,2})[\/\-\.](\d{4})$/);
+      const mYmd = rawDate.match(/^(\d{4})[\/\-\.](\d{1,2})[\/\-\.](\d{1,2})$/);
+      if (mDmy) {
+        // If year is last, detect whether day or month is first
+        const p1 = parseInt(mDmy[1], 10);
+        const p2 = parseInt(mDmy[2], 10);
+        const y = parseInt(mDmy[3], 10);
+        if (p1 > 12) {
+          dObj = { day: p1, month: p2, year: y }; // definitely day/month/year
+        } else {
+          dObj = { day: p1, month: p2, year: y };
+        }
+      } else if (mYmd) {
+        dObj = { year: parseInt(mYmd[1], 10), month: parseInt(mYmd[2], 10), day: parseInt(mYmd[3], 10) };
+      }
+
+      if (!dObj) {
+        const parsed = new Date(rawDate);
+        if (!isNaN(parsed.getTime())) {
+          dObj = { year: parsed.getFullYear(), month: parsed.getMonth() + 1, day: parsed.getDate() };
+        }
+      }
+
+      if (!dObj) return false;
+
+      const pad = n => String(n).padStart(2, '0');
+      const isoDate = `${dObj.year}-${pad(dObj.month)}-${pad(dObj.day)}`;
+      // Portal error specifically stated: "Example: 10/10/2026" (MM/DD/YYYY or M/D/YYYY)
+      const portalDisplay = `${pad(dObj.month)}/${pad(dObj.day)}/${dObj.year}`;
+
+      // 1. Try jQuery DateTimePicker first if portal has initialized it
+      try {
+        const $ = window.$ || window.jQuery;
+        if ($) {
+          const $el = $(pickerEl || baseEl);
+          const dtp = $el.data('DateTimePicker');
+          if (dtp && typeof dtp.date === 'function') {
+            dtp.date(new Date(dObj.year, dObj.month - 1, dObj.day, 12, 0, 0));
+            log(`Set date via jQuery DateTimePicker on ${baseId}: ${portalDisplay}`);
+          }
+        }
+      } catch (_) {}
+
+      // 2. Write to visible datepicker description input
+      if (pickerEl) {
+        await emulateUserInput(pickerEl, portalDisplay);
+      }
+
+      // 3. Write to base hidden / value input
+      if (baseEl) {
+        if (baseEl.type === 'date') {
+          await emulateUserInput(baseEl, isoDate);
+        } else {
+          // Both datepicker input and underlying input must hold the formatted date string
+          await emulateUserInput(baseEl, portalDisplay);
+        }
+      }
+      return true;
+    };
+
     // Warranty Date
-    if (data.warrantyDate) {
-      const wd = document.getElementById('ldv_warrantydate');
-      if (wd) {
-        await emulateUserInput(wd, data.warrantyDate);
-        FR.warrantyDate = { ok: true, value: data.warrantyDate };
+    const dateVal = data.warrantyDate || data.date;
+    if (dateVal) {
+      const ok = await setPowerAppsDate('ldv_warrantydate', dateVal);
+      if (ok) {
+        FR.warrantyDate = { ok: true, value: dateVal };
+      }
+    }
+
+    // Scheduled Service End Date (if present on form)
+    const endDateVal = data.scheduledServiceEndDate || data.date2 || data.date;
+    if (endDateVal && (document.getElementById('ldv_scheduledserviceenddate') || document.getElementById('ldv_scheduledserviceenddate_datepicker_description'))) {
+      const okEnd = await setPowerAppsDate('ldv_scheduledserviceenddate', endDateVal);
+      if (okEnd) {
+        FR.scheduledServiceEndDate = { ok: true, value: endDateVal };
+      }
+    }
+
+    // 4. Status mapping - handle PowerApps select / combobox
+    if (data.status) {
+      const statusEl = document.getElementById('ldv_warrantystatus') || findFirst(cfg?.statusSelect) || findFirst(cfg?.status);
+      if (statusEl) {
+        const lower = data.status.toLowerCase();
+        let matched = false;
+        if (statusEl.tagName === 'SELECT') {
+          const opts = Array.from(statusEl.options || []);
+          let match = opts.find(o => o.text.toLowerCase() === lower) ||
+                      opts.find(o => o.text.toLowerCase().includes(lower)) ||
+                      opts.find(o => lower.includes(o.text.toLowerCase()) && o.text.trim() !== '');
+          if (!match) {
+            const inWarrantyVal = '753240000';
+            const outWarrantyVal = '753240001';
+            match = (lower.includes('in') || lower.includes('داخل') || lower.includes('صالح') || lower.includes('ساري'))
+              ? opts.find(o => o.value === inWarrantyVal)
+              : opts.find(o => o.value === outWarrantyVal);
+          }
+          if (match) {
+            statusEl.value = match.value;
+            try { statusEl.dispatchEvent(new Event('change', { bubbles: true })); } catch(_) {}
+            FR.status = { ok: true, selected: match.text };
+            matched = true;
+          }
+        } else {
+          try {
+            await window.dispatchClickSequence?.(statusEl) || statusEl.click();
+            await sleep(400);
+            const options = document.querySelectorAll('[role="option"], .ms-Dropdown-option, .ms-ComboBox-option, li[data-value], option');
+            const option = Array.from(options).find(opt => 
+              (opt.textContent || opt.innerText || '').toLowerCase().includes(lower)
+            );
+            if (option) {
+              await window.dispatchClickSequence?.(option) || option.click();
+              await sleep(300);
+              FR.status = { ok: true, selected: option.textContent?.trim() };
+              matched = true;
+            }
+          } catch (e) {
+            warn('Combobox selection failed:', e);
+          }
+        }
+        if (!matched) FR.status = { ok: false, reason: 'status-not-matched' };
       }
     }
 
@@ -309,6 +457,7 @@ window.AutoFillEngine = window.AutoFillEngine || {};
     isInstallationReport,
     performInstallationAndCommissioning,
     isPage1AlreadyFilled,
+    extractExistingPage1Data,
     clearAllDeviceFields,
     executePage1_Review
   };

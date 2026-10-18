@@ -14,6 +14,11 @@
   - محركات التحليل: `src/unified-extension/features/financial/` (page-registry.js, page-auto-filler.js, page-data-extractor.js, local-analyzer.js, ai-insights.js) — كلها محلية 100%.
   - المرجع الاسترشادي للقراءة فقط: `E:\My First Lap\MY WORKE\Apps\العربي سيستم\portal-other-section\elaraby-extension\`
   - أي تطوير يتم هنا فقط، ولا تُعدّل النسخة المرجعية في `العربي سيستم` مباشرة أبدًا.
+- **قاعدة النشر الإلزامية التلقائية (Mandatory Auto-Deploy):**
+  - مجلد `deploy/` هو المجلد الوحيد المحمّل في المتصفح.
+  - بمجرد قيام الـ Agent بأي تعديل على أي ملف داخل `src/unified-extension/`، **يجب إلزامياً وتلقائياً** تشغيل سكربت النشر قبل إنهاء الرد:
+    `powershell -ExecutionPolicy Bypass -File tools\deploy.ps1`
+  - ممنوع إخبار المستخدم بتجربة التعديلات قبل نجاح أمر النشر ونقل الملفات إلى `deploy/`.
 
 ## 1. المشروع
 طقم أدوات شامل لخدمة مراكز مجموعة El Araby عبر أدوات إضافية Chrome (MV3)،
@@ -25,9 +30,8 @@
 - `MASTER_README.md` — التوثيق الشامل لكل الأداة.
 - `PORTAL_MAP.md` — مرجع الدومينات والشاشات والأقسام.
 - `SHARED_KNOWLEDGE.md` — معرفة مشتركة عبر كل الأداة.
-- `MASTER_ROADMAP.md` — خطة المهام الكبرى وتتبع التنفيذ (Agent Team).
+- `combined_docs.md` — سجل وخريطة المهام الشاملة الموحدة (Roadmap، Task Tracker، Backlog).
 - `PHASE3_UNIFIED_INTEGRATION_PLAN.md` — خطة الدمج الموحد (Unified Integration).
-- `IDEAS_BACKLOG.md` — الأفكار غير المنفذة والأولويات.
 - `E2E_CHECKLIST.md` — قائمة الاختبار اليدوي الشامل على البورتال الحي.
 - `PROMPT_MASTER.md` — البروبت الكامل لمراحل التشغيل الموحدة.
 - `KNOWN_ISSUES.md` — المشاكل المعروفة (أحدثها هنا).

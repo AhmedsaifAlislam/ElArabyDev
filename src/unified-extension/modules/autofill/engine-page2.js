@@ -94,43 +94,227 @@ window.AutoFillEngine = window.AutoFillEngine || {};
     return false;
   }
 
-  async function selectRandomTechnician(targetName = null) {
+  async function fetchAreaFromPortalApi() {
+    try {
+      const urlParams = new URLSearchParams(window.location.search);
+      let incidentId = urlParams.get('id');
+
+      if (!incidentId || !/^[a-f0-9-]{36}$/i.test(incidentId)) {
+        const idEl = document.querySelector('input[name*="incidentid"], #EntityFormView_EntityID, input[id*="EntityID"]');
+        if (idEl && idEl.value && /^[a-f0-9-]{36}$/i.test(idEl.value)) {
+          incidentId = idEl.value;
+        }
+      }
+
+      if (!incidentId || !/^[a-f0-9-]{36}$/i.test(incidentId)) return '';
+
+      // 1. Fetch Customer ID from Incident
+      const incResp = await fetch(`/_api/incidents(${incidentId})?$select=_customerid_value`, {
+        credentials: 'include',
+        headers: { 'Accept': 'application/json' }
+      });
+      if (!incResp.ok) return '';
+      const incData = await incResp.json();
+      const customerId = incData._customerid_value;
+      if (!customerId) return '';
+
+      // 2. Fetch Area from Customer/Account
+      const accResp = await fetch(`/_api/accounts(${customerId})?$select=accountid,_ldv_area_value,_ldv_centraltelephone_value`, {
+        credentials: 'include',
+        headers: { 'Accept': 'application/json' }
+      });
+      if (!accResp.ok) return '';
+      const accData = await accResp.json();
+      const area = accData['_ldv_area_value@OData.Community.Display.V1.FormattedValue']
+        || accData['_ldv_centraltelephone_value@OData.Community.Display.V1.FormattedValue']
+        || '';
+      return (area || '').trim();
+    } catch(e) {
+      return '';
+    }
+  }
+
+  async function readRegionFromPage() {
+    // 1. Try DOM elements first (immediate)
+    const selectors = [
+      '#ldv_area_name',
+      '#ldv_area',
+      'input[name*="area"]',
+      'input[aria-label*="المنطقة"]',
+      'input[aria-label*="منطقة"]',
+      'span[id*="area"]',
+      '.customer-area',
+      '[data-id*="area"]'
+    ];
+    for (const sel of selectors) {
+      const el = document.querySelector(sel);
+      if (el) {
+        const val = (el.value || el.innerText || el.textContent || '').trim();
+        if (val && val !== '0' && val !== 'غير محدد') return val;
+      }
+    }
+    const label = Array.from(document.querySelectorAll('label, th, td, span')).find(l => /^(المنطقة|منطقة|Area)$/i.test(l.innerText.trim()));
+    if (label) {
+      const parent = label.closest('.form-group, tr, div');
+      const valEl = parent ? parent.querySelector('.form-control-static, span, input, select') : null;
+      if (valEl) {
+        const val = (valEl.value || valEl.innerText || '').trim();
+        if (val && val !== '0' && val !== 'غير محدد') return val;
+      }
+    }
+
+    // 2. Query portal API for current incident customer area (100% reliable across any center)
+    const apiArea = await fetchAreaFromPortalApi();
+    if (apiArea) {
+      log('[REGION] Extracted area from portal API:', apiArea);
+      return apiArea;
+    }
+
+    return '';
+  }
+
+  async function registerRegion(region, assignedTech = '') {
+    if (!region || !region.trim()) return;
+    const reg = region.trim();
+    try {
+      const { regionTechMap = {} } = await chrome.storage.local.get({ regionTechMap: {} });
+      if (!regionTechMap[reg]) {
+        regionTechMap[reg] = assignedTech || '';
+        await chrome.storage.local.set({ regionTechMap });
+        log(`[REGION-MAP] Auto-registered region: "${reg}" -> "${regionTechMap[reg]}"`);
+      } else if (assignedTech && !regionTechMap[reg]) {
+        regionTechMap[reg] = assignedTech;
+        await chrome.storage.local.set({ regionTechMap });
+      }
+    } catch(e) {
+      warn('[REGION-MAP] Registration error:', e.message);
+    }
+  }
+
+  // ── Technician Resolution V2 ─────────────────────────────────────────────
+  // L1: exact name from input data  → pick deterministically
+  // L2: region from data → look up saved regionTechMap → pick that technician
+  // L3: random from live roster (with warning) — last resort, never silent
+  //
+  // Roster: pulled live from the technician modal on first use, saved to
+  //         chrome.storage.local key 'technicianRoster' as string[]
+  // Region map: user-configured via popup Settings → key 'regionTechMap' { region: techName }
+
+  // Pull live technician names from the currently-open technician lookup modal
+  // and save/merge into chrome.storage.local 'technicianRoster'.
+  async function _pullRosterFromModal(modal) {
+    try {
+      const rows = Array.from(modal.querySelectorAll('table tbody tr, div[role="grid"] tr'))
+        .filter(r => r.innerText.trim() && !/norecords|لاتوجد|لا\s*توجد/i.test(r.innerText.replace(/\s/g, '')));
+      if (!rows.length) return;
+      const names = rows.map(r => r.innerText.trim().replace(/\s+/g, ' ')).filter(Boolean);
+      const { technicianRoster: existing = [] } = await chrome.storage.local.get({ technicianRoster: [] });
+      const merged = [...new Set([...existing, ...names])];
+      await chrome.storage.local.set({ technicianRoster: merged });
+      log(`[TECH-ROSTER] saved ${merged.length} technician names from live modal`);
+    } catch (e) {
+      warn('[TECH-ROSTER] failed to pull roster from modal:', e.message);
+    }
+  }
+
+  // Core resolution function: L1 → L2 → L3
+  async function resolveTechnician(targetName, region) {
+    const normStr = s => (s || '').replace(/\s+/g, ' ').trim().toLowerCase();
+
+    // L1 — exact name from input
+    if (targetName && targetName.trim()) {
+      log(`[TECHNICIAN] target="${targetName}" source=input_exact`);
+      return { name: targetName.trim(), source: 'input_exact' };
+    }
+
+    // L2 — region mapping
+    if (region && region.trim()) {
+      try {
+        const { regionTechMap = {} } = await chrome.storage.local.get({ regionTechMap: {} });
+        const normRegion = normStr(region);
+        const found = Object.entries(regionTechMap).find(([k]) => normStr(k) === normRegion);
+        if (found) {
+          log(`[TECHNICIAN] region="${region}" resolved="${found[1]}" source=region_mapping`);
+          return { name: found[1], source: 'region_mapping' };
+        }
+        log(`[TECHNICIAN] region="${region}" not found in regionTechMap (${Object.keys(regionTechMap).length} entries)`);
+      } catch(e) {
+        warn('[TECHNICIAN] regionTechMap read failed:', e.message);
+      }
+    }
+
+    // L3 — random fallback from saved roster
+    try {
+      const { technicianRoster = [] } = await chrome.storage.local.get({ technicianRoster: [] });
+      if (technicianRoster.length) {
+        const pick = technicianRoster[Math.floor(Math.random() * technicianRoster.length)];
+        warn(`[TECHNICIAN] target=null region=${region || 'null'} resolved="${pick}" source=random_fallback warning=NO_TECHNICIAN_DATA`);
+        return { name: pick, source: 'random_fallback', warning: 'NO_TECHNICIAN_DATA' };
+      }
+    } catch(e) {
+      warn('[TECHNICIAN] roster read failed:', e.message);
+    }
+
+    warn('[TECHNICIAN] source=failed warning=EMPTY_ROSTER');
+    return { name: null, source: 'failed', warning: 'EMPTY_ROSTER' };
+  }
+
+  async function selectRandomTechnician(targetName = null, region = null) {
     // Skip if technician subgrid already has records
     const existing = await hasExistingSubgridRow(/الفنيين|Technicians/i);
     if (existing) {
       log('Technician subgrid already has rows — skipping');
-      return { ok: true, name: '(موجود مسبقاً)' };
+      return { ok: true, name: '(موجود مسبقاً)', source: 'existing' };
     }
 
-    // P0-B.1: deterministic technician targeting — never pick random/first arbitrarily.
-    const wantedTech = (targetName || '').trim();
-    if (!wantedTech) {
-      warn('⚠️ P0-B.1: no technician specified in input — failing explicitly instead of selecting random/first');
-      return { ok: false, reason: 'technician-not-specified' };
+    // Resolve who to pick (L1 → L2 → L3)
+    const resolved = await resolveTechnician(targetName, region);
+    if (!resolved.name) {
+      warn('Technician resolution failed (EMPTY_ROSTER) — skipping technician step');
+      return { ok: false, reason: 'empty-roster', source: resolved.source };
     }
+    if (resolved.warning) {
+      warn(`⚠️ Technician random fallback used. warning=${resolved.warning}`);
+    }
+    const wantedTech = resolved.name;
 
-    log('Looking for Technician button...');
+    log(`Selecting technician: "${wantedTech}" (source: ${resolved.source})`);
+    log('Looking for Add-Technician button...');
     const allBtns = Array.from(document.querySelectorAll('a, button, input[type="button"]')).filter(b => b.offsetParent !== null);
     const techBtns = allBtns.filter(b => /فن|tech/i.test((b.innerText||b.title||b.value||'').trim()));
-    log(`Found ${techBtns.length} tech-related buttons: ${techBtns.map(b=>'"'+(b.innerText||b.title||b.value||'').trim().slice(0,30)+'"').join(', ')}`);
+    log(`Found ${techBtns.length} tech-related buttons`);
 
-    const res = await window.AutoFillEngine.Lookups.handlePage2Modal(/[اإأ]ضاف[ةه]\s*فن|Add.*Tech/i, wantedTech, { strictExact: true });
-    if (res && res.ok) return res;
-    if (res && !res.ok) log('Technician handlePage2Modal failed');
+    // For L1 (exact input) keep strict mode; for L2/L3 allow roster pick
+    const strictMode = resolved.source === 'input_exact';
+    const res = await window.AutoFillEngine.Lookups.handlePage2Modal(
+      /[اإأ]ضاف[ةه]\s*فن|Add.*Tech/i,
+      wantedTech,
+      strictMode ? { strictExact: true } : {}
+    );
+    if (res && res.ok) return { ...res, source: resolved.source };
+    log('handlePage2Modal failed, trying inline lookup...');
 
-    log('Trying inline technician lookup...');
     const lab = findFieldByLabel(['الفنيين','الفني','Technician','Technicians']);
     if (!lab) { log('No technician field found on page'); return { ok: false }; }
     if (lab.tagName === 'SELECT') {
       const normTxt = s => (s || '').replace(/\s+/g, '').toLowerCase();
+      // Try exact match first, then any option as fallback for L3
       const exactOpt = Array.from(lab.options).find(o => o.value && normTxt(o.text) === normTxt(wantedTech));
-      if (!exactOpt) {
-        warn(`⚠️ P0-B.1: technician "${wantedTech}" not found in select options — failing explicitly (no random/first fallback)`);
+      const opt = exactOpt || (resolved.source !== 'input_exact' ? Array.from(lab.options).find(o => o.value) : null);
+      if (!opt) {
+        warn(`Technician "${wantedTech}" not found in select options`);
         return { ok: false, reason: 'technician-not-found' };
       }
-      await emulateUserInput(lab, exactOpt.value);
-      return { ok: true, name: exactOpt.text };
+      // Save names from select options to roster
+      try {
+        const names = Array.from(lab.options).filter(o => o.value).map(o => o.text.trim());
+        const { technicianRoster: ex = [] } = await chrome.storage.local.get({ technicianRoster: [] });
+        await chrome.storage.local.set({ technicianRoster: [...new Set([...ex, ...names])] });
+      } catch(_) {}
+      await emulateUserInput(lab, opt.value);
+      return { ok: true, name: opt.text, source: resolved.source };
     }
+
     const btn = window.AutoFillEngine.Lookups.findSafeLookupButton(lab, ['.lookup-technician button', '.lookup-btn']);
     if (btn) {
       if (typeof window.dispatchClickSequence === 'function') {
@@ -138,60 +322,39 @@ window.AutoFillEngine = window.AutoFillEngine || {};
       } else {
         btn.click();
       }
-      await sleep(2000); 
-      const items = Array.from(document.querySelectorAll('.modal table tbody tr, .modal-body table tbody tr td:first-child'))
+      await sleep(2000);
+      const modalEls = Array.from(document.querySelectorAll('.modal table tbody tr, .modal-body table tbody tr td:first-child'))
         .filter(i => i.offsetParent !== null && i.innerText.trim() && !/norecords|لاتوجد/.test(i.innerText.replace(/\s/g,'')));
-      if (items.length) {
+      if (modalEls.length) {
+        // Pull roster from live modal rows
+        await _pullRosterFromModal(document.querySelector('.modal.show, .modal.in'));
         const nrmRow = s => (s || '').replace(/\s+/g, '').toLowerCase();
-        const exactItem = items.find(i => nrmRow(i.innerText.trim()) === nrmRow(wantedTech));
-        if (!exactItem) {
-          warn(`⚠️ P0-B.1: technician "${wantedTech}" not found in lookup modal — closing and failing explicitly (no random/first fallback)`);
+        const exactItem = modalEls.find(i => nrmRow(i.innerText.trim()) === nrmRow(wantedTech));
+        // For L3 random fallback, pick any available if exact not found
+        const item = exactItem || (resolved.source !== 'input_exact' ? modalEls[Math.floor(Math.random() * modalEls.length)] : null);
+        if (!item) {
+          warn(`Technician "${wantedTech}" not found in lookup modal, closing`);
           const closeX = document.querySelector('.modal.show [data-dismiss="modal"]');
-          if (closeX) {
-            if (typeof window.dispatchClickSequence === 'function') {
-              await window.dispatchClickSequence(closeX);
-            } else {
-              closeX.click();
-            }
-          }
+          if (closeX) { if (typeof window.dispatchClickSequence === 'function') await window.dispatchClickSequence(closeX); else closeX.click(); }
           return { ok: false, reason: 'technician-not-found' };
         }
-        const rand = exactItem;
-        const radio = rand.querySelector('input[type="radio"], input[type="checkbox"]');
+        const radio = item.querySelector('input[type="radio"], input[type="checkbox"]');
         if (radio) {
-          if (typeof window.dispatchClickSequence === 'function') {
-            await window.dispatchClickSequence(radio);
-          } else {
-            radio.click();
-          }
+          if (typeof window.dispatchClickSequence === 'function') await window.dispatchClickSequence(radio); else radio.click();
         } else {
-          if (typeof window.dispatchClickSequence === 'function') {
-            await window.dispatchClickSequence(rand);
-          } else {
-            rand.click();
-          }
+          if (typeof window.dispatchClickSequence === 'function') await window.dispatchClickSequence(item); else item.click();
         }
         await sleep(300);
         const sels = Array.from(document.querySelectorAll('.modal button.btn-primary, .modal input.btn-primary, .modal input[value="اختر"], .modal input[value="Select"], .modal button[aria-label*="Select"], .modal button[aria-label*="اختر"]'));
         const selectBtn = sels.reverse().find(b => b.offsetParent !== null);
         if (selectBtn) {
           try { selectBtn.focus(); } catch(_) {}
-          if (typeof window.dispatchClickSequence === 'function') {
-            await window.dispatchClickSequence(selectBtn);
-          } else {
-            selectBtn.click();
-          }
+          if (typeof window.dispatchClickSequence === 'function') await window.dispatchClickSequence(selectBtn); else selectBtn.click();
         }
-        return { ok: true, name: rand.innerText.trim() };
+        return { ok: true, name: item.innerText.trim(), source: resolved.source };
       }
       const closeBtn = document.querySelector('.modal.show [data-dismiss="modal"]');
-      if (closeBtn) {
-        if (typeof window.dispatchClickSequence === 'function') {
-          await window.dispatchClickSequence(closeBtn);
-        } else {
-          closeBtn.click();
-        }
-      }
+      if (closeBtn) { if (typeof window.dispatchClickSequence === 'function') await window.dispatchClickSequence(closeBtn); else closeBtn.click(); }
     }
     return { ok: false };
   }
@@ -251,15 +414,31 @@ window.AutoFillEngine = window.AutoFillEngine || {};
     await sleep(2000);
 
     const targetTech = data.technicianName || data.technician || null;
-    log('Adding Technician: ' + (targetTech || 'NOT SPECIFIED'));
-    let techRes = await selectRandomTechnician(targetTech);
+    const targetRegion = data.region || data.منطقة || data.area || (await readRegionFromPage()) || null;
+    if (targetRegion) {
+      await registerRegion(targetRegion);
+    }
+    log('Adding Technician: ' + (targetTech || 'NOT SPECIFIED') + ' | Region: ' + (targetRegion || 'NOT SPECIFIED'));
+    let techRes = await selectRandomTechnician(targetTech, targetRegion);
     if (!techRes || !techRes.ok) {
       log('Technician failed, retrying in 3s...');
       await sleep(3000);
-      techRes = await selectRandomTechnician(targetTech);
+      techRes = await selectRandomTechnician(targetTech, targetRegion);
     }
-    FR.technician = { ok: techRes?.ok || false, selected: techRes?.name };
-    log(techRes?.ok ? 'Technician added: ' + techRes.name : 'Technician failed');
+    if (techRes && techRes.ok && techRes.name) {
+      try {
+        const { technicianRoster = [] } = await chrome.storage.local.get({ technicianRoster: [] });
+        const cleanN = techRes.name.replace(/\s+/g, ' ').trim();
+        if (cleanN && !technicianRoster.includes(cleanN)) {
+          await chrome.storage.local.set({ technicianRoster: [...technicianRoster, cleanN] });
+        }
+      } catch(_) {}
+      if (targetRegion) {
+        await registerRegion(targetRegion, techRes.name);
+      }
+    }
+    FR.technician = { ok: techRes?.ok || false, selected: techRes?.name, source: techRes?.source };
+    log(techRes?.ok ? `Technician added: ${techRes.name} (${techRes.source})` : 'Technician failed');
 
     log('【 PAGE 2 DONE 】 Results:', FR);
     return { report: { fieldResults: FR } };
@@ -269,6 +448,9 @@ window.AutoFillEngine = window.AutoFillEngine || {};
     getProblemCode,
     getSmartProblemCode,
     hasExistingSubgridRow,
+    readRegionFromPage,
+    registerRegion,
+    resolveTechnician,
     selectRandomTechnician,
     executePage2_FollowUp
   };

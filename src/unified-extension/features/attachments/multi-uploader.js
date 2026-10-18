@@ -6,11 +6,22 @@
 (function () {
   'use strict';
 
-  var CFG = { maxFiles: 25, maxFileSizeMB: 20, pollMs: 500, maxPoll: 120 };
+  var CFG = { 
+    maxFiles: 25, 
+    maxFileSizeMB: 20, 
+    pollMs: 500, 
+    maxPoll: 120,
+    portalMaxMB: 5,           // حد البورتال الفعلي
+    uploadTimeoutBaseMs: 45000,
+    uploadTimeoutPerMB: 12000,
+    uploadTimeoutCapMs: 300000
+  };
 
   var S = {
     notesEl: null,
     urlAdd: '',
+    urlGet: '',
+    urlGetAttachments: '',
     target: null,
     attachmentSettings: '',
     acceptTypes: '*',
@@ -21,7 +32,14 @@
     files: [],
     results: [],
     busy: false,
-    started: false
+    started: false,
+    mode: 'local', // 'local' | 'url' | 'copy'
+    copySourceId: '',
+    copyAttachments: [],
+    copySelected: [],
+    fileNotes: [],      // ملاحظة لكل ملف
+    fileProgress: [],   // تقدم لكل ملف (0-100)
+    fileXhr: []         // XMLHttpRequest لكل ملف للإلغاء/التقدم
   };
 
   var STYLE_ID = 'mu-style';
@@ -29,8 +47,6 @@
 
   // ==================== CSS ====================
   var MU_CSS = '' +
-    '.mu-btn{margin-right:8px;background:#dc2626;color:#fff;border-color:#c41d1d;}' +
-    '.mu-btn:hover,.mu-btn:focus,.mu-btn:focus-visible{background:#b91c1c;color:#fff;border-color:#991b1b;}' +
     '#mu-modal{position:fixed;inset:0;z-index:999998;display:none;}' +
     '#mu-modal.mu-open{display:block;}' +
     '#mu-modal .mu-overlay{position:absolute;inset:0;background:rgba(0,0,0,.55);display:flex;align-items:center;justify-content:center;padding:16px;}' +
@@ -39,12 +55,34 @@
     '#mu-modal .mu-title{margin:0;font-size:15px;font-weight:800;color:#fff;}' +
     '#mu-modal .mu-x{background:transparent;border:0;color:#94a3b8;font-size:20px;line-height:1;cursor:pointer;padding:2px 8px;border-radius:6px;}' +
     '#mu-modal .mu-x:hover{color:#fff;background:#1e293b;}' +
+    '#mu-modal .mu-tabs{display:flex;gap:4px;padding:8px 12px 0;background:#101827;border-bottom:1px solid #1e293b;}' +
+    '#mu-modal .mu-tab{flex:1;padding:8px 12px;border:0;border-radius:6px 6px 0 0;background:transparent;color:#94a3b8;font-family:inherit;font-size:12px;font-weight:700;cursor:pointer;transition:.2s;}' +
+    '#mu-modal .mu-tab:hover{color:#e2e8f0;background:#1e293b;}' +
+    '#mu-modal .mu-tab.active{color:#fff;background:#1e293b;}' +
     '#mu-modal .mu-body{padding:16px 18px;overflow-y:auto;}' +
+    '#mu-modal .mu-panel{display:none;}' +
+    '#mu-modal .mu-panel.active{display:block;}' +
     '#mu-modal .mu-label{display:block;font-size:11px;font-weight:700;color:#94a3b8;margin-bottom:6px;}' +
     '#mu-modal .mu-note{width:100%;box-sizing:border-box;background:#0b1220;border:1px solid #1e293b;border-radius:8px;color:#e2e8f0;font-family:inherit;font-size:13px;padding:8px 10px;resize:vertical;min-height:52px;outline:none;}' +
     '#mu-modal .mu-note:focus{border-color:#dc2626;}' +
     '#mu-modal .mu-drop{margin-top:12px;border:2px dashed #334155;border-radius:10px;padding:18px 12px;text-align:center;color:#64748b;font-size:13px;cursor:pointer;transition:.2s;}' +
     '#mu-modal .mu-drop:hover,#mu-modal .mu-drop.mu-over{border-color:#dc2626;color:#f87171;background:rgba(220,38,38,.06);}' +
+    '#mu-modal .mu-url-input{width:100%;box-sizing:border-box;background:#0b1220;border:1px solid #1e293b;border-radius:8px;color:#e2e8f0;font-family:inherit;font-size:13px;padding:8px 10px;resize:vertical;min-height:80px;outline:none;margin-bottom:8px;}' +
+    '#mu-modal .mu-url-input:focus{border-color:#dc2626;}' +
+    '#mu-modal .mu-fetch-btn{width:100%;padding:10px 14px;border:0;border-radius:8px;background:linear-gradient(135deg,#0a7cff,#00b4ff);color:#fff;font-family:inherit;font-size:13px;font-weight:800;cursor:pointer;margin-bottom:12px;}' +
+    '#mu-modal .mu-fetch-btn:hover{background:linear-gradient(135deg,#0069d9,#0090cc);}' +
+    '#mu-modal .mu-fetch-btn:disabled{opacity:.55;cursor:not-allowed;}' +
+    '#mu-modal .mu-copy-source{display:flex;gap:8px;margin-bottom:12px;}' +
+    '#mu-modal .mu-copy-source-input{flex:1;padding:10px 12px;background:#0b1220;border:1px solid #1e293b;border-radius:8px;color:#e2e8f0;font-family:inherit;font-size:13px;outline:none;direction:ltr;}' +
+    '#mu-modal .mu-copy-source-input:focus{border-color:#dc2626;}' +
+    '#mu-modal .mu-copy-fetch-btn{padding:10px 16px;border:0;border-radius:8px;background:linear-gradient(135deg,#f59e0b,#d97706);color:#000;font-family:inherit;font-size:13px;font-weight:800;cursor:pointer;white-space:nowrap;}' +
+    '#mu-modal .mu-copy-fetch-btn:hover{background:linear-gradient(135deg,#d97706,#b45309);}' +
+    '#mu-modal .mu-copy-fetch-btn:disabled{opacity:.55;cursor:not-allowed;}' +
+    '#mu-modal .mu-copy-list{margin-top:8px;max-height:200px;overflow-y:auto;border:1px solid #1e293b;border-radius:8px;padding:8px;}' +
+    '#mu-modal .mu-copy-item{display:flex;align-items:center;gap:8px;padding:6px 8px;background:#0b1220;border:1px solid #1e293b;border-radius:6px;margin-bottom:4px;font-size:12px;}' +
+    '#mu-modal .mu-copy-item input{width:16px;height:16px;accent-color:#dc2626;cursor:pointer;}' +
+    '#mu-modal .mu-copy-name{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#e2e8f0;}' +
+    '#mu-modal .mu-copy-size{color:#64748b;font-size:11px;white-space:nowrap;}' +
     '#mu-modal .mu-queue{margin-top:12px;max-height:230px;overflow-y:auto;border:1px solid #1e293b;border-radius:10px;padding:8px;min-height:72px;}' +
     '#mu-modal .mu-empty{text-align:center;color:#475569;font-size:12px;padding:18px 0;}' +
     '#mu-modal .mu-item{display:flex;align-items:center;gap:8px;padding:8px 10px;background:#0b1220;border:1px solid #1e293b;border-right:3px solid #334155;border-radius:8px;margin-bottom:6px;font-size:12px;}' +
@@ -77,7 +115,23 @@
     '.mu-toast.mu-t-error{background:#b91c1c;}' +
     '.mu-toast.mu-t-warn{background:#b45309;}' +
     '.mu-toast.mu-t-info{background:#1e293b;border:1px solid #334155;}' +
-    '.mu-fieldset-over{outline:2px dashed #dc2626!important;outline-offset:-4px;background:rgba(220,38,38,.05)!important;}';
+    '.mu-fieldset-over{outline:2px dashed #dc2626!important;outline-offset:-4px;background:rgba(220,38,38,.05)!important;}' +
+    '#mu-modal .mu-item{display:grid;grid-template-columns:1fr auto;gap:8px;padding:8px 10px;background:#0b1220;border:1px solid #1e293b;border-right:3px solid #334155;border-radius:8px;margin-bottom:6px;font-size:12px;}' +
+    '#mu-modal .mu-item.mu-up{border-right-color:#f59e0b;}' +
+    '#mu-modal .mu-item.mu-ok{border-right-color:#34d399;}' +
+    '#mu-modal .mu-item.mu-err{border-right-color:#f87171;}' +
+    '#mu-modal .mu-item-header{display:flex;justify-content:space-between;align-items:center;}' +
+    '#mu-modal .mu-name{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#e2e8f0;font-weight:700;}' +
+    '#mu-modal .mu-size{color:#64748b;font-size:11px;white-space:nowrap;}' +
+    '#mu-modal .mu-file-note{width:100%;box-sizing:border-box;background:#0b1220;border:1px solid #1e293b;border-radius:6px;color:#e2e8f0;font-family:inherit;font-size:12px;padding:6px 8px;margin-top:4px;outline:none;}' +
+    '#mu-modal .mu-file-note:focus{border-color:#dc2626;}' +
+    '#mu-modal .mu-file-progress-wrap{display:flex;gap:8px;align-items:center;height:6px;margin-top:4px;}' +
+    '#mu-modal .mu-file-progress{flex:1;height:6px;border-radius:3px;background:#0b1220;accent-color:#dc2626;}' +
+    '#mu-modal .mu-file-progress-text{font-size:10px;color:#64748b;min-width:32px;white-space:nowrap;}' +
+    '#mu-modal .mu-st{white-space:nowrap;font-size:11px;max-width:42%;overflow:hidden;text-overflow:ellipsis;margin-top:4px;}' +
+    '#mu-modal .mu-st.mu-st-up{color:#f59e0b;}' +
+    '#mu-modal .mu-st.mu-st-ok{color:#34d399;}' +
+    '#mu-modal .mu-st.mu-st-err{color:#f87171;}';
 
   // ==================== أدوات مساعدة ====================
   function $(sel, root) { return (root || document).querySelector(sel); }
@@ -115,6 +169,136 @@
     }, 3200);
   }
 
+  // ==================== خريطة MIME -> امتداد ====================
+  var MIME_EXT = {
+    'image/jpeg': '.jpg',
+    'image/png': '.png',
+    'image/gif': '.gif',
+    'image/webp': '.webp',
+    'image/bmp': '.bmp',
+    'image/svg+xml': '.svg',
+    'image/tiff': '.tiff',
+    'video/mp4': '.mp4',
+    'video/quicktime': '.mov',
+    'video/x-msvideo': '.avi',
+    'video/webm': '.webm',
+    'video/x-matroska': '.mkv',
+    'video/mpeg': '.mpeg',
+    'audio/mpeg': '.mp3',
+    'audio/wav': '.wav',
+    'audio/ogg': '.ogg',
+    'audio/webm': '.webm',
+    'application/pdf': '.pdf',
+    'application/zip': '.zip',
+    'application/x-rar-compressed': '.rar',
+    'application/x-7z-compressed': '.7z',
+    'application/msword': '.doc',
+    'application/vnd.openxmlformats-officedocument.wordprocessingml.document': '.docx',
+    'application/vnd.ms-excel': '.xls',
+    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': '.xlsx',
+    'application/vnd.ms-powerpoint': '.ppt',
+    'application/vnd.openxmlformats-officedocument.presentationml.presentation': '.pptx',
+    'text/plain': '.txt',
+    'text/csv': '.csv',
+    'application/json': '.json',
+    'application/xml': '.xml',
+    'application/octet-stream': '.bin'
+  };
+
+  function parseContentDisposition(header) {
+    if (!header) return null;
+    // filename*=UTF-8''encoded
+    var m = header.match(/filename\*\s*=\s*UTF-8''([^;]+)/i);
+    if (m) return decodeURIComponent(m[1]);
+    // filename="..."
+    m = header.match(/filename\s*=\s*"([^"]+)"/i);
+    if (m) return m[1];
+    // filename=...
+    m = header.match(/filename\s*=\s*([^;]+)/i);
+    if (m) return m[1].trim();
+    return null;
+  }
+
+  function extractNameHintFromHtml(html) {
+    if (!html) return null;
+    // <a href="...">name (size)</a>
+    var m = html.match(/<a\s+[^>]*href\s*=\s*["']([^"']+)["'][^>]*>([^<]+)<\/a>/i);
+    if (m) return { url: m[1], name: m[2].replace(/\s*\([^)]+\)\s*$/, '').trim() };
+    return null;
+  }
+
+  // CDN domains that need background proxy (CORS bypass)
+  var CDN_DOMAINS = ['fbcdn.net', 'fna.fbcdn.net', 'cdninstagram.com'];
+
+  function isCdnUrl(url) {
+    try {
+      var host = new URL(url).hostname;
+      return CDN_DOMAINS.some(function(d) { return host.endsWith(d); });
+    } catch (e) { return false; }
+  }
+
+  function fetchViaProxy(url) {
+    return new Promise(function(resolve, reject) {
+      if (typeof chrome === 'undefined' || !chrome.runtime || !chrome.runtime.sendMessage) {
+        reject(new Error('Extension context not available'));
+        return;
+      }
+      chrome.runtime.sendMessage({ type: 'FETCH_PROXY', url: url }, function(resp) {
+        if (chrome.runtime.lastError) {
+          reject(new Error(chrome.runtime.lastError.message));
+          return;
+        }
+        if (!resp || !resp.ok) {
+          reject(new Error((resp && resp.error) || 'Proxy fetch failed'));
+          return;
+        }
+        resolve({ data: resp.data, type: resp.type });
+      });
+    });
+  }
+
+  function urlToFile(url, nameHint) {
+    // Use background proxy for CDN URLs to bypass CORS
+    if (isCdnUrl(url)) {
+      return fetchViaProxy(url)
+        .then(function(result) {
+          var fname = nameHint || 'attachment_' + Date.now();
+          var ext = MIME_EXT[result.type.split(';')[0].trim()] || '';
+          if (ext && !fname.endsWith(ext)) fname += ext;
+          return new File([new Uint8Array(result.data)], fname, { type: result.type });
+        })
+        .catch(function(err) {
+          console.warn('CDN proxy failed, falling back to direct fetch:', err);
+          // Fallback to direct fetch (may fail due to CORS)
+          return fetchDirect(url, nameHint);
+        });
+    }
+    return fetchDirect(url, nameHint);
+  }
+
+  function fetchDirect(url, nameHint) {
+    return fetch(url, { method: 'GET', credentials: 'include', cache: 'no-store' })
+      .then(function(resp) {
+        if (!resp.ok) throw new Error('HTTP ' + resp.status);
+        var ct = resp.headers.get('content-type') || '';
+        if (ct.indexOf('text/html') > -1) throw new Error('جلسة منتهية — أعد تسجيل الدخول');
+        var cd = resp.headers.get('content-disposition');
+        var fname = parseContentDisposition(cd);
+        return resp.blob().then(function(blob) {
+          if (!fname) {
+            var ext = MIME_EXT[ct.split(';')[0].trim()] || '';
+            if (!ext && nameHint) {
+              var dot = nameHint.lastIndexOf('.');
+              if (dot > 0) ext = nameHint.slice(dot);
+            }
+            fname = nameHint || 'attachment_' + Date.now();
+            if (ext && !fname.endsWith(ext)) fname += ext;
+          }
+          return new File([blob], fname, { type: blob.type || ct || 'application/octet-stream' });
+        });
+      });
+  }
+
   // ==================== قراءة إعدادات كنترول المرفقات الأصلي ====================
   function findNotesEl() {
     return document.querySelector('.entity-notes[data-url-add]') ||
@@ -136,6 +320,8 @@
   function readConfig(el) {
     S.notesEl = el;
     S.urlAdd = el.getAttribute('data-url-add') || '';
+    S.urlGet = el.getAttribute('data-url-get') || '';
+    S.urlGetAttachments = el.getAttribute('data-url-get-attachments') || '';
     S.attachmentSettings = el.getAttribute('data-attachmentsettings') || '';
     S.acceptTypes = el.getAttribute('data-add-accept-types') || '*';
     S.addEnabled = (el.getAttribute('data-add-enabled') || '') === 'True';
@@ -204,6 +390,27 @@
     return Promise.resolve(resp.statusText || ('فشل الرفع (كود ' + resp.status + ')'));
   }
 
+  // ==================== Error Mapper — رسائل خطأ واضحة ====================
+  function mapUploadError(resp, err) {
+    if (resp && resp.status === 413) {
+      return 'حجم الملف يتجاوز حد البورتال (' + CFG.portalMaxMB + 'MB). '
+        + 'خيارات: ضغط الفيديو محليًا، أو رفعه على OneDrive/SharePoint ولصق الرابط في الملاحظة.';
+    }
+    if (resp && resp.status === 400) {
+      return 'طلب غير صالح — قد يكون التنسيق غير مدعوم أو الجلسة منتهية.';
+    }
+    if (resp && (resp.status === 401 || resp.status === 403)) {
+      return 'انتهت الجلسة — سجّل الدخول مجددًا.';
+    }
+    if (err && err.name === 'AbortError') {
+      return 'انتهت مهلة الرفع (الملف كبير أو الاتصال بطيء).';
+    }
+    if (err instanceof TypeError) {
+      return 'تعذر الاتصال بالخادم — تحقق من الإنترنت.';
+    }
+    return err && err.message ? err.message : ('فشل الرفع (كود ' + (resp && resp.status ? resp.status : 'غير معروف') + ')');
+  }
+
   // ==================== بناء طلب الرفع (مطابق لـ addNote الأصلي) ====================
   function buildFormData(file, noteText) {
     var text = noteText || '';
@@ -227,53 +434,83 @@
 
   function uploadTimeoutMs(f) {
     var mb = Math.ceil(((f && f.size) || 0) / 1048576);
-    var ms = 45000 + mb * 12000;
-    return ms > 300000 ? 300000 : ms;
+    var ms = CFG.uploadTimeoutBaseMs + mb * CFG.uploadTimeoutPerMB;
+    return ms > CFG.uploadTimeoutCapMs ? CFG.uploadTimeoutCapMs : ms;
   }
 
-  function uploadOne(file, noteText) {
-    if (!S.urlAdd || !S.target || !S.target.Id) {
-      return Promise.reject(new Error('إعدادات المرفقات غير متوفرة'));
-    }
-    var fd = buildFormData(file, noteText);
-    var attempts = 0;
-
-    function trySend() {
-      attempts++;
-      var token = '';
-      try { token = getToken(); } catch (e0) {}
-      if (token) fd.set('__RequestVerificationToken', token);
-
-      var opts = { method: 'POST', body: fd, credentials: 'include' };
-      var timer = null;
-      if (typeof AbortController !== 'undefined') {
-        var ctrl = new AbortController();
-        opts.signal = ctrl.signal;
-        timer = setTimeout(function () { try { ctrl.abort(); } catch (e1) {} }, uploadTimeoutMs(file));
+  function uploadOne(file, noteText, idx) {
+    return new Promise(function(resolve, reject) {
+      if (file._muError) return reject(new Error(file._muError));
+      if (!S.urlAdd || !S.target || !S.target.Id) {
+        return reject(new Error('إعدادات المرفقات غير متوفرة'));
       }
 
-      function done() { if (timer) { clearTimeout(timer); timer = null; } }
+      var fd = buildFormData(file, noteText);
+      var attempts = 0;
+      var xhr = new XMLHttpRequest();
 
-      return fetch(S.urlAdd, opts).then(function (resp) {
-        done();
-        if (!sessionAlive(resp)) {
-          gotoLogin();
-          throw new Error('انتهت الجلسة');
-        }
-        if (resp.ok) return true;
-        if ((resp.status === 400 || resp.status === 403) && attempts < 2) {
-          return refreshToken().then(trySend);
-        }
-        return serverError(resp).then(function (msg) { throw new Error(msg); });
-      }).catch(function (err) {
-        done();
-        if (err && err.name === 'AbortError') throw new Error('انتهت مهلة الرفع — تحقق من الاتصال ثم أعد المحاولة');
-        if (err instanceof TypeError) throw new Error('تعذر الاتصال بالخادم');
-        throw err;
-      });
-    }
+      // Store XHR for potential cancellation
+      if (typeof idx === 'number') S.fileXhr[idx] = xhr;
 
-    return trySend();
+      function attempt() {
+        attempts++;
+        xhr.upload.onprogress = function(e) {
+          if (e.lengthComputable && typeof idx === 'number') {
+            var pct = Math.round((e.loaded / e.total) * 100);
+            S.fileProgress[idx] = pct;
+            updateFileProgress(idx, pct);
+          }
+        };
+
+        xhr.onload = function() {
+          if (xhr.status >= 200 && xhr.status < 300) {
+            resolve(true);
+            return;
+          }
+          // Create a response-like object for error mapping
+          var resp = { status: xhr.status };
+          if (xhr.status === 413 || xhr.status === 400) {
+            // Try refresh token on 400/403
+            if (attempts < 2) {
+              refreshToken().then(function() { attempt(); }).catch(reject);
+              return;
+            }
+          }
+          reject(new Error(mapUploadError(resp, null)));
+        };
+
+        xhr.onerror = function() {
+          reject(new Error('تعذر الاتصال بالخادم'));
+        };
+
+        xhr.ontimeout = function() {
+          reject(new Error('انتهت مهلة الرفع — تحقق من الاتصال ثم أعد المحاولة'));
+        };
+
+        xhr.timeout = uploadTimeoutMs(file);
+        xhr.open('POST', S.urlAdd, true);
+        xhr.withCredentials = true;
+        
+        // Add token if available
+        var token = getToken();
+        if (token) {
+          fd.set('__RequestVerificationToken', token);
+        }
+        
+        xhr.send(fd);
+      }
+
+      attempt();
+    });
+  }
+
+  function updateFileProgress(idx, pct) {
+    var row = document.getElementById('mu-item-' + idx);
+    if (!row) return;
+    var prog = row.querySelector('.mu-file-progress');
+    var txt = row.querySelector('.mu-file-progress-text');
+    if (prog) prog.value = pct;
+    if (txt) txt.textContent = pct + '%';
   }
 
   function triggerNotesRefresh() {
@@ -296,10 +533,28 @@
             '<h3 class="mu-title">رفع مرفقات متعددة</h3>' +
             '<button type="button" class="mu-x" aria-label="إغلاق">✕</button>' +
           '</div>' +
+          '<div class="mu-tabs">' +
+            '<button type="button" class="mu-tab active" data-mode="local">📁 ملفات محلية</button>' +
+            '<button type="button" class="mu-tab" data-mode="url">🔗 من روابط</button>' +
+            '<button type="button" class="mu-tab" data-mode="copy">📋 نسخ من بلاغ</button>' +
+          '</div>' +
           '<div class="mu-body">' +
             '<label class="mu-label" for="mu-note">نص الملاحظة (اختياري — يُستخدم مع كل الملفات)</label>' +
             '<textarea id="mu-note" class="mu-note" rows="2" placeholder="اتركه فارغًا لرفع المرفقات فقط"></textarea>' +
-            '<div class="mu-drop" id="mu-drop">اسحب الملفات هنا أو <u>اختر من الجهاز</u></div>' +
+            '<div class="mu-panel active" data-panel="local">' +
+              '<div class="mu-drop" id="mu-drop">اسحب الملفات هنا أو <u>اختر من الجهاز</u></div>' +
+            '</div>' +
+            '<div class="mu-panel" data-panel="url">' +
+              '<textarea id="mu-url-input" class="mu-url-input" placeholder="أدخل الروابط (رابط واحد في كل سطر)&#10;مثال: https://elarabyportalpfs.powerappsportals.com/_entity/annotation/.../...?t=..."></textarea>' +
+              '<button type="button" class="mu-fetch-btn" id="mu-fetch-urls">جلب الملفات من الروابط</button>' +
+            '</div>' +
+            '<div class="mu-panel" data-panel="copy">' +
+              '<div class="mu-copy-source">' +
+                '<input type="text" id="mu-copy-source-input" class="mu-copy-source-input" placeholder="معرف البلاغ المصدر (CAS... أو GUID)" title="أدخل رقم البلاغ أو المعرف الفريد">' +
+                '<button type="button" class="mu-copy-fetch-btn" id="mu-copy-fetch">جلب المرفقات</button>' +
+              '</div>' +
+              '<div class="mu-copy-list" id="mu-copy-list"></div>' +
+            '</div>' +
             '<div class="mu-queue" id="mu-queue"></div>' +
             '<div class="mu-progress"><div class="mu-fill" id="mu-fill"></div></div>' +
             '<div class="mu-meta">' +
@@ -317,8 +572,17 @@
 
     $('.mu-x', m).addEventListener('click', function () { closeModal(); });
     $('#mu-cancel', m).addEventListener('click', function () { closeModal(); });
-    $('#mu-start', m).addEventListener('click', function () { startUpload(); });
+    $('#mu-start', m).addEventListener('click', onStartClick);
     $('#mu-drop', m).addEventListener('click', function () { openPicker(); });
+
+    m.querySelectorAll('.mu-tab').forEach(function (tab) {
+      tab.addEventListener('click', function () {
+        switchMode(tab.dataset.mode);
+      });
+    });
+
+    $('#mu-fetch-urls', m).addEventListener('click', function () { fetchFromUrls(); });
+    $('#mu-copy-fetch', m).addEventListener('click', function () { fetchCopyAttachments(); });
 
     var drop = $('#mu-drop', m);
     drop.addEventListener('dragover', function (e) {
@@ -329,7 +593,22 @@
     drop.addEventListener('drop', function (e) {
       e.preventDefault();
       drop.classList.remove('mu-over');
-      addFiles(Array.prototype.slice.call(e.dataTransfer.files || []));
+      var files = Array.prototype.slice.call(e.dataTransfer.files || []);
+      if (!files.length) {
+        // Try text/uri-list or text/html (dragging links/images from portal)
+        var uriList = e.dataTransfer.getData('text/uri-list');
+        var html = e.dataTransfer.getData('text/html');
+        if (uriList) {
+          var u = uriList.trim().split('\n')[0].trim();
+          if (u) { urlToFile(u).then(function(f){ addFiles([f]); openModal(); }).catch(function(err){ toast('فشل: ' + err.message, 'warn'); }); return; }
+        }
+        if (html) {
+          var hint = extractNameHintFromHtml(html);
+          if (hint) { urlToFile(hint.url, hint.name).then(function(f){ addFiles([f]); openModal(); }).catch(function(err){ toast('فشل: ' + err.message, 'warn'); }); return; }
+        }
+        return;
+      }
+      addFiles(files);
       openModal();
     });
 
@@ -371,19 +650,319 @@
     if (m) m.classList.remove('mu-open');
     S.files = [];
     S.results = [];
+    S.fileNotes = [];
+    S.fileProgress = [];
+    S.fileXhr = [];
     S.started = false;
+    S.mode = 'local';
+    S.copySourceId = '';
+    S.copyAttachments = [];
+    S.copySelected = [];
     renderQueue();
     updateProgress(0, 0);
     var sum = $('#mu-sum');
     if (sum) { sum.textContent = ''; sum.className = 'mu-sum'; }
     updateStartLabel();
+    // Reset tabs
+    document.querySelectorAll('.mu-tab').forEach(function(t){ t.classList.remove('active'); });
+    document.querySelector('.mu-tab[data-mode="local"]').classList.add('active');
+    document.querySelectorAll('.mu-panel').forEach(function(p){ p.classList.remove('active'); });
+    document.querySelector('.mu-panel[data-panel="local"]').classList.add('active');
+  }
+
+  function switchMode(mode) {
+    S.mode = mode;
+    document.querySelectorAll('.mu-tab').forEach(function(t){ t.classList.remove('active'); });
+    document.querySelector('.mu-tab[data-mode="' + mode + '"]').classList.add('active');
+    document.querySelectorAll('.mu-panel').forEach(function(p){ p.classList.remove('active'); });
+    document.querySelector('.mu-panel[data-panel="' + mode + '"]').classList.add('active');
+  }
+
+  // ==================== جلب الملفات من روابط ====================
+  function fetchFromUrls() {
+    if (S.busy) { toast('جاري الرفع حاليًا', 'warn'); return; }
+    var input = $('#mu-url-input');
+    if (!input || !input.value.trim()) { toast('أدخل رابطًا واحدًا على الأقل', 'warn'); return; }
+    var urls = input.value.trim().split('\n').map(function(u){ return u.trim(); }).filter(function(u){ return u; });
+    if (!urls.length) { toast('لا توجد روابط صالحة', 'warn'); return; }
+
+    var btn = $('#mu-fetch-urls');
+    if (btn) { btn.disabled = true; btn.textContent = 'جاري الجلب...'; }
+
+    var fetched = 0;
+    var total = urls.length;
+
+    function fetchNext(i) {
+      if (i >= total) {
+        if (btn) { btn.disabled = false; btn.textContent = 'جلب الملفات من الروابط'; }
+        input.value = '';
+        toast('تم جلب ' + fetched + ' من ' + total + ' ملف', fetched === total ? 'success' : 'warn');
+        return;
+      }
+      var url = urls[i];
+      // Extract name hint from pasted HTML/text (e.g., <a href="...">name (2.5 MB)</a>)
+      var nameHint = null;
+      try {
+        var hint = extractNameHintFromHtml(url);
+        if (hint) { url = hint.url; nameHint = hint.name; }
+      } catch(e) {}
+
+      urlToFile(url, nameHint)
+        .then(function(file) {
+          if (file.size > CFG.maxFileSizeMB * 1048576) {
+            throw new Error('حجم الملف يتجاوز ' + CFG.maxFileSizeMB + 'MB');
+          }
+          addFiles([file]);
+          fetched++;
+        })
+        .catch(function(err) {
+          console.warn('Failed to fetch:', url, err);
+          toast('فشل: ' + err.message, 'warn');
+        })
+        .then(function() {
+          fetchNext(i + 1);
+        });
+    }
+
+    fetchNext(0);
+  }
+
+  // ==================== نسخ المرفقات من بلاغ آخر ====================
+  function fetchCopyAttachments() {
+    if (S.busy) { toast('جاري الرفع حاليًا', 'warn'); return; }
+    var input = $('#mu-copy-source-input');
+    if (!input || !input.value.trim()) { toast('أدخل رابط البلاغ أو المعرف', 'warn'); return; }
+    var sourceId = input.value.trim();
+    S.copySourceId = sourceId;
+
+    var btn = $('#mu-copy-fetch');
+    var listEl = $('#mu-copy-list');
+    if (btn) { btn.disabled = true; btn.textContent = 'جاري الجلب...'; }
+    if (listEl) listEl.innerHTML = '<div style="text-align:center;color:#64748b;padding:20px;">جاري جلب المرفقات...</div>';
+
+    // Resolve sourceId to incident GUID
+    resolveIncidentId(sourceId).then(function(incidentGuid) {
+      if (!incidentGuid) {
+        if (listEl) listEl.innerHTML = '<div style="text-align:center;color:#f87171;padding:20px;">تعذر العثور على البلاغ: ' + sourceId + '</div>';
+        if (btn) { btn.disabled = false; btn.textContent = 'جلب المرفقات'; }
+        return;
+      }
+
+      // Prepare request body (matches portal's EntityNotes.getData)
+      var ordersAttr = S.notesEl.getAttribute('data-orders') || '[]';
+      var orders = [];
+      try { orders = JSON.parse(ordersAttr); } catch(e) {}
+      var regarding = { Id: incidentGuid, LogicalName: 'incident', Name: null, KeyAttributes: [], RowVersion: null };
+      var body = JSON.stringify({ regarding: regarding, orders: orders, page: 1, pageSize: 100 });
+
+      // Target endpoint
+      var url = S.urlGet || S.urlGetAttachments;
+      if (!url) {
+        var base = S.urlAdd.replace(/\/entity-form-addnote\/.*/, '');
+        url = base + '/entity-notes/' + S.notesEl.getAttribute('data-attachmentsettings').split('/').pop();
+      }
+
+      // Token from antiforgery input
+      var token = getToken();
+
+      // Try direct fetch with token header first
+      function tryFetchWithToken(authHeaderName) {
+        var h = { 'Content-Type': 'application/json', 'Accept': 'application/json' };
+        if (token) h[authHeaderName] = token;
+        return fetch(url, { method: 'POST', credentials: 'include', headers: h, body: body })
+          .then(function(resp) {
+            if (resp.ok) return resp.json();
+            if (resp.status === 400 || resp.status === 403) throw new Error('TOKEN_REJECTED');
+            throw new Error('HTTP ' + resp.status);
+          });
+      }
+
+      // MAIN world bridge using shell.ajaxSafePost (injects script into page context)
+      function tryShellBridge() {
+        return new Promise(function(resolve, reject) {
+          var handler = function(e) {
+            if (e.detail && e.detail.type === 'mu-notes-result') {
+              window.removeEventListener('mu-notes-result', handler);
+              if (e.detail.ok) resolve(e.detail.data);
+              else reject(new Error(e.detail.error || 'Shell bridge failed'));
+            }
+          };
+          window.addEventListener('mu-notes-result', handler);
+          var script = document.createElement('script');
+          script.textContent = '(' + function(u, b) {
+            try {
+              if (window.shell && window.shell.ajaxSafePost) {
+                window.shell.ajaxSafePost({
+                  type: 'POST',
+                  contentType: 'application/json',
+                  url: u,
+                  data: b,
+                  global: false
+                }).done(function(r) {
+                  window.dispatchEvent(new CustomEvent('mu-notes-result', { detail: { type: 'mu-notes-result', ok: true, data: r } }));
+                }).fail(function(xhr) {
+                  window.dispatchEvent(new CustomEvent('mu-notes-result', { detail: { type: 'mu-notes-result', ok: false, error: xhr.statusText || 'Failed' } }));
+                });
+              } else {
+                window.dispatchEvent(new CustomEvent('mu-notes-result', { detail: { type: 'mu-notes-result', ok: false, error: 'shell.ajaxSafePost not available' } }));
+              }
+            } catch (ex) {
+              window.dispatchEvent(new CustomEvent('mu-notes-result', { detail: { type: 'mu-notes-result', ok: false, error: ex.message } }));
+            }
+          }.toString() + ')("' + url.replace(/"/g, '\\"') + '", ' + JSON.stringify(body).replace(/"/g, '\\"') + ');';
+          document.documentElement.appendChild(script);
+          script.remove();
+          setTimeout(function() {
+            window.removeEventListener('mu-notes-result', handler);
+            reject(new Error('Shell bridge timeout'));
+          }, 10000);
+        });
+      }
+
+      tryFetchWithToken('RequestVerificationToken')
+        .catch(function(e) {
+          if (e.message === 'TOKEN_REJECTED') return tryFetchWithToken('__RequestVerificationToken');
+          throw e;
+        })
+        .catch(function(e) {
+          if (e.message === 'TOKEN_REJECTED') return tryShellBridge();
+          throw e;
+        })
+        .then(function(data) {
+          var records = data && data.Records ? data.Records : (Array.isArray(data) ? data : []);
+          S.copyAttachments = records.filter(function(r) { return r.HasAttachment; });
+          renderCopyList();
+        })
+        .catch(function(err) {
+          console.error('Copy fetch error:', err);
+          if (listEl) listEl.innerHTML = '<div style="text-align:center;color:#f87171;padding:20px;">خطأ: ' + err.message + '</div>';
+        })
+        .then(function() {
+          if (btn) { btn.disabled = false; btn.textContent = 'جلب المرفقات'; }
+        });
+    }).catch(function(err) {
+      if (listEl) listEl.innerHTML = '<div style="text-align:center;color:#f87171;padding:20px;">خطأ: ' + err.message + '</div>';
+      if (btn) { btn.disabled = false; btn.textContent = 'جلب المرفقات'; }
+    });
+  }
+
+  function resolveIncidentId(input) {
+    // 1. Full URL with ?id=GUID
+    try {
+      var u = new URL(input);
+      var id = u.searchParams.get('id');
+      if (id && /^[a-f0-9-]{36}$/i.test(id)) return Promise.resolve(id);
+    } catch(e) {}
+    // 2. Bare GUID
+    if (/^[a-f0-9-]{36}$/i.test(input)) return Promise.resolve(input);
+    // 3. CAS number via _api
+    if (/^CAS\d+/i.test(input)) {
+      return fetch('/_api/incidents?$filter=ticketnumber eq \'' + input + '\'&$select=incidentid', { credentials: 'include', headers: { 'Accept': 'application/json' } })
+        .then(function(r) { return r.json(); })
+        .then(function(d) {
+          if (d && d.value && d.value.length) return d.value[0].incidentid;
+          return null;
+        })
+        .catch(function() { return null; });
+    }
+    return Promise.resolve(null);
+  }
+
+  function renderCopyList() {
+    var listEl = $('#mu-copy-list');
+    if (!listEl) return;
+    if (!S.copyAttachments.length) {
+      listEl.innerHTML = '<div style="text-align:center;color:#64748b;padding:20px;">لا توجد مرفقات في هذا البلاغ</div>';
+      return;
+    }
+    listEl.innerHTML = '';
+    S.copyAttachments.forEach(function(att, i) {
+      var row = document.createElement('div');
+      row.className = 'mu-copy-item';
+      var chk = document.createElement('input');
+      chk.type = 'checkbox';
+      chk.dataset.idx = i;
+      chk.addEventListener('change', function() {
+        if (chk.checked) S.copySelected.push(i);
+        else S.copySelected = S.copySelected.filter(function(x){ return x !== i; });
+      });
+      var name = document.createElement('span');
+      name.className = 'mu-copy-name';
+      name.textContent = att.AttachmentFileName || 'مرفق';
+      name.title = att.AttachmentFileName || '';
+      var size = document.createElement('span');
+      size.className = 'mu-copy-size';
+      size.textContent = att.AttachmentSizeDisplay || '';
+      row.appendChild(chk);
+      row.appendChild(name);
+      row.appendChild(size);
+      listEl.appendChild(row);
+    });
+  }
+
+  // ==================== معالجة زر البدء (يوجّه حسب الوضع) ====================
+  function onStartClick() {
+    if (S.mode === 'copy') startCopyUpload();
+    else startUpload();
+  }
+
+  function startCopyUpload() {
+    if (S.busy) return;
+    if (!S.copySelected.length) { toast('اختر مرفقًا واحدًا على الأقل للنسخ', 'warn'); return; }
+    if (!S.urlAdd || !S.target) { toast('إعدادات المرفقات غير متوفرة', 'error'); return; }
+
+    var noteEl = $('#mu-note');
+    var noteText = noteEl ? noteEl.value : '';
+    var indices = S.copySelected.slice();
+    var total = indices.length;
+
+    // Download selected attachments into S.files first, then use standard upload flow
+    function downloadNext(k) {
+      if (k >= total) {
+        // All downloads attempted; now run standard upload on S.files
+        renderQueue();
+        startUpload();
+        return;
+      }
+      var idx = indices[k];
+      var att = S.copyAttachments[idx];
+      // Use AttachmentUrlWithTimeStamp from the record (correct URL with controlId + token)
+      var downloadUrl = att.AttachmentUrlWithTimeStamp || '/_entity/annotation/' + att.Id + '?t=' + Date.now();
+      fetch(downloadUrl, { method: 'GET', credentials: 'include', cache: 'no-store' })
+        .then(function(resp) {
+          if (!resp.ok) throw new Error('فشل تحميل المرفق: HTTP ' + resp.status);
+          return resp.blob();
+        })
+        .then(function(blob) {
+          var file = new File([blob], att.AttachmentFileName, { type: blob.type || 'application/octet-stream' });
+          addFiles([file]);
+        })
+        .catch(function(err) {
+          // Add a placeholder file with error state so it appears in queue
+          var errFile = new File([new Blob()], att.AttachmentFileName || 'attachment', { type: 'application/octet-stream' });
+          errFile._muError = err.message || 'فشل التحميل';
+          addFiles([errFile]);
+        })
+        .then(function() {
+          downloadNext(k + 1);
+        });
+    }
+
+    downloadNext(0);
   }
 
   // ==================== إدارة قائمة الملفات ====================
   function validFile(f) {
     if (!f) return false;
+    // حد البورتال الفعلي 5MB
+    if (f.size > CFG.portalMaxMB * 1048576) {
+      toast('الملف «' + f.name + '» (' + fmtSize(f.size) + ') يتجاوز حد البورتال (' + CFG.portalMaxMB + 'MB). '
+        + 'جرب: [ضغط الفيديو] أو [رفع خارجي + لصق رابط]', 'warn');
+      return false;
+    }
+    // حد الأداة الأقصى (20MB) — للتحقق الإضافي
     if (f.size > CFG.maxFileSizeMB * 1048576) {
-      toast('الملف «' + f.name + '» أكبر من ' + CFG.maxFileSizeMB + 'MB', 'error');
+      toast('الملف «' + f.name + '» أكبر من الحد الأقصى للأداة (' + CFG.maxFileSizeMB + 'MB)', 'error');
       return false;
     }
     return true;
@@ -392,11 +971,15 @@
   function replaceFiles(list) {
     S.files = list.filter(validFile).slice(0, CFG.maxFiles);
     S.results = [];
+    S.fileNotes = [];
+    S.fileProgress = [];
+    S.fileXhr = [];
     renderQueue();
   }
 
   function addFiles(list) {
     var merged = S.files.slice();
+    var startIdx = merged.length;
     list.forEach(function (f) {
       if (!validFile(f)) return;
       if (merged.length >= CFG.maxFiles) return;
@@ -404,6 +987,10 @@
       if (!dup) merged.push(f);
     });
     S.files = merged;
+    // Initialize per-file arrays for new files
+    while (S.fileNotes.length < S.files.length) S.fileNotes.push('');
+    while (S.fileProgress.length < S.files.length) S.fileProgress.push(0);
+    while (S.fileXhr.length < S.files.length) S.fileXhr.push(null);
     renderQueue();
   }
 
@@ -416,10 +1003,19 @@
       updateProgress(0, 0);
       return;
     }
+    // Ensure arrays are initialized
+    if (!S.fileNotes) S.fileNotes = [];
+    if (!S.fileProgress) S.fileProgress = [];
+    if (!S.fileXhr) S.fileXhr = [];
+
     S.files.forEach(function (f, i) {
       var row = document.createElement('div');
       row.className = 'mu-item' + statusClass(i);
       row.id = 'mu-item-' + i;
+
+      // Header: name + size
+      var header = document.createElement('div');
+      header.className = 'mu-item-header';
 
       var name = document.createElement('span');
       name.className = 'mu-name';
@@ -430,13 +1026,42 @@
       size.className = 'mu-size';
       size.textContent = fmtSize(f.size);
 
+      header.appendChild(name);
+      header.appendChild(size);
+      row.appendChild(header);
+
+      // Per-file note input
+      var noteInput = document.createElement('input');
+      noteInput.type = 'text';
+      noteInput.className = 'mu-file-note';
+      noteInput.placeholder = 'ملاحظة لهذا المرفق (اختياري)';
+      noteInput.value = S.fileNotes[i] || '';
+      noteInput.dataset.idx = i;
+      noteInput.addEventListener('input', function() {
+        S.fileNotes[i] = this.value;
+      });
+      row.appendChild(noteInput);
+
+      // Per-file progress bar
+      var progWrap = document.createElement('div');
+      progWrap.className = 'mu-file-progress-wrap';
+      var prog = document.createElement('progress');
+      prog.className = 'mu-file-progress';
+      prog.value = S.fileProgress[i] || 0;
+      prog.max = 100;
+      var progText = document.createElement('span');
+      progText.className = 'mu-file-progress-text';
+      progText.textContent = (S.fileProgress[i] || 0) + '%';
+      progWrap.appendChild(prog);
+      progWrap.appendChild(progText);
+      row.appendChild(progWrap);
+
+      // Status text
       var st = document.createElement('span');
       st.className = 'mu-st' + statusTextClass(i);
       st.textContent = statusText(i);
-
-      row.appendChild(name);
-      row.appendChild(size);
       row.appendChild(st);
+
       box.appendChild(row);
     });
     updateProgress(doneCount(), S.files.length);
@@ -550,7 +1175,7 @@
     setBusyUI(true);
 
     var noteEl = $('#mu-note');
-    var noteText = noteEl ? noteEl.value : '';
+    var generalNoteText = noteEl ? noteEl.value : '';
     var total = entries.length;
     var ok = 0;
     var fail = 0;
@@ -564,10 +1189,12 @@
       if (k >= total) return finish();
       var idx = entries[k];
       setItemState(idx, 'up');
+      // Per-file note takes priority, fallback to general note
+      var fileNoteText = (S.fileNotes && S.fileNotes[idx]) ? S.fileNotes[idx] : generalNoteText;
 
       var p;
       try {
-        p = uploadOne(S.files[idx], noteText);
+        p = uploadOne(S.files[idx], fileNoteText, idx);
       } catch (ex) {
         p = Promise.reject(ex instanceof Error ? ex : new Error('فشل'));
       }
@@ -614,11 +1241,14 @@
     if (!S.addEnabled) return;
     var anchor = document.querySelector('.note-actions .addnote');
     if (!anchor) return;
-    if (document.querySelector('.mu-btn')) return;
+    if (document.querySelector('.mu-multi-btn')) return;
+
+    var container = anchor.parentElement;
+    if (!container) return;
 
     var btn = document.createElement('a');
     btn.href = '#';
-    btn.className = 'btn btn-default mu-btn';
+    btn.className = 'btn btn-default mu-multi-btn';
     btn.setAttribute('role', 'button');
     btn.textContent = 'رفع متعدد';
     btn.title = 'رفع أكثر من ملف في مرة واحدة (كل ملف كملاحظة مستقلة)';
@@ -626,7 +1256,7 @@
       e.preventDefault();
       openModal();
     });
-    anchor.insertAdjacentElement('afterend', btn);
+    container.appendChild(btn);
   }
 
   function bindFieldsetDrop() {
@@ -649,9 +1279,22 @@
       e.preventDefault();
       zone.classList.remove('mu-fieldset-over');
       if (S.busy) { toast('جاري الرفع حاليًا', 'warn'); return; }
-      var list = Array.prototype.slice.call(e.dataTransfer.files || []);
-      if (!list.length) return;
-      addFiles(list);
+      var files = Array.prototype.slice.call(e.dataTransfer.files || []);
+      if (!files.length) {
+        // Try text/uri-list or text/html (dragging links/images from portal)
+        var uriList = e.dataTransfer.getData('text/uri-list');
+        var html = e.dataTransfer.getData('text/html');
+        if (uriList) {
+          var u = uriList.trim().split('\n')[0].trim();
+          if (u) { urlToFile(u).then(function(f){ addFiles([f]); openModal(); }).catch(function(err){ toast('فشل: ' + err.message, 'warn'); }); return; }
+        }
+        if (html) {
+          var hint = extractNameHintFromHtml(html);
+          if (hint) { urlToFile(hint.url, hint.name).then(function(f){ addFiles([f]); openModal(); }).catch(function(err){ toast('فشل: ' + err.message, 'warn'); }); return; }
+        }
+        return;
+      }
+      addFiles(files);
       openModal();
     });
   }

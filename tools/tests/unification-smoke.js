@@ -1,0 +1,160 @@
+'use strict';
+/**
+ * unification-smoke.js — اختبار انحدار وقت-تشغيل مصغّر
+ * ------------------------------------------------------------------
+ * يهدف لإثبات عقد «الموجة 3» (التوحيد) فعليًا وقت التشغيل — وليس النحو فقط:
+ *   1) shared/portal-selectors.js هو المصدر الوحيد ويُصدّر الدوال الأربع.
+ *   2) سلوك الدوال صحيح (findFirst / generateTaskId / parseDataLine / loadSelectors).
+ *   3) تحميل المُستهلك (engine-orchestrator.js) لا يُلغي window.generateTaskId
+ *      ولا يُنتج حلقة ذاتية لا نهائية (الخلل الذي أُصلح).
+ *   4) لا يوجد تصدير ذاتي للدوال المشتركة إلى window في الملفات المستهلكة.
+ *
+ * يُشغّل الملفات الحقيقية من src/unified-extension داخل vm مع محاكاة chrome/DOM.
+ * التشغيل:  node tools/tests/unification-smoke.js
+ * exit code: 0 = كل الفحوصات نجحت.
+ */
+
+const fs = require('fs');
+const path = require('path');
+const vm = require('vm');
+
+const EXT = path.join(__dirname, '..', '..', 'src', 'unified-extension');
+const read = (f) => fs.readFileSync(path.join(EXT, f), 'utf8');
+
+let pass = 0;
+let fail = 0;
+const failures = [];
+
+function ok(cond, label) {
+  if (cond) { pass++; console.log('  [PASS] ' + label); }
+  else { fail++; failures.push(label); console.log('  [FAIL] ' + label); }
+}
+
+// ── Minimal browser mocks ────────────────────────────────────────────────────
+class HTMLElement {}
+
+function makeEnv() {
+  const registry = new Map(); // selector -> element
+  const el = (sel) => { const e = new HTMLElement(); registry.set(sel, e); return e; };
+
+  const documentStub = {
+    querySelector(sel) { return registry.get(sel) || null; },
+    querySelectorAll() { return []; },
+    getElementById() { return null; },
+    addEventListener() {},
+    createElement() { return new HTMLElement(); }
+  };
+
+  const localStorageStub = {
+    _d: {},
+    getItem(k) { return Object.prototype.hasOwnProperty.call(this._d, k) ? this._d[k] : null; },
+    setItem(k, v) { this._d[k] = String(v); },
+    removeItem(k) { delete this._d[k]; }
+  };
+
+  const chromeStub = {
+    runtime: {
+      id: 'test-extension-id',
+      getURL: (p) => 'chrome-extension://test-extension-id/' + p,
+      onMessage: { addListener() {} },
+      sendMessage: async () => ({})
+    },
+    storage: {
+      local: { get: async () => ({}), set: async () => {}, remove: async () => {} },
+      onChanged: { addListener() {} }
+    }
+  };
+
+  const sandbox = {
+    console: { log() {}, warn() {}, error() {}, info() {} },
+    HTMLElement,
+    document: documentStub,
+    localStorage: localStorageStub,
+    location: { href: 'https://example.test/orders' },
+    chrome: chromeStub,
+    setTimeout, clearTimeout, setInterval, clearInterval,
+    fetch: async () => { throw new Error('no-network-in-test'); }
+  };
+  sandbox.window = sandbox;
+  sandbox.self = sandbox;
+  sandbox.globalThis = sandbox;
+  vm.createContext(sandbox);
+  return { sandbox, registry, el };
+}
+
+function load(sandbox, file) {
+  vm.runInContext(read(file), sandbox, { filename: file });
+}
+
+// ── Run ──────────────────────────────────────────────────────────────────────
+(async function main() {
+  console.log('\n=== Unification runtime smoke test ===\n');
+  const { sandbox, registry, el } = makeEnv();
+
+  // pre-register one DOM element to exercise findFirst()
+  el('#ldv_serialnumber');
+
+  console.log('-- 1) portal-selectors.js exports --');
+  load(sandbox, 'shared/portal-selectors.js');
+  ok(sandbox.window.__elarabyPortalSelectorsLoaded === true, 'load guard flag set');
+  for (const fn of ['findFirst', 'generateTaskId', 'parseDataLine', 'loadSelectors']) {
+    ok(typeof sandbox.window[fn] === 'function', 'window.' + fn + ' is a function');
+  }
+  const refGenerate = sandbox.window.generateTaskId;
+  const refFindFirst = sandbox.window.findFirst;
+
+  console.log('-- 2) behaviour --');
+  const id1 = sandbox.window.generateTaskId();
+  const id2 = sandbox.window.generateTaskId();
+  ok(typeof id1 === 'string' && id1.startsWith('task-'), 'generateTaskId() -> task-...');
+  ok(id1 !== id2, 'generateTaskId() yields unique ids');
+
+  ok(sandbox.window.findFirst(['#does-not-exist', '#ldv_serialnumber']) === registry.get('#ldv_serialnumber'),
+    'findFirst() returns first matching element');
+  ok(sandbox.window.findFirst(['#nope']) === null, 'findFirst() -> null when nothing matches');
+
+  const parsed = sandbox.window.parseDataLine('orderid:CAS1234567890|model:AC-500|serial:SN-9');
+  ok(parsed.orderId === 'CAS1234567890', 'parseDataLine() orderId (' + parsed.orderId + ')');
+  ok(parsed.model === 'AC-500', 'parseDataLine() model (' + parsed.model + ')');
+  ok(parsed.serial === 'SN-9', 'parseDataLine() serial (' + parsed.serial + ')');
+  ok(Object.keys(sandbox.window.parseDataLine('')).length === 0, 'parseDataLine() -> {} on empty input');
+
+  const cfg = await sandbox.window.loadSelectors();
+  ok(!!cfg && Array.isArray(cfg.serial) && cfg.serial.length > 0, 'loadSelectors() -> defaults with serial[]');
+  ok(Array.isArray(cfg.nextBtn), 'loadSelectors() -> nextBtn[]');
+  ok(sandbox.window._CFG === cfg, 'loadSelectors() caches into window._CFG');
+
+  console.log('-- 3) consumer load does not clobber the single source --');
+  load(sandbox, 'modules/autofill/engine-orchestrator.js');
+  ok(!!(sandbox.window.AutoFillEngine && sandbox.window.AutoFillEngine.Orchestrator), 'Orchestrator registered');
+  ok(sandbox.window.generateTaskId === refGenerate, 'window.generateTaskId NOT overwritten by orchestrator');
+  ok(sandbox.window.findFirst === refFindFirst, 'window.findFirst NOT overwritten by orchestrator');
+
+  console.log('-- 4) recursion guard (the real bug) --');
+  let recId = null, recErr = null;
+  try { recId = sandbox.window.AutoFillEngine.Orchestrator.generateTaskId(); }
+  catch (e) { recErr = e; }
+  ok(!recErr && typeof recId === 'string' && recId.startsWith('task-'),
+    'Orchestrator.generateTaskId() returns without infinite recursion' + (recErr ? ' [' + recErr.message + ']' : ''));
+
+  console.log('-- 5) static: no self-re-export of shared fns --');
+  const targets = [
+    'content-script.js',
+    'modules/autofill/engine-orchestrator.js',
+    'modules/autofill/engine-page1.js',
+    'modules/autofill/autofill-client.js',
+    'control-panel.js',
+    'popup.js'
+  ];
+  const selfExport = /window\.(findFirst|loadSelectors|parseDataLine|generateTaskId)\s*=(?!=)/;
+  for (const f of targets) {
+    ok(!selfExport.test(read(f)), f + ': does not self-assign window.<shared fn>');
+  }
+
+  console.log('\n=== RESULT: ' + pass + ' passed, ' + fail + ' failed ===');
+  if (fail > 0) {
+    console.log('Failures:');
+    failures.forEach((x) => console.log('  - ' + x));
+  }
+  process.exit(fail === 0 ? 0 : 1);
+})();

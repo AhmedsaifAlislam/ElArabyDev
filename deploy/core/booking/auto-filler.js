@@ -124,17 +124,9 @@
     try { el.dispatchEvent(new Event('input', { bubbles: true })); } catch (_) {}
   }
 
-  // â”€â”€ findFirst Ø¹Ø¨Ø± ÙƒÙ„ Ø§Ù„Ù…Ø³ØªÙ†Ø¯Ø§Øª (Ù…Ø«Ù„ Ø§Ù„Ù…Ø­Ø±Ùƒ Ø§Ù„Ù‚Ø¯ÙŠÙ…) â”€â”€
+  // البحث عن أول عنصر يطابق أحد المحددات (من النافذة المشتركة في portal-selectors.js، يدعم iframes)
   function findFirst(list) {
-    if (!list) return null;
-    if (!Array.isArray(list)) list = [list];
-    for (const s of list) {
-      if (s instanceof HTMLElement) return s;
-      for (const doc of collectAllDocs(document)) {
-        try { const el = doc.querySelector(s); if (el) return el; } catch (_) {}
-      }
-    }
-    return null;
+    return window.findFirst ? window.findFirst(list) : null;
   }
 
   // â”€â”€ Ø²Ø± Ø§Ù„Ù€ lookup Ø§Ù„Ø¢Ù…Ù† (ÙŠØªØ¬Ø§Ù‡Ù„ Ø£Ø²Ø±Ø§Ø± Ø§Ù„Ù…Ø³Ø­/Ø§Ù„Ø­Ø°Ù) â”€â”€

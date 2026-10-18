@@ -17,19 +17,126 @@ window.AutoFillEngine = window.AutoFillEngine || {};
   function warn(...args) { if (typeof window.warn === 'function') window.warn(...args); else console.warn('[Lookups]', ...args); }
   function sleep(ms) { return (typeof window.sleep === 'function') ? window.sleep(ms) : new Promise(r => setTimeout(r, ms)); }
 
-  function findSafeLookupButton(input, extraSelectors = []) {
-    if (typeof window.findSafeLookupButton === 'function' && window.findSafeLookupButton !== findSafeLookupButton) {
-      return window.findSafeLookupButton(input, extraSelectors);
+  async function extractAndSaveTechnicians(rows) {
+    try {
+      if (!rows || !rows.length) return [];
+      const names = [];
+      const invalidRegex = /sort\s*(ascending|descending)|full\s*name|mobile\s*phone|id\s*number|search\s*results|اختر|select|إلغاء|حفظ|delete|clear/i;
+      for (const r of rows) {
+        if (!r) continue;
+        if (r.tagName === 'TH' || (typeof r.closest === 'function' && r.closest('thead'))) continue;
+        const text = (r.innerText || '').trim();
+        if (!text || /norecords|لاتوجد|no\s*records|لا\s*توجد/i.test(text.replace(/\s/g, ''))) continue;
+
+        let name = '';
+        const link = (typeof r.querySelector === 'function') ? r.querySelector('a') : null;
+        if (link && link.innerText && /[\u0600-\u06FF]{3,}/.test(link.innerText) && !invalidRegex.test(link.innerText)) {
+          name = link.innerText.trim();
+        } else if (typeof r.querySelectorAll === 'function') {
+          const tds = Array.from(r.querySelectorAll('td')).filter(td => !td.querySelector('input[type="radio"], input[type="checkbox"]'));
+          const arabicCell = tds.find(c => /[\u0600-\u06FF]{3,}/.test(c.innerText) && !invalidRegex.test(c.innerText));
+          if (arabicCell) {
+            name = arabicCell.innerText.trim();
+          }
+        }
+        if (!name && /[\u0600-\u06FF]{3,}/.test(text) && !invalidRegex.test(text)) {
+          name = text.split(/[\t\n]/)[0].trim();
+        }
+
+        name = name.replace(/\s+/g, ' ').trim();
+        if (name && name.length >= 3 && /[\u0600-\u06FF]/.test(name) && !invalidRegex.test(name)) {
+          names.push(name);
+        }
+      }
+      if (names.length) {
+        const { technicianRoster: existing = [] } = await chrome.storage.local.get({ technicianRoster: [] });
+        const cleanExisting = existing.filter(t => t && !invalidRegex.test(t));
+        const merged = [...new Set([...cleanExisting, ...names])];
+        if (merged.length !== existing.length || cleanExisting.length !== existing.length) {
+          await chrome.storage.local.set({ technicianRoster: merged });
+          log(`[TECH-ROSTER] Auto-saved ${merged.length} valid technicians:`, merged);
+        }
+      }
+      return names;
+    } catch(e) {
+      warn('[TECH-ROSTER] Storage save failed:', e.message);
+      return [];
     }
+  }
+
+  const BRAND_SYNONYMS = {
+    sharp: ['شارب', 'sharp'],
+    toshiba: ['توشيبا', 'toshiba'],
+    tornado: ['تورنيدو', 'tornado'],
+    hoover: ['هوفر', 'hoover'],
+    sony: ['سوني', 'sony'],
+    candy: ['كاندي', 'candy'],
+    hitachi: ['هيتاشي', 'hitachi'],
+    beko: ['بيكو', 'beko'],
+    lagermania: ['لاجيرمانيا', 'جيرمانيا', 'la germania', 'germania']
+  };
+
+  function matchBrand(text, brandQuery) {
+    if (!text || !brandQuery) return false;
+    const t = text.toLowerCase().trim();
+    const q = brandQuery.toLowerCase().trim();
+    if (t === q || t.includes(q) || q.includes(t)) return true;
+    for (const group of Object.values(BRAND_SYNONYMS)) {
+      if (group.some(g => q.includes(g) || g.includes(q))) {
+        if (group.some(g => t.includes(g))) return true;
+      }
+    }
+    return false;
+  }
+
+  function findSafeLookupButton(input, extraSelectors = []) {
     if (!input) return null;
-    const parent = input.closest('.input-group') || input.parentElement;
-    if (parent) {
-      const btn = parent.querySelector('button.launchentitylookup, button.lookup-btn, .input-group-btn button, button[aria-label*="بحث"], button[aria-label*="Search"]');
+
+    // 1. Exact ID matching (PowerApps convention: input_lookupmodalbutton)
+    if (input.id) {
+      const baseId = input.id.replace(/_name$/, '');
+      const directCandidates = [
+        document.getElementById(input.id + '_lookupmodalbutton'),
+        document.getElementById(baseId + '_lookupmodalbutton'),
+        document.querySelector(`button[id*="${baseId}"][id*="lookup"]`),
+        document.querySelector(`button[id*="${input.id}"][id*="lookup"]`)
+      ];
+      for (const btn of directCandidates) {
+        if (btn && !/clear|مسح|remove|delete/i.test(btn.className + (btn.getAttribute('aria-label') || '') + (btn.title || ''))) {
+          return btn;
+        }
+      }
+    }
+
+    // 2. Container-scoped search: strictly within the input's own container
+    const container = input.closest('.input-group') || input.closest('.control') || input.closest('td') || input.parentElement;
+    if (container) {
+      const launcherBtn = container.querySelector('button.launchentitylookup, button[aria-label*="Launch lookup"], button[title*="Launch lookup"], .input-group-btn button:not(.clearlookupfield)');
+      if (launcherBtn && !/clear|مسح|remove|delete/i.test(launcherBtn.className + (launcherBtn.getAttribute('aria-label') || '') + (launcherBtn.title || ''))) {
+        return launcherBtn;
+      }
+      const btn = Array.from(container.querySelectorAll('button, a.btn')).find(b =>
+        !/clear|مسح|remove|delete/i.test(b.className + (b.getAttribute('aria-label') || '') + (b.title || ''))
+      );
       if (btn) return btn;
     }
+
+    // 3. ExtraSelectors: strictly allow ONLY field-scoped selectors, NEVER generic global selectors
     for (const sel of extraSelectors) {
-      const el = document.querySelector(sel);
-      if (el) return el;
+      if (!sel) continue;
+      if (container) {
+        try {
+          const el = container.querySelector(sel);
+          if (el) return el;
+        } catch (_) {}
+      }
+      // Only permit global query if selector contains field ID or specific scope (prevent Brand/Model collision)
+      if (sel.includes('#') || sel.includes('id*=') || sel.includes('aria-label*=') || sel.includes('.lookup-')) {
+        try {
+          const el = document.querySelector(sel);
+          if (el) return el;
+        } catch (_) {}
+      }
     }
     return null;
   }
@@ -43,20 +150,37 @@ window.AutoFillEngine = window.AutoFillEngine || {};
         el.dispatchEvent(new MouseEvent(ev, { bubbles: true, cancelable: true, view: window }));
       } catch(_) {}
     }
+    try {
+      if (typeof el.click === 'function') el.click();
+    } catch(_) {}
     try { el.dispatchEvent(new Event('blur', { bubbles: true })); } catch(_) {}
     return true;
   }
 
   // Checks if a modal element is currently "open/visible" on screen.
-  // NOTE: Portal modals use position:fixed — offsetParent is ALWAYS null even when fully visible.
-  //       Portal modals also always carry class "fade" — excluding it was incorrect.
-  //       Use class .in / .show + display:block as the visibility signal.
+  // NOTE: Portal modals use position:fixed.
+  //       DO NOT check document.body.classList.contains('modal-open') because that is true for ALL modals once any modal opens!
+  //       A modal is open if it has class 'in' or 'show', or its computed display is 'block'/'flex' and not 'none',
+  //       and aria-hidden is not 'true'.
   function isModalOpen(modal) {
     if (!modal) return false;
-    return modal.classList.contains('in') ||
-           modal.classList.contains('show') ||
-           modal.style.display === 'block' ||
-           document.body.classList.contains('modal-open');
+    if (modal.classList.contains('modal-error')) return false;
+    if (modal.getAttribute('aria-hidden') === 'true') return false;
+    if (modal.classList.contains('in') || modal.classList.contains('show')) return true;
+    try {
+      const style = window.getComputedStyle(modal);
+      if (style.display !== 'none' && style.visibility !== 'hidden' && style.opacity !== '0') {
+        return true;
+      }
+    } catch (_) {}
+    return modal.style.display === 'block';
+  }
+
+  function getActiveModal(doc = document) {
+    const candidates = Array.from(doc.querySelectorAll('section.modal.modal-lookup, section.modal, .modal.show, .modal.in, .modal-lookup, div[role="dialog"]'));
+    // Find the visible active modal (last in DOM or with .in/.show and computed display !== 'none')
+    const active = candidates.filter(m => isModalOpen(m));
+    return active[active.length - 1] || null;
   }
 
   async function waitForModalCloseIfOpen() {
@@ -99,23 +223,45 @@ window.AutoFillEngine = window.AutoFillEngine || {};
 
   async function fillLookupModal(btn, searchValue, rootDoc, opts = {}) {
     if (!btn || !searchValue) return { ok: false };
-    if (!rootDoc) rootDoc = document;
+    if (!rootDoc) rootDoc = btn.ownerDocument || document;
+
+    // If target input already has the matching value, don't clear or reopen
+    const parentContainer = btn.closest('.input-group') || btn.parentElement;
+    const targetInput = parentContainer ? parentContainer.querySelector('input') : null;
+    if (targetInput) {
+      const cur = (targetInput.value || targetInput.getAttribute('value') || '').trim();
+      const normCur = cur.replace(/[\s\-_/()\[\]#*]/g, '').toLowerCase();
+      const normVal = searchValue.replace(/[\s\-_/()\[\]#*]/g, '').toLowerCase();
+      if (cur && (cur === searchValue || (normVal.length >= 3 && normCur.includes(normVal)))) {
+        log(`Lookup already populated with matching value "${cur}" — skipping modal.`);
+        return { ok: true, selected: cur };
+      }
+    }
+
     const clearBtn = btn.parentElement?.querySelector('button[aria-label*="Clear"], button[aria-label*="مسح"]');
     if (clearBtn) {
       await dispatchClickSequence(clearBtn);
+      try { clearBtn.click(); } catch(_) {}
       await sleep(500);
     }
     log('Opening Modal for:', searchValue);
     await dispatchClickSequence(btn);
+    try { btn.click(); } catch(_) {}
     await sleep(1800);
 
-    // Wait for modal to appear — do NOT use offsetParent (Portal modals are position:fixed → null always)
+    // Wait for modal to appear — search across rootDoc, btn.ownerDocument, and top document
     let modal = null;
+    const docsToSearch = [...new Set([rootDoc, btn.ownerDocument, document].filter(Boolean))];
     const deadline = Date.now() + 8000;
     while (Date.now() < deadline) {
-      modal = rootDoc.querySelector('section.modal.modal-lookup.in, .modal.show, .modal.in, div[role="dialog"]');
-      if (modal && isModalOpen(modal)) break;
-      modal = null;
+      for (const d of docsToSearch) {
+        modal = getActiveModal(d);
+        if (modal) {
+          rootDoc = d;
+          break;
+        }
+      }
+      if (modal) break;
       await sleep(300);
     }
     if (!modal) {
@@ -123,11 +269,16 @@ window.AutoFillEngine = window.AutoFillEngine || {};
       return { ok: false, reason: 'modal-not-found' };
     }
 
-    // Wait for iframe inside modal to load (for lookups that use iframe)
-    const iframeDoc = await waitForModalIframe(modal, 10000);
-    if (iframeDoc) {
-      log('Iframe detected and loaded in modal, using iframe document for lookup');
-      rootDoc = iframeDoc;
+    // Check if modal uses an iframe immediately (without blocking for 10 seconds)
+    const existingIframe = modal.querySelector('iframe');
+    if (existingIframe) {
+      try {
+        const doc = existingIframe.contentDocument || existingIframe.contentWindow?.document;
+        if (doc && doc.body && doc.body.children.length > 0) {
+          log('Iframe detected in modal, using iframe document');
+          rootDoc = doc;
+        }
+      } catch(_) {}
     }
 
     // Extract model code (before " _ " or "(") for search — mirrors backup logic
@@ -136,15 +287,19 @@ window.AutoFillEngine = window.AutoFillEngine || {};
 
     // ── Try direct pick first (Brand modal shows all items on open) ──
     const getVisibleItems = () => {
-      const selectors = ['section.modal.modal-lookup .modal table tbody tr', '.modal table tbody tr', '.modal [role="row"]'];
+      const selectors = ['section.modal.modal-lookup table tbody tr', '.modal table tbody tr', '[role="dialog"] table tbody tr', '.modal [role="row"]', '[role="dialog"] [role="option"]'];
       let all = [];
-      for (const sel of selectors) {
-        try {
-          all.push(...Array.from(rootDoc.querySelectorAll(sel)).filter(r =>
-            r.innerText.trim().length > 0 &&
-            !/norecords|لاتوجد|no\s*records|لا\s*توجد/i.test(r.innerText.replace(/\s/g, ''))
-          ));
-        } catch (_) {}
+      const searchRoots = [modal, rootDoc, document].filter(Boolean);
+      for (const root of searchRoots) {
+        for (const sel of selectors) {
+          try {
+            all.push(...Array.from(root.querySelectorAll(sel)).filter(r =>
+              r.offsetParent !== null &&
+              r.innerText.trim().length > 0 &&
+              !/norecords|لاتوجد|no\s*records|لا\s*توجد/i.test(r.innerText.replace(/\s/g, ''))
+            ));
+          } catch (_) {}
+        }
       }
       return [...new Set(all)];
     };
@@ -155,6 +310,12 @@ window.AutoFillEngine = window.AutoFillEngine || {};
       visibleItems = getVisibleItems();
       if (visibleItems.length > 0) break;
       await sleep(400);
+    }
+
+    // Auto-capture technician names if this is a technician modal
+    const isTechModal = opts.isTechnician || (modal && /Full\s*Name|الفن|Technician|Mobile\s*Phone/i.test(modal.innerText));
+    if (isTechModal && visibleItems.length > 0) {
+      extractAndSaveTechnicians(visibleItems);
     }
 
     const normalize = s => (s || '').replace(/[\s\-_/()\[\]#*]/g, '').toLowerCase();
@@ -175,10 +336,21 @@ window.AutoFillEngine = window.AutoFillEngine || {};
       const radio = row.querySelector('input[type="radio"]');
       const chk = row.querySelector('input[type="checkbox"]');
       const spanChk = row.querySelector('span[role="checkbox"], span.fa');
-      if (radio) { await dispatchClickSequence(radio); }
-      else if (chk) { await dispatchClickSequence(chk); }
-      else if (spanChk) { await dispatchClickSequence(spanChk); }
-      else { await dispatchClickSequence(row); }
+      if (radio) {
+        await dispatchClickSequence(radio);
+        try { radio.click(); } catch(_) {}
+        try { radio.checked = true; radio.dispatchEvent(new Event('change', { bubbles: true })); } catch(_) {}
+      } else if (chk) {
+        await dispatchClickSequence(chk);
+        try { chk.click(); } catch(_) {}
+        try { chk.checked = true; chk.dispatchEvent(new Event('change', { bubbles: true })); } catch(_) {}
+      } else if (spanChk) {
+        await dispatchClickSequence(spanChk);
+        try { spanChk.click(); } catch(_) {}
+      } else {
+        await dispatchClickSequence(row);
+        try { row.click(); } catch(_) {}
+      }
     };
 
     const pickAndConfirm = async (items) => {
@@ -188,45 +360,70 @@ window.AutoFillEngine = window.AutoFillEngine || {};
         if (!match) return { ok: false, reason: 'no-match' };
         log('Wildcard * — picking first available item');
       } else {
-        // Exact match: raw code or normalized code
-        const exactMatch = items.find(i => {
-          const code = getRowCode(i).toLowerCase();
-          return code === rawTarget || normalize(code) === target ||
-                 code === rawTargetCode || normalize(code) === targetCode;
-        });
-        // Starts-with + boundary
-        const startsMatch = !exactMatch ? items.find(i => {
-          const norm = normalize(getRowCode(i));
-          const searchTarget = targetCode.length > target.length / 2 ? targetCode : target;
-          return norm.startsWith(searchTarget) && (norm.length === searchTarget.length || !/[a-z0-9]/.test(norm[searchTarget.length]));
-        }) : null;
-        // Code-part includes match (NOT full row text — prevents Arabic description false positives)
-        const includesMatch = (!exactMatch && !startsMatch) ? items.find(i => {
-          const code = normalize(getRowCode(i));
-          return code.includes(targetCode) || code.includes(target);
-        }) : null;
-
-        match = exactMatch || startsMatch || includesMatch || null;
-        if (opts && opts.strictExact) {
-          match = exactMatch || null;
-          log(`Strict deterministic pick — exactMatch only: ${!!exactMatch}`);
-          if (!match) return { ok: false, reason: 'no-exact-match' };
+        if (opts && opts.isBrand) {
+          const brandMatch = items.find(i => matchBrand(i.innerText, searchValue));
+          if (brandMatch) {
+            log(`Brand match found in list: "${brandMatch.innerText.trim()}" for "${searchValue}"`);
+            match = brandMatch;
+          }
         }
-        log(`Model pick — exact:${!!exactMatch} starts:${!!startsMatch} includes:${!!includesMatch} → "${match?.innerText?.trim().slice(0,60)}"`);
+
+        if (!match) {
+          // Exact match: raw code or normalized code
+          const exactMatch = items.find(i => {
+            const code = getRowCode(i).toLowerCase();
+            return code === rawTarget || normalize(code) === target ||
+                   code === rawTargetCode || normalize(code) === targetCode;
+          });
+          // Starts-with + boundary
+          const startsMatch = !exactMatch ? items.find(i => {
+            const norm = normalize(getRowCode(i));
+            const searchTarget = targetCode.length > target.length / 2 ? targetCode : target;
+            return norm.startsWith(searchTarget) && (norm.length === searchTarget.length || !/[a-z0-9]/.test(norm[searchTarget.length]));
+          }) : null;
+          // Code-part includes match (NOT full row text — prevents Arabic description false positives)
+          const includesMatch = (!exactMatch && !startsMatch) ? items.find(i => {
+            const code = normalize(getRowCode(i));
+            return code.includes(targetCode) || code.includes(target);
+          }) : null;
+
+          match = exactMatch || startsMatch || includesMatch || null;
+          if (opts && opts.strictExact) {
+            match = exactMatch || null;
+            log(`Strict deterministic pick — exactMatch only: ${!!exactMatch}`);
+            if (!match) return { ok: false, reason: 'no-exact-match' };
+          }
+          log(`Lookup pick — exact:${!!exactMatch} starts:${!!startsMatch} includes:${!!includesMatch} → "${match?.innerText?.trim().slice(0,60)}"`);
+        }
         if (!match) return { ok: false, reason: 'no-match' };
       }
 
       await clickRow(match);
-      await sleep(1500);
+      await sleep(1000);
 
-      // Select button — search all docs: do NOT use offsetParent (position:fixed)
-      const selBtnList = Array.from(rootDoc.querySelectorAll(
-        '.modal button.primary, .modal button[aria-label*="Select"], .modal button[aria-label*="تحديد"], .modal button[aria-label*="اختر"], .modal input[value="اختر"], .modal input[value="Select"]'
-      ));
-      const selectBtn = selBtnList.reverse().find(b => /اختر|select/i.test((b.innerText || b.value || '').trim()) && !b.hasAttribute('disabled'));
+      // Select button — prioritize button inside the active modal!
+      const modalBtns = Array.from(modal.querySelectorAll('button, input[type="button"], input[type="submit"]'));
+      let selectBtn = modalBtns.find(b => /^(اختر|select|تحديد)$/i.test((b.innerText || b.value || b.getAttribute('aria-label') || '').trim()) && !b.disabled) ||
+                      modalBtns.find(b => /اختر|select|تحديد/i.test((b.innerText || b.value || b.getAttribute('aria-label') || '').trim()) && !/إلغاء|cancel|clear|إزالة/i.test((b.innerText || b.value || '').trim()) && !b.disabled);
+      
+      if (!selectBtn) {
+        const selectRoots = [rootDoc, document].filter(Boolean);
+        for (const root of selectRoots) {
+          try {
+            const candidates = Array.from(root.querySelectorAll(
+              '.modal button.primary, .modal button[aria-label*="Select"], .modal button[aria-label*="اختر"], button[aria-label*="Select"]'
+            ));
+            selectBtn = candidates.find(b => /اختر|select|تحديد/i.test((b.innerText || b.value || '').trim()) && !/إلغاء|cancel|clear|إزالة/i.test((b.innerText || b.value || '').trim()) && !b.disabled);
+            if (selectBtn) break;
+          } catch(_) {}
+        }
+      }
+
       if (selectBtn) {
+        log(`Clicking modal select button: "${(selectBtn.innerText || selectBtn.value || '').trim()}"`);
         try { selectBtn.focus(); } catch(_) {}
         await dispatchClickSequence(selectBtn);
+        try { selectBtn.click(); } catch(_) {}
         // Wait for modal to close after selection
         const closeDeadline = Date.now() + 8000;
         while (Date.now() < closeDeadline) {
@@ -234,59 +431,86 @@ window.AutoFillEngine = window.AutoFillEngine || {};
           await sleep(250);
         }
         await sleep(500);
+      } else {
+        warn('Modal select button (اختر / Select) not found!');
       }
       return { ok: true, selected: match.innerText?.trim() };
     };
 
     // Direct pick attempt (works for Brand modal which pre-lists all brands)
-    if (visibleItems.length > 0) {
+    if (visibleItems.length > 0 && !opts.isModel) {
       log(`Direct pick mode: found ${visibleItems.length} items without searching.`);
       const res = await pickAndConfirm(visibleItems);
       if (res.ok) return res;
       log('No match in direct list, falling back to search...');
     }
 
-    // ── Fallback: search mode ──
-    const searchInput = modal.querySelector('input.query.form-control, input.form-control[type="text"], input[type="search"], input[placeholder*="Search"], input[placeholder*="بحث"]');
-    if (searchInput) {
-      if (typeof window.emulateUserInput === 'function') {
-        await window.emulateUserInput(searchInput, searchFor);
-      } else {
-        searchInput.focus();
-        searchInput.value = searchFor;
-        searchInput.dispatchEvent(new Event('input', { bubbles: true }));
-      }
-      await sleep(400);
-      const searchBtn = searchInput.parentElement?.querySelector('button') ||
-        modal.querySelector('button.btn-hg, button[aria-label*="Search"], button[aria-label*="بحث"]');
-      if (searchBtn) {
-        await dispatchClickSequence(searchBtn);
-      } else {
-        ['keydown', 'keypress', 'keyup'].forEach(ev => {
-          try { searchInput.dispatchEvent(new KeyboardEvent(ev, { key: 'Enter', keyCode: 13, bubbles: true })); } catch(_) {}
-        });
-      }
+    // ── Fallback: search mode (essential for Model modal) ──
+    const searchSelectors = [
+      'input.query',
+      'input[type="search"]',
+      'input[placeholder*="Search"]',
+      'input[placeholder*="بحث"]',
+      '.entitylist-search input',
+      '.input-group input.form-control'
+    ];
+    let searchInput = null;
+    const searchRoots = [modal, rootDoc, document].filter(Boolean);
+    for (const r of searchRoots) {
+      const inputs = Array.from(r.querySelectorAll(searchSelectors.join(',')));
+      searchInput = inputs.find(el => el.offsetParent !== null || window.getComputedStyle(el).display !== 'none');
+      if (searchInput) break;
+    }
+    if (!searchInput && modal) {
+      searchInput = modal.querySelector('input:not([type="hidden"]):not([type="checkbox"]):not([type="radio"])');
+    }
 
-      log('⏳ Waiting for search results...');
+    if (searchInput) {
+      log(`Typing search query: "${searchFor}" in modal search input`);
+      try { searchInput.focus(); } catch(_) {}
+      const descriptor = Object.getOwnPropertyDescriptor(Object.getPrototypeOf(searchInput), 'value') || Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value');
+      if (descriptor && descriptor.set) {
+        try { descriptor.set.call(searchInput, searchFor); } catch(_) { searchInput.value = searchFor; }
+      } else {
+        searchInput.value = searchFor;
+      }
+      try { searchInput.dispatchEvent(new Event('input', { bubbles: true })); } catch(_) {}
+      try { searchInput.dispatchEvent(new Event('change', { bubbles: true })); } catch(_) {}
+      await sleep(300);
+
+      const searchBtn = searchInput.parentElement?.querySelector('button, .btn-hg') ||
+        modal.querySelector('.input-group-btn button, button[aria-label*="Search"], button[aria-label*="بحث"], button.btn-hg');
+      if (searchBtn) {
+        log('Clicking modal search button (magnifying glass)...');
+        await dispatchClickSequence(searchBtn);
+        try { searchBtn.click(); } catch(_) {}
+      }
+      ['keydown', 'keypress', 'keyup'].forEach(ev => {
+        try { searchInput.dispatchEvent(new KeyboardEvent(ev, { key: 'Enter', keyCode: 13, which: 13, bubbles: true })); } catch(_) {}
+      });
+
+      log(`⏳ Waiting for search results for: "${searchFor}"...`);
       const startWait = Date.now();
-      while (Date.now() - startWait < 12000) {
-        // Check if iframe appeared after search
-        const newIframeDoc = await waitForModalIframe(modal, 3000);
-        if (newIframeDoc) {
-          log('Iframe appeared after search, switching to iframe document');
-          rootDoc = newIframeDoc;
-        }
+      while (Date.now() - startWait < 10000) {
         visibleItems = getVisibleItems();
-        const matchFound = visibleItems.some(i =>
-          normalize(i.innerText).includes(targetCode) || normalize(i.innerText).includes(target)
-        );
-        if (matchFound) break;
+        const matchFound = visibleItems.some(i => {
+          const code = getRowCode(i).toLowerCase();
+          return code === rawTargetCode || normalize(code) === targetCode ||
+                 code.includes(targetCode) || normalize(i.innerText).includes(targetCode);
+        });
+        if (matchFound) {
+          log(`Search result appeared for "${searchFor}"`);
+          break;
+        }
         await sleep(400);
       }
+    } else {
+      warn('Could not locate search input inside active modal!');
     }
 
     visibleItems = getVisibleItems();
     if (!visibleItems.length) {
+      log('No search results found in modal.');
       const closeBtn = modal.querySelector('[data-dismiss="modal"], button.close, button[aria-label*="Close"], button[aria-label*="إغلاق"]');
       if (closeBtn) await dispatchClickSequence(closeBtn);
       return { ok: false, reason: 'no-results' };
@@ -342,12 +566,17 @@ window.AutoFillEngine = window.AutoFillEngine || {};
     }
     await sleep(1500);
 
-    const result = await fillLookupModal(lookupBtn, searchValue, document, opts);
+    const isTech = /فن|tech/i.test(btnRegex.source);
+    const result = await fillLookupModal(lookupBtn, searchValue, document, { ...opts, isTechnician: isTech });
     if (!result || !result.ok) {
       warn(`handlePage2Modal: Lookup failed: ${result?.reason || 'unknown'}`);
       const closeBtn = modal.querySelector('[data-dismiss="modal"]');
       if (closeBtn) await dispatchClickSequence(closeBtn);
       return result;
+    }
+
+    if (isTech && result.selected) {
+      extractAndSaveTechnicians([{ innerText: result.selected }]);
     }
 
     await sleep(1000);
@@ -370,14 +599,40 @@ window.AutoFillEngine = window.AutoFillEngine || {};
 
   async function fillPowerAppsLookup(inputSelector, searchValue, opts = {}) {
     if (!inputSelector || !searchValue) return { ok: false };
-    const input = document.querySelector(inputSelector);
+    const selectors = Array.isArray(inputSelector) ? inputSelector : [inputSelector];
+    let input = null;
+    for (const sel of selectors) {
+      input = document.querySelector(sel);
+      if (input) break;
+    }
     if (!input) {
-      warn(`fillPowerAppsLookup: input ${inputSelector} not found`);
+      warn(`fillPowerAppsLookup: input ${JSON.stringify(inputSelector)} not found`);
       return { ok: false, reason: 'input-not-found' };
     }
-    const lookupBtn = findSafeLookupButton(input);
+
+    const cur = (input.value || input.getAttribute('value') || '').trim();
+    if (opts.isBrand) {
+      if (cur && matchBrand(cur, searchValue)) {
+        log(`fillPowerAppsLookup: Brand already matches "${cur}" — skipping modal.`);
+        return { ok: true, selected: cur };
+      }
+      if (cur && !opts.forceOverwrite) {
+        log(`fillPowerAppsLookup: Brand already populated with "${cur}" (preserve without forceOverwrite) — skipping.`);
+        return { ok: true, selected: cur };
+      }
+    } else {
+      const normCur = cur.replace(/[\s\-_/()\[\]#*]/g, '').toLowerCase();
+      const normVal = searchValue.replace(/[\s\-_/()\[\]#*]/g, '').toLowerCase();
+      if (cur && (cur === searchValue || (normVal.length >= 3 && normCur.includes(normVal)))) {
+        log(`fillPowerAppsLookup: input already contains matching value "${cur}" — skipping.`);
+        return { ok: true, selected: cur };
+      }
+    }
+
+    const extraButtons = opts.fallbackButtons || [];
+    const lookupBtn = findSafeLookupButton(input, extraButtons);
     if (!lookupBtn) {
-      warn(`fillPowerAppsLookup: lookup button for ${inputSelector} not found`);
+      warn(`fillPowerAppsLookup: lookup button for ${JSON.stringify(inputSelector)} not found`);
       return { ok: false, reason: 'lookup-btn-not-found' };
     }
     return await fillLookupModal(lookupBtn, searchValue, document, opts);
@@ -576,7 +831,8 @@ window.AutoFillEngine = window.AutoFillEngine || {};
     handlePage2Modal,
     fillPowerAppsLookup,
     waitForModalStable,
-    handleSubgridIframeModal
+    handleSubgridIframeModal,
+    extractAndSaveTechnicians
   };
 
   window.AutoFillEngine.Lookups = Lookups;

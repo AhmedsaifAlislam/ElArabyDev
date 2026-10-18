@@ -1,8 +1,8 @@
 // ==UserScript==
 // @name         معالج البلاغات
 // @namespace    http://tampermonkey.net/
-// @version      5.7
-// @description  يفتح البلاغات ويفحص البيانات + اختيار يوم + بلاغات محددة + يقرأ كل الصفحات
+// @version      6.0
+// @description  يفتح البلاغات ويفحص البيانات + اختيار يوم + بلاغات محددة + يقرأ كل الصفحات + Concurrency + Export + Resume
 // @author       Portal AutoFiller
 // @match        *://elarabyportalpfs.powerappsportals.com/*
 // @run-at       document-idle
@@ -20,6 +20,8 @@
   // ══════════════════════════════════════════════════════════════════
   const state = {
     isRunning: false,
+    isPaused: false,
+    pausePromise: null,
     stopRequested: false,
     totalProcessed: 0,
     totalWithData: 0,
@@ -29,9 +31,18 @@
     scrapedPages: new Set(),
     totalPages: 1,
     isScraping: false,
-    orderIdFilter: new Set(), // Set of CAS numbers to filter by
-    orderIdFilterOrder: [], // Array to preserve input order
-    sortMode: 'scraped', // scraped, cas-asc, cas-desc, name-asc, name-desc, date-asc, date-desc, input-order
+    orderIdFilter: new Set(),
+    orderIdFilterOrder: [],
+    sortMode: 'scraped',
+    // Concurrency
+    concurrencyLimit: 3,
+    activeWorkers: 0,
+    processingQueue: [],
+    // Resume
+    resumeEnabled: true,
+    resumeKey: 'rp_resume_v6',
+    currentIndex: 0,
+    sessionStartTime: null,
   };
 
   // ══════════════════════════════════════════════════════════════════
@@ -39,6 +50,54 @@
   // ══════════════════════════════════════════════════════════════════
   let COL = {};
   const REGEX = { CAS: /CAS\d+/, PHONE: /01[0-9]{9}/g };
+
+  // ══════════════════════════════════════════════════════════════════
+  //  Date Parsing Utilities (Better Date Parsing)
+  // ══════════════════════════════════════════════════════════════════
+  function parseFlexibleDate(dateStr) {
+    if (!dateStr) return null;
+    const s = dateStr.trim();
+    
+    // Relative dates in Arabic
+    const now = new Date();
+    if (s === 'اليوم' || s === 'today') return formatDate(now);
+    if (s === 'أمس' || s === 'yesterday') return formatDate(new Date(now.getTime() - 86400000));
+    if (s === 'غداً' || s === 'غدا' || s === 'tomorrow') return formatDate(new Date(now.getTime() + 86400000));
+    
+    // DD/MM/YYYY or DD-MM-YYYY
+    let m = s.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$/);
+    if (m) return `${m[1].padStart(2,'0')}/${m[2].padStart(2,'0')}/${m[3]}`;
+    
+    // YYYY-MM-DD
+    m = s.match(/^(\d{4})[\/\-](\d{1,2})[\/\-](\d{1,2})$/);
+    if (m) return `${m[2].padStart(2,'0')}/${m[3].padStart(2,'0')}/${m[1]}`;
+    
+    // DD/MM/YY or DD-MM-YY
+    m = s.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{2})$/);
+    if (m) return `${m[1].padStart(2,'0')}/${m[2].padStart(2,'0')}/20${m[3]}`;
+    
+    // Already in DD/MM/YYYY format
+    if (/^\d{1,2}\/\d{1,2}\/\d{4}$/.test(s)) return s;
+    
+    return s; // Return as-is if no match
+  }
+  
+  function formatDate(d) {
+    return `${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}/${d.getFullYear()}`;
+  }
+  
+  function normalizeReportDate(dateStr) {
+    if (!dateStr) return '';
+    // Portal dates might be in various formats, normalize to DD/MM/YYYY
+    const parsed = parseFlexibleDate(dateStr);
+    // Validate it's a valid date
+    const parts = parsed.split('/');
+    if (parts.length === 3) {
+      const d = new Date(`${parts[2]}-${parts[1]}-${parts[1]}`);
+      if (!isNaN(d.getTime())) return parsed;
+    }
+    return dateStr;
+  }
 
   function detectColumns(doc) {
     doc = doc || document;
@@ -93,22 +152,199 @@
   }
 
   // ══════════════════════════════════════════════════════════════════
+  //  Export Functions (CSV/Excel)
+  // ══════════════════════════════════════════════════════════════════
+  function exportToCSV(reports, filename) {
+    const headers = ['رقم البلاغ', 'اسم العميل', 'التاريخ', 'الحالة', 'الرابط'];
+    const rows = reports.map(r => [
+      r.casNo,
+      r.name || '—',
+      r.date || '—',
+      r._status || (r._hasData ? 'فيه داتا' : 'مفيش داتا'),
+      r.url || ''
+    ]);
+    const csvContent = [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
+    const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' });
+    downloadBlob(blob, filename || `report-export-${Date.now()}.csv`);
+  }
+
+  function exportToExcel(reports, filename) {
+    if (typeof XLSX === 'undefined') {
+      addLog('XLSX غير متاح، جاري التصدير كـ CSV...', 'warn');
+      exportToCSV(reports, filename?.replace('.xlsx', '.csv'));
+      return;
+    }
+    const wsData = [
+      ['رقم البلاغ', 'اسم العميل', 'التاريخ', 'الحالة', 'الرابط'],
+      ...reports.map(r => [r.casNo, r.name || '—', r.date || '—', r._status || (r._hasData ? 'فيه داتا' : 'مفيش داتا'), r.url || ''])
+    ];
+    const wb = XLSX.utils.book_new();
+    const ws = XLSX.utils.aoa_to_sheet(wsData);
+    ws['!cols'] = [{wch: 20}, {wch: 30}, {wch: 15}, {wch: 15}, {wch: 50}];
+    XLSX.utils.book_append_sheet(wb, ws, 'Report Results');
+    XLSX.writeFile(wb, filename || `report-export-${Date.now()}.xlsx`);
+    addLog(`✅ تم تصدير ${reports.length} بلاغ إلى Excel`, 'ok');
+  }
+
+  function downloadBlob(blob, filename) {
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(() => { document.body.removeChild(a); URL.revokeObjectURL(url); }, 100);
+  }
+
+  // ══════════════════════════════════════════════════════════════════
+  //  Concurrency Control (Semaphore)
+  // ══════════════════════════════════════════════════════════════════
+  function acquireSlot() {
+    return new Promise(resolve => {
+      const check = () => {
+        if (state.activeWorkers < state.concurrencyLimit) {
+          state.activeWorkers++;
+          resolve();
+        } else {
+          setTimeout(check, 100);
+        }
+      };
+      check();
+    });
+  }
+
+  function releaseSlot() {
+    state.activeWorkers = Math.max(0, state.activeWorkers - 1);
+  }
+
+  // ══════════════════════════════════════════════════════════════════
+  //  Resume Capability (localStorage persistence)
+  // ══════════════════════════════════════════════════════════════════
+  function saveResumeState() {
+    if (!state.resumeEnabled) return;
+    const resumeData = {
+      version: 6,
+      timestamp: Date.now(),
+      selectedReports: state.selectedReports.map(r => ({ casNo: r.casNo, name: r.name, date: r.date, url: r.url })),
+      currentIndex: state.currentIndex,
+      totalProcessed: state.totalProcessed,
+      totalWithData: state.totalWithData,
+      totalSkipped: state.totalSkipped,
+      processedCasNos: [...new Set(
+        state.selectedReports
+          .slice(0, state.currentIndex)
+          .map(r => r.casNo)
+      )],
+      sessionStartTime: state.sessionStartTime,
+    };
+    try {
+      localStorage.setItem(state.resumeKey, JSON.stringify(resumeData));
+    } catch (e) {}
+  }
+
+  function loadResumeState() {
+    try {
+      const data = localStorage.getItem(state.resumeKey);
+      if (!data) return null;
+      const parsed = JSON.parse(data);
+      if (parsed.version !== 6) return null;
+      // Check if session is recent (within 24 hours)
+      if (Date.now() - parsed.timestamp > 24 * 60 * 60 * 1000) {
+        clearResumeState();
+        return null;
+      }
+      return parsed;
+    } catch (e) {
+      return null;
+    }
+  }
+
+  function clearResumeState() {
+    try { localStorage.removeItem(state.resumeKey); } catch (e) {}
+  }
+
+  function applyResumeState(resumeData) {
+    state.totalProcessed = resumeData.totalProcessed || 0;
+    state.totalWithData = resumeData.totalWithData || 0;
+    state.totalSkipped = resumeData.totalSkipped || 0;
+    state.currentIndex = resumeData.currentIndex || 0;
+    state.sessionStartTime = resumeData.sessionStartTime || Date.now();
+    
+    // Filter out already processed reports
+    const processedSet = new Set(resumeData.processedCasNos || []);
+    state.selectedReports = state.selectedReports.filter(r => !processedSet.has(r.casNo));
+    
+    updateStats();
+    addLog(`🔄 استئناف الجلسة: ${state.selectedReports.length} بلاغ متبقي`, 'ok');
+  }
+
+  // ══════════════════════════════════════════════════════════════════
+  //  Keyboard Shortcuts
+  // ══════════════════════════════════════════════════════════════════
+  function setupKeyboardShortcuts() {
+    document.addEventListener('keydown', (e) => {
+      // Only handle when mini-menu is visible or settings modal is visible
+      const miniVisible = document.getElementById('rp-mini-menu')?.classList.contains('visible');
+      const settingsVisible = document.getElementById('rp-settings')?.classList.contains('visible');
+      if (!miniVisible && !settingsVisible) return;
+
+      // Don't intercept if typing in input/textarea
+      const active = document.activeElement;
+      if (active && (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA' || active.isContentEditable)) return;
+
+      switch (e.key) {
+        case 'Enter':
+          if (settingsVisible) {
+            e.preventDefault();
+            const startBtnEl = document.getElementById('rp-settings-start');
+            if (startBtnEl && !startBtnEl.disabled) startBtnEl.click();
+          }
+          break;
+        case 'Escape':
+          e.preventDefault();
+          if (settingsVisible) {
+            hideSettings();
+          } else if (miniVisible) {
+            if (state.isRunning) {
+              state.stopRequested = true;
+              addLog('تم طلب الإيقاف...', 'skip');
+            } else {
+              document.getElementById('rp-mini-close')?.click();
+            }
+          }
+          break;
+        case ' ':
+        case 'Spacebar':
+          if (miniVisible && state.isRunning) {
+            e.preventDefault();
+            state.isPaused = !state.isPaused;
+            if (state.isPaused) {
+              addLog('⏸ تم الإيقاف المؤقت', 'warn');
+              setStatus('متوقف مؤقتاً — اضغط Space للاستئناف', 'warn');
+              state.pausePromise = new Promise(resolve => { state._pauseResolve = resolve; });
+            } else {
+              addLog('▶ استئناف المعالجة', 'ok');
+              setStatus('جاري المعالجة...', 'info');
+              if (state._pauseResolve) state._pauseResolve();
+              state.pausePromise = null;
+            }
+          }
+          break;
+      }
+    });
+  }
+
+  async function waitIfPaused() {
+    if (state.pausePromise) {
+      await state.pausePromise;
+    }
+  }
+
+  // ══════════════════════════════════════════════════════════════════
   //  Styles
   // ══════════════════════════════════════════════════════════════════
   const CSS = `
-    #rp-fab {
-      position: fixed !important; bottom: 20px !important; left: 20px !important;
-      width: 42px !important; height: 42px !important; border-radius: 50% !important;
-      background: linear-gradient(135deg, #e67e22 0%, #d35400 100%) !important;
-      color: #fff !important; border: none !important; cursor: pointer !important;
-      z-index: 2147483646 !important; font-size: 18px !important;
-      box-shadow: 0 4px 15px rgba(0,0,0,.4) !important;
-      display: flex !important; align-items: center !important; justify-content: center !important;
-      transition: box-shadow .2s !important; user-select: none !important;
-      line-height: 1 !important; text-align: center !important; padding: 0 !important;
-    }
-    #rp-fab:hover { box-shadow: 0 6px 20px rgba(0,0,0,.6) !important; }
-    #rp-fab.hidden { display: none !important; }
+    /* ── فاب rp-fab يُدار مركزياً من fabs-controller (حجم/موضوع/ثبات) ── */
 
     #rp-overlay {
       position: fixed !important; inset: 0 !important; background: rgba(0,0,0,.7) !important;
@@ -229,7 +465,7 @@
     @keyframes rp-spin { to { transform: rotate(360deg) !important; } }
 
     #rp-mini-menu {
-      position: fixed !important; bottom: 70px !important; left: 20px !important;
+      position: fixed !important; bottom: 70px !important; left: 76px !important;
       width: 300px !important; background: #1a1d27 !important;
       border: 1px solid #2a2d3e !important; border-radius: 14px !important;
       box-shadow: 0 20px 60px rgba(0,0,0,.9) !important;
@@ -315,7 +551,7 @@
   // ══════════════════════════════════════════════════════════════════
   //  Build UI
   // ══════════════════════════════════════════════════════════════════
-  const fab = el('button', { id: 'rp-fab', title: 'معالج البلاغات', textContent: '🔧' });
+  // الفاب rp-fab يُدار مركزياً من fabs-controller — لا ننشئه هنا
 
   // Settings Modal
   const overlay = el('div', { id: 'rp-overlay' });
@@ -366,13 +602,16 @@
   const selectedCountEl = el('div', { id: 'rp-selected-count', style: 'text-align:center;font-size:12px;color:#f0b429;padding:6px;display:none;' });
   const startBtn = el('button', { className: 'rp-btn rp-btn-primary', id: 'rp-settings-start', textContent: '▶ بدء المعالجة' });
   const cancelBtn = el('button', { className: 'rp-btn rp-btn-danger', id: 'rp-settings-cancel', textContent: 'إلغاء' });
+  const exportCsvBtn = el('button', { className: 'rp-btn', id: 'rp-export-csv', textContent: '📊 تصدير CSV', style: 'background:#2980b9;color:#fff;' });
+  const exportXlsxBtn = el('button', { className: 'rp-btn', id: 'rp-export-xlsx', textContent: '📈 تصدير Excel', style: 'background:#27ae60;color:#fff;' });
   const btnRow = el('div', { className: 'rp-btn-row' }, [startBtn, cancelBtn]);
+  const exportRow = el('div', { className: 'rp-btn-row', style: 'margin-top:4px;' }, [exportCsvBtn, exportXlsxBtn]);
 
   const settingsBody = el('div', { id: 'rp-settings-body' }, [
     orderIdSectionTitle, orderIdTextarea, orderIdActions, orderIdStatus,
     dateSectionTitle, dateGrid,
     sortSectionTitle, sortSelect,
-    reportsSectionTitle, selectAllLabel, reportsList, selectedCountEl, btnRow,
+    reportsSectionTitle, selectAllLabel, reportsList, selectedCountEl, btnRow, exportRow,
   ]);
   const settingsModal = el('div', { id: 'rp-settings' }, [settingsHeader, settingsBody]);
 
@@ -398,14 +637,13 @@
   const miniBody = el('div', { id: 'rp-mini-body' }, [miniStatus, miniStats, miniStopBtn, miniLog]);
   const miniMenu = el('div', { id: 'rp-mini-menu' }, [miniHeader, miniBody]);
 
-  function injectUI() {
-    if (!document.getElementById('rp-fab')) document.documentElement.appendChild(fab);
-    if (!document.getElementById('rp-overlay')) document.documentElement.appendChild(overlay);
-    if (!document.getElementById('rp-settings')) document.documentElement.appendChild(settingsModal);
-    if (!document.getElementById('rp-mini-menu')) document.documentElement.appendChild(miniMenu);
-  }
-  injectUI();
-  setInterval(injectUI, 2000);
+  // اللوحات فقط — الفاب يُدار من fabs-controller
+  if (!document.getElementById('rp-overlay')) document.documentElement.appendChild(overlay);
+  if (!document.getElementById('rp-settings')) document.documentElement.appendChild(settingsModal);
+  if (!document.getElementById('rp-mini-menu')) document.documentElement.appendChild(miniMenu);
+
+  // Setup keyboard shortcuts
+  setupKeyboardShortcuts();
 
   // ══════════════════════════════════════════════════════════════════
   //  Log & Status
@@ -698,11 +936,34 @@
     state._selectedDate = '';
     state.orderIdFilter.clear();
     state.sortMode = 'scraped';
+    state.currentIndex = 0;
+    state.isPaused = false;
+    state.pausePromise = null;
 
     // Reset UI elements
     document.getElementById('rp-order-id-filter').value = '';
     document.getElementById('rp-order-filter-status').style.display = 'none';
     document.getElementById('rp-sort-select').value = 'scraped';
+
+    // Check for resume state
+    const resumeData = loadResumeState();
+    if (resumeData && resumeData.selectedReports && resumeData.selectedReports.length > 0) {
+      const resume = confirm(`🔄 تم العثور على جلسة سابقة محفوظة (${resumeData.selectedReports.length} بلاغ متبقي).\n\nهل تريد استئناف المعالجة من حيث توقفت؟`);
+      if (resume) {
+        state.sessionStartTime = resumeData.sessionStartTime || Date.now();
+        await scrapeAllPages();
+        // Re-match saved reports with freshly scraped ones
+        const savedCasNos = new Set(resumeData.selectedReports.map(r => r.casNo));
+        state.selectedReports = state.allReports.filter(r => savedCasNos.has(r.casNo));
+        applyResumeState(resumeData);
+        renderDateChips();
+        renderReportsList();
+        addLog(`✅ تم استئناف الجلسة: ${state.selectedReports.length} بلاغ للمتابعة`, 'ok');
+        return;
+      } else {
+        clearResumeState();
+      }
+    }
 
     await scrapeAllPages();
 
@@ -1055,6 +1316,8 @@
     const reportTab = window.open(url, '_blank');
     if (!reportTab) {
       addLog(`فشل فتح التبويب لـ ${casNo}`, 'error');
+      report._hasData = false;
+      report._status = 'فشل الفتح';
       return false;
     }
 
@@ -1064,6 +1327,8 @@
       state.totalProcessed++;
       state.totalSkipped++;
       updateStats();
+      report._hasData = false;
+      report._status = 'انتهى الوقت';
       try { reportTab.close(); } catch (e) {}
       return false;
     }
@@ -1075,6 +1340,8 @@
       state.totalWithData++;
       addLog(`✅ ${casNo} - فيه داتا → فتح الصفحة 2`, 'ok');
       setStatus(`${casNo} - فيه داتا ✓`, 'ok');
+      report._hasData = true;
+      report._status = 'فيه داتا';
 
       await SLEEP(1500);
       const clicked = clickNextOnReport(reportTab.document);
@@ -1089,6 +1356,8 @@
       state.totalSkipped++;
       addLog(`❌ ${casNo} - مفيش داتا (قفل التبويب)`, 'skip');
       setStatus(`${casNo} - مفيش داتا`, 'warn');
+      report._hasData = false;
+      report._status = 'مفيش داتا';
       try { reportTab.close(); } catch (e) {}
     }
 
@@ -1097,7 +1366,7 @@
   }
 
   // ══════════════════════════════════════════════════════════════════
-  //  Main Run
+  //  Main Run (with Concurrency Control)
   // ══════════════════════════════════════════════════════════════════
   async function run() {
     if (state.isRunning) return;
@@ -1109,25 +1378,58 @@
 
     state.isRunning = true;
     state.stopRequested = false;
+    state.isPaused = false;
+    state.pausePromise = null;
     state.totalProcessed = 0;
     state.totalWithData = 0;
     state.totalSkipped = 0;
+    state.currentIndex = 0;
+    state.sessionStartTime = Date.now();
     miniLog.innerHTML = '';
 
     hideSettings();
     miniMenu.classList.add('visible');
     fab.classList.add('hidden');
 
-    addLog(`بدء معالجة ${state.selectedReports.length} بلاغ...`, 'info');
+    addLog(`بدء معالجة ${state.selectedReports.length} بلاغ (Concurrency: ${state.concurrencyLimit})...`, 'info');
     setStatus(`معالجة ${state.selectedReports.length} بلاغ...`, 'warn');
 
-    for (const report of state.selectedReports) {
+    // Concurrency-controlled processing
+    const workers = [];
+    for (let i = 0; i < state.selectedReports.length; i++) {
       if (state.stopRequested) break;
-      await processReport(report);
-      await SLEEP(800);
+      
+      // Wait for available slot
+      await acquireSlot();
+      
+      if (state.stopRequested) { releaseSlot(); break; }
+      
+      // Check pause
+      await waitIfPaused();
+      if (state.stopRequested) { releaseSlot(); break; }
+
+      const report = state.selectedReports[i];
+      state.currentIndex = i;
+      
+      // Launch worker
+      const worker = (async () => {
+        try {
+          await processReport(report);
+        } finally {
+          releaseSlot();
+          saveResumeState(); // Save progress after each report
+        }
+      })();
+      workers.push(worker);
+      
+      await SLEEP(300); // Small delay between launches
     }
 
+    // Wait for all workers to complete
+    await Promise.all(workers);
+
     state.isRunning = false;
+    clearResumeState(); // Clear resume on successful completion
     miniStopBtn.textContent = '🔄 معالجة جديدة';
     miniStopBtn.style.background = '#27ae60';
 
@@ -1211,6 +1513,23 @@
 
   startBtn.addEventListener('click', run);
   cancelBtn.addEventListener('click', hideSettings);
+  
+  // Export buttons
+  document.getElementById('rp-export-csv').addEventListener('click', () => {
+    const reports = getFilteredAndSortedReports();
+    if (reports.length === 0) { addLog('لا توجد بلاغات للتصدير', 'error'); return; }
+    // Add status to each report for export
+    const exportData = reports.map(r => ({ ...r, _hasData: false, _status: '—' }));
+    exportToCSV(exportData, `report-processor-${Date.now()}.csv`);
+    addLog(`📊 تم تصدير ${reports.length} بلاغ إلى CSV`, 'ok');
+  });
+  
+  document.getElementById('rp-export-xlsx').addEventListener('click', () => {
+    const reports = getFilteredAndSortedReports();
+    if (reports.length === 0) { addLog('لا توجد بلاغات للتصدير', 'error'); return; }
+    const exportData = reports.map(r => ({ ...r, _hasData: false, _status: '—' }));
+    exportToExcel(exportData, `report-processor-${Date.now()}.xlsx`);
+  });
 
   miniStopBtn.addEventListener('click', () => {
     if (state.isRunning) {

@@ -82,8 +82,9 @@
     return null;
   }
 
+  // إنشاء معرف مهمة فريد (من النافذة المشتركة في portal-selectors.js)
   function generateTaskId() {
-    return 'task-' + Date.now() + '-' + Math.random().toString(36).slice(2, 6);
+    return window.generateTaskId ? window.generateTaskId() : ('task-' + Date.now() + '-' + Math.random().toString(36).slice(2, 6));
   }
 
   function isPortalTab(tab) {
@@ -256,10 +257,14 @@
             btn.textContent = '🔄';
             return;
           }
-          await chrome.storage.local.set({ lastStatusUpdate: null });
-          await sendToTab(tab.id, { action: 'START_QUEUE', tasks: [t], tabId: tab.id });
-          updateTaskItem(t.taskId, 'pending', 'جارٍ إعادة التشغيل...');
-          startStatusPolling(1, [t]);
+          const reactivateTask = {
+            ...t,
+            data: { ...(t.data || {}), forceOverwrite: true },
+            payload: { ...(t.payload || {}), forceOverwrite: true }
+          };
+          await sendToTab(tab.id, { action: 'START_QUEUE', tasks: [reactivateTask], tabId: tab.id });
+          updateTaskItem(t.taskId, 'pending', 'جارٍ إعادة التشغيل (فرض الكتابة)...');
+          startStatusPolling(1, [reactivateTask]);
         } catch(err) {
           btn.disabled = false;
           btn.textContent = '🔄';

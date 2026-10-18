@@ -67,7 +67,8 @@ window.AutoFillEngine = window.AutoFillEngine || {};
   async function waitForSparePartsGrid(timeoutMs = 8000) {
     const start = Date.now();
     while (Date.now() - start < timeoutMs) {
-      const grid = document.getElementById('InventoryAdjustmentProduct_Subgrid') ||
+      const grid = document.getElementById('InventoryAdjustmentProduct_SubGrid') ||
+                   document.getElementById('InventoryAdjustmentProduct_Subgrid') ||
                    document.getElementById('InventoryAdjustmentProductIsLscYes_Subgrid') ||
                    document.querySelector('.subgrid[data-name*="Inventory"]');
       if (grid) {
@@ -135,24 +136,46 @@ window.AutoFillEngine = window.AutoFillEngine || {};
   }
 
   async function addFaultCodePage3(code, subCode, flags = []) {
-    log(`Adding Fault Code: ${code} (subCode: ${subCode || 'N/A'})...`);
+    let mainSearch = '';
+    let subSearch = '';
+
+    if (code && typeof code === 'object') {
+      mainSearch = (code.majorCode || code.majorName || code.fullCode || '').trim();
+      subSearch = (code.defectCode || code.subCode || code.fullCode || '').trim();
+    } else {
+      mainSearch = (code || '').trim();
+      subSearch = (subCode || '').trim();
+    }
+
+    log(`Adding Fault Code: main="${mainSearch}", sub="${subSearch || 'N/A'}"...`);
     
     // Check if fault code already exists in subgrid
     const existingGrids = ['WorkOrder_defect', 'WorkOrderDefectIsLscYes_Subgrid'];
     for (const gid of existingGrids) {
       const g = document.getElementById(gid);
       if (g) {
-        const rows = Array.from(g.querySelectorAll('table tbody tr')).filter(r => (r.innerText || '').includes(code));
+        const rows = Array.from(g.querySelectorAll('table tbody tr')).filter(r => {
+          const txt = (r.innerText || '').toLowerCase();
+          if (subSearch && txt.includes(subSearch.toLowerCase())) return true;
+          if (mainSearch && txt.includes(mainSearch.toLowerCase())) return true;
+          return false;
+        });
         if (rows.length > 0) {
-          log(`Fault code ${code} already present in ${gid} — skipping`);
-          return { ok: true, name: code, alreadyExists: true };
+          log(`Fault code ${subSearch || mainSearch} already present in ${gid} — skipping`);
+          return { ok: true, name: subSearch || mainSearch, alreadyExists: true };
         }
       }
     }
 
-    // Find add button for defect code
+    // Find add button for defect code (visible only)
     const addBtn = Array.from(document.querySelectorAll('a, button, input[type="button"]'))
-      .filter(b => b.offsetParent !== null)
+      .filter(b => {
+        try {
+          if (b.offsetParent === null) return false;
+          const s = window.getComputedStyle(b);
+          return s.display !== 'none' && s.visibility !== 'hidden';
+        } catch(_) { return false; }
+      })
       .find(b => /[اإأ]ضاف[ةه]\s*كود\s*عطل|Add.*Defect/i.test((b.innerText || b.title || b.value || '').trim()));
 
     if (!addBtn) {
@@ -166,9 +189,9 @@ window.AutoFillEngine = window.AutoFillEngine || {};
     let modal = null;
     const deadline = Date.now() + 10000;
     while (Date.now() < deadline) {
-      modal = document.querySelector('.modal.show, .modal.in, div[role="dialog"]');
-      if (modal && modal.offsetParent !== null) break;
-      modal = null;
+      const modals = Array.from(document.querySelectorAll('.modal.modal-form-insert, .modal.in, .modal.show, section.modal, div[role="dialog"]'));
+      modal = modals.find(m => (m.classList.contains('in') || m.classList.contains('show') || m.offsetParent !== null) && m.querySelector('iframe'));
+      if (modal) break;
       await sleep(400);
     }
     if (!modal) {
@@ -179,29 +202,53 @@ window.AutoFillEngine = window.AutoFillEngine || {};
     const iframeDoc = await window.AutoFillEngine.Lookups.waitForModalIframe(modal, 12000);
     if (!iframeDoc) {
       warn('Defect Code iframe did not load');
-      const closeBtn = modal.querySelector('[data-dismiss="modal"]');
+      const closeBtn = modal.querySelector('button.form-close, button.close, [data-dismiss="modal"]');
       if (closeBtn) closeBtn.click();
       return { ok: false, reason: 'iframe-not-found' };
     }
 
     await sleep(800);
-    const lookupBtn = iframeDoc.querySelector('button.launchentitylookup');
-    if (!lookupBtn) {
-      warn('Lookup button not found in defect iframe');
-      const closeBtn = modal.querySelector('[data-dismiss="modal"]');
+
+    // 1. كود العطل الرئيسي
+    const lookupBtns = Array.from(iframeDoc.querySelectorAll('button.launchentitylookup')).filter(b => b.offsetParent !== null);
+    const mainBtn = lookupBtns.find(b => (b.getAttribute('aria-label') || '').includes('الرئيسي')) ||
+                    iframeDoc.querySelector('#ats_modeldefectmajor_name')?.parentElement?.querySelector('button.launchentitylookup') ||
+                    lookupBtns[0];
+
+    if (!mainBtn) {
+      warn('Main defect Lookup button not found in defect iframe');
+      const closeBtn = modal.querySelector('button.form-close, button.close, [data-dismiss="modal"]');
       if (closeBtn) closeBtn.click();
       return { ok: false, reason: 'lookup-btn-not-found' };
     }
 
-    const lookupRes = await window.AutoFillEngine.Lookups.fillLookupModal(lookupBtn, code, document);
-    if (!lookupRes || !lookupRes.ok) {
-      warn('Lookup failed for fault code: ' + code);
-      const closeBtn = modal.querySelector('[data-dismiss="modal"]');
+    const lookupRes1 = await window.AutoFillEngine.Lookups.fillLookupModal(mainBtn, mainSearch, document, { strictExact: false });
+    if (!lookupRes1 || !lookupRes1.ok) {
+      warn('Lookup failed for major fault code: ' + mainSearch);
+      const closeBtn = modal.querySelector('button.form-close, button.close, [data-dismiss="modal"]');
       if (closeBtn) closeBtn.click();
-      return lookupRes;
+      return lookupRes1;
     }
 
-    await sleep(1000);
+    // انتظار التحديث المتتالي
+    await sleep(2000);
+
+    // 2. كود العطل الفرعي (لو محدد)
+    if (subSearch) {
+      const curBtns = Array.from(iframeDoc.querySelectorAll('button.launchentitylookup')).filter(b => b.offsetParent !== null);
+      const subBtn = curBtns.find(b => {
+        const aria = (b.getAttribute('aria-label') || '').toLowerCase();
+        return aria.includes('كود العطل') && !aria.includes('الرئيسي');
+      }) || iframeDoc.querySelector('#ats_defectcodedefectmajor_name, #ldv_defect_name')?.parentElement?.querySelector('button.launchentitylookup') || curBtns[1];
+
+      if (subBtn) {
+        log(`Filling sub-fault code lookup: "${subSearch}"`);
+        await window.AutoFillEngine.Lookups.fillLookupModal(subBtn, subSearch, document, { strictExact: false });
+        await sleep(1000);
+      }
+    }
+
+    // 3. حفظ
     const saveBtn = iframeDoc.querySelector('#InsertButton, #SubmitButton, button[type="submit"], input[type="submit"], button.btn-primary');
     if (saveBtn) {
       saveBtn.click();
@@ -210,10 +257,150 @@ window.AutoFillEngine = window.AutoFillEngine || {};
         if (modal.offsetParent === null || !document.body.contains(modal)) break;
         await sleep(400);
       }
-      await sleep(1000);
-      return { ok: true, name: code };
+      await sleep(1200);
+      return { ok: true, name: subSearch || mainSearch };
     }
 
+    const closeBtn = modal.querySelector('button.form-close, button.close, [data-dismiss="modal"]');
+    if (closeBtn) closeBtn.click();
+    return { ok: false, reason: 'save-failed' };
+  }
+
+  async function addSparePartPage3(sp, faultCode = null) {
+    if (!sp) return { ok: false, reason: 'invalid-spare-part' };
+    const majorSearch = (faultCode?.majorCode || faultCode?.majorName || sp.majorCode || sp.majorName || '').trim();
+    const subSearch = (faultCode?.defectCode || faultCode?.fullCode || sp.defectCode || sp.defect || sp.fullCode || '').trim();
+    const partSearch = (sp.name || sp.code || sp.product || '').trim();
+    const partCodeOnly = (sp.code || partSearch.split(/\s*[_–—]\s*/)[0] || '').trim();
+    const qty = String(sp.qty || 1);
+
+    // 1. Check if spare part is already present in subgrid
+    const spGrids = ['InventoryAdjustmentProduct_Subgrid', 'InventoryAdjustmentProductIsLscYes_Subgrid'];
+    for (const gid of spGrids) {
+      const g = document.getElementById(gid);
+      if (g) {
+        const rows = Array.from(g.querySelectorAll('table tbody tr')).filter(r => {
+          const txt = (r.innerText || '').toLowerCase();
+          const clean = partCodeOnly.replace(/[^a-z0-9]/gi, '').toLowerCase();
+          if (partCodeOnly && txt.includes(partCodeOnly.toLowerCase())) return true;
+          if (clean && txt.replace(/[^a-z0-9]/gi, '').includes(clean)) return true;
+          return false;
+        });
+        if (rows.length > 0) {
+          log(`Spare part ${partSearch} already present in ${gid} — skipping`);
+          return { ok: true, name: partSearch, alreadyExists: true };
+        }
+      }
+    }
+
+    // 2. Find visible Add Spare Part button
+    const candidates = Array.from(document.querySelectorAll('a, button, input[type="button"]')).filter(b => {
+      try {
+        if (b.offsetParent === null) return false;
+        const s = window.getComputedStyle(b);
+        return s.display !== 'none' && s.visibility !== 'hidden';
+      } catch(_) { return false; }
+    });
+
+    const addBtn = candidates.find(b => {
+      const t = (b.innerText || b.title || b.value || '').trim();
+      return /[اإأ]ضاف[ةه]\s*قطعة\s*غيار|Add.*Spare.*Part|Add.*Product/i.test(t) && !/الموديل\s*2/i.test(t);
+    }) || candidates.find(b => /[اإأ]ضاف[ةه]\s*قطعة\s*غيار|Add.*Spare.*Part/i.test((b.innerText || b.title || b.value || '').trim()));
+
+    if (!addBtn) {
+      warn('Add Spare Part button not found or not visible');
+      return { ok: false, reason: 'add-btn-not-found' };
+    }
+
+    addBtn.click();
+    await sleep(1500);
+
+    // 3. Wait for modal
+    let modal = null;
+    const deadline = Date.now() + 10000;
+    while (Date.now() < deadline) {
+      const modals = Array.from(document.querySelectorAll('.modal.modal-form-insert, .modal.in, .modal.show, section.modal, div[role="dialog"]'));
+      modal = modals.find(m => (m.classList.contains('in') || m.classList.contains('show') || m.offsetParent !== null) && m.querySelector('iframe'));
+      if (modal) break;
+      await sleep(350);
+    }
+    if (!modal) {
+      warn('Spare part modal did not open');
+      return { ok: false, reason: 'modal-not-found' };
+    }
+
+    // 4. Wait for iframe
+    const iframeDoc = await window.AutoFillEngine.Lookups.waitForModalIframe(modal, 12000);
+    if (!iframeDoc) {
+      warn('Spare part iframe did not load');
+      const closeBtn = modal.querySelector('button.form-close, button.close, [data-dismiss="modal"]');
+      if (closeBtn) closeBtn.click();
+      return { ok: false, reason: 'iframe-not-found' };
+    }
+
+    await sleep(1000);
+
+    const lookupFn = window.AutoFillEngine.Lookups.fillLookupModal;
+    function getLookupBtn(id) {
+      const inp = iframeDoc.getElementById(id);
+      if (!inp) return null;
+      const grp = inp.closest('.input-group') || inp.parentElement;
+      return grp?.querySelector('button.launchentitylookup') || grp?.querySelectorAll('button')[1];
+    }
+
+    // 5. Fill Major Defect
+    if (majorSearch) {
+      const majorBtn = getLookupBtn('ats_modeldefectmajor_name');
+      if (majorBtn) {
+        log(`Filling major defect for spare part: "${majorSearch}"`);
+        await lookupFn(majorBtn, majorSearch, iframeDoc, { strictExact: false });
+        await sleep(2000);
+      }
+    }
+
+    // 6. Fill Sub Defect
+    if (subSearch) {
+      const defectBtn = getLookupBtn('ats_defectcodedefectmajor_name');
+      if (defectBtn) {
+        log(`Filling sub-defect for spare part: "${subSearch}"`);
+        await lookupFn(defectBtn, subSearch, iframeDoc, { strictExact: false });
+        await sleep(1500);
+      }
+    }
+
+    // 7. Fill Spare Part
+    if (partSearch || partCodeOnly) {
+      const spBtn = getLookupBtn('ats_modeldefectspid_name');
+      if (spBtn) {
+        log(`Filling spare part: "${partCodeOnly || partSearch}"`);
+        await lookupFn(spBtn, partCodeOnly || partSearch, iframeDoc, { strictExact: false });
+        await sleep(1200);
+      }
+    }
+
+    // 8. Quantity
+    const qtyInput = iframeDoc.getElementById('ats_quantity');
+    if (qtyInput) {
+      qtyInput.value = qty;
+      try { qtyInput.dispatchEvent(new Event('input', { bubbles: true })); } catch(_) {}
+      try { qtyInput.dispatchEvent(new Event('change', { bubbles: true })); } catch(_) {}
+    }
+
+    // 9. Save
+    const saveBtn = iframeDoc.querySelector('#InsertButton, #SubmitButton, input[value="حفظ"], button[type="submit"], input[type="submit"], button.btn-primary');
+    if (saveBtn) {
+      saveBtn.click();
+      const saveDeadline = Date.now() + 10000;
+      while (Date.now() < saveDeadline) {
+        if (modal.offsetParent === null || !document.body.contains(modal)) break;
+        await sleep(400);
+      }
+      await sleep(1500);
+      return { ok: true, name: partSearch || partCodeOnly };
+    }
+
+    const closeBtn = modal.querySelector('button.form-close, button.close, [data-dismiss="modal"]');
+    if (closeBtn) closeBtn.click();
     return { ok: false, reason: 'save-failed' };
   }
 
@@ -267,6 +454,7 @@ window.AutoFillEngine = window.AutoFillEngine || {};
     readCollectedAmount,
     handleSparePartsComment,
     addFaultCodePage3,
+    addSparePartPage3,
     executePage3_Resolution
   };
 

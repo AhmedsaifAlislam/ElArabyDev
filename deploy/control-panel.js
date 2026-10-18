@@ -14,13 +14,37 @@
   let isDocked = false;
   let productsDb = null;
   let debugLog = [];
+  let flushTimer = null;
+
+  // كتابة localStorage مؤجلة (debounce) — تُستبدل الكتابة المتزامنة في كل حدث
+  function flushLogs() {
+    flushTimer = null;
+    try { localStorage.setItem(LOG_KEY, debugLog.join('\n')); } catch(_) {}
+    try { localStorage.setItem(PAGE_LOG_KEY, pageLog.join('\n')); } catch(_) {}
+  }
+
+  function scheduleFlush() {
+    if (flushTimer) return;
+    flushTimer = setTimeout(flushLogs, 1000);
+  }
+
+  function loadPersistedLogs() {
+    try {
+      const v = localStorage.getItem(LOG_KEY);
+      if (v) debugLog = v.split('\n').filter(Boolean).slice(-200);
+    } catch(_) {}
+    try {
+      const v = localStorage.getItem(PAGE_LOG_KEY);
+      if (v) pageLog = v.split('\n').filter(Boolean).slice(-300);
+    } catch(_) {}
+  }
 
   function logEvent(type, detail) {
     const ts = new Date().toLocaleTimeString('ar-EG');
     const entry = `[${ts}] ${type}: ${detail}`;
     debugLog.push(entry);
     if (debugLog.length > 200) debugLog = debugLog.slice(-200);
-    try { localStorage.setItem(LOG_KEY, debugLog.join('\n')); } catch(_) {}
+    scheduleFlush();
     console.log(`%c[PortalHelper] ${entry}`, 'color:#60a5fa;font-weight:bold');
   }
 
@@ -32,6 +56,7 @@
   function clearLog() {
     debugLog = [];
     pageLog = [];
+    if (flushTimer) { clearTimeout(flushTimer); flushTimer = null; }
     try { localStorage.removeItem(LOG_KEY); localStorage.removeItem(PAGE_LOG_KEY); } catch(_) {}
   }
 
@@ -66,20 +91,9 @@
     }) || null;
   }
 
+  // البحث عن أول عنصر يطابق أحد المحددات (من النافذة المشتركة في portal-selectors.js)
   function findFirst(list) {
-    if (!list) return null;
-    const arr = Array.isArray(list) ? list : [list];
-    for (const s of arr) {
-      if (!s) continue;
-      if (s instanceof HTMLElement) return s;
-      if (typeof s === 'string') {
-        try {
-          const el = document.querySelector(s);
-          if (el) return el;
-        } catch (_) {}
-      }
-    }
-    return null;
+    return window.findFirst ? window.findFirst(list) : null;
   }
 
   async function ensureReady() {
@@ -121,6 +135,13 @@
     await loadProductsDb();
     injectPanel();
     observePageChanges();
+    // حارس إعادة حقن: لو أعادت الصفحة رسم body وأزالت اللوحة (SPA re-render)
+    setInterval(() => {
+      if (!document.getElementById(PANEL_ID)) {
+        logEvent('INIT', 'اللوحة اختفت من الصفحة — إعادة حقن');
+        try { injectPanel(); } catch (e) { logEvent('INIT', 'فشل إعادة الحقن: ' + (e && e.message)); }
+      }
+    }, 4000);
     logEvent('INIT', 'تم تحميل لوحة التحكم');
   }
 
@@ -139,15 +160,19 @@
 
   function saveState(shadow) {
     try {
+      let prev = {};
+      try { const raw = localStorage.getItem(STATE_KEY); if (raw) prev = JSON.parse(raw); } catch(_) {}
       const panel = shadow.querySelector('.cp-panel');
       const rect = panel.getBoundingClientRect();
+      // لو اللوحة مخفية (تصغير) يكون rect = 0 → نحتفظ بالأبعاد السابقة بدل تصفيرها
+      const hasRect = rect.width > 0 && rect.height > 0;
       localStorage.setItem(STATE_KEY, JSON.stringify({
         minimized: isMinimized,
         docked: isDocked,
-        left: Math.round(rect.left),
-        top: Math.round(rect.top),
-        width: Math.round(rect.width),
-        height: Math.round(rect.height)
+        left: hasRect ? Math.round(rect.left) : (prev.left || 0),
+        top: hasRect ? Math.round(rect.top) : (prev.top || 0),
+        width: hasRect ? Math.round(rect.width) : (prev.width || 0),
+        height: hasRect ? Math.round(rect.height) : (prev.height || 0)
       }));
     } catch(e) {}
   }
@@ -238,14 +263,14 @@
     bindEvents(shadow);
     updateTab(shadow);
 
-    if (isDocked) toggleDock(shadow);
+    if (isDocked) setDock(shadow, true);
     if (isMinimized) toggle(shadow, false, true);
   }
 
 function getCSS() {
     return `
 *{box-sizing:border-box;margin:0;padding:0}
-.cp-panel{position:fixed;bottom:14px;right:14px;width:300px;min-width:280px;max-width:520px;min-height:220px;max-height:70vh;background:#131821;border:1px solid #232840;border-radius:10px;box-shadow:0 12px 40px rgba(0,0,0,.7);z-index:2147483647;font-family:'Segoe UI',Tahoma,sans-serif;direction:rtl;font-size:11px;color:#c8d0e0;overflow:auto;display:flex;flex-direction:column;resize:both}
+.cp-panel{position:fixed;bottom:14px;right:76px;width:300px;min-width:280px;max-width:520px;min-height:220px;max-height:70vh;background:#131821;border:1px solid #232840;border-radius:10px;box-shadow:0 12px 40px rgba(0,0,0,.7);z-index:2147483647;font-family:'Segoe UI',Tahoma,sans-serif;direction:rtl;font-size:11px;color:#c8d0e0;overflow:auto;display:flex;flex-direction:column;resize:both;transition:opacity .15s ease, transform .15s ease}
 .cp-header{display:flex;justify-content:space-between;align-items:center;padding:6px 10px;background:linear-gradient(135deg,#1a2744,#0f1b33);border-bottom:1px solid #2a3050;cursor:move;user-select:none}
 .cp-title{font-weight:700;color:#60a5fa;font-size:12px}
 .cp-toggle{background:rgba(255,255,255,.1);border:none;border-radius:50%;color:#94a3b8;cursor:pointer;width:22px;height:22px;font-size:14px;display:flex;align-items:center;justify-content:center;line-height:1;transition:all .15s}
@@ -299,6 +324,15 @@ function getCSS() {
 .p2-sc:hover, .cp-shortcut-btn:hover{background:#1a2744;border-color:#3a5a8a;color:#e2eaf5}
 .p2-sc:active, .cp-shortcut-btn:active{transform:scale(.96)}
 .p2-sc .sc-icon, .cp-shortcut-btn .sc-icon{display:block;font-size:16px;margin-bottom:1px}
+.cp-codes-action-group{display:flex;gap:6px;margin:6px 0 8px 0}
+.cp-btn-code-copy{flex:1;background:#172554;border:1px solid #3b82f6;color:#93c5fd;font-weight:700;font-size:11px;padding:6px 4px;border-radius:6px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:4px;transition:all .15s}
+.cp-btn-code-copy:hover{background:#1e3a8a;color:#dbeafe;border-color:#60a5fa}
+.cp-btn-code-copy:active{transform:scale(.97)}
+.cp-btn-code-paste{flex:1;background:#064e3b;border:1px solid #10b981;color:#6ee7b7;font-weight:700;font-size:11px;padding:6px 4px;border-radius:6px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:4px;transition:all .15s}
+.cp-btn-code-paste:hover{background:#065f46;color:#a7f3d0;border-color:#34d399}
+.cp-btn-code-paste:active{transform:scale(.97)}
+.cp-codes-preview-box{display:none;background:#0d1528;border:1px dashed #2a3d60;border-radius:5px;padding:5px 8px;margin-bottom:8px;font-size:10px;color:#94a3b8;line-height:1.4}
+.cp-codes-preview-box b{color:#60a5fa}
 `;
   }
 
@@ -347,7 +381,16 @@ function getCSS() {
   <div class="cp-tab" data-page="PAGE_3" id="tab-p3">
     <div class="cp-tab-title">📋 الصفحة الثالثة — أكواد الأعطال</div>
     <div class="cp-info" id="cp-device-info3">الجهاز: <b id="cp-device-type">...</b></div>
-    <label class="cp-check" style="margin-bottom:10px"><input type="checkbox" id="chk-done" checked> <span>✅ تمت الصيانة</span></label>
+    <label class="cp-check" style="margin-bottom:8px"><input type="checkbox" id="chk-done" checked> <span>✅ تمت الصيانة</span></label>
+    <div class="cp-codes-action-group">
+      <button class="cp-btn cp-btn-code-copy" id="btn-copy-codes" title="نسخ أكواد الأعطال الحالية من البلاغ بصيغة JSON">
+        <span class="sc-icon">📋</span><span>نسخ الأكواد</span>
+      </button>
+      <button class="cp-btn cp-btn-code-paste" id="btn-paste-codes" title="لصق وإضافة الأكواد المنسوخة إلى هذا البلاغ تلقائياً">
+        <span class="sc-icon">📥</span><span>لصق الأكواد</span>
+      </button>
+    </div>
+    <div id="cp-codes-preview" class="cp-codes-preview-box"></div>
     <label class="cp-label">أكواد إضافية (اختيار متعدد):</label>
     <div class="cp-codes" id="cp-codes-list"></div>
     <div class="cp-shortcuts" id="cp-shortcuts">
@@ -386,13 +429,41 @@ function getCSS() {
       .filter(Boolean)];
 
     for (const doc of allDocs) {
-      const rows = doc.querySelectorAll('div.view-grid table tbody tr');
+      // البحث أولاً في شبكات قطع الغيار المحددة حصراً لتجنب قراءة شبكة أكواد الأعطال (WorkOrder_defect)
+      let rows = Array.from(doc.querySelectorAll(
+        '#InventoryAdjustmentProduct_Subgrid table tbody tr, ' +
+        '#InventoryAdjustmentProduct_SubGrid table tbody tr, ' +
+        '#InventoryAdjustmentProductIsLscYes_Subgrid table tbody tr, ' +
+        'div[data-name*="InventoryAdjustmentProduct"] table tbody tr, ' +
+        'div[data-name*="inventoryadjustmentproduct"] table tbody tr'
+      ));
+
+      if (rows.length === 0) {
+        // فحص الجداول التي ترويستها تحتوي صراحة على "قطعة الغيار" ولا تحتوي على "كود العطل"
+        const tables = Array.from(doc.querySelectorAll('div.view-grid table, table'));
+        for (const tbl of tables) {
+          if (tbl.closest('#WorkOrder_defect, #WorkOrder_Defects, #WorkOrderDefectIsLscYes_Subgrid, [data-name*="WorkOrder_defect"], [data-name*="defect"]')) continue;
+          const ths = Array.from(tbl.querySelectorAll('thead th, tr:first-child th')).map(th => th.innerText.trim());
+          const thJoined = ths.join(' ');
+          if (/قطعة\s*الغيار|Spare\s*Part/i.test(thJoined) && !/كود\s*العطل|Defect\s*Major/i.test(thJoined)) {
+            rows = Array.from(tbl.querySelectorAll('tbody tr'));
+            if (rows.length > 0) break;
+          }
+        }
+      }
+
       if (rows.length === 0) continue;
 
       const parts = [];
       let total = 0;
 
       rows.forEach(tr => {
+        // تجاهل صفوف أكواد الأعطال أو صفوف لا توجد سجلات
+        if (tr.getAttribute('data-entity') === 'ldv_workorder_defect') return;
+        const rawText = tr.innerText.trim();
+        if (!rawText || /no\s*records|لا\s*توجد/i.test(rawText)) return;
+        if (/sort\s*descending|sort\s*ascending/i.test(rawText) && !tr.querySelector('td[data-attribute]')) return;
+
         let rawName = tr.getAttribute('data-name') || '';
 
         const codeTd = tr.querySelector('td[data-attribute="ats_productcode"], td[data-attribute="productnumber"], td[data-attribute*="code"]');
@@ -408,18 +479,23 @@ function getCSS() {
 
         let name = '';
         if (prodTd) {
-          name = (prodTd.getAttribute('data-value') || prodTd.innerText || '').trim();
+          try {
+            const parsed = JSON.parse(prodTd.getAttribute('data-value') || '{}');
+            if (parsed.Name) name = parsed.Name;
+          } catch(_) {}
+          if (!name) {
+            name = (prodTd.getAttribute('data-value') || prodTd.innerText || '').trim();
+          }
         }
 
-        // If code or name not in specific cells, extract from data-name or tr text
+        // استخراج الكود والاسم في حال عدم توفرهما بحقول مخصصة
         if (!code && !name && rawName) {
-          // Check if data-name is formatted like "CODE (NAME)" or "CODE_ (NAME)" or "CODE - NAME"
           const parenMatch = rawName.match(/^([^(]+?)\s*\((.+)\)\s*$/);
           if (parenMatch) {
             code = parenMatch[1].trim();
             name = parenMatch[2].trim();
           } else {
-            const dashMatch = rawName.match(/^([^-]+?)\s*-\s*(.+)$/);
+            const dashMatch = rawName.match(/^([^-]+?)\s*[-_]\s*(.+)$/);
             if (dashMatch) {
               code = dashMatch[1].trim();
               name = dashMatch[2].trim();
@@ -429,8 +505,21 @@ function getCSS() {
           }
         } else if (!name && rawName) {
           name = rawName.trim();
-        } else if (!code && rawName && name && rawName !== name) {
-          code = rawName.replace(name, '').replace(/[()_-]/g, '').trim();
+        }
+
+        if (!code && name) {
+          const parenMatch = name.match(/^([^(]+?)\s*\((.+)\)\s*$/);
+          if (parenMatch) {
+            code = parenMatch[1].trim();
+          } else {
+            const partsWithSpaces = name.split(/\s+[-–—_]\s+/);
+            if (partsWithSpaces.length > 1) {
+              code = partsWithSpaces[0].trim();
+            }
+          }
+        }
+        if (code) {
+          code = code.replace(/[\s_\-–—]+$/, '').trim();
         }
 
         let qty = 1;
@@ -453,12 +542,11 @@ function getCSS() {
           }
         }
 
-        // If unit price is 0 but line total and qty exist, deduce unit price
         if (priceVal === 0 && totalVal > 0 && qty > 0) {
           priceVal = totalVal / qty;
         }
 
-        if ((name || code) && (priceVal > 0 || totalVal > 0 || tr.innerText.trim().length > 0)) {
+        if ((name || code) && (priceVal > 0 || totalVal > 0 || (rawText && !rawText.includes('كود العطل')))) {
           parts.push({
             code: code || '',
             name: name || rawName || '',
@@ -613,27 +701,43 @@ function getCSS() {
     shadow.getElementById('cp-toggle').onclick = () => { logEvent('CLICK', 'نقر على زر التبديل'); toggle(shadow); };
     shadow.getElementById('cp-dock').onclick = () => { logEvent('CLICK', 'نقر على زر الإرساء'); toggleDock(shadow); };
     const defaultBtn = shadow.getElementById('btn-default-p1');
-    if (defaultBtn) defaultBtn.onclick = () => { logEvent('CLICK', 'نقر على تعبئة بيانات افتراضية'); fillDefaultDeviceData(shadow); };
-    shadow.getElementById('btn-exec1').onclick = () => { logEvent('CLICK', 'نقر على تنفيذ الصفحة 1'); executePage1(shadow); };
-    shadow.getElementById('btn-exec2').onclick = () => { logEvent('CLICK', 'نقر على تنفيذ الصفحة 2'); executePage2(shadow); };
+    if (defaultBtn) defaultBtn.onclick = () => { logEvent('CLICK', 'نقر على تعبئة بيانات افتراضية'); runExclusive(shadow, 'تعبئة افتراضية', () => fillDefaultDeviceData(shadow)); };
+    shadow.getElementById('btn-exec1').onclick = () => { logEvent('CLICK', 'نقر على تنفيذ الصفحة 1'); runExclusive(shadow, 'تنفيذ الصفحة 1', () => executePage1(shadow)); };
+    shadow.getElementById('btn-exec2').onclick = () => { logEvent('CLICK', 'نقر على تنفيذ الصفحة 2'); runExclusive(shadow, 'تنفيذ الصفحة 2', () => executePage2(shadow)); };
     shadow.querySelectorAll('.p2-sc').forEach(btn => {
       btn.onclick = () => {
         const sc = btn.dataset.sc;
         logEvent('SHORTCUT_P2', `${sc} → تنفيذ`);
-        executePage2(shadow, sc);
+        runExclusive(shadow, `شورت كت ص2 ${sc}`, () => executePage2(shadow, sc));
       };
     });
-    shadow.getElementById('btn-exec3').onclick = () => { logEvent('CLICK', 'نقر على تنفيذ الكل'); executePage3(shadow); };
+    shadow.getElementById('btn-exec3').onclick = () => { logEvent('CLICK', 'نقر على تنفيذ الكل'); runExclusive(shadow, 'تنفيذ الكل', () => executePage3(shadow)); };
+    const btnCopyCodes = shadow.getElementById('btn-copy-codes');
+    if (btnCopyCodes) {
+      btnCopyCodes.onclick = () => {
+        logEvent('CLICK', 'نقر على نسخ الأكواد');
+        runExclusive(shadow, 'نسخ الأكواد', () => copyCodesAction(shadow));
+      };
+    }
+    const btnPasteCodes = shadow.getElementById('btn-paste-codes');
+    if (btnPasteCodes) {
+      btnPasteCodes.onclick = () => {
+        logEvent('CLICK', 'نقر على لصق الأكواد');
+        runExclusive(shadow, 'لصق الأكواد', () => pasteCodesAction(shadow));
+      };
+    }
     shadow.querySelectorAll('.cp-shortcut-btn').forEach(btn => {
       btn.onclick = () => {
         logEvent('SHORTCUT_PANEL', `${btn.dataset.sc} → تنفيذ`);
-        runShortcut(shadow, btn.dataset.sc);
-        executePage3(shadow);
+        runExclusive(shadow, `شورت كت ${btn.dataset.sc}`, async () => {
+          runShortcut(shadow, btn.dataset.sc);
+          await executePage3(shadow);
+        });
       };
     });
     shadow.getElementById('cp-parts-btn').onclick = () => {
       logEvent('CLICK', 'نقر على قطع الغيار');
-      executePartsShortcut(shadow);
+      runExclusive(shadow, 'قطع الغيار', () => executePartsShortcut(shadow));
     };
     shadow.getElementById('cp-copy-log').onclick = () => {
       const text = getLogText();
@@ -675,11 +779,11 @@ function getCSS() {
       mini.id = PANEL_ID + '-mini';
       mini.textContent = '⚙';
       Object.assign(mini.style, {
-        position: 'fixed', bottom: '20px', right: '20px', width: '44px', height: '44px',
+        position: 'fixed', bottom: '20px', right: '20px', width: '48px', height: '48px',
         background: 'linear-gradient(135deg,#1e40af,#2563eb)', color: '#fff',
         borderRadius: '50%', boxShadow: '0 4px 16px rgba(0,0,0,0.5)',
         zIndex: '2147483647', display: 'flex', alignItems: 'center', justifyContent: 'center',
-        fontSize: '20px', cursor: 'pointer', fontFamily: 'sans-serif',
+        fontSize: '20px', lineHeight: '1', cursor: 'pointer', fontFamily: 'sans-serif',
         transition: 'transform 0.15s', userSelect: 'none'
       });
       mini.onclick = () => { logEvent('CLICK', 'نقر على الأيقونة المصغرة'); toggle(shadow, true); };
@@ -691,7 +795,7 @@ function getCSS() {
         const popup = document.createElement('div');
         popup.id = PANEL_ID + '-popup';
         popup.innerHTML = `
-          <div id="${PANEL_ID}-popup-box" style="position:fixed;bottom:70px;right:14px;background:#131821;border:1px solid #232840;border-radius:8px;padding:6px;z-index:2147483646;font-family:'Segoe UI',Tahoma,sans-serif;direction:rtl;display:none;box-shadow:0 4px 16px rgba(0,0,0,.6)">
+          <div id="${PANEL_ID}-popup-box" style="position:fixed;bottom:84px;right:76px;background:#131821;border:1px solid #232840;border-radius:8px;padding:6px;z-index:2147483646;font-family:'Segoe UI',Tahoma,sans-serif;direction:rtl;display:none;box-shadow:0 8px 24px rgba(0,0,0,.7);transition:opacity .15s ease;">
             <div style="font-size:10px;color:#fbbf24;font-weight:700;margin-bottom:4px;text-align:center">⚡ شورت كت</div>
             <div style="display:flex;gap:3px">
               <button class="sc-popup-btn" data-sc="pm" style="flex:1;padding:4px 2px;border:1px solid #2a3050;border-radius:4px;background:#0d1528;color:#a8c7fa;font-size:9px;font-weight:600;cursor:pointer;text-align:center">🔧 صيانة</button>
@@ -739,8 +843,10 @@ function getCSS() {
             popupBox.style.display = 'none';
             mini.style.transform = 'scale(1)';
             try {
-              runShortcut(shadow, sc);
-              executePage3(shadow);
+              runExclusive(shadow, `شورت كت بوب-اب ${sc}`, async () => {
+                runShortcut(shadow, sc);
+                await executePage3(shadow);
+              });
             } catch(err) {
               console.error('[PortalHelper] POPUP ERROR:', err);
               logEvent('SHORTCUT_POPUP', `خطأ: ${err.message}`);
@@ -759,7 +865,7 @@ function getCSS() {
             popupBox.style.display = 'none';
             mini.style.transform = 'scale(1)';
             try {
-              executePage3(shadow);
+              runExclusive(shadow, 'تنفيذ الكل (بوب-اب)', () => executePage3(shadow));
             } catch(err) {
               console.error('[PortalHelper] POPUP EXEC ERROR:', err);
               logEvent('SHORTCUT_POPUP', `خطأ تنفيذ: ${err.message}`);
@@ -779,10 +885,12 @@ function getCSS() {
     saveState(shadow);
   }
 
-  function toggleDock(shadow) {
+  // تطبيق حالة الإرساء بدون toggle — يُستخدم في الاستعادة والحقن من جديد
+  function setDock(shadow, dock) {
     const panel = shadow.querySelector('.cp-panel');
     const host = document.getElementById(PANEL_ID);
-    isDocked = !isDocked;
+    if (!panel || !host) return;
+    isDocked = dock;
     if (isDocked) {
       panel.classList.add('docked');
       const target = document.querySelector('main, .main-content, .container, form, body');
@@ -810,6 +918,10 @@ function getCSS() {
     }
     const dockBtn = shadow.getElementById('cp-dock');
     if (dockBtn) dockBtn.classList.toggle('active', isDocked);
+  }
+
+  function toggleDock(shadow) {
+    setDock(shadow, !isDocked);
     saveState(shadow);
   }
 
@@ -824,7 +936,7 @@ function getCSS() {
     const notes = shadow.querySelectorAll('.note-cb');
     const amount = shadow.getElementById('cp-amount');
 
-    logEvent('SHORTCUT', `DOM: 전체 체크박스=${allCbs.length}, fault-cb=${codes.length}, note-cb=${notes.length}`);
+    logEvent('SHORTCUT', `DOM: جميع الـ checkboxes=${allCbs.length}, fault-cb=${codes.length}, note-cb=${notes.length}`);
     console.log(`%c[PortalHelper] DOM: total=${allCbs.length}, fault-cb=${codes.length}, note-cb=${notes.length}`, 'color:#60a5fa');
 
     // عرض قيم الـ checkboxes
@@ -967,6 +1079,27 @@ function getCSS() {
     el.style.color = type === 'success' ? '#4ade80' : type === 'error' ? '#ef4444' : type === 'warn' ? '#fbbf24' : '#94a3b8';
   }
 
+  // منع التشغيل المتوازي لأي تنفيذ (نقر مزدوج / اختصارات متعددة / بوب-اب + لوحة)
+  let execLock = false;
+  async function runExclusive(shadow, label, fn) {
+    if (execLock) {
+      logEvent('EXEC', `مرفوض (${label}): يوجد تنفيذ جارٍ`);
+      setStatus(shadow, '⏳ يوجد تنفيذ جارٍ — انتظر انتهائه', 'warn');
+      return;
+    }
+    execLock = true;
+    setStatus(shadow, `⏳ جارٍ: ${label}…`, 'warn');
+    try {
+      await fn();
+    } catch (e) {
+      console.error('[PortalHelper] EXEC ERROR:', label, e);
+      logEvent('EXEC', `خطأ (${label}): ${e && e.message}`);
+      setStatus(shadow, `❌ خطأ: ${e && e.message}`, 'error');
+    } finally {
+      execLock = false;
+    }
+  }
+
   function updateTab(shadow) {
     const page = detectPage();
     logEvent('TAB', `الصفحة الحالية: ${page}`);
@@ -1020,6 +1153,15 @@ function getCSS() {
     return false;
   }
 
+  // مصدر واحد لكشف "تركيب": الحقول المهيكلة أولًا (أقوى) ثم منطق الـ engine المشترك
+  function resolveIsInstall() {
+    try { if (detectInstallation()) return true; } catch(_) {}
+    if (typeof isInstallationReport === 'function') {
+      try { if (isInstallationReport() === true) return true; } catch(_) {}
+    }
+    return false;
+  }
+
   const PAGE_WARN_ID = 'cp-page-install-warn';
 
   function findAttachmentsField() {
@@ -1040,7 +1182,7 @@ function getCSS() {
   function injectInstallWarnIntoPage() {
     try {
       document.getElementById(PAGE_WARN_ID)?.remove();
-      if (!detectInstallation()) return;
+      if (!resolveIsInstall()) return;
       const attach = findAttachmentsField();
       if (!attach) { logEvent('INSTALL', 'مرفقات غير موجودة في الصفحة'); return; }
       const { el } = attach;
@@ -1061,7 +1203,7 @@ function getCSS() {
     const info = shadow.getElementById('cp-device-info');
     if (!info) return;
     const device = readDeviceHint();
-    const isInstall = detectInstallation();
+    const isInstall = resolveIsInstall();
     const typeLabel = isInstall ? 'تركيب' : 'صيانة';
     const typeClass = isInstall ? 'cp-install' : 'cp-maintenance';
     info.innerHTML = `الجهاز: <b>${device || 'غير معروف'}</b><br>نوع البلاغ: <span class="${typeClass}">${typeLabel}</span>`;
@@ -1076,7 +1218,7 @@ function getCSS() {
     if (!span || !list) { logEvent('CODES', 'span أو list غير موجود'); return; }
     const device = readDeviceHint();
     span.textContent = device || 'غير معروف';
-    const isInstall = (typeof isInstallationReport === 'function') ? isInstallationReport() : false;
+    const isInstall = resolveIsInstall();
     logEvent('CODES', `device="${device}" isInstall=${isInstall}`);
     const isAC = getDeviceAC();
     logEvent('CODES', `device="${device}" isAC=${isAC}`);
@@ -1088,11 +1230,12 @@ function getCSS() {
 <label class="cp-check"><input type="checkbox" class="fault-cb" value="AC006,F01,AC7000F01"> <span>AC006 — سحب الجهاز <span class="cp-badge">F01</span></span></label>
 <label class="cp-check"><input type="checkbox" class="fault-cb" value="AC006,F02,AC7000F02"> <span>AC006 — إرجاع الجهاز <span class="cp-badge">F02</span></span></label>
 <label class="cp-check"><input type="checkbox" class="fault-cb" value="AC005,N02,AC0000N02"> <span>AC005 — لا يوجد عطل <span class="cp-badge">N02</span></span></label>`;
-      logEvent('CODES', 'تم إنشاء 4 checkboxes');
+      logEvent('CODES', `تم إنشاء ${list.querySelectorAll('.fault-cb').length} checkboxes`);
     } else {
       list.innerHTML = '<div class="cp-empty">لا توجد أكواد افتراضية لهذا الجهاز</div>';
       logEvent('CODES', 'لم يتم إنشاء checkboxes (ليس AC)');
     }
+    refreshCopiedCodesPreview(shadow);
     updateDeviceNotes(shadow);
   }
 
@@ -1117,6 +1260,8 @@ function getCSS() {
   function setupNoteDrag(shadow) {
     const list = shadow.getElementById('cp-notes-list');
     if (!list) return;
+    if (list.dataset.bound === '1') return; // ربط مرة واحدة فقط (كان يُكرر في كل إعادة رسم)
+    list.dataset.bound = '1';
     let dragSrc = null;
     list.addEventListener('dragstart', (e) => {
       const item = e.target.closest('.cp-note-item');
@@ -1565,7 +1710,7 @@ function getCSS() {
 
       if (addProblems) {
         const device = readDeviceHint();
-        const isInstall = (typeof isInstallationReport === 'function') ? isInstallationReport() : false;
+        const isInstall = resolveIsInstall();
         logEvent('EXEC_PAGE2', `إضافة مشاكل: الجهاز=${device}, النوع=${isInstall ? 'تركيب' : 'صيانة'}`);
         const probCode = typeof getSmartProblemCode === 'function'
           ? await getSmartProblemCode(device, isInstall)
@@ -1611,8 +1756,854 @@ function getCSS() {
   }
 
   // ════════════════════════════════════════════
-  // PAGE 3
+  // PAGE 3 — نسخ ولصق أكواد الأعطال (JSON)
   // ════════════════════════════════════════════
+  function readNotesFromPage() {
+    const el = document.querySelector('#ldv_resourcelastcomment, textarea[aria-label*="Notes"], textarea[aria-label*="ملاحظات"], textarea[id*="notes"], input[aria-label*="التعليق"], #notes');
+    if (el) return (el.value || el.innerText || '').trim();
+    for (const ifr of document.querySelectorAll('iframe')) {
+      try {
+        const iDoc = ifr.contentDocument || ifr.contentWindow?.document;
+        if (iDoc) {
+          const ifrEl = iDoc.querySelector('#ldv_resourcelastcomment, textarea[aria-label*="Notes"], textarea[aria-label*="ملاحظات"], textarea[id*="notes"], input[aria-label*="التعليق"], #notes');
+          if (ifrEl) return (ifrEl.value || ifrEl.innerText || '').trim();
+        }
+      } catch(_) {}
+    }
+    return '';
+  }
+
+  function readCollectedAmountFromPage() {
+    const el = document.querySelector('#ldv_actualcollectedamount, input[aria-label*="المبلغ المحصل"], input.money.form-control');
+    if (el) return (el.value || el.innerText || '0').replace(/[^0-9.]/g, '') || '0';
+    for (const ifr of document.querySelectorAll('iframe')) {
+      try {
+        const iDoc = ifr.contentDocument || ifr.contentWindow?.document;
+        if (iDoc) {
+          const ifrEl = iDoc.querySelector('#ldv_actualcollectedamount, input[aria-label*="المبلغ المحصل"], input.money.form-control');
+          if (ifrEl) return (ifrEl.value || ifrEl.innerText || '0').replace(/[^0-9.]/g, '') || '0';
+        }
+      } catch(_) {}
+    }
+    return '0';
+  }
+
+  function extractFaultCodesFromPage(shadow) {
+    const allDocs = [document, ...Array.from(document.querySelectorAll('iframe'))
+      .map(f => { try { return f.contentDocument || f.contentWindow?.document; } catch(e) { return null; } })
+      .filter(Boolean)];
+
+    const faultCodes = [];
+    const seen = new Set();
+
+    for (const doc of allDocs) {
+      // 1. البحث في صفوف Dataverse المهيكلة (ldv_workorder_defect)
+      const rows = doc.querySelectorAll('tr[data-entity="ldv_workorder_defect"]');
+      rows.forEach(tr => {
+        let majorCode = '', majorName = '', majorId = '';
+        let defectCode = '', defectId = '';
+        let description = '', fullCode = '';
+
+        const majorTd = tr.querySelector('td[data-attribute="ats_defectmajor"]');
+        if (majorTd) {
+          majorName = (majorTd.innerText || '').trim();
+          try {
+            const rawVal = majorTd.getAttribute('data-value');
+            if (rawVal) {
+              const val = JSON.parse(rawVal);
+              if (val.Id) majorId = val.Id;
+              if (val.Name) majorName = val.Name;
+            }
+          } catch(_) {}
+        }
+
+        const defectTd = tr.querySelector('td[data-attribute="ldv_defect"], td[data-attribute="ldv_defectcode"]');
+        if (defectTd) {
+          defectCode = (defectTd.innerText || '').trim();
+          try {
+            const rawVal = defectTd.getAttribute('data-value');
+            if (rawVal) {
+              const val = JSON.parse(rawVal);
+              if (val.Id) defectId = val.Id;
+              if (val.Name) defectCode = val.Name;
+            }
+          } catch(_) {}
+        }
+
+        const descTd = tr.querySelector('td[data-attribute="ats_defectdescription"], td[data-attribute*="description"]');
+        if (descTd) {
+          description = (descTd.innerText || descTd.getAttribute('data-value') || '').trim();
+        }
+
+        if (majorName) {
+          const parts = majorName.split(/\s*[-–—_]\s*/);
+          majorCode = parts[0]?.trim() || majorName;
+        }
+        if (description) {
+          const parts = description.split(/\s*[-–—_]\s*/);
+          fullCode = parts[0]?.trim() || '';
+        }
+        if (!fullCode && defectCode) fullCode = defectCode;
+
+        const key = `${majorCode}|${defectCode}|${fullCode}`;
+        if (!seen.has(key) && (majorCode || defectCode || fullCode)) {
+          seen.add(key);
+          faultCodes.push({
+            majorCode: majorCode || '',
+            majorName: majorName || '',
+            majorId: majorId || '',
+            defectCode: defectCode || '',
+            defectId: defectId || '',
+            fullCode: fullCode || '',
+            description: description || ''
+          });
+        }
+      });
+
+      // 2. فحص الجداول العامة حسب ترويسات الأعمدة
+      if (faultCodes.length === 0) {
+        const tables = doc.querySelectorAll('table');
+        tables.forEach(table => {
+          const ths = Array.from(table.querySelectorAll('thead th, tr:first-child th')).map(th => (th.innerText || '').trim());
+          const majorColIdx = ths.findIndex(t => /كود\s*العطل\s*الرئيسي/i.test(t));
+          const defectColIdx = ths.findIndex(t => /^كود\s*العطل/i.test(t));
+          const descColIdx = ths.findIndex(t => /وصف\s*كود\s*العطل/i.test(t));
+
+          if (majorColIdx >= 0 || defectColIdx >= 0) {
+            const trs = table.querySelectorAll('tbody tr');
+            trs.forEach(tr => {
+              const tds = tr.querySelectorAll('td');
+              if (tds.length === 0) return;
+              const mText = majorColIdx >= 0 && tds[majorColIdx] ? tds[majorColIdx].innerText.trim() : '';
+              const dText = defectColIdx >= 0 && tds[defectColIdx] ? tds[defectColIdx].innerText.trim() : '';
+              const descText = descColIdx >= 0 && tds[descColIdx] ? tds[descColIdx].innerText.trim() : '';
+              if (mText || dText) {
+                const mCode = mText.split(/\s*[-–—_]\s*/)[0]?.trim() || mText;
+                const fCode = descText ? (descText.split(/\s*[-–—_]\s*/)[0]?.trim() || dText) : dText;
+                const key = `${mCode}|${dText}|${fCode}`;
+                if (!seen.has(key)) {
+                  seen.add(key);
+                  faultCodes.push({
+                    majorCode: mCode,
+                    majorName: mText,
+                    defectCode: dText,
+                    fullCode: fCode,
+                    description: descText
+                  });
+                }
+              }
+            });
+          }
+        });
+      }
+    }
+
+    // 3. كود احتياطي: لو لم تكن هناك صفوف بالجدول، قراءة الأكواد المحددة بالـ checkboxes في اللوحة
+    if (faultCodes.length === 0 && shadow) {
+      const checked = shadow.querySelectorAll('.fault-cb:checked');
+      checked.forEach(cb => {
+        const parts = cb.value.split(',');
+        const m = parts[0] || '';
+        const s = parts[1] || '';
+        const full = parts[2] || '';
+        const label = cb.closest('label')?.innerText?.trim() || '';
+        faultCodes.push({
+          majorCode: m,
+          majorName: label || m,
+          defectCode: s,
+          fullCode: full || s || m,
+          description: label
+        });
+      });
+    }
+
+    const partsRes = readPartsFromGrid();
+    const amtVal = shadow ? (shadow.getElementById('cp-amount')?.value?.trim() || readCollectedAmountFromPage()) : readCollectedAmountFromPage();
+    const notesVal = readNotesFromPage();
+
+    return {
+      type: 'ELARABY_CODES_BUNDLE',
+      version: 1,
+      copiedAt: new Date().toISOString(),
+      sourceUrl: location.pathname + location.search,
+      faultCodes,
+      spareParts: partsRes?.parts || [],
+      amount: amtVal || '0',
+      notes: notesVal || ''
+    };
+  }
+
+  function refreshCopiedCodesPreview(shadow) {
+    const preview = shadow.getElementById('cp-codes-preview');
+    if (!preview) return;
+    try {
+      const raw = localStorage.getItem('elaraby_copied_codes_bundle');
+      if (!raw) {
+        preview.style.display = 'none';
+        preview.innerHTML = '';
+        return;
+      }
+      const bundle = JSON.parse(raw);
+      if (bundle && ((Array.isArray(bundle.faultCodes) && bundle.faultCodes.length > 0) || (Array.isArray(bundle.spareParts) && bundle.spareParts.length > 0))) {
+        const partsCount = bundle.spareParts?.length || 0;
+        const codesCount = bundle.faultCodes?.length || 0;
+        const codesSummary = (bundle.faultCodes || []).map(c => c.fullCode || c.defectCode || c.majorCode).join('، ');
+        const partsText = partsCount > 0 ? ` + <b>${partsCount} قطعة غيار</b>` : '';
+        preview.innerHTML = `<span>📋 <b>${codesCount} كود منسوخ</b>${partsText} جاهز للصق: ${codesSummary}</span>`;
+        preview.style.display = 'block';
+      } else {
+        preview.style.display = 'none';
+      }
+    } catch(_) {
+      preview.style.display = 'none';
+    }
+  }
+
+  async function copyCodesAction(shadow) {
+    logEvent('COPY_CODES', 'بدء نسخ الأكواد من الصفحة');
+    setStatus(shadow, '⏳ جاري استخراج الأكواد من الصفحة...');
+    try {
+      const bundle = extractFaultCodesFromPage(shadow);
+      if ((!bundle.faultCodes || bundle.faultCodes.length === 0) && (!bundle.spareParts || bundle.spareParts.length === 0)) {
+        setStatus(shadow, '⚠️ لم يتم العثور على أكواد أعطال أو قطع غيار لنسخها في هذه الصفحة', 'warn');
+        logEvent('COPY_CODES', 'لا توجد أكواد أعطال أو قطع غيار في الصفحة');
+        return;
+      }
+
+      const jsonStr = JSON.stringify(bundle, null, 2);
+      let copiedToClip = false;
+      try {
+        await navigator.clipboard.writeText(jsonStr);
+        copiedToClip = true;
+      } catch (err) {
+        logEvent('COPY_CODES', 'تعذر الكتابة المباشرة للحافظة، جاري الحفظ محلياً: ' + (err?.message || err));
+      }
+
+      try {
+        localStorage.setItem('elaraby_copied_codes_bundle', jsonStr);
+      } catch(_) {}
+
+      refreshCopiedCodesPreview(shadow);
+
+      const codesSummary = (bundle.faultCodes || []).map(c => c.fullCode || c.defectCode || c.majorCode).join('، ');
+      const partsSummary = (bundle.spareParts && bundle.spareParts.length > 0) ? ` و ${bundle.spareParts.length} قطعة غيار` : '';
+      const msg = `✅ تم نسخ ${(bundle.faultCodes || []).length} كود عطل${partsSummary} (${codesSummary})`;
+      setStatus(shadow, msg, 'success');
+      logEvent('COPY_CODES', `${msg} | الحافظة: ${copiedToClip ? 'نعم' : 'محلي فقط'}`);
+    } catch (e) {
+      logEvent('COPY_CODES', `خطأ: ${e.message || e}`);
+      setStatus(shadow, '❌ خطأ أثناء النسخ: ' + (e.message || ''), 'error');
+    }
+  }
+
+  function isModalOpenSafe(m) {
+    if (!m) return false;
+    if (m.classList.contains('in') || m.classList.contains('show')) return true;
+    if (m.style.display === 'block') return true;
+    try {
+      const s = window.getComputedStyle(m);
+      return s.display !== 'none' && s.visibility !== 'hidden';
+    } catch(_) { return false; }
+  }
+
+  async function safeClick(el) {
+    if (!el) return false;
+    try { el.focus(); } catch(_) {}
+    for (const ev of ['pointerdown', 'mousedown', 'pointerup', 'mouseup', 'click']) {
+      try {
+        el.dispatchEvent(new MouseEvent(ev, { bubbles: true, cancelable: true, view: window }));
+      } catch(_) {}
+    }
+    return true;
+  }
+
+  async function fillIframeLookup(iframeDoc, inputId, searchValue) {
+    if (!iframeDoc || !inputId) return { ok: false, reason: 'معاملات البحث غير صالحة' };
+    const input = iframeDoc.getElementById(inputId);
+    if (!input) return { ok: false, reason: `الحقل ${inputId} غير موجود في النموذج` };
+
+    const group = input.closest('.input-group') || input.parentElement;
+    const launchBtn = group?.querySelector('button.launchentitylookup') || 
+                      group?.querySelector('button[aria-label*="Launch"], button[title*="Launch"]') ||
+                      group?.querySelectorAll('button')[1] ||
+                      group?.querySelector('button');
+
+    if (!launchBtn) return { ok: false, reason: `زر فتح البحث لـ ${inputId} غير موجود` };
+
+    // تفريغ القيمة السابقة إذا كانت موجودة
+    const clearBtn = group.querySelector('button[aria-label*="Clear"], button[title*="Clear"]');
+    if (clearBtn && input.value) {
+      await safeClick(clearBtn);
+      await sleep(400);
+    }
+
+    logEvent('PASTE_CODES', `فتح نافذة البحث لـ ${inputId}: "${searchValue}"`);
+    await safeClick(launchBtn);
+    await sleep(1500);
+
+    // البحث عن نافذة الـ lookup داخل iframeDoc تحديداً لمنع التداخل مع المودال الخارجي
+    let lookupModal = null;
+    const deadline = Date.now() + 10000;
+    while (Date.now() < deadline) {
+      const modals = Array.from(iframeDoc.querySelectorAll('.modal.modal-lookup, .modal'));
+      lookupModal = modals.find(m => {
+        if (!m.classList.contains('modal-lookup')) return false;
+        return m.classList.contains('in') || m.classList.contains('show') || window.getComputedStyle(m).display === 'block';
+      });
+      if (lookupModal) break;
+      await sleep(350);
+    }
+
+    if (!lookupModal) {
+      logEvent('PASTE_CODES', `نافذة البحث لـ ${inputId} لم تظهر`);
+      return { ok: false, reason: `نافذة البحث لـ ${inputId} لم تظهر` };
+    }
+
+    const searchInput = lookupModal.querySelector('.query, input[type="text"]');
+    const searchBtn = lookupModal.querySelector('button[aria-label="Search Results"], button[title="Search Results"]') ||
+                      lookupModal.querySelector('button.search-btn, button.btn-default');
+
+    let cleanSearch = (searchValue || '').trim();
+    if (cleanSearch.includes('(')) {
+      cleanSearch = cleanSearch.split('(')[0].trim();
+    }
+    const partsWithSpaces = cleanSearch.split(/\s+[-–—_]\s+/);
+    if (partsWithSpaces.length > 1) {
+      cleanSearch = partsWithSpaces[0].trim();
+    }
+
+    if (cleanSearch && searchInput && searchBtn) {
+      logEvent('PASTE_CODES', `كتابة نص البحث: "${cleanSearch}"`);
+      searchInput.value = cleanSearch;
+      try { searchInput.dispatchEvent(new Event('input', { bubbles: true })); } catch(_) {}
+      try { searchInput.dispatchEvent(new Event('change', { bubbles: true })); } catch(_) {}
+      await safeClick(searchBtn);
+      await sleep(1800);
+    }
+
+    // قراءة صفوف النتائج
+    let rows = Array.from(lookupModal.querySelectorAll('table tbody tr')).filter(r => {
+      try {
+        if (r.offsetParent === null) return false;
+        const txt = r.innerText.trim();
+        return txt.length > 0 && !/no\s*records|لا\s*توجد/i.test(txt);
+      } catch(_) { return false; }
+    });
+
+    // لو لم تظهر نتائج بالبحث النصي المحدد، مسح حقل البحث وعرض كل السجلات المتاحة للموديل/العطل
+    if (rows.length === 0 && searchInput && searchBtn) {
+      logEvent('PASTE_CODES', `لا توجد نتائج لـ "${cleanSearch}"، جاري مسح البحث وعرض كل الخيارات المتاحة`);
+      searchInput.value = '';
+      try { searchInput.dispatchEvent(new Event('input', { bubbles: true })); } catch(_) {}
+      try { searchInput.dispatchEvent(new Event('change', { bubbles: true })); } catch(_) {}
+      await safeClick(searchBtn);
+      await sleep(1800);
+      rows = Array.from(lookupModal.querySelectorAll('table tbody tr')).filter(r => {
+        try {
+          if (r.offsetParent === null) return false;
+          const txt = r.innerText.trim();
+          return txt.length > 0 && !/no\s*records|لا\s*توجد/i.test(txt);
+        } catch(_) { return false; }
+      });
+    }
+
+    if (rows.length === 0) {
+      logEvent('PASTE_CODES', `لا توجد صفوف نتائج في بحث ${inputId} عن "${cleanSearch}"`);
+      const closeBtn = lookupModal.querySelector('button.close, [data-dismiss="modal"]');
+      if (closeBtn) await safeClick(closeBtn);
+      return { ok: false, reason: `لا توجد نتائج مطابقة لـ "${cleanSearch}"` };
+    }
+
+    // مطابقة الصف الأنسب
+    const targetLower = cleanSearch.toLowerCase();
+    const matchRow = rows.find(r => r.innerText.toLowerCase().includes(targetLower)) || rows[0];
+
+    await safeClick(matchRow);
+    const radio = matchRow.querySelector('input[type="radio"], input[type="checkbox"]');
+    if (radio) {
+      radio.checked = true;
+      try { radio.dispatchEvent(new Event('change', { bubbles: true })); } catch(_) {}
+    }
+
+    await sleep(400);
+
+    const selectBtn = Array.from(lookupModal.querySelectorAll('button, input[type="button"]')).find(b => {
+      const t = (b.innerText || b.getAttribute('aria-label') || b.title || b.value || '').trim();
+      return /^(اختر|select)$/i.test(t) || (b.classList.contains('btn-primary') && !/بحث|search/i.test(t));
+    }) || lookupModal.querySelector('button.btn-primary, button.primary, button[aria-label*="Select"], button[title*="Select"], button[aria-label*="اختر"], button[title*="اختر"]');
+
+    if (selectBtn) {
+      selectBtn.removeAttribute('disabled');
+      selectBtn.classList.remove('disabled');
+      await safeClick(selectBtn);
+      try { selectBtn.click(); } catch(_) {}
+    }
+
+    const lookupCloseDeadline = Date.now() + 8000;
+    while (Date.now() < lookupCloseDeadline) {
+      if (!isModalOpenSafe(lookupModal) || !iframeDoc.body.contains(lookupModal)) break;
+      await sleep(300);
+    }
+
+    await sleep(1000);
+    logEvent('PASTE_CODES', `تم اختيار القيمة بنجاح لـ ${inputId}: "${input.value}"`);
+    return { ok: true, val: input.value };
+  }
+
+  async function addSparePartPage3(spObj, faultCodeObj = null) {
+    if (!spObj) return { ok: false, reason: 'بيانات قطعة الغيار غير صالحة' };
+    const majorSearch = (faultCodeObj?.majorCode || faultCodeObj?.majorName || spObj.majorCode || spObj.majorName || '').trim();
+    const subSearch = (faultCodeObj?.defectCode || faultCodeObj?.fullCode || spObj.defectCode || spObj.defect || spObj.fullCode || '').trim();
+    const partSearch = (spObj.name || spObj.code || spObj.product || '').trim();
+    const partCodeOnly = (spObj.code || partSearch.split(/\s*[_–—]\s*/)[0] || '').trim();
+    const qty = String(spObj.qty || 1);
+
+    // 1. التحقق من وجود قطعة الغيار في الجدول بالفعل
+    const spGrids = ['InventoryAdjustmentProduct_Subgrid', 'InventoryAdjustmentProduct_SubGrid', 'InventoryAdjustmentProductIsLscYes_Subgrid'];
+    for (const gid of spGrids) {
+      const g = document.getElementById(gid);
+      if (g) {
+        const rows = Array.from(g.querySelectorAll('table tbody tr')).filter(r => {
+          const txt = (r.innerText || '').toLowerCase();
+          const codeClean = partCodeOnly.replace(/[^a-z0-9]/gi, '').toLowerCase();
+          if (partCodeOnly && txt.includes(partCodeOnly.toLowerCase())) return true;
+          if (codeClean && txt.replace(/[^a-z0-9]/gi, '').includes(codeClean)) return true;
+          return false;
+        });
+        if (rows.length > 0) {
+          logEvent('PASTE_CODES', `قطعة الغيار ${partSearch} موجودة بالفعل في ${gid} — تخطي`);
+          return { ok: true, name: partSearch, alreadyExists: true };
+        }
+      }
+    }
+
+    // 2. العثور على زر إضافة قطعة غيار المرئي مع مهلة انتظار لتحديث الـ Ajax
+    let addBtn = null;
+    const allDocs = [document, ...Array.from(document.querySelectorAll('iframe'))
+      .map(f => { try { return f.contentDocument || f.contentWindow?.document; } catch(e) { return null; } })
+      .filter(Boolean)];
+
+    const findBtnDeadline = Date.now() + 12000;
+    while (Date.now() < findBtnDeadline) {
+      for (const doc of allDocs) {
+        const candidates = Array.from(doc.querySelectorAll('a, button, input[type="button"]')).filter(b => {
+          try {
+            if (b.offsetParent === null) return false;
+            const s = window.getComputedStyle(b);
+            return s.display !== 'none' && s.visibility !== 'hidden';
+          } catch(_) { return false; }
+        });
+        addBtn = candidates.find(b => {
+          const t = (b.innerText || b.title || b.value || '').trim();
+          return /[اإأ]ضاف[ةه]\s*قطعة\s*غيار|Add.*Spare.*Part|Add.*Product/i.test(t) && !/الموديل\s*2/i.test(t);
+        }) || candidates.find(b => /[اإأ]ضاف[ةه]\s*قطعة\s*غيار|Add.*Spare.*Part/i.test((b.innerText || b.title || b.value || '').trim()));
+        if (addBtn) break;
+      }
+      if (addBtn) break;
+      await sleep(400);
+    }
+
+    if (!addBtn) {
+      logEvent('PASTE_CODES', 'لم يتم العثور على زر إضافة قطعة غيار مرئي');
+      return { ok: false, reason: 'زر إضافة قطعة غيار غير موجود أو غير مرئي' };
+    }
+
+    if (window.$ && window.$._data) {
+      try {
+        const ev = window.$._data(addBtn, 'events');
+        if (ev?.click?.[0]) ev.click[0].handler({ preventDefault: () => {} });
+      } catch(_) {}
+    }
+    await safeClick(addBtn);
+    try { addBtn.click(); } catch(_) {}
+    await sleep(1500);
+
+    // 3. انتظار ظهور النافذة المنبثقة (المودال) - فحص كافة المودالات في الصفحة للوصول للمودال المفتوح فعلياً
+    let modal = null;
+    const deadline = Date.now() + 10000;
+    while (Date.now() < deadline) {
+      for (const doc of allDocs) {
+        const modals = Array.from(doc.querySelectorAll('.modal.modal-form-insert, .modal.in, .modal.show, section.modal, div[role="dialog"]'));
+        modal = modals.find(m => isModalOpenSafe(m) && m.querySelector('iframe'));
+        if (modal) break;
+      }
+      if (modal) break;
+      await sleep(350);
+    }
+    if (!modal) {
+      logEvent('PASTE_CODES', 'مودال إضافة قطعة غيار لم يفتح');
+      return { ok: false, reason: 'نافذة إضافة قطعة غيار لم تفتح' };
+    }
+
+    // 4. انتظار تحميل الآي فريم داخل المودال
+    let iframeDoc = null;
+    const iframeDeadline = Date.now() + 12000;
+    while (Date.now() < iframeDeadline) {
+      const ifr = modal.querySelector('iframe');
+      if (ifr) {
+        try {
+          const d = ifr.contentDocument || ifr.contentWindow?.document;
+          if (d && (d.readyState === 'complete' || d.readyState === 'interactive')) {
+            if (d.querySelector('#ats_modeldefectmajor_name, #ats_modeldefectspid_name, button')) {
+              iframeDoc = d;
+              break;
+            }
+          }
+        } catch(_) {}
+      }
+      await sleep(400);
+    }
+
+    if (!iframeDoc) {
+      const closeBtn = modal.querySelector('button.form-close, button.close, [data-dismiss="modal"]');
+      if (closeBtn) closeBtn.click();
+      return { ok: false, reason: 'فشل تحميل إطار نموذج إضافة قطعة الغيار' };
+    }
+
+    await sleep(1000);
+
+    // 5. كود العطل الرئيسي
+    if (majorSearch) {
+      await fillIframeLookup(iframeDoc, 'ats_modeldefectmajor_name', majorSearch);
+      await sleep(2000);
+    }
+
+    // 6. كود العطل الفرعي
+    if (subSearch) {
+      await fillIframeLookup(iframeDoc, 'ats_defectcodedefectmajor_name', subSearch);
+      await sleep(1500);
+    }
+
+    // 7. قطعة الغيار
+    if (partCodeOnly || partSearch) {
+      await fillIframeLookup(iframeDoc, 'ats_modeldefectspid_name', partCodeOnly || partSearch);
+      await sleep(1200);
+    }
+
+    // 8. الكمية
+    const qtyInput = iframeDoc.getElementById('ats_quantity');
+    if (qtyInput) {
+      qtyInput.value = qty;
+      try { qtyInput.dispatchEvent(new Event('input', { bubbles: true })); } catch(_) {}
+      try { qtyInput.dispatchEvent(new Event('change', { bubbles: true })); } catch(_) {}
+    }
+
+    // 9. زر الحفظ
+    const saveBtn = iframeDoc.querySelector('#InsertButton, #SubmitButton, input[value="حفظ"], input[value="Submit"], button[type="submit"], input[type="submit"], button.btn-primary');
+    if (saveBtn) {
+      logEvent('PASTE_CODES', 'نقر زر حفظ قطعة الغيار');
+      await safeClick(saveBtn);
+      try { saveBtn.click(); } catch(_) {}
+      const saveDeadline = Date.now() + 15000;
+      while (Date.now() < saveDeadline) {
+        if (!isModalOpenSafe(modal) || !document.body.contains(modal)) break;
+        await sleep(400);
+      }
+      await sleep(2500); // إتاحة وقت كافي للبورتال لتحديث شبكة المنتجات AJAX
+      return { ok: true, name: partSearch || partCodeOnly };
+    }
+
+    const closeBtn = modal.querySelector('button.form-close, button.close, [data-dismiss="modal"]');
+    if (closeBtn) closeBtn.click();
+    return { ok: false, reason: 'زر الحفظ غير موجود في نموذج قطعة الغيار' };
+  }
+
+  async function addSingleFaultCode(codeObj) {
+    if (!codeObj) return { ok: false, reason: 'بيانات الكود غير صالحة' };
+    const mainSearch = (codeObj.majorCode || codeObj.majorName || codeObj.fullCode || '').trim();
+    const subSearch = (codeObj.defectCode || codeObj.fullCode || codeObj.description || '').trim();
+
+    if (!mainSearch && !subSearch) return { ok: false, reason: 'لا يوجد كود رئيسي أو فرعي للبحث' };
+
+    // التحقق من وجود كود العطل مسبقاً
+    const defectGrids = ['WorkOrder_defect', 'WorkOrder_Defects', 'WorkOrderDefectIsLscYes_Subgrid'];
+    for (const gid of defectGrids) {
+      const g = document.getElementById(gid);
+      if (g) {
+        const rows = Array.from(g.querySelectorAll('table tbody tr')).filter(r => {
+          const txt = (r.innerText || '').toLowerCase();
+          if (subSearch && txt.includes(subSearch.toLowerCase())) return true;
+          if (mainSearch && txt.includes(mainSearch.toLowerCase())) return true;
+          return false;
+        });
+        if (rows.length > 0) {
+          logEvent('PASTE_CODES', `كود العطل ${subSearch || mainSearch} موجود بالفعل في ${gid} — تخطي`);
+          return { ok: true, name: subSearch || mainSearch, alreadyExists: true };
+        }
+      }
+    }
+
+    // 1. العثور على زر إضافة كود عطل المرئي مع مهلة انتظار
+    let addBtn = null;
+    const allDocs = [document, ...Array.from(document.querySelectorAll('iframe'))
+      .map(f => { try { return f.contentDocument || f.contentWindow?.document; } catch(e) { return null; } })
+      .filter(Boolean)];
+
+    const findBtnDeadline = Date.now() + 12000;
+    while (Date.now() < findBtnDeadline) {
+      for (const doc of allDocs) {
+        const candidates = Array.from(doc.querySelectorAll('a, button, input[type="button"]')).filter(b => {
+          try {
+            if (b.offsetParent === null) return false;
+            const s = window.getComputedStyle(b);
+            return s.display !== 'none' && s.visibility !== 'hidden';
+          } catch(_) { return false; }
+        });
+        addBtn = candidates.find(b => /[اإأ]ضاف[ةه]\s*كود\s*عطل|Add.*Defect/i.test((b.innerText || b.title || b.value || '').trim()));
+        if (addBtn) break;
+      }
+      if (addBtn) break;
+      await sleep(400);
+    }
+
+    if (!addBtn) {
+      logEvent('PASTE_CODES', 'لم يتم العثور على زر إضافة كود عطل مرئي');
+      return { ok: false, reason: 'زر إضافة كود عطل غير موجود أو غير مرئي' };
+    }
+
+    if (window.$ && window.$._data) {
+      try {
+        const ev = window.$._data(addBtn, 'events');
+        if (ev?.click?.[0]) ev.click[0].handler({ preventDefault: () => {} });
+      } catch(_) {}
+    }
+    await safeClick(addBtn);
+    try { addBtn.click(); } catch(_) {}
+    await sleep(1500);
+
+    // 2. انتظار ظهور النافذة المنبثقة (المودال الخارجي)
+    let modal = null;
+    const deadline = Date.now() + 10000;
+    while (Date.now() < deadline) {
+      for (const doc of allDocs) {
+        const modals = Array.from(doc.querySelectorAll('.modal.modal-form-insert, .modal.in, .modal.show, section.modal, div[role="dialog"]'));
+        modal = modals.find(m => isModalOpenSafe(m) && m.querySelector('iframe'));
+        if (modal) break;
+      }
+      if (modal) break;
+      await sleep(350);
+    }
+    if (!modal) {
+      logEvent('PASTE_CODES', 'مودال إضافة كود عطل لم يفتح');
+      return { ok: false, reason: 'نافذة إضافة كود عطل لم تفتح' };
+    }
+
+    // 3. انتظار تحميل الآي فريم داخل المودال
+    let iframeDoc = null;
+    const iframeDeadline = Date.now() + 12000;
+    while (Date.now() < iframeDeadline) {
+      const ifr = modal.querySelector('iframe');
+      if (ifr) {
+        try {
+          const d = ifr.contentDocument || ifr.contentWindow?.document;
+          if (d && (d.readyState === 'complete' || d.readyState === 'interactive')) {
+            if (d.querySelector('#ats_modeldefectmajor_name, button')) {
+              iframeDoc = d;
+              break;
+            }
+          }
+        } catch(_) {}
+      }
+      await sleep(400);
+    }
+
+    if (!iframeDoc) {
+      const closeBtn = modal.querySelector('button.form-close, button.close, [data-dismiss="modal"]');
+      if (closeBtn) closeBtn.click();
+      return { ok: false, reason: 'فشل تحميل إطار نموذج إضافة كود العطل (iframe)' };
+    }
+
+    await sleep(1000);
+
+    // 4. خطوة كود العطل الرئيسي (Major defect lookup)
+    if (mainSearch) {
+      await fillIframeLookup(iframeDoc, 'ats_modeldefectmajor_name', mainSearch);
+      await sleep(2000);
+    }
+
+    // 5. خطوة كود العطل الفرعي (Sub defect lookup)
+    if (subSearch) {
+      await fillIframeLookup(iframeDoc, 'ats_defectcodedefectmajor_name', subSearch);
+      await sleep(1200);
+    }
+
+    // 6. نقر زر الحفظ (InsertButton / SubmitButton)
+    const saveBtn = iframeDoc.querySelector('#InsertButton, #SubmitButton, input[value="حفظ"], input[value="Submit"], button[type="submit"], input[type="submit"], button.btn-primary');
+    if (saveBtn) {
+      logEvent('PASTE_CODES', 'نقر زر حفظ كود العطل');
+      await safeClick(saveBtn);
+      try { saveBtn.click(); } catch(_) {}
+      const saveDeadline = Date.now() + 15000;
+      while (Date.now() < saveDeadline) {
+        if (!isModalOpenSafe(modal) || !document.body.contains(modal)) break;
+        await sleep(400);
+      }
+      await sleep(2500); // إتاحة وقت كافي للبورتال لتحديث شبكة الأعطال AJAX
+      return { ok: true, name: subSearch || mainSearch };
+    }
+
+    const closeBtn = modal.querySelector('button.form-close, button.close, [data-dismiss="modal"]');
+    if (closeBtn) closeBtn.click();
+    return { ok: false, reason: 'لم يتم العثور على زر الحفظ' };
+  }
+
+  async function pasteCodesAction(shadow) {
+    logEvent('PASTE_CODES', 'بدء لصق الأكواد وقطع الغيار');
+    setStatus(shadow, '⏳ جاري قراءة البيانات المحفوظة...');
+    try {
+      let bundle = null;
+      try {
+        const clipText = await navigator.clipboard.readText();
+        if (clipText) {
+          const trimmed = clipText.trim();
+          if (trimmed.startsWith('{') || trimmed.startsWith('[')) {
+            const parsed = JSON.parse(trimmed);
+            if (Array.isArray(parsed) && parsed.length > 0) {
+              bundle = { faultCodes: parsed };
+              logEvent('PASTE_CODES', 'تم قراءة مصفوفة أكواد من الحافظة');
+            } else if (parsed && (Array.isArray(parsed.faultCodes) || Array.isArray(parsed.spareParts))) {
+              bundle = parsed;
+              logEvent('PASTE_CODES', 'تم قراءة حزمة أكواد من الحافظة');
+            }
+          }
+        }
+      } catch(e) {
+        logEvent('PASTE_CODES', 'تعذر قراءة الحافظة: ' + (e?.message || e));
+      }
+
+      if (!bundle || (!Array.isArray(bundle.faultCodes) && !Array.isArray(bundle.spareParts))) {
+        const localRaw = localStorage.getItem('elaraby_copied_codes_bundle');
+        if (localRaw) {
+          try {
+            const parsed = JSON.parse(localRaw);
+            if (Array.isArray(parsed)) bundle = { faultCodes: parsed };
+            else if (parsed && (Array.isArray(parsed.faultCodes) || Array.isArray(parsed.spareParts))) bundle = parsed;
+            logEvent('PASTE_CODES', 'تم قراءة الأكواد من localStorage');
+          } catch(_) {}
+        }
+      }
+
+      if (!bundle || (!Array.isArray(bundle.faultCodes) && !Array.isArray(bundle.spareParts))) {
+        const manualInput = window.prompt('الصق كود JSON الخاص بالأكواد هنا (أو تم نسخه سابقاً):');
+        if (manualInput && manualInput.trim()) {
+          try {
+            const parsed = JSON.parse(manualInput.trim());
+            if (Array.isArray(parsed)) bundle = { faultCodes: parsed };
+            else if (parsed && (Array.isArray(parsed.faultCodes) || Array.isArray(parsed.spareParts))) bundle = parsed;
+          } catch(_) {}
+        }
+      }
+
+      const rawSpareParts = Array.isArray(bundle?.spareParts) ? bundle.spareParts : [];
+      const rawFaultCodes = Array.isArray(bundle?.faultCodes) ? bundle.faultCodes : [];
+
+      if (rawSpareParts.length === 0 && rawFaultCodes.length === 0) {
+        setStatus(shadow, '⚠️ لا توجد أكواد أو قطع غيار منسوخة! اضغط على "نسخ الأكواد" أولاً أو الصق JSON في الحافظة', 'warn');
+        return;
+      }
+
+      // إذا وُجد مبلغ وكان حقل المبلغ فارغًا
+      if (bundle.amount && bundle.amount !== '0') {
+        const amtInput = shadow.getElementById('cp-amount');
+        if (amtInput && (!amtInput.value || amtInput.value === '0')) {
+          amtInput.value = bundle.amount;
+        }
+      }
+
+      // تصنيف العناصر بدقة:
+      // 1. الأكواد المقترنة بقطع غيار -> تُضاف عبر "اضافة قطعة غيار"
+      // 2. الأكواد المستقلة بدون قطع غيار -> تُضاف عبر "اضافة كود عطل"
+      const sparePartJobs = [];
+      const pairedFaultIndices = new Set();
+
+      rawSpareParts.forEach((sp, spIdx) => {
+        let bestCode = null;
+        let bestIdx = -1;
+
+        const spText = ((sp.name || '') + ' ' + (sp.code || '')).toLowerCase();
+        for (let i = 0; i < rawFaultCodes.length; i++) {
+          if (pairedFaultIndices.has(i)) continue;
+          const fc = rawFaultCodes[i];
+          const fcText = ((fc.description || '') + ' ' + (fc.majorName || '') + ' ' + (fc.fullCode || '')).toLowerCase();
+          
+          const keywords = ['خرطوم', 'بودي', 'صرف', 'طلمبة', 'موتور', 'مروحة', 'حلة', 'مساعد', 'باب', 'لوحة', 'سير', 'كارت', 'تايمر', 'ريشة', 'سنسور', 'حساس'];
+          const matchedKw = keywords.some(kw => spText.includes(kw) && fcText.includes(kw));
+          if (matchedKw) {
+            bestCode = fc;
+            bestIdx = i;
+            break;
+          }
+        }
+
+        if (!bestCode) {
+          for (let i = 0; i < rawFaultCodes.length; i++) {
+            if (!pairedFaultIndices.has(i)) {
+              bestCode = rawFaultCodes[i];
+              bestIdx = i;
+              break;
+            }
+          }
+        }
+
+        if (bestIdx >= 0) pairedFaultIndices.add(bestIdx);
+        sparePartJobs.push({ sparePart: sp, faultCode: bestCode });
+      });
+
+      // أكواد الأعطال المتبقية التي ليس لها قطع غيار
+      const standaloneFaultCodes = rawFaultCodes.filter((_, idx) => !pairedFaultIndices.has(idx));
+
+      logEvent('PASTE_CODES', `الخطة: ${sparePartJobs.length} قطع غيار عبر (اضافة قطعة غيار) + ${standaloneFaultCodes.length} أكواد عطل عبر (اضافة كود عطل)`);
+
+      let addedPartsCount = 0;
+      let addedCodesCount = 0;
+
+      // ── أ: تنفيذ إضافة قطع الغيار عبر "اضافة قطعة غيار" ──
+      for (let i = 0; i < sparePartJobs.length; i++) {
+        const job = sparePartJobs[i];
+        const label = job.sparePart.code || job.sparePart.name || `قطعة ${i + 1}`;
+        setStatus(shadow, `⏳ جاري إضافة قطعة غيار (${i + 1}/${sparePartJobs.length}): ${label}...`);
+        const res = await addSparePartPage3(job.sparePart, job.faultCode);
+        if (res && res.ok) {
+          if (!res.alreadyExists) addedPartsCount++;
+          logEvent('PASTE_CODES', `✅ تم إضافة قطعة الغيار: ${label}`);
+        } else {
+          logEvent('PASTE_CODES', `⚠️ تعذر إضافة قطعة الغيار ${label}: ${res?.reason || 'غير معروف'}`);
+        }
+        await sleep(1500);
+      }
+
+      // ── ب: تنفيذ إضافة أكواد الأعطال فقط عبر "اضافة كود عطل" ──
+      for (let i = 0; i < standaloneFaultCodes.length; i++) {
+        const code = standaloneFaultCodes[i];
+        const title = code.fullCode || code.defectCode || code.majorCode;
+        setStatus(shadow, `⏳ جاري إضافة كود عطل (${i + 1}/${standaloneFaultCodes.length}): ${title}...`);
+        const res = await addSingleFaultCode(code);
+        if (res && res.ok) {
+          if (!res.alreadyExists) addedCodesCount++;
+          logEvent('PASTE_CODES', `✅ تم إضافة كود عطل: ${title}`);
+        } else {
+          logEvent('PASTE_CODES', `⚠️ تعذر إضافة كود عطل ${title}: ${res?.reason || 'غير معروف'}`);
+        }
+        await sleep(1500);
+      }
+
+      refreshCopiedCodesPreview(shadow);
+
+      const summaryParts = [];
+      if (addedPartsCount > 0) summaryParts.push(`${addedPartsCount} قطعة غيار`);
+      if (addedCodesCount > 0) summaryParts.push(`${addedCodesCount} كود عطل`);
+
+      if (summaryParts.length > 0) {
+        setStatus(shadow, `✅ تم لصق ${summaryParts.join(' و ')} بنجاح!`, 'success');
+      } else {
+        setStatus(shadow, 'ℹ️ جميع قطع الغيار والأكواد مضافة بالفعل في هذا البلاغ', 'success');
+      }
+    } catch (e) {
+      logEvent('PASTE_CODES', `خطأ: ${e.message || e}`);
+      setStatus(shadow, '❌ خطأ أثناء لصق الأكواد: ' + (e.message || ''), 'error');
+    }
+  }
+
   async function executePage3(shadow) {
     logEvent('EXEC_PAGE3', 'بدء التنفيذ');
     logPageSnapshot('قبل executePage3');
@@ -1656,9 +2647,7 @@ function getCSS() {
         if (typeof addFaultCodePage3 === 'function') {
           await addFaultCodePage3(mainCode, subCode, []);
         } else {
-          const addBtn = Array.from(document.querySelectorAll('a, button'))
-            .find(el => el.innerText.trim() === 'اضافة كود عطل' && el.offsetParent !== null);
-          if (addBtn) { addBtn.click(); logEvent('EXEC_PAGE3', 'نقر زر اضافة كود عطل'); }
+          await addSingleFaultCode({ majorCode: mainCode, defectCode: subCode });
         }
         await sleep(500);
       }
@@ -1783,7 +2772,7 @@ function getCSS() {
       } else if (page === 'PAGE_2' && host && host.shadowRoot) {
         const warn = host.shadowRoot.getElementById('cp-install-warn');
         if (warn) {
-          const isInstall = detectInstallation();
+          const isInstall = resolveIsInstall();
           warn.style.display = isInstall ? 'block' : 'none';
         }
         if (!document.getElementById(PAGE_WARN_ID)) injectInstallWarnIntoPage();
@@ -1798,7 +2787,7 @@ function getCSS() {
     const entry = `[${ts}] ${type}: ${detail}`;
     pageLog.push(entry);
     if (pageLog.length > 300) pageLog = pageLog.slice(-300);
-    try { localStorage.setItem(PAGE_LOG_KEY, pageLog.join('\n')); } catch(_) {}
+    scheduleFlush();
   }
 
   function logPageSnapshot(context) {
@@ -1885,18 +2874,9 @@ function getCSS() {
             logPage('MODAL', `إغلاق: ${node.id || 'unknown'}`);
           }
         }
-        // تغيير خصائص
-        for (const m2 of m.attributes || []) {
-          const el = m2.target;
-          if (m2.name === 'style' || m2.name === 'class') {
-            const isVisible = el.offsetParent !== null;
-            const id = el.id || el.tagName;
-            logPage('ATTR', `${id}: ${m2.name} changed`);
-          }
-        }
       }
     });
-    observer.observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ['style', 'class'] });
+    observer.observe(document.body, { childList: true, subtree: true });
 
     // مراقبة تغييرات الحقول
     document.addEventListener('change', (e) => {
@@ -1951,6 +2931,7 @@ function getCSS() {
 
   function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
 
+  loadPersistedLogs();
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
   else init();
 })();

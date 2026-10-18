@@ -108,6 +108,29 @@
     }
   }
 
+  // ── Save new regions to regionTechMap ──
+  async function saveAreasToRegionMap(orders) {
+    const newAreas = [...new Set(orders.map(o => (o.area || '').trim()).filter(a => a && a !== 'غير محدد'))];
+    if (!newAreas.length) return;
+    try {
+      const data = await storageGet({ regionTechMap: {} });
+      const map = data.regionTechMap || {};
+      let added = 0;
+      for (const area of newAreas) {
+        if (!(area in map)) {
+          map[area] = '';
+          added++;
+        }
+      }
+      if (added > 0) {
+        await storageSet({ regionTechMap: map });
+        console.log(`[OrderExtractor] Added ${added} new region(s) to regionTechMap`);
+      }
+    } catch (e) {
+      console.warn('[OrderExtractor] saveAreasToRegionMap failed:', e.message);
+    }
+  }
+
   async function enrichOrdersWithArea(orders) {
     const uniqueIds = [...new Set(orders.map(o => o._orderId).filter(Boolean))];
     if (!uniqueIds.length) return;
@@ -303,6 +326,10 @@
         <label style="display:flex;align-items:center;gap:5px;cursor:pointer;font-size:10px;color:#c8d0e0;">
           <input type="checkbox" id="oe-include-phones" style="accent-color:#0a7cff;" />
           إضافة أرقام الموبايل
+        </label>
+        <label style="display:flex;align-items:center;gap:5px;cursor:pointer;font-size:10px;color:#38bdf8;margin-top:3px;">
+          <input type="checkbox" id="oe-include-future" checked style="accent-color:#0284c7;" />
+          📅 تضمين وتظليل البلاغات المستقبلية (+3 أيام)
         </label>
         <label style="display:flex;align-items:center;gap:5px;cursor:pointer;font-size:10px;color:#8899bb;margin-top:3px;">
           <input type="checkbox" id="oe-fetch-reports" style="accent-color:#0a7cff;" />
@@ -612,6 +639,69 @@
     }, 500);
   }
 
+  // ── Future Orders Web API Fetcher (+3 Days) ──
+  async function fetchFutureOrdersForExtraction(portalHeaders) {
+    try {
+      const d = new Date();
+      d.setDate(d.getDate() + 3);
+      d.setHours(23, 59, 59, 999);
+      const threeDaysIso = d.toISOString();
+
+      const selectFields = [
+        'incidentid', 'ticketnumber', 'title',
+        'ldv_scheduledservicestartdate', 'ldv_appointmentdate',
+        'ldv_address', 'ldv_mobilenumber', 'ldv_sapordernumber',
+        '_ldv_producttype_value', '_ldv_problem_value',
+        '_ats_territories_value', '_customerid_value', 'statuscode'
+      ].join(',');
+
+      const filter = `statecode eq 0 and (ldv_scheduledservicestartdate gt ${threeDaysIso} or ldv_appointmentdate gt ${threeDaysIso})`;
+      const url = `/_api/incidents?$filter=${encodeURIComponent(filter)}&$select=${selectFields}&$orderby=ldv_scheduledservicestartdate asc`;
+
+      const resp = await fetch(url);
+      if (!resp.ok) return [];
+      const data = await resp.json();
+      const list = data.value || [];
+
+      const headerMap = mapPortalHeaders(portalHeaders);
+      const mappedOrders = list.map(item => {
+        const dateVal = item.ldv_scheduledservicestartdate || item.ldv_appointmentdate || '';
+        let dateFormatted = '';
+        if (dateVal) {
+          try {
+            const dt = new Date(dateVal);
+            dateFormatted = `${String(dt.getDate()).padStart(2, '0')}/${String(dt.getMonth() + 1).padStart(2, '0')}/${dt.getFullYear()}`;
+          } catch (_) { dateFormatted = dateVal; }
+        }
+
+        const o = {
+          _orderId: item.incidentid,
+          _isFuture: true
+        };
+
+        if (headerMap['orderNo']) o[headerMap['orderNo']] = item.ticketnumber || '';
+        if (headerMap['customer']) o[headerMap['customer']] = item['_customerid_value@OData.Community.Display.V1.FormattedValue'] || item.title || '';
+        if (headerMap['product']) o[headerMap['product']] = item['_ldv_producttype_value@OData.Community.Display.V1.FormattedValue'] || '';
+        if (headerMap['complaint']) o[headerMap['complaint']] = item['_ldv_problem_value@OData.Community.Display.V1.FormattedValue'] || 'صيانة';
+        if (headerMap['bookingDate']) o[headerMap['bookingDate']] = dateFormatted;
+        if (headerMap['address']) o[headerMap['address']] = item.ldv_address || '';
+        if (headerMap['sap']) o[headerMap['sap']] = item.ldv_sapordernumber || '';
+        if (headerMap['area']) o[headerMap['area']] = item['_ats_territories_value@OData.Community.Display.V1.FormattedValue'] || '';
+        if (headerMap['phone']) o[headerMap['phone']] = item.ldv_mobilenumber || '';
+        if (headerMap['serviceType']) o[headerMap['serviceType']] = 'صيانة';
+        if (headerMap['hasComplaint']) o[headerMap['hasComplaint']] = 'لا';
+        if (headerMap['technician']) o[headerMap['technician']] = 'متنقلة';
+
+        return o;
+      });
+
+      return mappedOrders;
+    } catch (err) {
+      console.warn('[OrderExtractor] fetchFutureOrdersForExtraction failed:', err);
+      return [];
+    }
+  }
+
   // ── Table Scraping ──
   function scrapeCurrentPage() {
     const result = findTable();
@@ -851,11 +941,16 @@
       added.alignment = { horizontal: 'right', vertical: 'center' };
 
       const isDuplicate = order._dup === true;
+      const isFuture = order._isFuture === true;
       const hasComplaint = complaintHdr && /^(yes|نعم|y)$/i.test((order[complaintHdr]||'').trim());
 
       if (hasComplaint) {
         added.fill = rowFill('FFCC0000');
         added.font = { name: 'Calibri', size: 11, color: { argb: 'FFFFFF00' }, bold: true };
+      } else if (isFuture) {
+        // تظليل بلون لبني ناعم (Soft Cyan / Light Blue) للبلاغات المستقبلية
+        added.fill = rowFill('FFD9E1F2');
+        added.font = { name: 'Calibri', size: 11, color: { argb: 'FF1F497D' }, bold: true };
       } else {
         added.font = { name: 'Calibri', size: 11 };
       }
@@ -1112,6 +1207,37 @@
 
       console.log(`[OrderExtractor] Done. Total: ${allOrders.length}, stopped: ${stopRequested}`);
 
+      // Check if user requested including future orders (+3 days)
+      const includeFuture = document.getElementById('oe-include-future')?.checked || false;
+      if (includeFuture && !stopRequested && firstHeaders) {
+        setStatus('📅 جاري فحص وسحب البلاغات المستقبلية (+3 أيام)...', 'warn');
+        try {
+          const futureList = await fetchFutureOrdersForExtraction(firstHeaders);
+          if (futureList && futureList.length > 0) {
+            // Avoid duplicate CAS
+            const existingOrderNos = new Set();
+            const orderNoHdr = mapPortalHeaders(firstHeaders)['orderNo'];
+            if (orderNoHdr) {
+              allOrders.forEach(o => {
+                const num = (o[orderNoHdr] || '').toString().trim();
+                if (num) existingOrderNos.add(num);
+              });
+            }
+            let addedCount = 0;
+            futureList.forEach(fo => {
+              const num = orderNoHdr ? (fo[orderNoHdr] || '').toString().trim() : '';
+              if (!existingOrderNos.has(num)) {
+                allOrders.push(fo);
+                addedCount++;
+              }
+            });
+            console.log(`[OrderExtractor] Added ${addedCount} future orders to extraction list`);
+          }
+        } catch (fErr) {
+          console.warn('[OrderExtractor] Failed to include future orders:', fErr);
+        }
+      }
+
       if (!stopRequested && allOrders.length > 0) {
         const fetchReports = document.getElementById('oe-fetch-reports')?.checked || false;
         console.log('[OrderExtractor] Fetch reports:', fetchReports);
@@ -1121,6 +1247,7 @@
         } else {
           setStatus(`⏳ جاري سحب بيانات المناطق...`, 'warn');
           await enrichOrdersWithArea(allOrders);
+          await saveAreasToRegionMap(allOrders);
           setStatus(`⏳ جاري تحميل ملف Excel...`, 'warn');
           exportXLSX(allOrders, firstHeaders);
           setStatus(`✅ تم تحميل ${allOrders.length} بلاغ (${pageNum} صفحة) كملف Excel`, 'ok');
@@ -1171,14 +1298,42 @@
       return;
     }
 
+    // Check if user requested including future orders (+3 days)
+    const includeFuture = document.getElementById('oe-include-future')?.checked || false;
+    if (includeFuture && result.headers) {
+      setStatus('📅 جاري فحص وسحب البلاغات المستقبلية (+3 أيام)...', 'warn');
+      try {
+        const futureList = await fetchFutureOrdersForExtraction(result.headers);
+        if (futureList && futureList.length > 0) {
+          const existingOrderNos = new Set();
+          const orderNoHdr = mapPortalHeaders(result.headers)['orderNo'];
+          if (orderNoHdr) {
+            result.orders.forEach(o => {
+              const num = (o[orderNoHdr] || '').toString().trim();
+              if (num) existingOrderNos.add(num);
+            });
+          }
+          futureList.forEach(fo => {
+            const num = orderNoHdr ? (fo[orderNoHdr] || '').toString().trim() : '';
+            if (!existingOrderNos.has(num)) {
+              result.orders.push(fo);
+            }
+          });
+        }
+      } catch (fErr) {
+        console.warn('[OrderExtractor] Failed to include future orders:', fErr);
+      }
+    }
+
     const fetchReports = document.getElementById('oe-fetch-reports')?.checked || false;
     if (fetchReports) {
-      setStatus(`🔍 جاري بدء سحب التقارير لـ ${result.count} بلاغ...`, 'warn');
+      setStatus(`🔍 جاري بدء سحب التقارير لـ ${result.orders.length} بلاغ...`, 'warn');
       await startReportFetching(result.orders, result.headers);
     } else {
       await enrichOrdersWithArea(result.orders);
+      await saveAreasToRegionMap(result.orders);
       exportXLSX(result.orders, result.headers);
-      setStatus(`✅ تم تحميل ${result.count} بلاغ من الصفحة الحالية كملف Excel`, 'ok');
+      setStatus(`✅ تم تحميل ${result.orders.length} بلاغ من الصفحة الحالية كملف Excel`, 'ok');
     }
   }
 
@@ -1229,6 +1384,7 @@
           return;
         }
         await enrichOrdersWithArea(result.orders);
+        await saveAreasToRegionMap(result.orders);
         exportXLSX(result.orders, result.headers);
         sendResponse({ ok: true, count: result.count });
       })();

@@ -29,7 +29,10 @@
   //  تحميل البيانات من ملفات JSON
   // ══════════════════════════════════════════════════════════════════
   async function loadData() {
+    // GM APIs متوفرة فقط داخل Tampermonkey — الإضافة تعمل بدونها بالبيانات المدمجة
+    const gmAvailable = typeof GM_getResourceURL === 'function';
     try {
+      if (!gmAvailable) throw new Error('GM_getResourceURL unavailable');
       const svcUrl = GM_getResourceURL('svcData');
       const tipsUrl = GM_getResourceURL('tipsData');
       const [svcRes, tipsRes] = await Promise.all([
@@ -39,7 +42,11 @@
       SERVICES = svcRes.services;
       TIPS = tipsRes.tips;
     } catch (e) {
-      console.error('فشل تحميل البيانات:', e);
+      if (!gmAvailable) {
+        console.info('[msq] يعمل بدون Tampermonkey — تحميل البيانات المدمجة');
+      } else {
+        console.error('فشل تحميل البيانات:', e);
+      }
       SERVICES = [
         { id: 'svc-1', label: '-prem', text: 'تم عمل صيانه وتنظيف الوحده الداخليه والوحده الخارجيه وغسيل بمكنه الغسيل وتنظيف حوض الصرف // خدمة بريميوم كير Premium Care\nوتحصيل 450' },
         { id: 'svc-2', label: 'صيانة', text: 'تم عمل صيانة دورية غسيل الفلاتر وتنظيف الوحدة الخارجية بالبلاور وتنظيف الصرف' },
@@ -122,10 +129,8 @@
   // ══════════════════════════════════════════════════════════════════
   function initUI() {
     const CSS = `
-      #msq-fab { position: fixed !important; bottom: 20px !important; left: 20px !important; width: 42px !important; height: 42px !important; border-radius: 50% !important; background: linear-gradient(135deg, #0a7cff 0%, #0055cc 100%) !important; color: #fff !important; border: none !important; cursor: grab !important; z-index: 2147483646 !important; font-size: 18px !important; box-shadow: 0 4px 15px rgba(0,0,0,.4) !important; display: flex !important; align-items: center !important; justify-content: center !important; transition: box-shadow .2s !important; user-select: none !important; line-height: 1 !important; text-align: center !important; padding: 0 !important; }
-      #msq-fab:active { cursor: grabbing !important; box-shadow: 0 6px 20px rgba(0,0,0,.6) !important; }
-      #msq-fab.hidden { display: none !important; }
-      #msq-panel { position: fixed !important; bottom: 70px !important; left: 20px !important; width: 320px !important; max-height: 80vh !important; background: #1a1d27 !important; border: 1px solid #2a2d3e !important; border-radius: 14px !important; box-shadow: 0 20px 60px rgba(0,0,0,.9), 0 0 0 1px rgba(255,255,255,.04) !important; font-family: 'Segoe UI', Tahoma, Arial, sans-serif !important; font-size: 13px !important; color: #c8d0e0 !important; z-index: 2147483647 !important; direction: rtl !important; user-select: none !important; overflow: hidden !important; display: none !important; }
+      /* ── فاب msq-fab يُدار مركزياً من fabs-controller (حجم/موضوع/ثبات) ── */
+      #msq-panel { position: fixed !important; bottom: 70px !important; left: 76px !important; width: 320px !important; max-height: 80vh !important; background: #1a1d27 !important; border: 1px solid #2a2d3e !important; border-radius: 14px !important; box-shadow: 0 20px 60px rgba(0,0,0,.9), 0 0 0 1px rgba(255,255,255,.04) !important; font-family: 'Segoe UI', Tahoma, Arial, sans-serif !important; font-size: 13px !important; color: #c8d0e0 !important; z-index: 2147483647 !important; direction: rtl !important; user-select: none !important; overflow: hidden !important; display: none !important; transition: opacity .15s ease; }
       #msq-panel.visible { display: block !important; }
       #msq-panel.dragging { box-shadow: 0 30px 80px rgba(0,0,0,.9) !important; opacity: .95 !important; }
       #msq-header { background: linear-gradient(135deg, #0a7cff 0%, #0055cc 100%) !important; padding: 8px 12px !important; display: flex !important; align-items: center !important; justify-content: space-between !important; cursor: grab !important; }
@@ -201,7 +206,6 @@
       return e;
     }
 
-    const fab = el('button', { id: 'msq-fab', title: 'فتح مساعد الإرسال', textContent: '📨' });
     const h = el('div', { id: 'msq-header' }, [
       el('span', { id: 'msq-title', textContent: 'مساعد الإرسال' }),
       el('button', { id: 'msq-close', title: 'إغلاق', textContent: '✕' })
@@ -259,12 +263,8 @@
     const body = el('div', { id: 'msq-body' }, [svcGrid, sep1, dropZone, pasteArea, delayRow, btns, instrRow, statusEl, progressW, counterEl, sentSection, errSection]);
     const panel = el('div', { id: 'msq-panel' }, [h, body]);
 
-    function injectPanel() {
-      if (!document.getElementById('msq-fab')) document.documentElement.appendChild(fab);
-      if (!document.getElementById('msq-panel')) document.documentElement.appendChild(panel);
-    }
-    injectPanel();
-    setInterval(injectPanel, 2000);
+    // اللوحة فقط — الفاب يُدار من fabs-controller
+    if (!document.getElementById('msq-panel')) document.documentElement.appendChild(panel);
 
     let msgLines = [], isRunning = false, stopReq = false;
     const sleep = ms => new Promise(r => setTimeout(r, ms));

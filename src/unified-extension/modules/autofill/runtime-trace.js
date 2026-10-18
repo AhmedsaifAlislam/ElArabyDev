@@ -8,17 +8,21 @@
   const TRACE_KEY = 'multiRunRuntimeTrace';
   const MAX_TRACE_ENTRIES = 150;
 
+  const isPopup = typeof window !== 'undefined' && !!window.document?.getElementById('search-input');
+  const traceSource = isPopup ? 'popup' : 'content-script';
+
   // Self-test ping on load
   chrome.runtime.sendMessage({
     type: 'TRACE_APPEND',
     entry: {
       timestamp: new Date().toISOString(),
       event: 'TRACE_SELF_TEST',
-      source: 'popup'
+      source: traceSource
     }
   }).catch(() => {});
 
   function traceEvent(event, details = {}) {
+    console.log(`%c[TRACE] [${event}]`, 'color: #0284c7; font-weight: bold;', details);
     const {
       tabId = null,
       taskId = null,

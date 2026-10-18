@@ -11,24 +11,31 @@
 
 window.AutoFillEngine = window.AutoFillEngine || {};
 
-// ── Storage proxy (Edge Tracking Prevention bypass) ──
+const LOG_PREFIX = '[ElAraby Content]';
+
+// ── Direct chrome.storage.local (V2 Core Foundation) ──
 async function storageGet(keys) {
   try {
-    const resp = await chrome.runtime.sendMessage({ type: 'STORAGE_GET', keys });
-    return resp?.data || {};
-  } catch(e) { return {}; }
+    return await chrome.storage.local.get(keys);
+  } catch(e) {
+    return typeof keys === 'object' && !Array.isArray(keys) ? keys : {};
+  }
 }
 async function storageSet(data) {
   try {
-    const resp = await chrome.runtime.sendMessage({ type: 'STORAGE_SET', data });
-    return { ok: resp?.ok === true, error: resp?.error };
-  } catch(e) { return { ok: false, error: String(e) }; }
+    await chrome.storage.local.set(data);
+    return { ok: true };
+  } catch(e) {
+    return { ok: false, error: String(e) };
+  }
 }
 async function storageRemove(keys) {
   try {
-    const resp = await chrome.runtime.sendMessage({ type: 'STORAGE_REMOVE', keys });
-    return { ok: resp?.ok === true, error: resp?.error };
-  } catch(e) { return { ok: false, error: String(e) }; }
+    await chrome.storage.local.remove(keys);
+    return { ok: true };
+  } catch(e) {
+    return { ok: false, error: String(e) };
+  }
 }
 
 function sendSmartLog(eventType, details) {
@@ -75,11 +82,39 @@ function traceEvent(event, details = {}) {
     type: 'TRACE_APPEND', 
     entry
   }).catch(()=>{});
+  console.log(`%c[ContentScript-Trace] [${event}]`, 'color: #3b82f6; font-weight: bold;', details);
 }
+
+window.traceEvent = traceEvent;
 
 function clearMultiRunTrace() {
   chrome.runtime.sendMessage({ type: 'TRACE_CLEAR' }).catch(()=>{});
 }
+window.clearMultiRunTrace = clearMultiRunTrace;
+
+window.getMultiRunTrace = function() {
+  return new Promise(resolve => {
+    chrome.runtime.sendMessage({ type: 'TRACE_GET' }, (resp) => {
+      resolve(resp?.trace || []);
+    });
+  });
+};
+
+window.dumpMultiRunTrace = async function() {
+  const trace = await window.getMultiRunTrace();
+  console.log('📋 === MULTI RUN TRACE DUMP (' + trace.length + ' entries) ===');
+  console.table(trace);
+  return trace;
+};
+
+window.copyMultiRunTrace = async function() {
+  const trace = await window.getMultiRunTrace();
+  const text = JSON.stringify(trace, null, 2);
+  await navigator.clipboard.writeText(text);
+  console.log('✅ MultiRun Trace copied to clipboard (' + trace.length + ' entries)');
+  showPageToast('✅ تم نسخ سجل التتبع للحافظة (' + trace.length + ' حدث)', 'success');
+  return text;
+};
 
 // Self-test trace for content script
 chrome.runtime.sendMessage({
@@ -133,49 +168,12 @@ function showPageToast(msg, type = 'info') {
   setTimeout(() => { toast.style.opacity = '0'; setTimeout(() => toast.remove(), 300); }, 3000);
 }
 
-let CFG = null;
 let _routerRunning = false; // Mutex: prevents parallel execution
-async function loadSelectors() {
-  if (CFG) return CFG;
-  try {
-    const lsVal = localStorage.getItem('autofiller_selectors');
-    if (lsVal) { CFG = JSON.parse(lsVal); return CFG; }
-  } catch (_) {}
-  try { CFG = await (await fetch(chrome.runtime.getURL('selectors.json'))).json(); } catch(e) { CFG = getHardcodedDefaults(); }
-  return CFG;
-}
 
-function getHardcodedDefaults() {
-  return {
-    serial: ["#ldv_serialnumber","#ldv_technicalserialnumber","[aria-label*='الرقم المسلسل']","[name*='serial']","input[id*='serial']"],
-    serial2: ["#ldv_serialnumber1","[aria-label*='الرقم المسلسل 2']","[name*='serialnumber1']"],
-    brandInput: ["#ats_producttypebrand_name","input[aria-label='العلامة التجاريه']","input[aria-label*='العلامة التجاريه']","input[id*='brand']","input[name*='brand']"],
-    brandBtn: ["button[aria-label*='العلامة التجاريه Launch lookup modal']",".launchentitylookup","button[aria-label*='Brand']",".lookup-brand button"],
-    modelInput: ["#ldv_actualmodel_name","input[aria-label='الموديل الفعلي 1']","input[aria-label*='الموديل الفعلي']","input[name*='actualmodel']","input[name*='model']","input[id*='actualModel']"],
-    modelInput2: ["#ldv_actualmodel2_name","input[aria-label='الموديل الفعلي 2']","input[aria-label*='الموديل الفعلي 2']"],
-    modelBtn: ["button[aria-label*='الموديل الفعلي Launch lookup modal']",".launchentitylookup","button[aria-label*='Model']",".lookup-model button"],
-    statusSelect: ["#ldv_warrantystatus","select[name*='warranty']","select[aria-label*='Warranty']","select[id*='warranty']","select[name*='status']"],
-    dateInput: ["#ldv_warrantydate_datepicker_description","input[aria-label*='Warranty Date']","input[aria-label*='تاريخ الضمان']","input[name*='warrantyDate']","input[id*='warrantydate']","input[type='date']"],
-    notes: ["textarea[aria-label*='Notes']","textarea[name*='notes']","textarea[id*='notes']"],
-    nextBtn: ["#NextButton","input[type='button'][value='Next']","input[type='button'][value='التالي']","button[aria-label='Next']","button[aria-label='التالي']","button[type='submit']"],
-    lookupModalItem: ["[role='dialog'] li","[role='listbox'] [role='option']",".lookup-modal .result-item",".modal .result-item","table tbody tr", ".entitylist-items li"],
-    lookupSearchInput:["[role='dialog'] input[type='search']","[role='dialog'] input[type='text']",".modal input"],
-    successIndicator: [".save-success",".alert-success","[class*='success']"],
-    customer: [".customer-name","[class*='customer-name']"],
-    orderNumber: [".order-number","[class*='order-id']","[class*='workorder-id']"],
-    ordersSearchInput:["input[aria-label*='Search']","input[placeholder*='Search']","input[placeholder*='بحث']","#searchOrders","input[type='search']"],
-    ordersSearchBtn: ["button[type='submit'][aria-label*='Search']","button[aria-label*='Search']","button[aria-label*='بحث']"],
-    ordersTableRow: ["table tbody tr","[role='row']",".entitylist-items > li",".order-row"],
-    ordersViewLink: ["a[href*='workorderreview']","a[href*='followup']","a[href*='review']","button[aria-label*='View']","button[aria-label*='متابعة']"],
-    _batchDelay: 1200, _nextWaitTimeout: 10000, _lookupTimeout: 6000, _ordersSearchWait: 2000, _retryCount: 3
-  };
-}
+// ── دوال مشتركة: المصدر الوحيد في shared/portal-selectors.js ──
+async function loadSelectors() { return window.loadSelectors ? window.loadSelectors() : {}; }
+function findFirst(list) { return window.findFirst ? window.findFirst(list) : null; }
 
-function findFirst(list) {
-  if (!list) return null; if (!Array.isArray(list)) list = [list];
-  for (const s of list) { if (s instanceof HTMLElement) return s; try { const el = document.querySelector(s); if (el) return el; } catch (_) {} }
-  return null;
-}
 function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
 
 // ── Dynamic Resilience Wait for PowerApps Loading Overlay ──
@@ -259,33 +257,6 @@ function findInAllFrames(selectors) {
 
 
 
-function parseDataLine(line) {
-  const obj = {}; const parts = line.includes('|') ? line.split('|') : line.split(',');
-  parts.forEach(p => { const i = p.indexOf(':'); if(i<0)return; obj[p.slice(0,i).trim().toLowerCase().replace(/\s+/g,'')] = p.slice(i+1).trim(); });
-  const parsed = {
-    orderId: obj['orderid'] || obj['order'] || line.match(/\bCAS\d{10,}\b/i)?.[0] || '', brand: obj['brand'] || obj['علامهتجاريه'] || '',
-    model: obj['model'] || obj['موديل'] || '', serial: obj['serial'] || obj['serialnumber'] || '', model2: obj['model2'] || '',
-    serial2: obj['serial2'] || '', status: obj['status'] || obj['حالة'] || '', date: obj['date'] || obj['تاريخ'] || '', 
-    reportType: obj['reporttype'] || obj['report'] || '',
-    date2: obj['date2'] || '',
-    problemCode: obj['problemcode'] || obj['problem'] || '',
-    faultCode: obj['faultcode'] || obj['fault'] || '',
-    subFaultCode: obj['subfault'] || null,
-    notes: obj['notes'] || obj['ملاحظات'] || '',
-    technician: obj['technician'] || obj['الفني'] || obj['الفنى'] || '',
-    technicianName: obj['technicianname'] || obj['اسمالفني'] || obj['اسمالفنى'] || ''
-  };
-
-  // For AC with merged model+serial (model2 exists): pick the newest date
-  if (parsed.model2 && parsed.date && parsed.date2) {
-    try {
-      const toDate = (d) => { const m = d.match(/(\d{1,2})\/(\d{1,2})\/(\d{4})/); return m ? new Date(m[3], m[2]-1, m[1]) : new Date(d); };
-      const d1 = toDate(parsed.date), d2 = toDate(parsed.date2);
-      if (d2 > d1) { parsed.date = parsed.date2; sysLog('📅 Using newer date: ' + parsed.date2, 'info'); }
-    } catch(e) { /* keep original date */ }
-  }
-  return parsed;
-}
 
 // ── Check if Page 1 fields are already filled (skip already-processed orders) ──
 
@@ -293,16 +264,17 @@ function parseDataLine(line) {
 
 // ── AUTOFIL ENGINE BACKWARD-COMPATIBILITY BRIDGES ───────────────────────────
 // Wire up window-level functions to point to the specialized engine modules
-let Lookups, Page1, Page2, Page3;
+let Lookups, Page1, Page2, Page3, Orchestrator;
 try {
-  Lookups = window.AutoFillEngine.Lookups || {};
-  Page1 = window.AutoFillEngine.Page1 || {};
-  Page2 = window.AutoFillEngine.Page2 || {};
-  Page3 = window.AutoFillEngine.Page3 || {};
-  traceEvent('BRIDGES_READY', { hasLookups: !!window.AutoFillEngine?.Lookups, hasPage1: !!window.AutoFillEngine?.Page1 });
+  Lookups = window.AutoFillEngine?.Lookups || {};
+  Page1 = window.AutoFillEngine?.Page1 || {};
+  Page2 = window.AutoFillEngine?.Page2 || {};
+  Page3 = window.AutoFillEngine?.Page3 || {};
+  Orchestrator = window.AutoFillEngine?.Orchestrator || {};
+  traceEvent('BRIDGES_READY', { hasLookups: !!Lookups, hasPage1: !!Page1, hasOrchestrator: !!Orchestrator });
 } catch (e) {
   traceEvent('BRIDGES_ERROR', { error: String(e) });
-  Lookups = Page1 = Page2 = Page3 = {};
+  Lookups = Page1 = Page2 = Page3 = Orchestrator = {};
 }
 
 // ── REGISTER MESSAGE LISTENER EARLY (main frame only — prevents duplicate handlers in iframes) ──
@@ -395,7 +367,7 @@ const executePage3_Resolution      = Page3.executePage3_Resolution;
 // Orchestrator & Router
 const normalizeTaskData       = Orchestrator.normalizeTaskData;
 const extractOrderIdFromLine  = Orchestrator.extractOrderIdFromLine;
-const generateTaskId          = Orchestrator.generateTaskId;
+function generateTaskId() { return window.generateTaskId ? window.generateTaskId() : ('task-' + Date.now() + '-' + Math.random().toString(36).slice(2, 6)); }
 const buildTasksFromLines     = Orchestrator.buildTasksFromLines;
 const notifyStatus            = Orchestrator.notifyStatus;
 const clearCurrentTask        = Orchestrator.clearCurrentTask;
@@ -423,11 +395,14 @@ Object.assign(window, {
   readIsLscFromPage, findCommentField, waitForSparePartsGrid, extractSparePartRows,
   readSparePartsTotalFromField, readCollectedAmount, handleSparePartsComment,
   addFaultCodePage3, executePage3_Resolution, normalizeTaskData,
-  extractOrderIdFromLine, generateTaskId, buildTasksFromLines, notifyStatus,
+  extractOrderIdFromLine, buildTasksFromLines, notifyStatus,
   clearCurrentTask, startNextTask, getActivePageFeature, showOverlay,
   showMasahaOverlay, executeWorkflow, findOrderAndOpen, runSingleLineWithRouter,
-  processQueueOnLoad, openSession, finalizeOrderInSession, finalizeSession
+  processQueueOnLoad, openSession, finalizeOrderInSession, finalizeSession,
+  safeClick, emulateUserInput, waitForSaveComplete
 });
+
+
 
 
 
@@ -621,6 +596,10 @@ async function performExtractionAndLog(attempt = 1) {
 // ═══════════════════════════════════════════════════════════
 const SESSION_CAPTURE_KEY = 'autofiller_sessionCaptures';
 const MAX_SESSION_CAPTURES = 500;
+// سقف عام لعدد أوامر الشغل المخزنة في التخزين — لمنع تجاوز حصة 5MB
+const MAX_TRACKED_ORDERS = 50;
+// عدد اللقطات الحديثة التي نحتفظ بـ options[] كاملةً؛ للقطات الأقدم تُسقط الخيارات لتقليل الحجم
+const MAX_FULL_OPTION_CAPTURES = 10;
 
 function getOrderIdFromUrl() {
   return (window.location.search.match(/[?&]id=([^&]+)/) || [])[1] || 'unknown';
@@ -726,9 +705,29 @@ async function capturePageState(pageType, reason) {
     byOrder[orderId].lastSeen = Date.now();
     capture.seq = (byOrder[orderId].pages.length || 0) + (byOrder[orderId].events.length || 0) + 1;
     capture.delta = capture.ts - byOrder[orderId].firstSeen;
+
+    // إسقاط options[] للقطات الأقدم لتقليل حجم التخزين
+    if (byOrder[orderId].pages.length >= MAX_FULL_OPTION_CAPTURES) {
+      capture.options = capture.options?.slice(0, 5) || [];
+      capture.inputs = capture.inputs?.slice(0, 10) || [];
+      capture.buttons = capture.buttons?.slice(0, 10) || [];
+    }
+
     byOrder[orderId].pages.push(capture);
     // حد أقصى للصفحات المخزنة لكل أمر
     if (byOrder[orderId].pages.length > 60) byOrder[orderId].pages = byOrder[orderId].pages.slice(-60);
+
+    // سقف عام: إذا زاد عدد الأوامر عن MAX_TRACKED_ORDERS، احذف الأقدم (حسب lastSeen)
+    const orderIds = Object.keys(byOrder);
+    if (orderIds.length > MAX_TRACKED_ORDERS) {
+      orderIds.sort((a, b) => (byOrder[a].lastSeen || 0) - (byOrder[b].lastSeen || 0));
+      const toRemove = orderIds.slice(0, orderIds.length - MAX_TRACKED_ORDERS);
+      for (const oldId of toRemove) {
+        delete byOrder[oldId];
+      }
+      log(`📸 SessionCapture: trimmed ${toRemove.length} old orders (cap=${MAX_TRACKED_ORDERS})`);
+    }
+
     await storageSet({ [SESSION_CAPTURE_KEY]: byOrder });
 
     log(`📸 SessionCapture [${feature}] order=${orderId.slice(0,8)} selects=${selects.length} inputs=${inputs.length} buttons=${buttons.length} reason=${reason}`);
@@ -773,102 +772,162 @@ if (!byOrder[orderId].events) byOrder[orderId].events = [];
   } catch (_) {}
 }
 
+// مراجع الموارد للتنظيف عند مغادرة الصفحة
+let sessionCaptureInterval = null;
+let technicianModalObserver = null;
+let technicianModalInterval = null;
+
 // الربط بين captureByOrderId الحالي في كل صفحة والصفحات التالية
 // يُستدعى عند تحميل كل صفحة بعد ثانية من الجاهزية
 async function initSessionCapture() {
+  // حماية من التهيئة المزدوجة
+  if (window._sessionCaptureInitialized) return;
+  window._sessionCaptureInitialized = true;
+
   if (!/workorderreview|followup|review/i.test(location.href)) return;
   hookCaptureClicks();
   setTimeout(() => capturePageState('', 'page-load'), 1500);
   // استمر بالتقاط لقطات دورية (5ث) للصفحات التي لا تعيد التحميل (SPA)
-  setInterval(() => {
+  sessionCaptureInterval = setInterval(() => {
     if (document.visibilityState === 'visible') capturePageState('', 'interval');
   }, 5000);
 }
 initSessionCapture();
 
-// ════════════════════════════════════════════════════════════════════
-// FAB: Clear Device Data — فقط على workorderreview/followup
-// ═══════════════════════════════════════════════════════════════════
-function injectClearDeviceFAB() {
-  if (!/workorderreview|followup/i.test(location.href)) return;
-  if (document.getElementById('ea-clear-device-fab')) return;
-  
-  const fab = document.createElement('button');
-  fab.id = 'ea-clear-device-fab';
-  fab.innerHTML = '🗑️';
-  fab.title = 'مسح بيانات الجهاز (خيارات: الكل / المخفي فقط)';
-  Object.assign(fab.style, {
-    position: 'fixed', bottom: '90px', left: '20px', zIndex: 999999,
-    width: '48px', height: '48px', borderRadius: '50%',
-    background: 'linear-gradient(135deg, #dc2626, #b91c1c)',
-    border: 'none', color: '#fff', fontSize: '20px',
-    cursor: 'pointer', boxShadow: '0 4px 20px rgba(220,38,38,0.4)',
-    display: 'flex', alignItems: 'center', justifyContent: 'center',
-    transition: 'all 0.2s'
-  });
-  
-  fab.onmouseenter = () => { fab.style.transform = 'scale(1.1)'; fab.style.boxShadow = '0 6px 25px rgba(220,38,38,0.6)'; };
-  fab.onmouseleave = () => { fab.style.transform = 'scale(1)'; fab.style.boxShadow = '0 4px 20px rgba(220,38,38,0.4)'; };
-  
-  fab.onclick = async () => {
-    const choice = await showFABClearDialog();
-    if (!choice || choice === 'cancel') return;
-    
-    fab.disabled = true;
-    fab.textContent = '⏳';
-    try {
-      await clearAllDeviceFields(choice);
-    } finally {
-      fab.disabled = false;
-      fab.textContent = '🗑️';
-    }
-  };
-  
-  document.body.appendChild(fab);
-}
-
-function showFABClearDialog() {
-  return new Promise(resolve => {
-    const existing = document.getElementById('ea-fab-clear-dialog');
-    if (existing) existing.remove();
-    
-    const dialog = document.createElement('div');
-    dialog.id = 'ea-fab-clear-dialog';
-    Object.assign(dialog.style, {
-      position: 'fixed', bottom: '150px', left: '20px', zIndex: 1000000,
-      direction: 'rtl', fontFamily: 'Cairo, sans-serif',
-      background: '#1e293b', border: '1px solid #334155', borderRadius: '12px',
-      padding: '16px', minWidth: '260px', boxShadow: '0 25px 50px rgba(0,0,0,0.5)'
-    });
-    
-    dialog.innerHTML = `
-      <div style="font-size:13px; font-weight:700; color:#e2e8f0; margin-bottom:12px;">🗑️ مسح بيانات الجهاز</div>
-      <div style="display:flex; flex-direction:column; gap:6px;">
-        <button class="ea-fab-choice" data-mode="all" style="padding:10px; border-radius:8px; border:none; background:#dc2626; color:#fff; font-weight:700; cursor:pointer;">🗑️ نعم — مسح الكل</button>
-        <button class="ea-fab-choice" data-mode="hidden-only" style="padding:10px; border-radius:8px; border:none; background:#f59e0b; color:#fff; font-weight:700; cursor:pointer;">🔧 الحقول المخفية فقط</button>
-        <button class="ea-fab-choice" data-mode="cancel" style="padding:10px; border-radius:8px; border:none; background:#334155; color:#94a3b8; font-weight:700; cursor:pointer;">❌ لا</button>
-      </div>
+// ── MAIN WORLD BRIDGE (Makes dumpMultiRunTrace & copyMultiRunTrace work in F12 console) ──
+function injectPageBridge() {
+  if (window !== window.top) return;
+  try {
+    const script = document.createElement('script');
+    script.textContent = `
+      window.dumpMultiRunTrace = function() {
+        window.postMessage({ type: '__ELARABY_CMD__', cmd: 'dump' }, '*');
+      };
+      window.copyMultiRunTrace = function() {
+        window.postMessage({ type: '__ELARABY_CMD__', cmd: 'copy' }, '*');
+      };
+      console.log('%c[العربي ديف] تم تفعيل dumpMultiRunTrace() و copyMultiRunTrace() في الكونسول مباشرة', 'color:#10b981;font-weight:bold;');
     `;
-    
-    document.body.appendChild(dialog);
-    
-    dialog.querySelectorAll('.ea-fab-choice').forEach(btn => {
-      btn.onclick = () => { dialog.remove(); resolve(btn.dataset.mode); };
-    });
-    
-    setTimeout(() => {
-      document.addEventListener('click', function closeOutside(e) {
-        if (!dialog.contains(e.target) && e.target !== fab) {
-          dialog.remove(); resolve('cancel');
-          document.removeEventListener('click', closeOutside);
-        }
-      });
-    }, 0);
+    (document.head || document.documentElement).appendChild(script);
+    script.remove();
+  } catch (_) {}
+
+  window.addEventListener('message', async (e) => {
+    if (e.source !== window || !e.data || e.data.type !== '__ELARABY_CMD__') return;
+    if (e.data.cmd === 'dump') {
+      const trace = await window.getMultiRunTrace?.() || [];
+      console.log('📋 === MULTI RUN TRACE DUMP (' + trace.length + ' entries) ===');
+      console.table(trace);
+    } else if (e.data.cmd === 'copy') {
+      await window.copyMultiRunTrace?.();
+    }
   });
 }
 
-if (document.readyState === 'loading') {
-  document.addEventListener('DOMContentLoaded', injectClearDeviceFAB);
-} else {
-  injectClearDeviceFAB();
+injectPageBridge();
+
+// ── V2 Core: Trigger Queue Processing on Page Load ──
+if (window === window.top) {
+  if (typeof processQueueOnLoad === 'function') {
+    processQueueOnLoad().catch(e => console.error('[AutoFill] processQueueOnLoad error:', e));
+  } else if (window.AutoFillEngine?.Orchestrator?.processQueueOnLoad) {
+    window.AutoFillEngine.Orchestrator.processQueueOnLoad().catch(e => console.error('[AutoFill] processQueueOnLoad error:', e));
+  }
 }
+
+// ── Global Observer: Auto-capture Technician Roster from any open modal ──
+function initTechnicianModalWatcher() {
+  function collectAllDocs(rootDoc) {
+    const docs = [rootDoc];
+    try {
+      rootDoc.querySelectorAll('iframe').forEach(f => {
+        try {
+          const d = f.contentDocument || f.contentWindow?.document;
+          if (d) docs.push(...collectAllDocs(d));
+        } catch(_) {}
+      });
+    } catch(_) {}
+    return docs;
+  }
+
+  function checkModalForTechnicians(modal) {
+    if (!modal) return;
+    const txt = modal.innerText || '';
+    if (!/Full\s*Name|الفن|Technician|Mobile\s*Phone/i.test(txt)) return;
+    // Exclude header rows strictly — only data rows in tbody or role="row" with td
+    const rows = Array.from(modal.querySelectorAll('table tbody tr, div[role="grid"] tbody tr'))
+      .filter(r => !r.closest('thead') && r.querySelector('td') && !r.querySelector('th'));
+    if (!rows.length) return;
+    if (typeof window.AutoFillEngine?.Lookups?.extractAndSaveTechnicians === 'function') {
+      window.AutoFillEngine.Lookups.extractAndSaveTechnicians(rows);
+    }
+  }
+
+  function scanAllDocs() {
+    const docs = collectAllDocs(document);
+    for (const d of docs) {
+      d.querySelectorAll('.modal.show, .modal.in, div[role="dialog"], section.modal').forEach(checkModalForTechnicians);
+    }
+  }
+
+  const observer = new MutationObserver(() => {
+    scanAllDocs();
+  });
+
+  try {
+    observer.observe(document.body || document.documentElement, { childList: true, subtree: true });
+  } catch(_) {}
+  technicianModalObserver = observer;
+
+  // Periodic scan while modal is open
+  technicianModalInterval = setInterval(scanAllDocs, 2000);
+}
+
+initTechnicianModalWatcher();
+
+// ═════════════════════════════════════════════════════════════════════════════════════
+// cleanup — تنظيف الموارد عند مغادرة الصفحة أو الإغلاق
+// يمنع تسرب الذاكرة من التimers و observers في التنقلات SPA
+// ═════════════════════════════════════════════════════════════════════════════════════
+function cleanupSessionResources() {
+  if (sessionCaptureInterval) {
+    clearInterval(sessionCaptureInterval);
+    sessionCaptureInterval = null;
+  }
+  if (technicianModalInterval) {
+    clearInterval(technicianModalInterval);
+    technicianModalInterval = null;
+  }
+  if (technicianModalObserver) {
+    try { technicianModalObserver.disconnect(); } catch(_) {}
+    technicianModalObserver = null;
+  }
+  window._sessionCaptureInitialized = false;
+}
+
+window.addEventListener('pagehide', cleanupSessionResources);
+window.addEventListener('beforeunload', cleanupSessionResources);
+
+// ── Auto-capture Order Region on Page Load ──
+(async () => {
+  if (window !== window.top) return;
+  const url = window.location.href;
+  if (!url.includes('workorderreview') && !url.includes('followup') && !url.includes('technicalreviewdetails') && !url.includes('Reportdetail')) return;
+  try {
+    await new Promise(r => setTimeout(r, 2500));
+    if (typeof window.AutoFillEngine?.Page2?.readRegionFromPage === 'function') {
+      const reg = await window.AutoFillEngine.Page2.readRegionFromPage();
+      if (reg) {
+        const { regionTechMap = {} } = await chrome.storage.local.get({ regionTechMap: {} });
+        if (regionTechMap[reg] === undefined) {
+          regionTechMap[reg] = '';
+          await chrome.storage.local.set({ regionTechMap });
+          console.log('[REGION] Auto-captured region from order page:', reg);
+        }
+      }
+    }
+  } catch(_) {}
+})();
+
+
+

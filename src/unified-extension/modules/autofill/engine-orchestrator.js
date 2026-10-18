@@ -21,68 +21,94 @@ window.AutoFillEngine = window.AutoFillEngine || {};
   function warn(...args) { if (typeof window.warn === 'function') window.warn(...args); else console.warn('[Orchestrator]', ...args); }
   function err(...args) { if (typeof window.err === 'function') window.err(...args); else console.error('[Orchestrator]', ...args); }
   function sleep(ms) { return (typeof window.sleep === 'function') ? window.sleep(ms) : new Promise(r => setTimeout(r, ms)); }
-  function storageGet(q) { return (typeof window.storageGet === 'function') ? window.storageGet(q) : chrome.storage.local.get(q); }
-  function storageSet(items) { return (typeof window.storageSet === 'function') ? window.storageSet(items) : chrome.storage.local.set(items); }
-  function storageRemove(keys) { return (typeof window.storageRemove === 'function') ? window.storageRemove(keys) : chrome.storage.local.remove(keys); }
-  function traceEvent(name, data) { if (typeof window.traceEvent === 'function') window.traceEvent(name, data); }
+  async function storageGet(q) {
+    try {
+      return await chrome.storage.local.get(q);
+    } catch(e) {
+      return (typeof q === 'object' && !Array.isArray(q)) ? q : {};
+    }
+  }
+  async function storageSet(items) {
+    try {
+      await chrome.storage.local.set(items);
+      return { ok: true };
+    } catch(e) {
+      return { ok: false, error: String(e) };
+    }
+  }
+  async function storageRemove(keys) {
+    try {
+      await chrome.storage.local.remove(keys);
+      return { ok: true };
+    } catch(e) {
+      return { ok: false, error: String(e) };
+    }
+  }
+  function traceEvent(name, data) {
+    console.log(`%c[Orchestrator-Trace] [${name}]`, 'color: #10b981; font-weight: bold;', data || {});
+    if (typeof window.traceEvent === 'function') window.traceEvent(name, data);
+  }
   function sendSmartLog(ev, meta) { if (typeof window.sendSmartLog === 'function') window.sendSmartLog(ev, meta); }
   function showPageToast(msg, type) { if (typeof window.showPageToast === 'function') window.showPageToast(msg, type); }
-  function getPageType() { return (typeof window.getPageType === 'function') ? window.getPageType() : 'UNKNOWN'; }
-  function loadSelectors() { return (typeof window.loadSelectors === 'function') ? window.loadSelectors() : Promise.resolve({}); }
-  function findFirst(sel) { return (typeof window.findFirst === 'function') ? window.findFirst(sel) : null; }
-  function safeClick(el, label) { if (typeof window.safeClick === 'function') window.safeClick(el, label); else el?.click(); }
-  function emulateUserInput(el, val) { return (typeof window.emulateUserInput === 'function') ? window.emulateUserInput(el, val) : Promise.resolve(); }
-  function parseDataLine(line) {
-    if (typeof window.parseDataLine === 'function' && window.parseDataLine !== parseDataLine) {
-      return window.parseDataLine(line);
-    }
-    if (!line || typeof line !== 'string') return {};
-    const obj = {};
-    const parts = line.includes('|') ? line.split('|') : line.split(',');
-    parts.forEach(p => {
-      const i = p.indexOf(':');
-      if (i < 0) return;
-      obj[p.slice(0, i).trim().toLowerCase().replace(/\s+/g, '')] = p.slice(i + 1).trim();
-    });
-    const parsed = {
-      orderId: obj['orderid'] || obj['order'] || line.match(/\bCAS\d{10,}\b/i)?.[0] || '',
-      brand: obj['brand'] || obj['علامهتجاريه'] || '',
-      model: obj['model'] || obj['موديل'] || '',
-      serial: obj['serial'] || obj['serialnumber'] || '',
-      model2: obj['model2'] || '',
-      serial2: obj['serial2'] || '',
-      status: obj['status'] || obj['حالة'] || '',
-      date: obj['date'] || obj['تاريخ'] || '',
-      reportType: obj['reporttype'] || obj['report'] || '',
-      date2: obj['date2'] || '',
-      problemCode: obj['problemcode'] || obj['problem'] || '',
-      faultCode: obj['faultcode'] || obj['fault'] || '',
-      subFaultCode: obj['subfault'] || null,
-      notes: obj['notes'] || obj['ملاحظات'] || '',
-      technician: obj['technician'] || obj['الفني'] || obj['الفنى'] || '',
-      technicianName: obj['technicianname'] || obj['اسمالفني'] || obj['اسمالفنى'] || ''
-    };
-
-    if (parsed.model2 && parsed.date && parsed.date2) {
-      try {
-        const toDate = (d) => { const m = d.match(/(\d{1,2})\/(\d{1,2})\/(\d{4})/); return m ? new Date(m[3], m[2]-1, m[1]) : new Date(d); };
-        const d1 = toDate(parsed.date), d2 = toDate(parsed.date2);
-        if (d2 > d1) parsed.date = parsed.date2;
-      } catch(_) {}
-    }
-    return parsed;
+  function getPageType() {
+    const url = (typeof location !== 'undefined' ? location.href : '').toLowerCase();
+    if (url.includes('workorderreview') || url.includes('followup')) return 'WORK_ORDER_REVIEW';
+    if (url.includes('/orders')) return 'ORDERS';
+    return 'OTHER';
   }
+  // ── دوال مشتركة: المصدر الوحيد في shared/portal-selectors.js ──
+  function loadSelectors() { return window.loadSelectors ? window.loadSelectors() : {}; }
+  function findFirst(list) { return window.findFirst ? window.findFirst(list) : null; }
+
+  function safeClick(el, label) {
+    if (typeof window.safeClick === 'function' && window.safeClick !== safeClick) {
+      return window.safeClick(el, label);
+    }
+    if (!el) return false;
+    try {
+      document.body.dataset.isAutofilling = 'true';
+      el.focus?.();
+      el.click();
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
+  async function emulateUserInput(el, val) {
+    if (typeof window.emulateUserInput === 'function' && window.emulateUserInput !== emulateUserInput) {
+      return await window.emulateUserInput(el, val);
+    }
+    if (!el) return;
+    try { el.focus(); } catch(_) {}
+    document.body.dataset.isAutofilling = 'true';
+    const descriptor = Object.getOwnPropertyDescriptor(Object.getPrototypeOf(el), 'value') || Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value');
+    if (descriptor && descriptor.set) { try { descriptor.set.call(el, val); } catch(_) {} } else { el.value = val; }
+    try { el.dispatchEvent(new Event('input', { bubbles: true })); } catch(_) {}
+    await sleep(150);
+    try { el.dispatchEvent(new Event('change', { bubbles: true })); } catch(_) {}
+    setTimeout(() => { delete document.body.dataset.isAutofilling; }, 50);
+  }
+  function parseDataLine(line) { return window.parseDataLine ? window.parseDataLine(line) : {}; }
   function waitForSaveComplete(url, cfg) { return (typeof window.waitForSaveComplete === 'function') ? window.waitForSaveComplete(url, cfg) : Promise.resolve(true); }
 
   // ── SYNCHRONOUS MESSAGE LISTENER (registered at module load, handles PING only) ──
-  chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
-    if (!msg?.action) return;
-    if (msg.action === 'PING') { sendResponse({ ok: true, version: '2.0.0', orchestrator: true }); return true; }
-    // START_QUEUE, RUN_SINGLE, STOP_QUEUE, SKIP_TASK are handled by registerMessageListener()
-    // called ONCE from content-script.js (main frame only)
-  });
+  // Only register in main frame to avoid duplicate handlers in iframes
+  if (window === window.top) {
+    chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
+      if (!msg?.action) return;
+      if (msg.action === 'PING') { sendResponse({ ok: true, version: '2.0.0', orchestrator: true }); return true; }
+      // START_QUEUE, RUN_SINGLE, STOP_QUEUE, SKIP_TASK are handled by registerMessageListener()
+      // called ONCE from content-script.js (main frame only)
+    });
+  }
 
-  const ORDERS_URL = 'https://elarabyportalpfs.powerappsportals.com/Orders/';
+  function getOrdersUrl() {
+    const cur = (typeof location !== 'undefined' ? location.href : '');
+    const langMatch = cur.match(/\.powerappsportals\.com\/([a-zA-Z]{2}-[a-zA-Z]{2})\//i);
+    const prefix = langMatch ? `/${langMatch[1]}` : '/en-US';
+    return `https://elarabyportalpfs.powerappsportals.com${prefix}/Orders/`;
+  }
+  const ORDERS_URL = getOrdersUrl();
   let _routerRunning = false;
 
   // ── TASK NORMALIZATION ───────────────────────────────────────────────────────
@@ -116,9 +142,7 @@ window.AutoFillEngine = window.AutoFillEngine || {};
     return tokens[0] || null;
   }
 
-  function generateTaskId() {
-    return 'task-' + Date.now() + '-' + Math.random().toString(36).slice(2, 6);
-  }
+  function generateTaskId() { return window.generateTaskId ? window.generateTaskId() : ('task-' + Date.now() + '-' + Math.random().toString(36).slice(2, 6)); }
 
   function buildTasksFromLines(lines) {
     const tasks = [];
@@ -140,8 +164,24 @@ window.AutoFillEngine = window.AutoFillEngine || {};
   // ── STATUS NOTIFICATIONS ────────────────────────────────────────────────────
   function notifyStatus(taskId, status, message) {
     const u = { taskId, status, message, timestamp: Date.now() };
+    console.log(`%c[Status] [${status}] ${taskId || ''}: ${message || ''}`, 'color: #f59e0b; font-weight: bold;', u);
     storageSet({ lastStatusUpdate: u });
     chrome.runtime.sendMessage({ type: 'STATUS_UPDATE', ...u }).catch(()=>{});
+    try {
+      let badge = document.getElementById('elaraby-autofill-live-status');
+      if (!badge) {
+        badge = document.createElement('div');
+        badge.id = 'elaraby-autofill-live-status';
+        badge.style.cssText = 'position:fixed;top:12px;right:12px;z-index:9999999;background:#17334c;color:#fff;padding:8px 14px;border-radius:8px;font-family:Segoe UI,sans-serif;font-size:12px;font-weight:600;box-shadow:0 4px 16px rgba(0,0,0,0.3);direction:rtl;border:1px solid rgba(255,255,255,0.2);display:flex;align-items:center;gap:8px;';
+        document.body.appendChild(badge);
+      }
+      badge.innerHTML = `<span>⚡ العربي ديف:</span> <span style="color:#38bdf8;">${message || status}</span>`;
+      if (status === 'batch-done' || status === 'done') {
+        setTimeout(() => { badge?.remove(); }, 6000);
+      }
+      const diagStatus = document.getElementById('elaraby-diag-status');
+      if (diagStatus) diagStatus.textContent = message || status;
+    } catch (_) {}
   }
 
   async function clearCurrentTask() {
@@ -155,79 +195,63 @@ window.AutoFillEngine = window.AutoFillEngine || {};
       return;
     }
     const task = queue[0];
-    const taskId = task?.taskId;
-    const orderId = task?.orderId;
-    const tabId = (typeof chrome !== 'undefined' && chrome.runtime?.id) ? chrome.runtime.id : null;
-    
-    traceEvent('QUEUE_WRITE_ATTEMPT', { taskId, orderId, tabId });
-    
-    const setResult = await storageSet({ currentTask: task, taskQueue: queue.slice(1) });
-    if (!setResult.ok) {
-      traceEvent('QUEUE_WRITE_FAILED', { 
-        taskId, 
-        orderId, 
-        expectedTaskId: taskId, 
-        expectedOrderId: orderId, 
-        expectedPresent: true, 
-        actualPresent: false, 
-        storageError: setResult.error 
-      });
-      return;
-    }
-    
-    const readResult = await storageGet({ currentTask: null });
-    const stored = readResult.currentTask;
-    const storedPresent = !!stored;
-    const taskIdMatch = storedPresent && stored.taskId === taskId;
-    const orderIdMatch = storedPresent && stored.orderId === orderId;
-    const verified = storedPresent && taskIdMatch && orderIdMatch;
-    
-    if (!verified) {
-      traceEvent('QUEUE_WRITE_FAILED', { 
-        taskId, 
-        orderId, 
-        expectedTaskId: taskId, 
-        expectedOrderId: orderId, 
-        expectedPresent: true, 
-        actualPresent: storedPresent, 
-        actualTaskId: stored?.taskId, 
-        actualOrderId: stored?.orderId,
-        taskIdMatch,
-        orderIdMatch,
-        storageError: readResult.error 
-      });
-      return;
-    }
-    
-    traceEvent('QUEUE_WRITE_VERIFIED', { taskId, orderId, tabId });
-    traceEvent('QUEUE_HANDOFF_EXPECTED', { taskId, orderId, tabId });
-    
     traceEvent('CURRENT_TASK_SET', { taskId: task?.taskId, orderId: task?.orderId, queueLength: queue.length - 1 });
-    traceEvent('OPEN_NEXT_TAB_REQUEST', { url: ORDERS_URL });
+    // Keep service worker alive before storage write
     try {
-      await chrome.runtime.sendMessage({ type: 'OPEN_NEXT_TAB', url: ORDERS_URL });
-    } catch(e) {
-      location.href = ORDERS_URL;
+        await chrome.storage.local.get('keepAlive'); // dummy read
+        await chrome.storage.local.set({ currentTask: task, taskQueue: queue.slice(1) });
+        traceEvent('QUEUE_WRITE_SUCCESS', { taskId: task?.taskId });
+    } catch (e) {
+        traceEvent('QUEUE_WRITE_FAILED', { taskId: task?.taskId, error: e && e.message ? e.message : String(e) });
+        console.error('Queue write failed', e);
+    }
+    
+    const targetUrl = getOrdersUrl();
+    traceEvent('OPEN_NEXT_TAB_REQUEST', { url: targetUrl });
+    if (typeof location !== 'undefined' && location.href.includes('.powerappsportals.com')) {
+      location.href = targetUrl;
+    } else {
+      try {
+        await chrome.runtime.sendMessage({ type: 'OPEN_NEXT_TAB', url: targetUrl });
+      } catch(e) {
+        location.href = targetUrl;
+      }
     }
   }
 
   // ── PAGE DETECTOR ───────────────────────────────────────────────────────────
   async function getActivePageFeature() {
     const isVisible = el => el && el.offsetParent !== null;
-    const has = id => isVisible(document.getElementById(id));
-    const hasSel = s => isVisible(document.querySelector(s));
 
-    if (has('ldv_serialnumber') || has('ldv_actualmodel_name') || has('ats_producttypebrand_name') || hasSel('.page-1-marker')) return 'PAGE_1';
-    if (has('workorderProblem') || has('caseresources') || has('ats_sparepartsstatus') || hasSel('.page-2-marker')) return 'PAGE_2';
-    if (has('WorkOrder_defect') || has('InventoryAdjustmentProduct_Subgrid') || has('WorkOrderDefectIsLscYes_Subgrid') || hasSel('.page-3-marker')) return 'PAGE_3';
+    // Page 3: contains fault code section or button
+    const hasFaultSection = Array.from(document.querySelectorAll('label, h3, h2, h4, th')).some(el =>
+      el.innerText && el.innerText.includes('أكواد الأعطال')
+    );
+    const hasFaultBtn = Array.from(document.querySelectorAll('a, button, input[type="button"]')).some(el =>
+      /اضاف[ةه]\s*كود\s*عطل/i.test((el.innerText || el.value || '').trim()) && isVisible(el)
+    );
+    if (hasFaultSection || hasFaultBtn || document.getElementById('WorkOrder_defect')) return 'PAGE_3';
+
+    // Page 2: contains technician or problems buttons
+    const hasTechBtn = Array.from(document.querySelectorAll('a, button, input[type="button"]')).some(el =>
+      /اضاف[ةه]\s*فن/i.test((el.innerText || el.value || '').trim()) && isVisible(el)
+    );
+    const hasProbBtn = Array.from(document.querySelectorAll('a, button, input[type="button"]')).some(el =>
+      /اضاف[ةه]\s*المشاكل\s*الفعلي[ةه]/i.test((el.innerText || el.value || '').trim()) && isVisible(el)
+    );
+    if (hasTechBtn || hasProbBtn || isVisible(document.getElementById('ats_sparepartsstatus'))) return 'PAGE_2';
+
+    // Page 1: contains serial or model or brand inputs
+    const hasPage1Input = document.getElementById('ldv_serialnumber') || document.getElementById('ats_producttypebrand_name') || document.getElementById('ldv_actualmodel_name');
+    if (hasPage1Input && isVisible(hasPage1Input)) return 'PAGE_1';
 
     // Text-based fallback
     const text = (document.body?.innerText || '').toLowerCase();
-    if (text.includes('البيانات الاساسية') || text.includes('basic information')) return 'PAGE_1';
-    if (text.includes('المشاكل الفعلية') || text.includes('actual problems')) return 'PAGE_2';
     if (text.includes('تقرير الاصلاح') || text.includes('resolution report') || text.includes('قطع الغيار')) return 'PAGE_3';
+    if (text.includes('المشاكل الفعلية') || text.includes('actual problems')) return 'PAGE_2';
+    if (text.includes('البيانات الاساسية') || text.includes('basic information')) return 'PAGE_1';
 
-    return 'UNKNOWN';
+    return 'PAGE_1';
   }
 
   function showOverlay(report) {
@@ -329,6 +353,7 @@ window.AutoFillEngine = window.AutoFillEngine || {};
 
   // ── ORDER FIND & OPEN ────────────────────────────────────────────────────────
   async function findOrderAndOpen(orderId, cfg) {
+    console.log('%c[Orchestrator] findOrderAndOpen start for:', 'color:#3b82f6;font-weight:bold;', orderId);
     try {
       const { currentTask } = await storageGet({ currentTask: null });
       if (currentTask) notifyStatus(currentTask.taskId, 'searching', `جاري البحث عن رقم الأمر...`);
@@ -364,9 +389,19 @@ window.AutoFillEngine = window.AutoFillEngine || {};
         if ((row.innerText||'').includes(orderId)) {
           const v = (cfg.ordersViewLink || []).join(',');
           const vl = v ? row.querySelector(v) : null;
-          if (vl) { traceEvent('ORDER_ROW_CLICKED', { branch: 'legacy-view-link', tag: vl?.tagName || null, href: vl?.getAttribute?.('href') || null }); safeClick(vl, 'View Link'); await verifyOrderNavigation(); return true; }
+          if (vl) {
+            traceEvent('ORDER_ROW_CLICKED', { branch: 'legacy-view-link', tag: vl?.tagName || null, href: vl?.getAttribute?.('href') || null });
+            vl.removeAttribute?.('target');
+            if (vl.tagName === 'A' && vl.getAttribute('href') && !vl.getAttribute('href').startsWith('javascript:')) {
+              location.href = vl.href;
+            } else {
+              safeClick(vl, 'View Link');
+            }
+            await verifyOrderNavigation();
+            return true;
+          }
           const a = row.querySelector('a[href]');
-          if (a) { traceEvent('ORDER_ROW_CLICKED', { branch: 'legacy-a', tag: a?.tagName || null, href: a?.getAttribute?.('href') || null }); safeClick(a, 'View Link a'); await verifyOrderNavigation(); return true; }
+          if (a) { traceEvent('ORDER_ROW_CLICKED', { branch: 'legacy-a', tag: a?.tagName || null, href: a?.getAttribute?.('href') || null }); a.removeAttribute('target'); if (a.href && !a.href.startsWith('javascript:')) { location.href = a.href; } else { safeClick(a, 'View Link a'); } await verifyOrderNavigation(); return true; }
           traceEvent('ORDER_ROW_CLICKED', { branch: 'legacy-row', tag: row?.tagName || null, href: row?.getAttribute?.('href') || null });
           safeClick(row, 'Row');
           await verifyOrderNavigation();
@@ -377,7 +412,7 @@ window.AutoFillEngine = window.AutoFillEngine || {};
     }
 
     const a = Array.from(document.querySelectorAll('a[href]')).find(l => l.innerText?.includes(orderId) || l.href?.toLowerCase().includes(orderId.toLowerCase()));
-    if (a) { traceEvent('ORDER_ROW_CLICKED', { branch: 'fallback', tag: a?.tagName || null, href: a?.getAttribute?.('href') || null }); safeClick(a, 'Fallback Link'); await verifyOrderNavigation(); return true; } return false;
+    if (a) { traceEvent('ORDER_ROW_CLICKED', { branch: 'fallback', tag: a?.tagName || null, href: a?.getAttribute?.('href') || null }); a.removeAttribute('target'); if (a.href && !a.href.startsWith('javascript:')) { location.href = a.href; } else { safeClick(a, 'Fallback Link'); } await verifyOrderNavigation(); return true; } return false;
   }
 
   // ── ROUTER EXECUTION ────────────────────────────────────────────────────────
@@ -416,14 +451,24 @@ window.AutoFillEngine = window.AutoFillEngine || {};
         warn('Page 1 already has data — marking task as done and skipping to next order.');
         try {
           const { currentTask } = await storageGet({ currentTask: null });
-          if (currentTask) notifyStatus(currentTask.taskId, 'done', 'مكتمل مسبقاً — تخطي');
+          if (currentTask) notifyStatus(currentTask.taskId, 'skipped', 'مسجل مسبقاً — تخطي');
         } catch(_) {}
-        const report = { timestamp: new Date().toISOString(), url: location.href, customer: findFirst(cfg.customer)?.innerText?.trim(), orderNumber: data.orderId, filled: data, fieldResults: { skipped: { ok: true } }, saveResult: { ok: true, skipped: true }, skippedReason: 'already-filled' };
+        const existingPortalData = (window.AutoFillEngine.Page1?.extractExistingPage1Data && window.AutoFillEngine.Page1.extractExistingPage1Data()) || {
+          serial: document.getElementById('ldv_serialnumber')?.value || '',
+          brand: document.getElementById('ats_producttypebrand_name')?.value || '',
+          model: document.getElementById('ldv_actualmodel_name')?.value || ''
+        };
+        const report = { timestamp: new Date().toISOString(), url: location.href, customer: findFirst(cfg.customer)?.innerText?.trim(), orderNumber: data.orderId, filled: data, existingPortalData, fieldResults: { skipped: { ok: true } }, saveResult: { ok: true, skipped: true }, skippedReason: 'already-filled' };
         return { report, isFullyDone: true };
       }
 
       const res1 = await window.AutoFillEngine.Page1.executePage1_Review(data, cfg);
       Object.assign(resFR, res1.report.fieldResults);
+
+      if (window.AutoFillEngine.Lookups?.waitForModalCloseIfOpen) {
+        await window.AutoFillEngine.Lookups.waitForModalCloseIfOpen();
+      }
+      await sleep(500);
 
       const nBtn = document.getElementById('NextButton') || findFirst(cfg.nextBtn) || Array.from(document.querySelectorAll('button, input[type="button"], input[type="submit"]')).find(b => /next|التالي/i.test((b.innerText||b.value||b.title||'').trim()) && !/cancel|إلغاء/i.test(b.className));
       if (nBtn) {
@@ -432,7 +477,8 @@ window.AutoFillEngine = window.AutoFillEngine || {};
           if (currentTask) notifyStatus(currentTask.taskId, 'navigating', 'جاري الانتقال للصفحة الثانية...');
         } catch(_) {}
         log('Clicking Next to load PAGE 2');
-        nBtn.click();
+        safeClick(nBtn, 'NextButton PAGE 1'); try { nBtn.click(); } catch(_) {}
+        try { nBtn.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, view: window })); } catch(_) {}
       } else {
         warn('Next button not found on PAGE 1');
       }
@@ -440,7 +486,7 @@ window.AutoFillEngine = window.AutoFillEngine || {};
       log('Waiting for Page 2...');
       const sw = Date.now();
       let p2Loaded = false;
-      while(Date.now() - sw < 10000) {
+      while (Date.now() - sw < 18000) {
         if (await getActivePageFeature() === 'PAGE_2') { p2Loaded = true; break; }
         await sleep(1000);
       }
@@ -540,56 +586,30 @@ window.AutoFillEngine = window.AutoFillEngine || {};
 
   // ── TAB LOCK & QUEUE PROCESSOR ──────────────────────────────────────────────
   async function processQueueOnLoad() {
+    if (window !== window.top) return;
     traceEvent('PROCESS_QUEUE_ON_LOAD_ENTER', { url: location.href });
     log('[QUEUE_TRACE] phase=processQueueOnLoad url="' + location.href + '"');
     await sleep(500);
-    const { currentTask, processingTabId } = await storageGet({ currentTask: null, processingTabId: null });
-    log('[QUEUE_TRACE] phase=storage currentTask=' + (currentTask ? 'yes' : 'no') + ' taskId="' + (currentTask?.taskId || '') + '" orderId="' + (currentTask?.orderId || '') + '" processingTabId="' + (processingTabId || '') + '"');
-    traceEvent('PROCESS_QUEUE_STORAGE_READ', { currentTaskPresent: !!currentTask, taskId: currentTask?.taskId, orderId: currentTask?.orderId, processingTabId: processingTabId || null });
+    const { currentTask, processingTabId } = await chrome.storage.local.get({ currentTask: null, processingTabId: null });
     if (!currentTask) {
       traceEvent('PROCESS_QUEUE_ABORT', { reason: 'no_current_task', url: location.href });
       log('[QUEUE_TRACE] phase=guard result=return reason=no_current_task url="' + location.href + '"');
       return;
     }
 
-    // Tab Lock checking with race-condition retry
-    let myTabId = null;
-    log('[QUEUE_TRACE] phase=tab_lock myTabId="pending" processingTabId="' + (processingTabId || '') + '" pageType="' + getPageType() + '" url="' + location.href + '"');
-    if (processingTabId) {
-      const myTabIdResp = await new Promise(r => chrome.runtime.sendMessage({ type: 'GET_MY_TAB_ID' }, r));
-      myTabId = myTabIdResp?.tabId || null;
-      if (!myTabId) log('[QUEUE_TRACE] phase=tab_id result=warning reason=get_my_tab_id_failed processingTabId="' + (processingTabId || '') + '"');
-      else log('[QUEUE_TRACE] phase=tab_lock myTabId="' + myTabId + '" processingTabId="' + processingTabId + '" pageType="' + getPageType() + '"');
-      if (myTabId && myTabId !== processingTabId) {
-        log('[QUEUE_TRACE] phase=tab_lock result=retry_or_return reason=processing_tab_mismatch myTabId="' + myTabId + '" processingTabId="' + processingTabId + '" pageType="' + getPageType() + '"');
-        await sleep(1500);
-        const retry = await storageGet({ processingTabId: null });
-        const updatedId = retry.processingTabId;
-        log('[QUEUE_TRACE] phase=tab_lock result=retry_check updatedId="' + (updatedId || '') + '" myTabId="' + myTabId + '"');
-        if (updatedId && myTabId !== updatedId) {
-          const pCheck = getPageType();
-          log('[QUEUE_TRACE] phase=tab_lock result=decision pCheck="' + pCheck + '" myTabId="' + myTabId + '" updatedId="' + updatedId + '"');
-          if (pCheck === 'ORDERS') {
-            log(`Tab Lock race on ORDERS: claiming lock for tab ${myTabId} (was ${updatedId})`);
-            await storageSet({ processingTabId: myTabId });
-          } else {
-            log(`Tab Lock: This tab (${myTabId}) is not the active processing tab (${updatedId}). Ignoring.`);
-            log('[QUEUE_TRACE] phase=tab_lock result=return reason=tab_lock_mismatch_not_orders myTabId="' + myTabId + '" processingTabId="' + updatedId + '" pageType="' + pCheck + '"');
-            return;
-          }
-        } else if (updatedId) {
-          log(`Tab Lock resolved after wait: ${myTabId} == ${updatedId}`);
-        }
+    let activeTabLock = processingTabId;
+    if (activeTabLock) {
+      const myTabIdResp = await new Promise(r => {
+        try { chrome.runtime.sendMessage({ type: 'GET_MY_TAB_ID' }, r); } catch(_) { r(null); }
+      });
+      if (myTabIdResp && myTabIdResp.tabId && myTabIdResp.tabId !== activeTabLock) {
+        await sleep(400);
+        const fresh = await chrome.storage.local.get({ processingTabId: null });
+        if (fresh.processingTabId) activeTabLock = fresh.processingTabId;
       }
-    } else {
-      log('[QUEUE_TRACE] phase=tab_lock result=no_lock_yet url="' + location.href + '"');
-      const myTabIdResp2 = await new Promise(r => chrome.runtime.sendMessage({ type: 'GET_MY_TAB_ID' }, r));
-      myTabId = myTabIdResp2?.tabId || null;
-      if (!myTabId) log('[QUEUE_TRACE] phase=tab_id result=warning reason=get_my_tab_id_failed_no_lock');
-      else log('[QUEUE_TRACE] phase=tab_lock myTabId="' + myTabId + '" pageType="' + getPageType() + '" result=claim_check');
-      if (myTabId && getPageType() === 'ORDERS') {
-        log('[QUEUE_TRACE] phase=tab_lock result=claim myTabId="' + myTabId + '"');
-        await storageSet({ processingTabId: myTabId });
+      if (myTabIdResp && myTabIdResp.tabId && activeTabLock && myTabIdResp.tabId !== activeTabLock) {
+        log('⛔ Tab Lock: This tab (' + myTabIdResp.tabId + ') is not the active processing tab (' + activeTabLock + '). Ignoring.');
+        return;
       }
     }
 
@@ -632,11 +652,14 @@ window.AutoFillEngine = window.AutoFillEngine || {};
         const { taskRetryFlag } = await storageGet({ taskRetryFlag: false });
         const routerRes = await runSingleLineWithRouter(currentTask);
         if (routerRes && routerRes.isFullyDone) {
-          const ok = routerRes.report?.saveResult?.ok;
-          sendSmartLog('TASK_COMPLETE', { orderId: currentTask.orderId, success: ok, mode: currentTask.mode || 'search' });
+          const isSkippedFilled = routerRes.report?.skippedReason === 'already-filled';
+          const ok = isSkippedFilled ? true : !!routerRes.report?.saveResult?.ok;
+          const statusText = isSkippedFilled ? 'skipped' : (ok ? 'done' : 'save-failed');
+          const messageText = isSkippedFilled ? 'مسجل مسبقاً ⏭️ (تخطي)' : (ok ? 'اكتمل' : 'لم يتأكد');
+          sendSmartLog('TASK_COMPLETE', { orderId: currentTask.orderId, success: ok, skipped: isSkippedFilled, reason: isSkippedFilled ? 'already-filled' : null, mode: currentTask.mode || 'search' });
           delete document.body.dataset.isAutofilling;
-          notifyStatus(currentTask.taskId, ok ? 'done' : 'save-failed', ok ? 'اكتمل' : 'لم يتأكد');
-          await finalizeOrderInSession(currentTask, routerRes.report, ok ? 'done' : 'save-failed');
+          notifyStatus(currentTask.taskId, statusText, messageText);
+          await finalizeOrderInSession(currentTask, routerRes.report, statusText);
 
           await storageRemove(['taskRetryFlag']);
           await clearCurrentTask();
@@ -660,7 +683,31 @@ window.AutoFillEngine = window.AutoFillEngine || {};
             log('Page 1 incomplete. Retrying once...');
             notifyStatus(currentTask.taskId, 'filling', 'إعادة المحاولة...');
             await storageSet({ taskRetryFlag: true });
-            location.reload();
+            log("Page 1 incomplete. Waiting 1.5s then retrying inline...");
+            await sleep(1500);
+            const retryRes = await runSingleLineWithRouter(currentTask);
+            if (retryRes && retryRes.isFullyDone) {
+              const isSkippedFilled = retryRes.report?.skippedReason === 'already-filled';
+              const ok = isSkippedFilled ? true : !!retryRes.report?.saveResult?.ok;
+              const statusText = isSkippedFilled ? 'skipped' : (ok ? 'done' : 'save-failed');
+              const messageText = isSkippedFilled ? 'مسجل مسبقاً ⏭️ (تخطي)' : (ok ? 'اكتمل' : 'لم يتأكد');
+              sendSmartLog('TASK_COMPLETE', { orderId: currentTask.orderId, success: ok, skipped: isSkippedFilled, reason: isSkippedFilled ? 'already-filled' : null, mode: currentTask.mode || 'search' });
+              delete document.body.dataset.isAutofilling;
+              notifyStatus(currentTask.taskId, statusText, messageText);
+              await finalizeOrderInSession(currentTask, retryRes.report, statusText);
+              await storageRemove(['taskRetryFlag']);
+              await clearCurrentTask();
+              const { taskQueue: qRetry, taskDelay: tdRetry = 800 } = await storageGet({ taskQueue: [], taskDelay: 800 });
+              if (qRetry.length > 0) {
+                await sleep(tdRetry);
+                await startNextTask(qRetry);
+              } else {
+                notifyStatus('batch', 'batch-done', 'اكتمل Batch');
+                await finalizeSession();
+                chrome.runtime.sendMessage({ type: 'BATCH_DONE_STORAGE' }).catch(()=>{});
+              }
+              return;
+            }
           } else {
             warn('Retry failed. Skipping to next task.');
             sendSmartLog('TASK_COMPLETE', { orderId: currentTask.orderId, success: false, reason: 'retry-failed', mode: currentTask.mode || 'search' });
@@ -703,54 +750,80 @@ window.AutoFillEngine = window.AutoFillEngine || {};
     }
   }
 
-  // ── SESSION TRACKING ─────────────────────────────────────────────────────────
+  // ── SESSION ENGINE (V2 Compatible: activeSession & sessionLogs) ─────────
   async function openSession(batchId, tasks) {
-    if (typeof window.openSession === 'function' && window.openSession !== openSession) {
-      return await window.openSession(batchId, tasks);
-    }
-    const session = {
-      batchId,
-      startTime: new Date().toISOString(),
-      totalTasks: tasks.length,
-      orders: {},
-      status: 'running'
-    };
-    await storageSet({ currentSession: session });
+    try {
+      const session = {
+        id: batchId || 'session-' + Date.now(),
+        startTime: new Date().toISOString(),
+        endTime: null,
+        totalTasks: tasks.length,
+        orders: []
+      };
+      await chrome.storage.local.set({ activeSession: session });
+      log('🟢 Session opened:', session.id);
+    } catch (e) { warn('openSession error', e); }
   }
 
   async function finalizeOrderInSession(task, report, status) {
-    if (typeof window.finalizeOrderInSession === 'function' && window.finalizeOrderInSession !== finalizeOrderInSession) {
-      return await window.finalizeOrderInSession(task, report, status);
-    }
-    const { currentSession } = await storageGet({ currentSession: null });
-    if (!currentSession) return;
-    currentSession.orders[task.orderId] = {
-      taskId: task.taskId,
-      status,
-      completedAt: new Date().toISOString(),
-      technician: report?.technician || null,
-      saveOk: report?.saveResult?.ok ?? null
-    };
-    await storageSet({ currentSession });
+    try {
+      const { activeSession } = await chrome.storage.local.get('activeSession');
+      if (!activeSession) return;
+      
+      let pageDetails = {};
+      try {
+        if (typeof window.scrapeFullOrderDetails === 'function') {
+          pageDetails = await window.scrapeFullOrderDetails(report?.filled || task?.data || {});
+        }
+      } catch(e) { warn('scrapeFullOrderDetails error', e); }
+
+      const existingIdx = (activeSession.orders || []).findIndex(o => o.orderId === task.orderId);
+      
+      const orderData = {
+        orderId: task.orderId,
+        status: status,
+        timestamp: new Date().toISOString(),
+        injectedData: report?.filled || task?.data || {},
+        existingPortalData: report?.existingPortalData || null,
+        fieldResults: report?.fieldResults || {},
+        saveResult: report?.saveResult || {},
+        pageDetails,
+        technician: report?.technician || report?.fieldResults?.technician?.selected || null,
+        serviceFilled: report?.serviceFilled || false,
+        problemSelected: report?.fieldResults?.problem?.selected || null,
+        report: report || {},
+        originalTask: task
+      };
+      
+      if (existingIdx > -1) {
+        activeSession.orders[existingIdx] = orderData;
+      } else {
+        activeSession.orders.push(orderData);
+      }
+      
+      await chrome.storage.local.set({ activeSession });
+      log('📥 Order finalized in session:', task.orderId, status);
+    } catch (e) { warn('finalizeOrderInSession error', e); }
   }
 
   async function finalizeSession() {
-    if (typeof window.finalizeSession === 'function' && window.finalizeSession !== finalizeSession) {
-      return await window.finalizeSession();
-    }
-    const { currentSession, sessionHistory = [] } = await storageGet({ currentSession: null, sessionHistory: [] });
-    if (!currentSession) return;
-    currentSession.endTime = new Date().toISOString();
-    currentSession.status = 'completed';
-    sessionHistory.push(currentSession);
-    if (sessionHistory.length > 20) sessionHistory.shift();
-    await storageSet({ currentSession: null, sessionHistory });
+    try {
+      const { activeSession, sessionLogs = [] } = await chrome.storage.local.get(['activeSession', 'sessionLogs']);
+      if (!activeSession) return;
+      
+      activeSession.endTime = new Date().toISOString();
+      sessionLogs.push(activeSession);
+      
+      await chrome.storage.local.set({ sessionLogs, activeSession: null });
+      log('🔴 Session finalized and saved:', activeSession.id);
+      chrome.runtime.sendMessage({ type: 'NEW_LOG' }).catch(()=>{});
+    } catch (e) { warn('finalizeSession error', e); }
   }
 
   // ── CHROME MESSAGE HANDLER ──────────────────────────────────────────────────
   let _fullListenerRegistered = false;
   function registerMessageListener() {
-    if (_fullListenerRegistered) {
+    if (_fullListenerRegistered || window !== window.top) {
       traceEvent('MESSAGE_LISTENER_SKIP_DUPLICATE', { reason: 'already_registered' });
       return;
     }
@@ -866,6 +939,11 @@ window.AutoFillEngine = window.AutoFillEngine || {};
     });
   }
 
+  // Auto-register immediately in main frame (matching V2 architecture)
+  if (window === window.top) {
+    registerMessageListener();
+  }
+
   // ── EXPORTS ──────────────────────────────────────────────────────────────────
   const Orchestrator = {
     normalizeTaskData,
@@ -889,6 +967,9 @@ window.AutoFillEngine = window.AutoFillEngine || {};
   };
 
   window.AutoFillEngine.Orchestrator = Orchestrator;
-  Object.assign(window, Orchestrator);
+  // لا تُكتب على الدوال الموجودة أصلاً على النافذة (مثلاً من portal-selectors.js)
+  Object.keys(Orchestrator).forEach(function (key) {
+    if (!window[key]) window[key] = Orchestrator[key];
+  });
 
 })(window);

@@ -1,37 +1,20 @@
 // ai/voice-control.js — التحكم الصوتي "مساعد العربي الصوتي"
 // إملاء صوتي (webkitSpeechRecognition) بتعبئة الحقل النشط في البوابة.
-// الفاب #elaraby-ai-voice-fab: يظهر فقط عند تفعيله من اللوحة (unified-dock).
+// الفاب يدار مركزيًا من fabs-controller (Stack) — هذا الملف ينشئ اللوحة فقط.
 (function () {
   'use strict';
 
-  const FAB_ID = 'elaraby-ai-voice-fab';
+  const FAB_ID = 'elaraby-ai-voice-fab'; // للتوافق مع fabs-controller (لا ينشأ هنا)
   const PANEL_ID = 'ea-voice-panel';
 
   function buildUI() {
-    if (document.getElementById(FAB_ID)) return;
+    if (document.getElementById(PANEL_ID)) return;
 
-    // ── الفاب 🎙️ (الحجم الموحد 48×48 كباقي الفابز) ──
-    const fab = document.createElement('button');
-    fab.id = FAB_ID;
-    fab.title = 'التحكم الصوتي — إملاء وتعبئة بالصوت';
-    fab.textContent = '🎙️';
-    fab.style.cssText =
-      'position:fixed;bottom:20px;right:20px;z-index:999990;width:48px;height:48px;' +
-      'border-radius:50%;border:2px solid #a78bfa;background:linear-gradient(135deg,#1e1b4b,#312e81);' +
-      'color:#c4b5fd;font-size:20px;cursor:pointer;box-shadow:0 6px 20px rgba(0,0,0,.45);' +
-      'display:flex;align-items:center;justify-content:center;line-height:1;user-select:none;' +
-      'transition:transform .12s ease,box-shadow .12s ease;';
-    fab.addEventListener('click', () => {
-      const panel = document.getElementById(PANEL_ID);
-      if (panel) panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
-    });
-    document.body.appendChild(fab);
-
-    // ── اللوحة ──
+    // ── اللوحة فقط (بدون فاب) ──
     const panel = document.createElement('div');
     panel.id = PANEL_ID;
     panel.style.cssText =
-      'position:fixed;bottom:78px;right:16px;z-index:999992;width:280px;max-height:70vh;overflow-y:auto;' +
+      'position:fixed;bottom:78px;right:76px;z-index:999992;width:280px;max-height:70vh;overflow-y:auto;' +
       'background:linear-gradient(180deg,#11152e,#0b1020);border:1px solid #2a2d4e;border-radius:14px;' +
       'box-shadow:0 12px 40px rgba(0,0,0,.6);direction:rtl;font-family:"Segoe UI",Tahoma,Arial,sans-serif;' +
       'font-size:12px;color:#dbe2f0;display:none;user-select:none;';
@@ -48,12 +31,12 @@
           <option value="en-US">English (US)</option>
         </select>
         <button id="ea-voice-mic" style="padding:10px;border:none;border-radius:10px;background:linear-gradient(135deg,#4f46e5,#7c3aed);color:#fff;font-weight:700;font-size:13px;cursor:pointer;">🎙️ اضغط للتحدث</button>
-        <div id="ea-voice-status" style="font-size:10px;color:#7d97b8;text-align:center;min-height:14px;">جاهز — اضغط الزر وتكلم</div>
-        <div id="ea-voice-result" style="background:#0d1326;border:1px solid #2a2d4e;border-radius:10px;padding:8px;min-height:48px;font-size:12px;line-height:1.6;color:#e2eaf5;white-space:pre-wrap;word-break:break-word;"></div>
         <div style="display:flex;gap:6px;">
-          <button id="ea-voice-fill" style="flex:1;padding:8px;border:none;border-radius:8px;background:#14532d;color:#4ade80;font-weight:700;font-size:11px;cursor:pointer;">⬇️ تعبئة في الحقل النشط</button>
-          <button id="ea-voice-copy" style="flex:1;padding:8px;border:none;border-radius:8px;background:#132b4e;color:#9db4d0;font-weight:600;font-size:11px;cursor:pointer;">📋 نسخ</button>
+          <button id="ea-voice-fill" style="flex:1;padding:8px;border:none;border-radius:8px;background:linear-gradient(135deg,#059669,#047857);color:#fff;font-weight:700;font-size:12px;cursor:pointer;">📝 تعبئة في الحقل</button>
+          <button id="ea-voice-copy" style="flex:1;padding:8px;border:none;border-radius:8px;background:linear-gradient(135deg,#1e3c72,#2a5298);color:#fff;font-weight:700;font-size:12px;cursor:pointer;">📋 نسخ</button>
         </div>
+        <div id="ea-voice-status" style="font-size:10px;color:#7d97b8;min-height:18px;"></div>
+        <div id="ea-voice-transcript" style="font-size:11px;color:#c4b5fd;min-height:18px;background:#1e1b4b;padding:8px;border-radius:8px;"></div>
       </div>`;
     document.body.appendChild(panel);
 

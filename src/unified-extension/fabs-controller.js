@@ -1,5 +1,5 @@
 // =========================================================
-// unified-dock.js — El Araby Unified Dock (Palette أيقونات موحد)
+// fabs-controller.js — El Araby FABs Controller (أيقونات موحدة)
 // نقطة تحكم واحدة لكل أدوات الإضافة:
 //   - فاب 🧰 ثابت: يفتح/يغلق لوحة الأيقونات (الإعدادات وكل شيء)
 //   - Alt+Shift+E: إظهار/إخفاء فابز كل السكربتات (الظاهرة في الإعدادات فقط)
@@ -9,7 +9,7 @@
 (function () {
   'use strict';
 
-  const DOCK_ID = 'ea-unified-dock';
+  const CONTROLLER_ID = 'ea-fabs-controller';
   const STORAGE_KEY = 'eaDockToolVisibility';   // { toolId: bool } — الفابز المفعّلة
   const MASTER_KEY = 'eaDockMasterHidden';      // bool — إخفاء شامل من الاختصار
   const ORDER_KEY = 'eaDockToolOrder';          // [toolId...] — ترتيب الأدوات (سحب وإفلات)
@@ -24,118 +24,157 @@
   // ── سجل الأدوات ──
   const TOOLS = [
     {
-      id: 'elaraby-ba-fab',
-      title: 'الحجز والجدولة الحرة',
-      icon: '⚡📅',
-      group: 'حجز',
-      openByClick: true
-    },
-    {
-      id: 'ea-date-unlocker-fab',
-      title: 'فلتر التاريخ (Unlocker)',
-      icon: '🗓️',
-      group: 'حجز',
-      openByClick: true
-    },
-    {
       id: 'elaraby-control-panel-mini',
       title: 'لوحة التحكم (الاستعراض الفني)',
       icon: '⚙️',
+      color: '#0ea5e9',
       group: 'تعبئة',
-      openByClick: true
+      openByClick: true,
+      defaultVisible: true
     },
     {
       id: 'msq-fab',
       title: 'مرسل الماسنجر',
       icon: '📨',
+      color: '#10b981',
       group: 'إرسال',
-      openByClick: true
+      openByClick: true,
+      panel: '#msq-panel.visible',
+      defaultVisible: true
     },
     {
       id: 'elaraby-ai-fab',
       title: 'المساعد الذكي',
-      icon: '🤖',
+      icon: '💬',
+      color: '#8b5cf6',
       group: 'أدوات',
-      openByClick: true
+      openByClick: true,
+      files: ['ai/chat-panel.js'],
+      panel: '#elaraby-ai-panel',
+      defaultVisible: true
     },
     {
       id: 'rp-fab',
       title: 'معالج البلاغات (Reports)',
-      icon: '📄',
+      icon: '📋',
+      color: '#f59e0b',
       group: 'أدوات',
-      openByClick: true
+      openByClick: true,
+      panel: '#rp-mini-menu.visible, #rp-overlay.visible, #rp-settings.visible',
+      defaultVisible: true
     },
     {
       id: 'elaraby-mini-btn',
       title: 'كشف أرقام العملاء',
-      icon: '📱',
+      icon: '📞',
+      color: '#f97316',
       group: 'أدوات',
-      openByClick: true
+      openByClick: true,
+      panel: '#elaraby-fixed-box',
+      defaultVisible: true
     },
     {
       id: 'elaraby-unified-host',
       title: 'مساعد العربي (قطع الغيار)',
       icon: '🛍️',
+      color: '#6366f1',
       group: 'أدوات',
-      openByClick: false
+      openByClick: false,
+      shadowClick: '.trigger-btn',
+      files: ['core/booking/scanner.js', 'core/booking/shadow-panel.js'],
+      defaultVisible: true
     },
     {
       id: 'elaraby-ai-voice-fab',
       title: 'التحكم الصوتي',
       icon: '🎙️',
+      color: '#ec4899',
       group: 'أدوات',
-      openByClick: true
+      openByClick: true,
+      files: ['ai/voice-control.js'],
+      panel: '#ea-voice-panel',
+      defaultVisible: true
     },
     {
       id: 'ea-suppressor-tool',
       title: 'كتم أخطاء البورتال',
       icon: '🛡️',
+      color: '#ef4444',
       group: 'أدوات',
       openByClick: false,
-      scriptId: 'portal-error-suppressor'
+      scriptId: 'portal-error-suppressor',
+      defaultVisible: true
+    },
+    {
+      id: 'future-orders-fab',
+      title: 'كشف البلاغات المستقبلية (+3 أيام)',
+      icon: '📅',
+      color: '#0284c7',
+      group: 'أدوات',
+      openByClick: true,
+      panel: '#ea-future-orders-panel',
+      scriptId: 'future-orders-reveal',
+      defaultVisible: true
     }
   ];
 
   // خريطة الربط الموحدة: كل أداة ↔ السكربت الخاص بها (تمبر مونكي)
   // مصدر الحالة الواحد: localStorage tm_running_<scriptId> (تكتبه الفابز والبوبأب والـ runner)
   const TOOL_TO_SCRIPT = {
-    'elaraby-ba-fab': 'booking-automation',
-    'ea-date-unlocker-fab': 'elaraby-date-unlocker',
     'msq-fab': 'messenger-sender',
     'rp-fab': 'report-processor',
     'elaraby-mini-btn': 'elaraby-phone-reveal',
-    'ea-suppressor-tool': 'portal-error-suppressor'
+    'ea-suppressor-tool': 'portal-error-suppressor',
+    'future-orders-fab': 'future-orders-reveal'
   };
   const SCRIPT_TO_TOOL = Object.fromEntries(Object.entries(TOOL_TO_SCRIPT).map(([k, v]) => [v, k]));
   // السكربتات المسجلة في الـ runner — كلها تظهر كأدوات في اللوحة
   const SCRIPT_META = {
-    'booking-automation': { icon: '⚡📅', title: 'الحجز والجدولة الحرة', group: 'حجز' },
-    'elaraby-date-unlocker': { icon: '🗓️', title: 'فلتر التاريخ (Unlocker)', group: 'حجز' },
     'messenger-sender': { icon: '📨', title: 'مرسل الماسنجر', group: 'إرسال' },
     'report-processor': { icon: '📄', title: 'معالج البلاغات (Reports)', group: 'أدوات' },
     'elaraby-phone-reveal': { icon: '📱', title: 'كشف أرقام العملاء', group: 'أدوات' },
-    'portal-error-suppressor': { icon: '🛡️', title: 'كتم أخطاء البورتال', group: 'أدوات' }
+    'portal-error-suppressor': { icon: '🛡️', title: 'كتم أخطاء البورتال', group: 'أدوات' },
+    'future-orders-reveal': { icon: '📅', title: 'كشف البلاغات المستقبلية', group: 'أدوات' }
   };
 
-  // حالة السكربت الحية (من localStorage — يكتبها الـ runner والبوبأب والفابز)
-  function getScriptRunning(scriptId) {
+  // حالة السكربت الحية — يقرأ من chrome.storage.local (يكتبه الـ runner) + fallback للـ localStorage
+  async function getScriptRunning(scriptId) {
+    try {
+      const stored = await chrome.storage.local.get({ tmRunning: {} });
+      if (stored.tmRunning && stored.tmRunning[scriptId]?.running) return true;
+    } catch(e) {}
+    // Fallback to localStorage
     try { return localStorage.getItem('tm_running_' + scriptId) === '1'; } catch(e) { return false; }
   }
 
-  // تشغيل/إيقاف السكربت الفعلي عبر الـ runner (نفس الصفحة) — مصدر الحالة للتمبر مونكي
-  function setToolScript(tool, active) {
-    const scriptId = TOOL_TO_SCRIPT[tool.id];
-    if (!scriptId) return Promise.resolve(false);
-    try {
-      localStorage.setItem('tm_running_' + scriptId, active ? '1' : '0');
-    } catch(e) {}
+  // حقن ملفات أداة داخلية عند الطلب (ليست ضمن content_scripts — خفيفة على الصفحة)
+  function injectToolFiles(tool) {
+    if (!tool.files || !tool.files.length) return Promise.resolve(false);
     return new Promise(resolve => {
       try {
         chrome.runtime.sendMessage(
-          { action: active ? 'RUN_SCRIPT_NOW' : 'STOP_SCRIPT_NOW', scriptId },
-          (res) => resolve(res && res.ok === true)
+          { action: 'INJECT_SCRIPT_FILE', files: tool.files, world: 'ISOLATED' },
+          (res) => resolve(!!(res && res.ok))
         );
       } catch (e) { resolve(false); }
+    });
+  }
+
+  // تشغيل/إيقاف السكربت عبر الـ runner فقط (مصدر الحقيقة الوحيد)
+  function setToolScriptViaRunner(tool, active) {    const scriptId = TOOL_TO_SCRIPT[tool.id];
+    if (!scriptId) return Promise.resolve(false);
+    
+    return new Promise(resolve => {
+      let done = false;
+      const finish = (v) => { if (!done) { done = true; resolve(v); } };
+      try {
+        chrome.runtime.sendMessage(
+          { action: active ? 'RUN_SCRIPT_NOW' : 'STOP_SCRIPT_NOW', scriptId },
+          (res) => finish(!!(res && res.ok === true))
+        );
+      } catch (e) { finish(false); }
+      // ضمان ألا تعلق اللوحة إلى الأبد لو لم يستجب أحد
+      setTimeout(() => finish(false), 8000);
     });
   }
 
@@ -153,6 +192,7 @@
   let dragToolId = null; // أداة السحب الحالية (إعادة الترتيب داخل اللوحة)
   let fabPositions = {}; // { toolId: {x,y} } — مواضع مخصصة بعد السحب
   let pinnedPositions = null; // لقطة المواضع المثبتة
+  let eaDragging = false; // سحب فاب جارٍ — نمنع الرص أثناء السحب
 
   // ════════════════════════════════════════════════════════
   //  التخزين الدائم (لا تُخفى الفابز مع تحديث الصفحة)
@@ -164,6 +204,15 @@
       masterHidden = saved[MASTER_KEY] === true;
       fabPositions = saved[POS_KEY] || {};
       pinnedPositions = saved[PIN_KEY] || null;
+      // أول تشغيل: لو مفيش إعدادات محفوظة → استخدم defaultVisible لكل أداة
+      if (!saved[STORAGE_KEY] || Object.keys(visibility).length === 0) {
+        TOOLS.forEach(t => { visibility[t.id] = t.defaultVisible !== false; });
+      } else {
+        // تأكد إن كل الأدوات المعروفة لها قيمة في visibility
+        TOOLS.forEach(t => {
+          if (visibility[t.id] === undefined) visibility[t.id] = t.defaultVisible !== false;
+        });
+      }
       // استرجاع ترتيب السحب والإفلات المحفوظ
       const savedOrder = saved[ORDER_KEY];
       if (Array.isArray(savedOrder) && savedOrder.length === TOOLS.length) {
@@ -174,6 +223,7 @@
     } catch (e) {
       visibility = {};
       masterHidden = false;
+      TOOLS.forEach(t => { visibility[t.id] = t.defaultVisible !== false; });
     }
   }
 
@@ -206,10 +256,48 @@
     return null;
   }
 
+  // هل لوحة الأداة مفتوحة فعلاً؟ (لمنع النقر الذي يُغلقها بدلاً من فتحها)
+  function isPanelOpen(tool) {
+    if (!tool.panel) return false;
+    try {
+      const el = document.querySelector(tool.panel);
+      if (!el) return false;
+      const cs = getComputedStyle(el);
+      return cs.display !== 'none' && cs.visibility !== 'hidden';
+    } catch (e) { return false; }
+  }
+
+  // انتظار ظهور الفاب حتى يُحقن السكربت ويبني واجهته (بدل انتظار ثابت)
+  function waitForFab(tool, timeoutMs) {
+    return new Promise(resolve => {
+      const t0 = Date.now();
+      const check = () => {
+        const fab = findFab(tool);
+        if (fab || (Date.now() - t0) >= timeoutMs) { resolve(fab); return; }
+        setTimeout(check, 150);
+      };
+      check();
+    });
+  }
+
   function showFab(fab) {
     // يتجاوز قاعدة الإخفاء المبكر (dock-fab-hider) — يجب override بـ !important
     fab.style.setProperty('display', fab.tagName === 'DIV' ? 'block' : 'flex', 'important');
     fab.style.setProperty('visibility', 'visible', 'important');
+    // تطبيق صنف وشكل الفاب الجديد (Glassmorphism + Hover Scale)
+    fab.classList.add('ea-fab-page');
+    // متغيرات اللون للـ CSS
+    const tool = TOOLS.find(t => t.id === fab.id || (fab.id === 'elaraby-fixed-box' && t.id === 'elaraby-mini-btn') || (t.panel && document.querySelector(t.panel)?.contains(fab)));
+    if (tool) {
+      fab.style.setProperty('--fab-color', tool.color || '#0ea5e9');
+      fab.style.setProperty('--fab-bg', 'linear-gradient(135deg, #0b1220, #0f1e35)');
+    }
+    // Hover listeners
+    if (!fab.dataset.hoverBound) {
+      fab.addEventListener('mouseenter', () => fab.classList.add('hovered'));
+      fab.addEventListener('mouseleave', () => fab.classList.remove('hovered'));
+      fab.dataset.hoverBound = '1';
+    }
   }
 
   function applyToolVisibility(tool, forceVisible) {
@@ -217,6 +305,14 @@
     if (!fab) return;
     if (forceVisible) {
       showFab(fab);
+      // إعادة صندوق كشف الأرقام لوضعه قبل الإخفاء (بدل فرض ظهور/إخفاء دائم)
+      if (tool.id === 'elaraby-mini-btn') {
+        const box = document.getElementById('elaraby-fixed-box');
+        if (box && box.dataset.eaPrevDisplay !== undefined) {
+          box.style.display = box.dataset.eaPrevDisplay;
+          delete box.dataset.eaPrevDisplay;
+        }
+      }
     } else {
       fab.style.setProperty('display', 'none', 'important');
       if (tool.id === 'elaraby-control-panel-mini') {
@@ -225,7 +321,42 @@
       }
       if (tool.id === 'elaraby-fixed-box' || tool.id === 'elaraby-mini-btn') {
         const box = document.getElementById('elaraby-fixed-box');
-        if (box) box.style.setProperty('display', 'none', 'important');
+        if (box) {
+          if (box.dataset.eaPrevDisplay === undefined) {
+            box.dataset.eaPrevDisplay = box.style.display || 'flex';
+          }
+          box.style.setProperty('display', 'none', 'important');
+        }
+      }
+    }
+    // أي تغيير في الظهور → رص شامل فوراً (يمنع تداخل الأيقونات)
+    relayout();
+    // تحديث الـ Active state للفابز الفردية
+    updateFabActiveState();
+  }
+
+  // تطبيق فوري — نظهر/نخفي الفابز الفردية مع الشكل الجديد
+  function applyVisibilityImmediate(tool, fab) {
+    if (!fab) return;
+    attachFabDrag(tool, fab);
+    const scriptId = TOOL_TO_SCRIPT[tool.id];
+    const scriptRunning = scriptId ? getScriptRunning(scriptId) : false;
+    const shouldShowNow = (visibility[tool.id] === true && !masterHidden) || scriptRunning;
+    const current = getComputedStyle(fab).display;
+
+    if (!shouldShowNow && current !== 'none') {
+      applyToolVisibility(tool, false);
+    } else if (shouldShowNow) {
+      // فاب مفعل — تأكد إنه ظاهر بشكل صحيح مع الشكل الجديد
+      if (current === 'none') {
+        applyToolVisibility(tool, true);
+      }
+      // تأكد من تطبيق الشكل الجديد
+      if (!fab.classList.contains('ea-fab-page')) {
+        showFab(fab);
+      }
+      if (!fab.dataset.eaLaid) {
+        if (relayout()) fab.dataset.eaLaid = '1';
       }
     }
   }
@@ -235,21 +366,7 @@
     TOOLS.forEach(tool => {
       const fab = findFab(tool);
       if (!fab) return;
-      attachFabDrag(tool, fab);
-      const current = getComputedStyle(fab).display;
-      if (!shouldShow(tool) && current !== 'none') {
-        applyToolVisibility(tool, false);
-      } else if (shouldShow(tool) && !fab.dataset.eaLaid) {
-        // أول ظهور لفاب مفعّل: نطبق موضعه المحفوظ أو الافتراضي مرة واحدة فقط
-        fab.dataset.eaLaid = '1';
-        if (pinnedPositions && Object.keys(pinnedPositions).length) {
-          applySavedLayout(pinnedPositions);
-        } else if (Object.keys(fabPositions).length && fabPositions[tool.id]) {
-          applySavedLayout(fabPositions);
-        } else {
-          applyDefaultLayout();
-        }
-      }
+      applyVisibilityImmediate(tool, fab);
     });
   }
 
@@ -268,13 +385,11 @@
       // إخفاء كل الفابز
       TOOLS.forEach(t => applyToolVisibility(t, false));
     } else {
-      // إظهار الفابز المفعّلة فقط + تطبيق مواضعها
+      // إظهار الفابز المفعلة فقط + تطبيق مواضعها
       TOOLS.forEach(t => {
         if (visibility[t.id] === true) applyToolVisibility(t, true);
       });
-      applyDefaultLayout();
-      if (pinnedPositions && Object.keys(pinnedPositions).length) applySavedLayout(pinnedPositions);
-      else if (Object.keys(fabPositions).length) applySavedLayout(fabPositions);
+      relayout();
     }
     updatePaletteIcons();
   }
@@ -283,21 +398,23 @@
   //  مواضع فابز الصفحة: رص افتراضي حسب الجروب + سحب حر + تثبيت/ريست
   // ════════════════════════════════════════════════════════
 
-  // فابز قابلة للسحب على الصفحة (مستثنى: الموجود داخل Shadow DOM)
+  // فابز قابلة للسحب على الصفحة (مستثنى: بوابة قطع الغيار — تسحب بمقبضها الداخلي)
   function isPageDraggable(tool) {
-    return !['elaraby-control-panel-mini', 'elaraby-unified-host'].includes(tool.id);
+    return tool.id !== 'elaraby-unified-host';
   }
 
   // الترتيب الافتراضي: يمين (كل المجموعات إلا إرسال) + يسار (إرسال) — رص من الأسفل
+  // الزاوية اليمنى السفلية محجوزة لفاب 🧰 لوحة الأدوات → رص اليمين يبدأ فوقها
   function applyDefaultLayout() {
     const visible = TOOLS.filter(t => shouldShow(t) && findFab(t));
-    const right = visible.filter(t => !LEFT_GROUPS.includes(t.group));
-    const left = visible.filter(t => LEFT_GROUPS.includes(t.group));
+    const hasSaved = (t) => (pinnedPositions && pinnedPositions[t.id]) || fabPositions[t.id];
+    const right = visible.filter(t => !LEFT_GROUPS.includes(t.group) && !hasSaved(t));
+    const left = visible.filter(t => LEFT_GROUPS.includes(t.group) && !hasSaved(t));
     right.forEach((t, i) => {
       const fab = findFab(t);
       if (!fab) return;
       fab.style.setProperty('position', 'fixed', 'important');
-      fab.style.setProperty('bottom', (FAB_EDGE + i * FAB_GAP) + 'px', 'important');
+      fab.style.setProperty('bottom', (FAB_EDGE + (i + 1) * FAB_GAP) + 'px', 'important');
       fab.style.setProperty('right', FAB_EDGE + 'px', 'important');
       fab.style.setProperty('left', '', 'important');
       fab.style.setProperty('top', '', 'important');
@@ -329,15 +446,24 @@
     });
   }
 
+  // رص شامل: الافتراضي أولاً (لمن لا موضع محفوظ) ثم المثبت/المزاح فوقه
+  function relayout() {
+    if (eaDragging) return false; // لا نعيد رص أي شيء أثناء سحب مستخدم
+    applyDefaultLayout();
+    if (pinnedPositions && Object.keys(pinnedPositions).length) applySavedLayout(pinnedPositions);
+    else if (Object.keys(fabPositions).length) applySavedLayout(fabPositions);
+    return true;
+  }
+
   // سحب حر للفاب على الصفحة (Pointer Events) + حفظ الموقع
-  function attachFabDrag(tool, fab) {
-    if (fab.dataset.eaDrag === '1' || !isPageDraggable(tool)) return;
+  function attachFabDrag(tool, fab) {    if (fab.dataset.eaDrag === '1' || !isPageDraggable(tool)) return;
     fab.dataset.eaDrag = '1';
     let dragging = false, moved = false, startX = 0, startY = 0, offX = 0, offY = 0;
 
     fab.addEventListener('pointerdown', (e) => {
       if (e.button !== undefined && e.button !== 0) return;
       dragging = true; moved = false;
+      eaDragging = true;
       startX = e.clientX; startY = e.clientY;
       const rect = fab.getBoundingClientRect();
       offX = startX - rect.left; offY = startY - rect.top;
@@ -364,19 +490,27 @@
     const endDrag = (e) => {
       if (!dragging) return;
       dragging = false;
+      eaDragging = false;
       fab.style.cursor = '';
       try { fab.releasePointerCapture?.(e.pointerId); } catch (_) {}
       if (moved) {
         const rect = fab.getBoundingClientRect();
         fabPositions[tool.id] = { x: rect.left, y: rect.top };
         saveState();
+        // السحب لا يُفتح لوحة الأداة بالخطأ: نبتلع النقرة التي تلي السحب
+        const swallow = (ev) => {
+          ev.stopPropagation();
+          ev.preventDefault();
+          document.removeEventListener('click', swallow, true);
+        };
+        document.addEventListener('click', swallow, true);
       }
     };
     fab.addEventListener('pointerup', endDrag);
     fab.addEventListener('pointercancel', endDrag);
   }
 
-  // 📌 تثبيت المواضع الحالية (لقطة) — والضغط مرة أخرى يعيدها
+  // 📌 تثبيت المواضع الحالية (لقطة) — تستبدل أي تثبيت سابق
   function pinFabs() {
     const snapshot = {};
     TOOLS.forEach(t => {
@@ -388,6 +522,16 @@
     pinnedPositions = snapshot;
     fabPositions = {};
     saveState();
+    relayout();
+    renderSettings();
+  }
+
+  // ↩️ إرجاع: رجوع كل الأيقونات إلى مواضعها المثبتة (يلغي السحب غير المثبت)
+  function restorePinned() {
+    if (!pinnedPositions || !Object.keys(pinnedPositions).length) return;
+    fabPositions = {};
+    saveState();
+    relayout();
     renderSettings();
   }
 
@@ -396,27 +540,27 @@
     fabPositions = {};
     pinnedPositions = null;
     saveState();
-    applyDefaultLayout();
+    relayout();
     renderSettings();
   }
 
   function updateSettingsBtn() {
-    const btn = document.getElementById(DOCK_ID + '-arrange-btn');
+    const btn = document.getElementById(CONTROLLER_ID + '-arrange-btn');
     if (!btn) return;
     const pinned = pinnedPositions && Object.keys(pinnedPositions).length > 0;
-    btn.textContent = pinned ? '📌 تثبيت/إرجاع للمكان المثبت ✓' : '📌 تثبيت المواضع الحالية';
+    btn.textContent = pinned ? '📌 تحديث التثبيت (لقطة جديدة ✓)' : '📌 تثبيت المواضع الحالية';
   }
 
   // ════════════════════════════════════════════════════════
   //  بناء الواجهة: فاب 🧰 + لوحة أيقونات مدمجة
   // ════════════════════════════════════════════════════════
   function buildDock() {
-    if (document.getElementById(DOCK_ID)) return;
+    if (document.getElementById(CONTROLLER_ID)) return;
     if (!document.body) return;
 
     // ── فاب 🧰 الثابت الوحيد ──
     const fab = document.createElement('button');
-    fab.id = DOCK_ID + '-fab';
+    fab.id = CONTROLLER_ID + '-fab';
     fab.textContent = '🧰';
     fab.title = 'أدوات العربي — الإعدادات وكل الأدوات (لوحة الأيقونات)';
     Object.assign(fab.style, {
@@ -431,51 +575,90 @@
     fab.addEventListener('click', (e) => { e.stopPropagation(); togglePalette(); });
     document.body.appendChild(fab);
 
-    // ── أنماط إضافية: سكرولبار احترافي + حجم موحد للفابز + تجاوب الموبايل ──
+    // ── أنماط: سكرولبار + FABs فردية (Glassmorphism + Hover Scale) ──
     const dockStyle = document.createElement('style');
     dockStyle.textContent = `
-      #${DOCK_ID}-palette::-webkit-scrollbar { width: 7px; }
-      #${DOCK_ID}-palette::-webkit-scrollbar-track { background: transparent; }
-      #${DOCK_ID}-palette::-webkit-scrollbar-thumb {
+      #${CONTROLLER_ID}-palette::-webkit-scrollbar { width: 7px; }
+      #${CONTROLLER_ID}-palette::-webkit-scrollbar-track { background: transparent; }
+      #${CONTROLLER_ID}-palette::-webkit-scrollbar-thumb {
         background: linear-gradient(180deg, #0ea5e9, #6366f1);
         border-radius: 4px;
         border: 2px solid #0b1220;
       }
-      #${DOCK_ID}-palette::-webkit-scrollbar-thumb:hover { background: linear-gradient(180deg, #38bdf8, #818cf8); }
-      #${DOCK_ID}-palette { scrollbar-width: thin; scrollbar-color: #6366f1 #0b1220; }
+      #${CONTROLLER_ID}-palette::-webkit-scrollbar-thumb:hover { background: linear-gradient(180deg, #38bdf8, #818cf8); }
+      #${CONTROLLER_ID}-palette { scrollbar-width: thin; scrollbar-color: #6366f1 #0b1220; }
 
-      /* حجم موحد لكل الفابز على الصفحة (48×48) */
-      #elaraby-ba-fab, #ea-date-unlocker-fab, #msq-fab, #elaraby-ai-fab,
-      #rp-fab, #elaraby-mini-btn, #elaraby-ai-voice-fab {
-        width: 48px !important;
-        height: 48px !important;
-        min-width: 48px !important;
-        min-height: 48px !important;
-        font-size: 20px !important;
+      /* ── FABs فردية على حواف الشاشة — Glassmorphism + Hover Scale ── */
+      .ea-fab-page {
+        width: 24px !important; height: 24px !important;
+        min-width: 24px !important; min-height: 24px !important;
+        border-radius: 50%;
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        font-size: 12px !important;
+        line-height: 1 !important;
+        /* الحالة الافتراضية: زجاجي/رمادي شفاف */
+        background: rgba(19,43,78,.5) !important;
+        border: 1px solid rgba(30,52,80,.5) !important;
+        color: rgba(200,208,224,.7) !important;
+        opacity: .4 !important;
+        filter: grayscale(.6) saturate(.8) !important;
+        /* أنيميشن سلسة */
+        transition: all .2s cubic-bezier(.2,.8,.2,1) !important;
+        transform-origin: center !important;
+        box-shadow: 0 2px 8px rgba(0,0,0,.3) !important;
+        cursor: pointer !important;
+        user-select: none !important;
+        z-index: 2147483646 !important;
         box-sizing: border-box !important;
+        padding: 0 !important;
+      }
+
+      /* ── عند hover: يكبر للوضوح + يأخذ اللون المميز ── */
+      .ea-fab-page:hover,
+      .ea-fab-page.hovered {
+        width: 48px !important; height: 48px !important;
+        min-width: 48px !important; min-height: 48px !important;
+        font-size: 20px !important;
+        opacity: 1 !important;
+        filter: none !important;
+        background: var(--fab-bg, linear-gradient(135deg, #0b1220, #0f1e35)) !important;
+        border: 2px solid var(--fab-color, #0ea5e9) !important;
+        box-shadow: 0 8px 24px rgba(0,0,0,.5) !important;
+        z-index: 2147483650 !important;
+        transform: scale(1) !important;
+      }
+
+      /* ── الأيقونة النشطة (اللي فتحت لوحتها) ── */
+      .ea-fab-page.active {
+        border-color: #2bd46f !important;
+        box-shadow: 0 0 16px rgba(43,212,111,.6), 0 8px 24px rgba(0,0,0,.5) !important;
       }
 
       @media (max-width: 480px) {
-        #${DOCK_ID}-palette {
+        #${CONTROLLER_ID}-palette {
           width: calc(100vw - 24px) !important;
           right: 12px !important;
           bottom: 72px !important;
           max-height: 55vh !important;
           font-size: 12px !important;
         }
-        .ea-palette-tile { width: 62px !important; padding: 4px 2px !important; }
-        .ea-palette-icon { width: 34px !important; height: 34px !important; min-width: 34px !important; font-size: 15px !important; }
-        #${DOCK_ID}-fab { width: 44px !important; height: 44px !important; font-size: 20px !important; }
+        .ea-fabs-tile { width: 62px !important; padding: 4px 2px !important; }
+        .ea-fabs-icon { width: 34px !important; height: 34px !important; min-width: 34px !important; font-size: 15px !important; }
+        #${CONTROLLER_ID}-fab { width: 44px !important; height: 44px !important; font-size: 20px !important; }
+        .ea-fab-page { width: 20px !important; height: 20px !important; font-size: 10px !important; }
+        .ea-fab-page:hover, .ea-fab-page.hovered { width: 40px !important; height: 40px !important; font-size: 18px !important; }
       }
       @media (min-width: 481px) and (max-width: 760px) {
-        #${DOCK_ID}-palette { width: 260px !important; }
+        #${CONTROLLER_ID}-palette { width: 260px !important; }
       }
     `;
     document.head.appendChild(dockStyle);
 
     // ── اللوحة المدمجة (تطفو فوق الفاب) ──
     const palette = document.createElement('div');
-    palette.id = DOCK_ID + '-palette';
+    palette.id = CONTROLLER_ID + '-palette';
     Object.assign(palette.style, {
       position: 'fixed', bottom: '74px', right: '16px', zIndex: '2147483647',
       width: '212px', maxHeight: 'calc(100vh - 100px)', overflowY: 'auto',
@@ -499,17 +682,17 @@
     header.innerHTML = `
       <div style="display:flex;align-items:center;gap:6px">
         <span style="font-size:15px">🧰</span>
-        <span style="font-weight:700;font-size:12px;color:#fff" id="${DOCK_ID}-title">أدوات العربي</span>
+        <span style="font-weight:700;font-size:12px;color:#fff" id="${CONTROLLER_ID}-title">أدوات العربي</span>
       </div>
       <div style="display:flex;align-items:center;gap:2px">
-        <button id="${DOCK_ID}-settings-btn" style="background:none;border:none;color:#7d97b8;font-size:15px;cursor:pointer;padding:2px 5px" title="الإعدادات">⚙️</button>
-        <button id="${DOCK_ID}-close" style="background:none;border:none;color:#7d97b8;font-size:15px;cursor:pointer;padding:2px 5px" title="إغلاق (ESC)">✕</button>
+        <button id="${CONTROLLER_ID}-settings-btn" style="background:none;border:none;color:#7d97b8;font-size:15px;cursor:pointer;padding:2px 5px" title="الإعدادات">⚙️</button>
+        <button id="${CONTROLLER_ID}-close" style="background:none;border:none;color:#7d97b8;font-size:15px;cursor:pointer;padding:2px 5px" title="إغلاق (ESC)">✕</button>
       </div>`;
     palette.appendChild(header);
 
     // محتوى اللوحة (شبكة الأيقونات أو الإعدادات)
     const body = document.createElement('div');
-    body.id = DOCK_ID + '-body';
+    body.id = CONTROLLER_ID + '-body';
     Object.assign(body.style, { padding: '8px 10px 10px' });
     palette.appendChild(body);
 
@@ -525,8 +708,8 @@
 
     document.body.appendChild(palette);
 
-    document.getElementById(DOCK_ID + '-close').addEventListener('click', (e) => { e.stopPropagation(); closePalette(); });
-    document.getElementById(DOCK_ID + '-settings-btn').addEventListener('click', (e) => { e.stopPropagation(); toggleSettings(); });
+    document.getElementById(CONTROLLER_ID + '-close').addEventListener('click', (e) => { e.stopPropagation(); closePalette(); });
+    document.getElementById(CONTROLLER_ID + '-settings-btn').addEventListener('click', (e) => { e.stopPropagation(); toggleSettings(); });
 
     // إغلاق بالنقر خارج اللوحة
     document.addEventListener('click', (e) => {
@@ -545,7 +728,7 @@
   function buildToolIcon(tool) {
     // حاوية الـ tile (تحتوي الأيقونة + الاسم) — قابلة للسحب للترتيب
     const tile = document.createElement('div');
-    tile.className = 'ea-palette-tile';
+    tile.className = 'ea-fabs-tile';
     tile.dataset.tool = tool.id;
     tile.draggable = true;
     Object.assign(tile.style, {
@@ -558,8 +741,8 @@
     tile.title = 'اسحب لترتيب الأدوات';
 
     const btn = document.createElement('button');
-    btn.className = 'ea-palette-icon';
-    btn.id = DOCK_ID + '-icon-' + tool.id;
+    btn.className = 'ea-fabs-icon';
+    btn.id = CONTROLLER_ID + '-icon-' + tool.id;
     btn.textContent = tool.icon;
     btn.title = tool.title + ' — نقر: فتح | ضغط مطول: إظهار/إخفاء';
     Object.assign(btn.style, {
@@ -633,7 +816,7 @@
     tile.addEventListener('dragend', () => {
       dragToolId = null;
       tile.style.opacity = '';
-      document.querySelectorAll('.ea-palette-tile').forEach(t => { t.style.borderColor = 'transparent'; });
+      document.querySelectorAll('.ea-fabs-tile').forEach(t => { t.style.borderColor = 'transparent'; });
     });
     tile.addEventListener('dragover', (e) => {
       e.preventDefault();
@@ -672,19 +855,12 @@
 
     if (scriptId) {
       // أداة مرتبطة بسكربت: التشغيل/الإيقاف الحقيقي عبر الـ runner
-      await setToolScript(tool, targetOn);
+      await setToolScriptViaRunner(tool, targetOn);
       // تحديث تفعيل الفاب ليطابق حالة السكربت
       visibility[tool.id] = targetOn;
       saveState();
       if (targetOn) {
         if (!masterHidden) applyToolVisibility(tool, true);
-        const fab = findFab(tool);
-        if (fab && !fab.dataset.eaLaid) {
-          fab.dataset.eaLaid = '1';
-          if (pinnedPositions && Object.keys(pinnedPositions).length) applySavedLayout(pinnedPositions);
-          else if (fabPositions[tool.id]) applySavedLayout(fabPositions);
-          else applyDefaultLayout();
-        }
       } else {
         applyToolVisibility(tool, false);
       }
@@ -694,29 +870,20 @@
       saveState();
       if (targetOn) {
         if (!masterHidden) applyToolVisibility(tool, true);
-        const fab = findFab(tool);
-        if (fab && !fab.dataset.eaLaid) {
-          fab.dataset.eaLaid = '1';
-          if (pinnedPositions && Object.keys(pinnedPositions).length) applySavedLayout(pinnedPositions);
-          else if (fabPositions[tool.id]) applySavedLayout(fabPositions);
-          else applyDefaultLayout();
-        }
       } else {
         applyToolVisibility(tool, false);
       }
     }
     updatePaletteIcons();
-    // إبلاغ البوبأب/اللوحات الأخرى بتغيّر الحالة (tm_running_* عبر storage)
-    try { localStorage.setItem('ea_dock_state_ping', Date.now().toString()); } catch(e) {}
   }
 
-  function updatePaletteIcons() {
-    const icons = document.querySelectorAll('.ea-palette-icon');
-    icons.forEach(el => {
-      const tool = TOOLS.find(t => DOCK_ID + '-icon-' + t.id === el.id);
-      if (!tool) return;
+  async function updatePaletteIcons() {
+    const icons = document.querySelectorAll('.ea-fabs-icon');
+    for (const el of icons) {
+      const tool = TOOLS.find(t => CONTROLLER_ID + '-icon-' + t.id === el.id);
+      if (!tool) continue;
       const scriptId = TOOL_TO_SCRIPT[tool.id];
-      const running = scriptId ? getScriptRunning(scriptId) : false;
+      const running = scriptId ? await getScriptRunning(scriptId) : false;
       if (running) {
         el.style.opacity = '1';
         el.style.filter = '';
@@ -733,59 +900,97 @@
         el.style.borderColor = '#1e3450';
         el.style.boxShadow = '';
       }
+    }
+  }
+
+  // ── تحديث حالة Active للفابز الفردية (اللي فتحت لوحتها) ──
+  function updateFabActiveState() {
+    TOOLS.forEach(t => {
+      const fab = findFab(t);
+      if (!fab) return;
+      let isActive = false;
+      if (t.panel) {
+        const el = document.querySelector(t.panel);
+        if (el) {
+          const cs = getComputedStyle(el);
+          isActive = cs.display !== 'none' && cs.visibility !== 'hidden';
+        }
+      } else if (t.id === 'elaraby-control-panel-mini') {
+        const cp = document.getElementById('elaraby-control-panel');
+        if (cp) {
+          const shadow = cp.shadowRoot;
+          const panel = shadow?.querySelector('.cp-panel');
+          isActive = panel && panel.style.display !== 'none';
+        }
+      }
+      fab.classList.toggle('active', isActive);
     });
   }
 
-  // ── فتح أداة من اللوحة ──
+  // ── فتح أداة من اللوحة (Stack item click) ──
   async function openTool(tool) {
-    // تشغيل السكربت المرتبط إن وُجد — يظهر فوراً في التمبر مونكي (البوبأب)
+    // تشغيل السكربت المرتبط إن وُجد — السكريبت ينشئ واجهته تلقائياً عند الحقن
     const scriptId = TOOL_TO_SCRIPT[tool.id];
-    if (scriptId) {
-      try { localStorage.setItem('tm_running_' + scriptId, '1'); } catch(e) {}
-      await setToolScript(tool, true);
-    }
 
-    // فتح مباشر للوحة السكربت عبر الـ runner (الفاب الأصلي مخفي بـ dock-fab-hider،
-    // والبناء متأخر 1200ms — لذلك لا نعتمد على fab.click())
-    if (scriptId && tool.openByClick) {
-      try {
-        await new Promise(resolve => {
-          chrome.runtime.sendMessage({ action: 'OPEN_SCRIPT_PANEL', scriptId }, resolve);
-        });
-      } catch (e) {}
+    // 1) أدوات داخلية بملفات (chat-panel, voice-control, unified-host): حقن الملفات
+    if (tool.files) {
+      const ok = await injectToolFiles(tool);
+      console.log('[fabs] inject files:', tool.id, ok ? 'ok' : 'FAILED', tool.files.join(', '));
+      // بعد الحقن: أظهر اللوحة إن وجدت
+      if (tool.panel) {
+        await waitForFab(tool, 1000); // انتظار قصير لبناء اللوحة
+      }
     }
-
-    let fab = findFab(tool);
-    if (!fab) {
-      // الفاب غير موجود: جرّب تشغيل السكربت الخاص به فوراً (Tampermonkey on-demand)
-      await launchMissingScript(tool);
-      await new Promise(r => setTimeout(r, 400));
-      fab = findFab(tool);
+    // 2) أدوات تامبرمونكي (msq-fab, rp-fab, elaraby-mini-btn): تشغيل السكربت عبر الـ runner
+    else if (scriptId) {
+      await setToolScriptViaRunner(tool, true);
+      // لا ننتظر الفاب الفردي — نفتح اللوحة مباشرة عبر الـ selector
     }
-    if (!fab) return;
+    // 3) أدوات أخرى (suppressor): لا فاب ولا لوحة
 
-    // تفعيلها وإظهارها + إلغاء الإخفاء الشامل
+    // تفعيل الأداة في الحالة
     visibility[tool.id] = true;
     masterHidden = false;
     saveState();
 
-    showFab(fab);
-    if (tool.openByClick && !scriptId) {
-      try { fab.click(); } catch (e) {}
+    // ── فتح اللوحة مباشرة عبر الـ panel selector (بدون فاب فردي) ──
+    if (tool.panel) {
+      try {
+        const panel = document.querySelector(tool.panel);
+        if (panel) {
+          panel.style.setProperty('display', 'block', 'important');
+          panel.style.setProperty('visibility', 'visible', 'important');
+          // إذا كانت لوحة msq-panel تحتاج class .visible
+          if (tool.id === 'msq-fab') panel.classList.add('visible');
+          console.log('[fabs] panel shown via selector:', tool.id);
+        } else {
+          console.warn('[fabs] panel not found for:', tool.id, tool.panel);
+        }
+      } catch (e) {
+        console.error('[fabs] error showing panel:', tool.id, e);
+      }
     }
-    // لوحة التحكم: النافذة داخل shadow root — نفتحها عبر الأزرار الداخلية
+
+    // ── لوحة التحكم (shadow root) ──
     if (tool.id === 'elaraby-control-panel-mini') {
       try {
         const shadow = document.getElementById('elaraby-control-panel')?.shadowRoot;
         if (shadow) {
-          const mini = shadow.getElementById('elaraby-control-panel-mini');
-          if (mini) mini.click();
+          const panel = shadow.querySelector('.cp-panel');
           const tgl = shadow.getElementById('cp-toggle');
-          if (tgl) tgl.click();
+          const isMin = !panel || panel.style.display === 'none' || tgl?.textContent === '+';
+          if (isMin && tgl) tgl.click();
         }
       } catch (e) {}
     }
+
+    // للأدوات الداخلية بملفات: relayout للفابز الصفحية إن وجدت
+    if (tool.files) {
+      relayout();
+    }
+
     updatePaletteIcons();
+    updateFabActiveState();
     closePalette();
   }
 
@@ -793,12 +998,12 @@
   function launchMissingScript(tool) {
     const scriptId = TOOL_TO_SCRIPT[tool.id];
     if (!scriptId) return Promise.resolve();
-    return setToolScript(tool, true);
+    return setToolScriptViaRunner(tool, true);
   }
 
   // ── الشبكة الرئيسية (مجمعة حسب المجموعة) ──
   function renderPaletteMain() {
-    const body = document.getElementById(DOCK_ID + '-body');
+    const body = document.getElementById(CONTROLLER_ID + '-body');
     if (!body) return;
     body.innerHTML = '';
 
@@ -836,7 +1041,7 @@
 
   // ── عرض الإعدادات ──
   function renderSettings() {
-    const body = document.getElementById(DOCK_ID + '-body');
+    const body = document.getElementById(CONTROLLER_ID + '-body');
     if (!body) return;
     body.innerHTML = '';
 
@@ -856,7 +1061,10 @@
     btn('👁️ إظهار كل الأدوات', '#14532d', '#166534', () => setAll(true));
     btn('🙈 إخفاء كل الأدوات', '#7f1d1d', '#991b1b', () => setAll(false));
     const arrangeBtn = btn('📌 تثبيت المواضع الحالية', '#132b4e', '#1e3450', () => { pinFabs(); });
-    arrangeBtn.id = DOCK_ID + '-arrange-btn';
+    arrangeBtn.id = CONTROLLER_ID + '-arrange-btn';
+    if (pinnedPositions && Object.keys(pinnedPositions).length) {
+      btn('↩️ إرجاع للمكان المثبت', '#2b1a3e', '#5b3a8c', () => { restorePinned(); });
+    }
     btn('🔄 ريست للوضع الافتراضي (حسب الجروب)', '#3b2f0a', '#6b4f0a', () => { resetFabs(); });
 
     const hint = document.createElement('div');
@@ -876,9 +1084,7 @@
     });
     saveState();
     if (visible) {
-      applyDefaultLayout();
-      if (pinnedPositions && Object.keys(pinnedPositions).length) applySavedLayout(pinnedPositions);
-      else if (Object.keys(fabPositions).length) applySavedLayout(fabPositions);
+      relayout();
     }
     if (settingsView) renderSettings(); else updatePaletteIcons();
   }
@@ -889,31 +1095,33 @@
   }
 
   function openPalette() {
-    const palette = document.getElementById(DOCK_ID + '-palette');
+    const palette = document.getElementById(CONTROLLER_ID + '-palette');
     if (!palette) return;
     settingsView = false;
-    document.getElementById(DOCK_ID + '-title').textContent = 'أدوات العربي';
+    document.getElementById(CONTROLLER_ID + '-title').textContent = 'أدوات العربي';
     renderPaletteMain();
     paletteOpen = true;
     palette.style.opacity = '1';
     palette.style.transform = 'scale(1)';
     palette.style.pointerEvents = 'auto';
+    updateFabActiveState();
   }
 
   function closePalette() {
-    const palette = document.getElementById(DOCK_ID + '-palette');
+    const palette = document.getElementById(CONTROLLER_ID + '-palette');
     if (!palette) return;
     paletteOpen = false;
     palette.style.opacity = '0';
     palette.style.transform = 'scale(.9)';
     palette.style.pointerEvents = 'none';
+    updateFabActiveState();
   }
 
   function toggleSettings() {
-    const palette = document.getElementById(DOCK_ID + '-palette');
+    const palette = document.getElementById(CONTROLLER_ID + '-palette');
     if (!paletteOpen || !palette) return;
     settingsView = !settingsView;
-    document.getElementById(DOCK_ID + '-title').textContent = settingsView ? 'الإعدادات' : 'أدوات العربي';
+    document.getElementById(CONTROLLER_ID + '-title').textContent = settingsView ? 'الإعدادات' : 'أدوات العربي';
     if (settingsView) renderSettings(); else renderPaletteMain();
   }
 
@@ -952,13 +1160,6 @@
       saveState();
       if (!masterHidden) {
         applyToolVisibility(tool, true);
-        const fab = findFab(tool);
-        if (fab && !fab.dataset.eaLaid) {
-          fab.dataset.eaLaid = '1';
-          if (pinnedPositions && Object.keys(pinnedPositions).length) applySavedLayout(pinnedPositions);
-          else if (fabPositions[tool.id]) applySavedLayout(fabPositions);
-          else applyDefaultLayout();
-        }
       }
     } else if (!active) {
       applyToolVisibility(tool, false);
@@ -974,7 +1175,7 @@
     });
   } catch (e) {}
 
-  // رسائل من الـ runner في نفس الصفحة (تحديث حالة لحظي بلا انتظار حدث storage)
+// رسائل من الـ runner في نفس الصفحة (تحديث حالة لحظي بلا انتظار حدث storage)
   try {
     window.addEventListener('ea-script-state', (e) => {
       const scriptId = e.detail && e.detail.scriptId;
@@ -982,25 +1183,9 @@
     });
   } catch (e) {}
 
-  // فحص دوري لحالة السكربتات المفعّلة (تحديث لون الأيقونات دون إعادة بناء)
-  function refreshScriptStates() {
-    let changed = false;
-    TOOLS.forEach(t => {
-      const scriptId = TOOL_TO_SCRIPT[t.id];
-      if (!scriptId) return;
-      const running = getScriptRunning(scriptId);
-      if (running !== t._running) {
-        t._running = running;
-        changed = true;
-      }
-    });
-    if (changed) updatePaletteIcons();
-  }
-  setInterval(refreshScriptStates, 3000);
-
-  // ════════════════════════════════════════════════════════
+  // ═════════════════════════════════════════════════════════
   //  التشغيل
-  // ════════════════════════════════════════════════════════
+  // ═════════════════════════════════════════════════════════
   (async function init() {
     await loadState();
     if (document.body) {
@@ -1010,10 +1195,64 @@
     }
     // تطبيق الحالة فوراً ثم دورياً على أي فاب يظهر لاحقاً
     scanAndApply();
-    // تطبيق المواضع: المثبتة أولاً، ثم المخصصة، ثم الافتراضية حسب الجروب
-    if (pinnedPositions && Object.keys(pinnedPositions).length) applySavedLayout(pinnedPositions);
-    else if (Object.keys(fabPositions).length) applySavedLayout(fabPositions);
-    else applyDefaultLayout();
+    // رص شامل: المثبت/المزاح ثم الافتراضي حسب الجروب
+    relayout();
+
+    // MutationObserver: رصد إنشاء الفابز الجديدة فوراً (بدل انتظار 1.5s)
+    const fabObserver = new MutationObserver(() => {
+      scanAndApply();
+    });
+    fabObserver.observe(document.body, { childList: true, subtree: true });
+
+    // اختصار ESC: يقلص/يقفل الفاب المفتوح أو اللوحة المحومة
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') {
+        // 1) لو اللوحة (palette) مفتوحة → اقفلها
+        const palette = document.getElementById(CONTROLLER_ID + '-palette');
+        if (palette && palette.style.opacity === '1') {
+          closePalette();
+          return;
+        }
+        // 2) لو فاب محوم (hovered) → رجعه للحجم الصغير
+        const hovered = document.querySelector('.ea-fab-page.hovered');
+        if (hovered) {
+          hovered.classList.remove('hovered');
+          return;
+        }
+        // 3) لو لوحة التحكم مفتوحة → صغرها
+        const cpPanel = document.getElementById('elaraby-control-panel');
+        if (cpPanel) {
+          const shadow = cpPanel.shadowRoot;
+          const tgl = shadow?.getElementById('cp-toggle');
+          const panel = shadow?.querySelector('.cp-panel');
+          if (tgl && panel && panel.style.display !== 'none') {
+            tgl.click();
+            return;
+          }
+        }
+        // 4) لو أي أداة داخلية مفتوحة ولها panel selector → صغرها
+        TOOLS.forEach(t => {
+          if (t.panel && visibility[t.id] === true) {
+            const el = document.querySelector(t.panel);
+            if (el) {
+              const cs = getComputedStyle(el);
+              if (cs.display !== 'none' && cs.visibility !== 'hidden') {
+                visibility[t.id] = false;
+                saveState();
+                applyToolVisibility(t, false);
+                updatePaletteIcons();
+              }
+            }
+          }
+        });
+      }
+    });
+
+    // أمان: علم السحب لا يعلق لو فُقد pointerup
+    try {
+      document.addEventListener('pointerup', () => { eaDragging = false; }, true);
+      document.addEventListener('pointercancel', () => { eaDragging = false; }, true);
+    } catch (e) {}
     scanTimer = setInterval(scanAndApply, 1500);
   })();
 })();

@@ -2,6 +2,7 @@
 
 // ── Helpers ─────────────────────────────────────────────────
 // bg() و logEvent() من shared/storage-proxy.js و shared/smart-log.js
+const escapeHtml = s => String(s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;").replace(/`/g, "&#96;");
 
 function showAlert(id, msg, type = 'info') {
   const el = document.getElementById(id);
@@ -157,11 +158,11 @@ function renderRows(data, tbody) {
   }
   tbody.innerHTML = data.map(r => `
     <tr>
-      <td style="font-size:12px;">${r.productType || '–'}</td>
-      <td><span class="text-mono">${r.modelCode || '–'}</span><br><span class="text-muted">${r.modelDescription || ''}</span></td>
-      <td style="font-size:11px; max-width:180px;">${(r.defectMajor || '').substring(0,35)}</td>
-      <td><span class="badge badge-orange">${r.defectCode || '–'}</span><br><span class="text-muted">${(r.defectDescription || '').substring(0,40)}</span></td>
-      <td><strong class="text-mono">${r.sparePartCode || '–'}</strong></td>
+      <td style="font-size:12px;">${escapeHtml(r.productType || '–')}</td>
+      <td><span class="text-mono">${escapeHtml(r.modelCode || '–')}</span><br><span class="text-muted">${escapeHtml(r.modelDescription || '')}</span></td>
+      <td style="font-size:11px; max-width:180px;">${escapeHtml((r.defectMajor || '').substring(0,35))}</td>
+      <td><span class="badge badge-orange">${escapeHtml(r.defectCode || '–')}</span><br><span class="text-muted">${escapeHtml((r.defectDescription || '').substring(0,40))}</span></td>
+      <td><strong class="text-mono">${escapeHtml(r.sparePartCode || '–')}</strong></td>
       <td style="text-align:center;">${r.maxQuantity > 0 ? r.maxQuantity : '–'}</td>
     </tr>
   `).join('');
@@ -192,7 +193,7 @@ function populateSelect(id, items, label, silent) {
   const sel = document.getElementById(id);
   if (!sel) return;
   const currentVal = sel.value;
-  sel.innerHTML = `<option value="">${label}</option>` + items.map(v => `<option value="${v}">${v}</option>`).join('');
+  sel.innerHTML = `<option value="">${escapeHtml(label)}</option>` + items.map(v => `<option value="${escapeHtml(v)}">${escapeHtml(v)}</option>`).join('');
   sel.value = items.includes(currentVal) ? currentVal : '';
   if (!silent) sel.dispatchEvent(new Event('change', { bubbles: true }));
 }
@@ -269,7 +270,7 @@ function enhanceSelect(selectId) {
       return;
     }
     dropdown.innerHTML = filtered.map((o, i) =>
-      `<div data-idx="${i}" style="padding:8px 12px; cursor:pointer; font-size:13px; border-bottom:1px solid #f1f5f9; transition:background 0.1s;${o.value === select.value ? ' background:#eff6ff; font-weight:700;' : ''}">${o.label}</div>`
+      `<div data-idx="${i}" style="padding:8px 12px; cursor:pointer; font-size:13px; border-bottom:1px solid #f1f5f9; transition:background 0.1s;${o.value === select.value ? ' background:#eff6ff; font-weight:700;' : ''}">${escapeHtml(o.label)}</div>`
     ).join('');
     dropdown.querySelectorAll('[data-idx]').forEach(el => {
       el.addEventListener('mouseenter', () => el.style.background = '#f8fafc');
@@ -594,9 +595,9 @@ function renderInventory(data) {
 
   tbody.innerHTML = data.map(r => `
     <tr>
-      <td><strong class="text-mono">${r.code}</strong></td>
-      <td style="font-size:12px;">${r.description}</td>
-      <td><span class="badge badge-blue">${r.location}</span></td>
+      <td><strong class="text-mono">${escapeHtml(r.code)}</strong></td>
+      <td style="font-size:12px;">${escapeHtml(r.description)}</td>
+      <td><span class="badge badge-blue">${escapeHtml(r.location)}</span></td>
       <td><span class="badge badge-green">${r.quantity}</span></td>
       <td class="${r.price > 0 ? 'text-price' : 'text-muted'}">${r.price > 0 ? r.price.toLocaleString('ar-EG') + ' ج.م' : 'غير مسعر'}</td>
       <td class="text-total">${r.total > 0 ? r.total.toLocaleString('ar-EG') + ' ج.م' : '–'}</td>
@@ -773,10 +774,10 @@ function renderLog(entries) {
         <span style="font-size:16px; line-height:1.4;">${icon}</span>
         <div style="flex:1; min-width:0;">
           <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
-            <span style="font-size:12px; font-weight:700;">${label}</span>
+            <span style="font-size:12px; font-weight:700;">${escapeHtml(label)}</span>
             <span style="font-size:11px; color:var(--gray-400);">${t}</span>
           </div>
-          <div style="font-size:12px; color:var(--gray-600); margin-top:2px; word-break:break-word;">${detail}</div>
+          <div style="font-size:12px; color:var(--gray-600); margin-top:2px; word-break:break-word;">${escapeHtml(detail)}</div>
         </div>
       </div>`;
     }

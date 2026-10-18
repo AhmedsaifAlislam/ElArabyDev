@@ -772,7 +772,7 @@
       background: linear-gradient(135deg, #0056b3 0%, #002d62 100%);
       color: #ffffff;
       border: 2px solid rgba(255,255,255,0.2);
-      width: 56px; height: 56px; border-radius: 50%;
+      width: 48px; height: 48px; border-radius: 50%;
       display: flex; align-items: center; justify-content: center;
       cursor: grab;
       box-shadow: 0 8px 32px rgba(0,86,179,0.4), 0 0 15px rgba(0,86,179,0.2);
@@ -786,7 +786,7 @@
       transform: scale(1.1);
       box-shadow: 0 10px 40px rgba(0,86,179,0.5), 0 0 25px rgba(0,86,179,0.4);
     }
-    .trigger-btn svg { width: 26px; height: 26px; fill: currentColor; pointer-events: none; }
+    .trigger-btn svg { width: 20px; height: 20px; fill: currentColor; pointer-events: none; }
 
     .notification-badge {
       position: absolute; top: -4px; right: -4px;

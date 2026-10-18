@@ -30,17 +30,28 @@
   ],
 
   "brandBtn": [
-    "button[aria-label*='Launch lookup modal']",
-    "button.launchentitylookup",
+    "#ats_producttypebrand_lookupmodalbutton",
+    "#ats_producttypebrand_name_lookupmodalbutton",
+    "button[id*='producttypebrand'][id*='lookup']",
     "button[aria-label*='العلامة التجاريه']",
+    "button[aria-label*='العلامة التجارية']",
     ".lookup-brand button"
   ],
 
   "modelBtn": [
-    "button[aria-label*='Launch lookup modal']",
-    "button.launchentitylookup",
-    "button[aria-label*='الموديل الفعلي']",
+    "#ldv_actualmodel_lookupmodalbutton",
+    "#ldv_actualmodel_name_lookupmodalbutton",
+    "button[id*='actualmodel'][id*='lookup']:not([id*='actualmodel2'])",
+    "button[aria-label*='الموديل الفعلي 1']",
+    "button[aria-label*='الموديل الفعلي']:not([aria-label*='2'])",
     ".lookup-model button"
+  ],
+
+  "modelBtn2": [
+    "#ldv_actualmodel2_lookupmodalbutton",
+    "#ldv_actualmodel2_name_lookupmodalbutton",
+    "button[id*='actualmodel2'][id*='lookup']",
+    "button[aria-label*='الموديل الفعلي 2']"
   ],
 
   "modelInput": [

@@ -403,6 +403,144 @@
     return results;
   };
 
+  // ════════════════════════════════════════════════════════════════════════════════════
+  // دوال مساعدة مشتركة موحدة — تُستدعى من كل ملفات الإضافة عبر window.*
+  // لمنع تكرار التعريف نفسه في 3+ ملفات (findFirst, generateTaskId, parseDataLine, loadSelectors)
+  // ════════════════════════════════════════════════════════════════════════════════════
+
+  /**
+   * البحث عن أول عنصر يطابق أحد المحددات في documento + iframes
+   * @param {string|string[]|HTMLElement} list - محدد أو قائمة محددات أو عنصر DOM
+   * @param {Document} [doc=document] - المستند للبحث فيه (افتراضي: المستند الحالي)
+   * @returns {HTMLElement|null} العنصر الأول المطابق أو null
+   */
+  window.findFirst = function (list, doc) {
+    if (!list) return null;
+    const rootDoc = doc || document;
+    const arr = Array.isArray(list) ? list : [list];
+    for (const s of arr) {
+      if (!s) continue;
+      if (s instanceof HTMLElement) return s;
+      if (typeof s === 'string') {
+        try {
+          const el = rootDoc.querySelector(s);
+          if (el) return el;
+          // البحث داخل iframes (مثل PowerApps)
+          const iframes = rootDoc.querySelectorAll('iframe');
+          for (const iframe of iframes) {
+            try {
+              const iDoc = iframe.contentDocument || iframe.contentWindow.document;
+              const found = window.findFirst(s, iDoc);
+              if (found) return found;
+            } catch (_) { /* cross-origin iframe */ }
+          }
+        } catch (_) {}
+      }
+    }
+    return null;
+  };
+
+  /**
+   * إنشاء معرف مهمة فريد
+   * @returns {string}
+   */
+  window.generateTaskId = function () {
+    return 'task-' + Date.now() + '-' + Math.random().toString(36).slice(2, 6);
+  };
+
+  /**
+   * تحليل سطر بيانات إلى كائن منظم (صيغة key:val مفصولة بـ | أو ,)
+   * @param {string} line - سطر البيانات
+   * @returns {object}
+   */
+  window.parseDataLine = function (line) {
+    if (!line || typeof line !== 'string') return {};
+    const obj = {};
+    const parts = line.includes('|') ? line.split('|') : line.split(',');
+    parts.forEach(function (p) {
+      const i = p.indexOf(':');
+      if (i < 0) return;
+      obj[p.slice(0, i).trim().toLowerCase().replace(/\s+/g, '')] = p.slice(i + 1).trim();
+    });
+    const parsed = {
+      orderId: obj['orderid'] || obj['order'] || line.match(/\bCAS\d{10,}\b/i)?.[0] || '',
+      brand: obj['brand'] || obj['علامهتجاريه'] || '',
+      model: obj['model'] || obj['موديل'] || '',
+      serial: obj['serial'] || obj['serialnumber'] || '',
+      model2: obj['model2'] || '',
+      serial2: obj['serial2'] || '',
+      status: obj['status'] || obj['حالة'] || '',
+      date: obj['date'] || obj['تاريخ'] || '',
+      reportType: obj['reporttype'] || obj['report'] || '',
+      date2: obj['date2'] || '',
+      problemCode: obj['problemcode'] || obj['problem'] || '',
+      faultCode: obj['faultcode'] || obj['fault'] || '',
+      subFaultCode: obj['subfault'] || null,
+      notes: obj['notes'] || obj['ملاحظات'] || '',
+      technician: obj['technician'] || obj['الفني'] || obj['الفنى'] || '',
+      technicianName: obj['technicianname'] || obj['اسمالفني'] || obj['اسمالفنى'] || ''
+    };
+    // إذا وجد تاريخان والثاني أحدث، اعتمده
+    if (parsed.model2 && parsed.date && parsed.date2) {
+      try {
+        const toDate = function (d) {
+          const m = d.match(/(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+          return m ? new Date(m[3], m[2] - 1, m[1]) : new Date(d);
+        };
+        const d1 = toDate(parsed.date);
+        const d2 = toDate(parsed.date2);
+        if (d2 > d1) parsed.date = parsed.date2;
+      } catch (_) {}
+    }
+    return parsed;
+  };
+
+  // محددات افتراضية في حال تعذر تحميل selectors.json
+  function getHardcodedDefaults() {
+    return {
+      serial: ["#ldv_serialnumber", "#ldv_technicalserialnumber", "[aria-label*='الرقم المسلسل']", "[name*='serial']", "input[id*='serial']"],
+      serial2: ["#ldv_serialnumber1", "[aria-label*='الرقم المسلسل 2']", "[name*='serialnumber1']"],
+      brandInput: ["#ats_producttypebrand_name", "input[aria-label='العلامة التجاريه']", "input[aria-label*='العلامة التجاريه']", "input[id*='brand']", "input[name*='brand']"],
+      brandBtn: ["button[aria-label*='العلامة التجاريه Launch lookup modal']", ".launchentitylookup", "button[aria-label*='Brand']", ".lookup-brand button"],
+      modelInput: ["#ldv_actualmodel_name", "input[aria-label='الموديل الفعلي 1']", "input[aria-label*='الموديل الفعلي']", "input[name*='actualmodel']", "input[name*='model']", "input[id*='actualModel']"],
+      modelInput2: ["#ldv_actualmodel2_name", "input[aria-label='الموديل الفعلي 2']", "input[aria-label*='الموديل الفعلي 2']"],
+      modelBtn: ["button[aria-label*='الموديل الفعلي Launch lookup modal']", ".launchentitylookup", "button[aria-label*='Model']", ".lookup-model button"],
+      statusSelect: ["#ldv_warrantystatus", "select[name*='warranty']", "select[aria-label*='Warranty']", "select[id*='warranty']", "select[name*='status']"],
+      dateInput: ["#ldv_warrantydate_datepicker_description", "input[aria-label*='Warranty Date']", "input[aria-label*='تاريخ الضمان']", "input[name*='warrantyDate']", "input[id*='warrantydate']", "input[type='date']"],
+      notes: ["textarea[aria-label*='Notes']", "textarea[name*='notes']", "textarea[id*='notes']"],
+      nextBtn: ["#NextButton", "input[type='button'][value='Next']", "input[type='button'][value='التالي']", "button[aria-label='Next']", "button[aria-label='التالي']", "button[type='submit']"],
+      lookupModalItem: ["[role='dialog'] li", "[role='listbox'] [role='option']", ".lookup-modal .result-item", ".modal .result-item", "table tbody tr", ".entitylist-items li"],
+      lookupSearchInput: ["[role='dialog'] input[type='search']", "[role='dialog'] input[type='text']", ".modal input"],
+      successIndicator: [".save-success", ".alert-success", "[class*='success']"],
+      customer: [".customer-name", "[class*='customer-name']"],
+      orderNumber: [".order-number", "[class*='order-id']", "[class*='workorder-id']"],
+      ordersSearchInput: ["input[aria-label*='Search']", "input[placeholder*='Search']", "input[placeholder*='بحث']", "#searchOrders", "input[type='search']"],
+      ordersSearchBtn: ["button[type='submit'][aria-label*='Search']", "button[aria-label*='Search']", "button[aria-label*='بحث']"],
+      ordersTableRow: ["table tbody tr", "[role='row']", ".entitylist-items > li", ".order-row"],
+      ordersViewLink: ["a[href*='workorderreview']", "a[href*='followup']", "a[href*='review']", "button[aria-label*='View']", "button[aria-label*='متابعة']"],
+      _batchDelay: 1200, _nextWaitTimeout: 10000, _lookupTimeout: 6000, _ordersSearchWait: 2000, _retryCount: 3
+    };
+  }
+
+  /**
+   * تحميل محددات البورتال من التخزين المحلي أو selectors.json
+   * @returns {Promise<object>}
+   */
+  window.loadSelectors = async function () {
+    if (window._CFG) return window._CFG;
+    try {
+      const lsVal = localStorage.getItem('autofiller_selectors');
+      if (lsVal) { window._CFG = JSON.parse(lsVal); return window._CFG; }
+    } catch (_) {}
+    try {
+      window._CFG = await (await fetch(chrome.runtime.getURL('selectors.json'))).json();
+      return window._CFG;
+    } catch (_) {
+      window._CFG = getHardcodedDefaults();
+      return window._CFG;
+    }
+  };
+
   // تصدير المحددات
   window.PORTAL_SELECTORS = {
     POWERAPPS,

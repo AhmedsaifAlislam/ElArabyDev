@@ -1,8 +1,8 @@
 // ==UserScript==
-// @name         كشف أرقام الهواتف - بوابة العربي (v15)
+// @name         كشف أرقام الهواتف - بوابة العربي (v16)
 // @namespace    http://tampermonkey.net/
-// @version      15.0
-// @description  يكشف أرقام الهواتف المخفية في جدول البلاغات ويرفعها لـ Google Sheets
+// @version      16.0
+// @description  يكشف أرقام الهواتف المخفية + Virtual Scroll + Incremental Sync + Offline Queue
 // @match        *://elarabyportalpfs.powerappsportals.com/*
 // @run-at       document-start
 // @grant        none
@@ -112,7 +112,15 @@
         virtualScrollTop: 0,
         virtualRowHeight: 85,
         notificationsEnabled: Notification.permission === 'granted',
-        prevRowsCount: 0
+        prevRowsCount: 0,
+        // Virtual Scroll v16
+        virtualScrollEnabled: true,
+        visibleRange: { start: 0, end: 0 },
+        // Incremental Sync v16
+        lastSyncTimestamp: 0,
+        // Offline Queue v16
+        offlineQueue: [],
+        isOnline: navigator.onLine,
       };
 
       // =====================================================================
@@ -126,13 +134,281 @@
         else if (type === 'success') console.log(`[v14] ${icon} ${msg}`);
       }
 
+      // ═══════════════════════════════════════════════════════════════════
+      // 🟢 IndexedDB Offline Queue v16
+      // ══════════════════════════════════════════════════════════════════
+      const OFFLINE_DB = {
+        name: 'ElArabyOfflineDB',
+        version: 1,
+        db: null,
+        async init() {
+          return new Promise((resolve, reject) => {
+            const req = indexedDB.open(this.name, this.version);
+            req.onerror = () => reject(req.error);
+            req.onsuccess = () => { this.db = req.result; resolve(); };
+            req.onupgradeneeded = (e) => {
+              const db = e.target.result;
+              if (!db.objectStoreNames.contains('syncQueue')) {
+                const store = db.createObjectStore('syncQueue', { keyPath: 'id', autoIncrement: true });
+                store.createIndex('timestamp', 'timestamp', { unique: false });
+                store.createIndex('orderNo', 'orderNo', { unique: false });
+              }
+            };
+          });
+        },
+        async add(row, force = false) {
+          if (!this.db) await this.init();
+          return new Promise((resolve, reject) => {
+            const tx = this.db.transaction('syncQueue', 'readwrite');
+            const store = tx.objectStore('syncQueue');
+            const data = {
+              orderNo: row.orderNo,
+              name: row.name,
+              phone: row.phone,
+              phone2: row.phone2,
+              sap: row.sap,
+              address: row.address,
+              type: row.type,
+              service: row.service,
+              date: row.date,
+              force: force,
+              timestamp: Date.now(),
+              retries: 0
+            };
+            store.add(data);
+            tx.oncomplete = () => resolve();
+            tx.onerror = () => reject(tx.error);
+          });
+        },
+        async getAll() {
+          if (!this.db) await this.init();
+          return new Promise((resolve, reject) => {
+            const tx = this.db.transaction('syncQueue', 'readonly');
+            const store = tx.objectStore('syncQueue');
+            const req = store.getAll();
+            req.onsuccess = () => resolve(req.result);
+            req.onerror = () => reject(req.error);
+          });
+        },
+        async remove(id) {
+          if (!this.db) await this.init();
+          return new Promise((resolve, reject) => {
+            const tx = this.db.transaction('syncQueue', 'readwrite');
+            const store = tx.objectStore('syncQueue');
+            store.delete(id);
+            tx.oncomplete = () => resolve();
+            tx.onerror = () => reject(tx.error);
+          });
+        },
+        async clear() {
+          if (!this.db) await this.init();
+          return new Promise((resolve, reject) => {
+            const tx = this.db.transaction('syncQueue', 'readwrite');
+            const store = tx.objectStore('syncQueue');
+            store.clear();
+            tx.oncomplete = () => resolve();
+            tx.onerror = () => reject(tx.error);
+          });
+        }
+      };
+
+      // ═══════════════════════════════════════════════════════════════════
+      // 🟢 Virtual Scroll Renderer v16
+      // ══════════════════════════════════════════════════════════════════
+      const VIRTUAL_SCROLL = {
+        container: null,
+        tbody: null,
+        allRows: [],
+        renderedStart: 0,
+        renderedEnd: 0,
+        rowHeight: 85,
+        buffer: 5, // extra rows above/below viewport
+        
+        init(containerEl, tbodyEl) {
+          this.container = containerEl;
+          this.tbody = tbodyEl;
+          this.rowHeight = state.virtualRowHeight;
+          this.bindScroll();
+        },
+        
+        bindScroll() {
+          if (!this.container) return;
+          this.container.addEventListener('scroll', () => {
+            this.updateVisibleRange();
+          }, { passive: true });
+        },
+        
+        updateVisibleRange() {
+          if (!this.container) return;
+          const scrollTop = this.container.scrollTop;
+          const containerHeight = this.container.clientHeight;
+          const start = Math.max(0, Math.floor(scrollTop / this.rowHeight) - this.buffer);
+          const end = Math.min(this.allRows.length, Math.ceil((scrollTop + containerHeight) / this.rowHeight) + this.buffer);
+          
+          state.visibleRange = { start, end };
+          this.renderRange(start, end);
+        },
+        
+        setRows(rows) {
+          this.allRows = rows;
+          this.renderRange(0, Math.min(rows.length, Math.ceil((this.container?.clientHeight || 600) / this.rowHeight) + this.buffer));
+        },
+        
+        renderRange(start, end) {
+          if (!this.tbody) return;
+          const rowsToRender = this.allRows.slice(start, end);
+          if (rowsToRender.length === 0) {
+            this.tbody.innerHTML = '<tr><td colspan="2" style="padding:20px;text-align:center;">لا توجد نتائج</td></tr>';
+            return;
+          }
+          
+          const D = state.isDarkMode;
+          const R = getR();
+          
+          // Keep existing rows that are still in range, remove others
+          const existingRows = this.tbody.querySelectorAll('tr[data-virtual-index]');
+          const keepIndexes = new Set();
+          
+          rowsToRender.forEach((r, i) => {
+            const virtualIndex = start + i;
+            keepIndexes.add(virtualIndex);
+            
+            let rowEl = this.tbody.querySelector(`tr[data-virtual-index="${virtualIndex}"]`);
+            if (!rowEl) {
+              rowEl = document.createElement('tr');
+              rowEl.dataset.virtualIndex = virtualIndex;
+              rowEl.style.cssText = `border-bottom:1px solid ${D?'#334155':'#f3f4f6'};`;
+              this.tbody.appendChild(rowEl);
+            }
+            rowEl.innerHTML = this.renderRowHTML(r, virtualIndex + 1);
+            rowEl.style.display = '';
+          });
+          
+          // Hide rows outside range
+          existingRows.forEach(rowEl => {
+            const idx = parseInt(rowEl.dataset.virtualIndex, 10);
+            if (!keepIndexes.has(idx)) {
+              rowEl.style.display = 'none';
+            }
+          });
+        },
+        
+        renderRowHTML(r, count) {
+          const D = state.isDarkMode;
+          const R = getR();
+          const bg = r.pageNum > 1 ? `background:${D?'#0c1a3a':'#f0f9ff'};` : '';
+          const pb = r.pageNum > 1 ? `<span style="font-size:8px;background:#bfdbfe;color:#1d4ed8;padding:1px 3px;border-radius:10px;margin-right:3px;">ص${r.pageNum}</span>` : '';
+          const isSynced = SYNC_CACHE.isSynced(r);
+          const nameColor = D ? '#60a5fa' : '#005A9C';
+
+          return `
+            <td style="padding:${R.rowPadding};width:${R.isMobile?'55%':'60%'};vertical-align:top;">
+              <b><span style="color:${nameColor};">${count}-</span>${r.orderNo}</b>${pb}<br>
+              <span style="color:${nameColor};font-weight:bold;font-size:${R.fontSize};">${r.name}</span><br>
+              ${r.address ? `<small style="color:${D?'#94a3b8':'#666'};font-size:${R.isMobile?'10px':'10px'};">📍 ${r.address}</small>` : ''}
+            </td>
+            <td style="padding:${R.rowPadding};vertical-align:top;text-align:left;">
+              ${r.phone||r.phone2 ? `<div style="color:#059669;font-weight:bold;direction:ltr;font-size:${R.fontSize};">${r.phone} ${r.phone2&&r.phone2!==r.phone?'<br>'+r.phone2:''}</div>` : `<span style="color:#f59e0b;font-size:${R.isMobile?'11px':'10px'};">⏳ بحث...</span>`}
+              ${r.sap ? `<div style="color:#be185d;font-size:9px;margin-top:2px;">SAP: ${r.sap}</div>` : ''}
+              <div style="margin-top:4px;display:flex;gap:4px;justify-content:flex-end;align-items:center;">
+                <span title="${isSynced?'محفوظ':'بانتظار'}" style="font-size:${R.isMobile?'12px':'10px'};">${isSynced?'🟢':'⏳'}</span>
+                <button onclick="window.__ERP_FORCE_SYNC_ROW('${r.orderNo}')" style="background:${D?'#334155':'#f3f4f6'};border:1px solid ${D?'#475569':'#ccc'};color:${D?'#e2e8f0':'#333'};border-radius:${R.isMobile?'6px':'4px'};padding:${R.isMobile?'4px 6px':'2px 4px'};font-size:9px;cursor:pointer;min-width:${R.isMobile?'32px':'auto'};min-height:${R.isMobile?'28px':'auto'};">☁️</button>
+              </div>
+            </td>`;
+        }
+      };
+
+      // ═══════════════════════════════════════════════════════════════════
+      // 🟢 Incremental Sync v16
+      // ══════════════════════════════════════════════════════════════════
+      function syncIncremental() {
+        if (!state.isOnline) return;
+        
+        const now = Date.now();
+        const since = state.lastSyncTimestamp || 0;
+        
+        // Get rows that have been modified since last sync
+        const changedRows = [...state.rows.values()].filter(r => {
+          const rowLastSync = r._lastSyncedAt || 0;
+          return (r.phone || r.phone2 || r.sap) && rowLastSync < since;
+        });
+        
+        if (changedRows.length === 0) return;
+        
+        log(`🔄 Incremental Sync: ${changedRows.length} بلاغات متغيرة منذ ${new Date(since).toLocaleTimeString()}`, 'info', '🔄');
+        
+        changedRows.forEach(async (row) => {
+          await syncRowToGoogle(row, true);
+          row._lastSyncedAt = now;
+        });
+        
+        state.lastSyncTimestamp = now;
+      }
+
+      // ══════════════════════════════════════════════════════════════════
+      // 🟢 Online/Offline Handler v16
+      // ═════════════════════════════════════════════════════════════════
+      function setupOnlineOfflineHandlers() {
+        window.addEventListener('online', async () => {
+          state.isOnline = true;
+          log('🌐 الإنترنت متاح - جاري مزامنة الطابور غير المتصل', 'success', '🌐');
+          await flushOfflineQueue();
+        });
+        
+        window.addEventListener('offline', () => {
+          state.isOnline = false;
+          log('📴 وضع عدم الاتصال - سيتم تخزين التغييرات محلياً', 'warn', '📴');
+        });
+      }
+      
+      async function flushOfflineQueue() {
+        const queue = await OFFLINE_DB.getAll();
+        if (queue.length === 0) return;
+        
+        log(`📤 معالجة ${queue.length} عملية من الطابور غير المتصل`, 'info', '📤');
+        
+        for (const item of queue) {
+          if (!state.isOnline) break;
+          
+          try {
+            await syncRowToGoogle({
+              orderNo: item.orderNo,
+              name: item.name,
+              phone: item.phone,
+              phone2: item.phone2,
+              sap: item.sap,
+              address: item.address,
+              type: item.type,
+              service: item.service,
+              date: item.date
+            }, item.force);
+            await OFFLINE_DB.remove(item.id);
+          } catch (e) {
+            item.retries = (item.retries || 0) + 1;
+            if (item.retries > 3) {
+              log(`❌ فشل مزامنة ${item.orderNo} بعد 3 محاولات`, 'error', '❌');
+              await OFFLINE_DB.remove(item.id);
+            }
+          }
+          await new Promise(r => setTimeout(r, 100));
+        }
+      }
+
       // =====================================================================
-      // 🟢 Google Sheets Sync
+      // 🟢 Google Sheets Sync (Enhanced with Offline Queue)
       // =====================================================================
       const GOOGLE_WEBAPP_URL = 'https://script.google.com/macros/s/AKfycbwlDrxzd2u4RjpZNg1EOecVwNcmip3nwe75hJIMrrPmaBnnwIZh4knxxpVUwS3V0Ui-jA/exec';
 
       async function syncRowToGoogle(row, force = false) {
         if (!force && SYNC_CACHE.isSynced(row)) return false;
+        
+        // If offline, queue for later sync
+        if (!state.isOnline) {
+          await OFFLINE_DB.add(row, force);
+          log(`📴 غير متصل - تمت إضافة ${row.orderNo} لطابور المزامنة`, 'warn', '📴');
+          return false;
+        }
+        
         try {
           await fetch(GOOGLE_WEBAPP_URL, {
             method: 'POST',
@@ -151,11 +427,16 @@
             })
           });
           SYNC_CACHE.markSynced(row);
+          row._lastSyncedAt = Date.now();
           log(`☁️ تم حفظ ${row.orderNo} في جوجل شيت`, 'success', '☁️');
           updateUI(false);
           return true;
         } catch (e) {
           log(`❌ فشل الاتصال بجوجل شيت: ${row.orderNo}`, 'error', '☁️');
+          // On network error, queue for retry
+          if (!navigator.onLine) {
+            await OFFLINE_DB.add(row, force);
+          }
           return false;
         }
       }
@@ -182,20 +463,47 @@
               if (roleHeaders.length > 0) headers.push(...roleHeaders);
           }
           if (headers.length === 0) return false;
+          
+          // Reset COL
+          COL = { CAS: 0, NAME: 1, PHONE: -1, PHONE2: -1, SAP: -1, ADDRESS: -1, TYPE: -1, DATE: -1, SERVICE: -1, CENTER: -1 };
+          
+          // Enhanced column detection with fuzzy matching v16
+          const headerMap = {
+            CAS: ['طلب', 'CAS', 'Ticket', 'Case', 'Incident'],
+            NAME: ['العميل', 'اسم العميل', 'Customer', 'Client', 'Name'],
+            PHONE: ['موبايل', 'هاتف', 'Mobile', 'Phone', 'Telephone', 'رقم الهاتف'],
+            PHONE2: ['صلة', 'بديل', 'Alternate', 'Secondary', 'Contact'],
+            SAP: ['SAP', 'ساب', 'SAP ID'],
+            ADDRESS: ['عنوان', 'Address', 'Location'],
+            TYPE: ['نوع المنتج', 'ProductType', 'Product Type', 'Type'],
+            CENTER: ['مركز', 'Center', 'Branch'],
+            DATE: ['تاريخ', 'Date', 'Created'],
+            SERVICE: ['خدمة', 'Service', 'Work Type']
+          };
+          
           headers.forEach((h, i) => {
-              if (h.includes('طلب') || h.includes('CAS')) COL.CAS = i;
-              else if (h === 'العميل' || h === 'اسم العميل') COL.NAME = i;
-              else if (h.includes('موبايل') || h.includes('هاتف') || h.includes('Mobile')) {
-                  if (COL.PHONE === -1) COL.PHONE = i; else COL.PHONE2 = i;
+              const hl = h.toLowerCase();
+              let matched = false;
+              
+              for (const [col, keywords] of Object.entries(headerMap)) {
+                  if (keywords.some(k => hl.includes(k.toLowerCase()))) {
+                      if (col === 'PHONE') {
+                          if (COL.PHONE === -1) COL.PHONE = i; else COL.PHONE2 = i;
+                      } else {
+                          COL[col] = i;
+                      }
+                      matched = true;
+                      break;
+                  }
               }
-              else if (h.includes('صلة') || h.includes('بديل')) COL.PHONE2 = i;
-              else if (h.includes('SAP') || h.includes('ساب')) COL.SAP = i;
-              else if (h.includes('عنوان') || h === 'العنوان' || h.toLowerCase().includes('address')) COL.ADDRESS = i;
-               else if (h.includes('نوع المنتج') || h.includes('ProductType')) COL.TYPE = i;
-               else if (h.includes('مركز')) COL.CENTER = i;
-              else if (h.includes('تاريخ')) COL.DATE = i;
-              else if (h.includes('خدمة')) COL.SERVICE = i;
+              
+              // Log unrecognized headers for debugging
+              if (!matched && h.length > 2) {
+                  log(`❓ عمود غير معروف: "${h}" في الفهرس ${i}`, 'info', '🔍');
+              }
           });
+          
+          log(`📊 أعمدة مكتشفة: ${Object.entries(COL).filter(([_,v])=>v>=0).map(([k,v])=>`${k}:${v}`).join(', ')}`, 'info', '📊');
           return true;
       }
 
@@ -451,6 +759,16 @@
       // =====================================================================
       // 🟢 Auto-Pilot
       // =====================================================================
+      // Targeted Auto-Pilot button update (no full UI rebuild)
+      function updateAutoPilotButton() {
+        const btn = document.querySelector('button[onclick*="__ERP_TOGGLE_AUTOPILOT"]');
+        if (!btn) return;
+        const apColor = state.isAutoPilot ? '#ef4444' : '#005A9C';
+        const apText = state.isAutoPilot ? '🛑 إيقاف' : '🤖 تصفح تلقائي';
+        btn.style.background = apColor;
+        btn.textContent = apText;
+      }
+      
       window.__ERP_TOGGLE_AUTOPILOT = () => {
         state.isAutoPilot = !state.isAutoPilot;
         if (state.isAutoPilot) {
@@ -460,7 +778,7 @@
           if (state.autoPilotTimer) clearTimeout(state.autoPilotTimer);
           log('🛑 تم إيقاف التصفح التلقائي.', 'info', '🛑');
         }
-        updateUI(false);
+        updateAutoPilotButton();
       };
 
       function runAutoPilotStep() {
@@ -475,7 +793,7 @@
           } else {
             log('🤖 وصلنا لنهاية التقرير!', 'warning', '🏁');
             state.isAutoPilot = false;
-            updateUI(false);
+            updateAutoPilotButton();
           }
         }, 3200);
       }
@@ -509,6 +827,19 @@
           clearTimeout(timer);
           timer = setTimeout(() => fn.apply(this, args), ms);
         };
+      }
+
+      // =====================================================================
+      // 🟢 Layer 0 Communication
+      // =====================================================================
+      function notifyLayer0Force() {
+        try {
+          window.postMessage({ type: 'ELARABY_PHONE_REVEAL_FORCE' }, '*');
+          // Also send to iframes
+          document.querySelectorAll('iframe').forEach(iframe => {
+            try { iframe.contentWindow.postMessage({ type: 'ELARABY_PHONE_REVEAL_FORCE' }, '*'); } catch(e) {}
+          });
+        } catch(e) {}
       }
 
       // =====================================================================
@@ -655,6 +986,7 @@
       window.__ERP_FORCE_REVEAL = function() {
           log('إجبار كشف الأرقام...', 'info', '🔓');
           if (window.crmAccount) window.crmAccount.hideCustomersPhones = false;
+          notifyLayer0Force(); // Notify Layer 0 to re-apply force
           const searchBtn = document.querySelector('.input-group-btn button, .entity-grid .btn-default');
           if (searchBtn) searchBtn.click(); else window.location.reload();
       };
@@ -664,9 +996,28 @@
       window.__ERP_TOGGLE = () => {
         state.isMinimized = !state.isMinimized;
         const box = document.getElementById('elaraby-fixed-box');
-        const btn = document.getElementById('elaraby-mini-btn');
+        // الفاب elaraby-mini-btn يُدار من fabs-controller — لا نلمس display
         if (box) box.style.display = state.isMinimized ? 'none' : 'flex';
-        if (btn) btn.style.display = state.isMinimized ? 'flex' : 'none';
+      };
+      
+      window.__ERP_CLOSE_ALL = () => {
+        log('إغلاق كامل للإضافة', 'info', '✕');
+        // Clear all intervals
+        if (window.__ELARABY_INTERVAL) clearInterval(window.__ELARABY_INTERVAL);
+        if (state.autoPilotTimer) clearTimeout(state.autoPilotTimer);
+        // Clean up Virtual Scroll
+        if (VIRTUAL_SCROLL?.container) {
+          try { VIRTUAL_SCROLL.container.removeEventListener('scroll', VIRTUAL_SCROLL.updateVisibleRange); } catch(e) {}
+          VIRTUAL_SCROLL.container = null;
+          VIRTUAL_SCROLL.tbody = null;
+        }
+        // Remove DOM elements
+        const box = document.getElementById('elaraby-fixed-box');
+        const btn = document.getElementById('elaraby-mini-btn');
+        if (box) box.remove();
+        if (btn) btn.remove();
+        // Stop auto-pilot
+        state.isAutoPilot = false;
       };
       window.__ERP_TAB = (tab) => { state.activeTab = tab; updateUI(false); };
 
@@ -702,10 +1053,10 @@
           panelWidth: isMobile ? '100%' : isTablet ? '340px' : '380px',
           panelMaxH: isMobile ? `${h - 20}px` : '620px',
           panelBottom: isMobile ? '0' : '20px',
-          panelRight: isMobile ? '0' : '20px',
+          panelRight: isMobile ? '0' : '76px',
           panelRadius: isMobile ? '12px 12px 0 0' : '12px',
           panelBorderTop: isMobile ? `4px solid ${'#005A9C'}` : `4px solid ${'#005A9C'}`,
-          btnSize: isMobile ? '60px' : '56px',
+          btnSize: '48px',
           btnBottom: isMobile ? '16px' : '20px',
           btnRight: isMobile ? '16px' : '20px',
           fontSize: isMobile ? '13px' : '11px',
@@ -719,7 +1070,23 @@
         };
       }
 
+      // Debounced updateUI to prevent freeze
+      let updateUITimer = null;
       function updateUI(rebuild = true) {
+        if (updateUITimer) { clearTimeout(updateUITimer); }
+        updateUITimer = setTimeout(() => _updateUI(rebuild), rebuild ? 0 : 150); // Increased from 50ms to 150ms
+      }
+      
+      function _updateUI(rebuild = true) {
+        // Clean up virtual scroll on ANY rebuild (not just full rebuild)
+        if (VIRTUAL_SCROLL?.container) {
+          try {
+            VIRTUAL_SCROLL.container.removeEventListener('scroll', VIRTUAL_SCROLL.updateVisibleRange);
+          } catch(e) {}
+          VIRTUAL_SCROLL.container = null;
+          VIRTUAL_SCROLL.tbody = null;
+        }
+        
         let box = document.getElementById('elaraby-fixed-box');
         let btn = document.getElementById('elaraby-mini-btn');
         const totalInTable = state.rows.size;
@@ -741,18 +1108,17 @@
 
         if (rebuild) {
           if (box) box.remove(); if (btn) btn.remove();
-          btn = document.createElement('div');
-          btn.id = 'elaraby-mini-btn';
-          btn.style.cssText = `position:fixed;bottom:${R.btnBottom};right:${R.btnRight};width:${R.btnSize};height:${R.btnSize};background:linear-gradient(135deg,#005A9C,#0078D4);color:#fff;border-radius:50%;box-shadow:0 4px 20px rgba(0,90,156,0.5);z-index:999999;display:flex;justify-content:center;align-items:center;font-size:${R.isMobile?'28px':'26px'};cursor:pointer;transition:transform 0.2s;-webkit-tap-highlight-color:transparent;`;
-          btn.innerHTML = '🤖<div id="elaraby-badge" style="display:none;position:absolute;top:-2px;right:-2px;background:#ef4444;width:13px;height:13px;border-radius:50%;border:2px solid #fff;"></div>';
-          btn.onclick = window.__ERP_TOGGLE;
-          document.body.appendChild(btn);
+          // الفاب elaraby-mini-btn يُدار من fabs-controller — لا ننشئه هنا
+          // btn = document.createElement('div');
+          // btn.id = 'elaraby-mini-btn';
+          // ...
+          // document.body.appendChild(btn);
           box = document.createElement('div');
           box.id = 'elaraby-fixed-box';
           box.style.cssText = `position:fixed;bottom:${R.panelBottom};right:${R.panelRight};left:${R.isMobile?'0':'auto'};width:${R.panelWidth};max-height:${R.panelMaxH};background:${bgMain};border:none;border-top:${R.panelBorderTop};border-radius:${R.panelRadius};box-shadow:0 -4px 30px rgba(0,0,0,${D?'0.6':'0.25'});z-index:999999;font-family:'Segoe UI',sans-serif;direction:rtl;display:flex;flex-direction:column;overflow:hidden;color:${textMain};${R.isMobile?'-webkit-overflow-scrolling:touch;':''}`;
           document.body.appendChild(box);
           box.style.display = state.isMinimized ? 'none' : 'flex';
-          btn.style.display = state.isMinimized ? 'flex' : 'none';
+          // btn.style.display = state.isMinimized ? 'flex' : 'none'; // الفاب يُدار من fabs-controller
         } else {
           box = document.getElementById('elaraby-fixed-box');
           if (!box) return;
@@ -760,6 +1126,8 @@
           box.style.color = textMain;
           const badge = document.getElementById('elaraby-badge');
           if (badge && state.isMinimized && totalInTable > 0) badge.style.display = 'block';
+          // If not rebuilding, only update dynamic parts
+          if (!rebuild) return;
         }
 
         const tabStyle = (name) => `flex:1;padding:${R.isMobile?'10px 4px':'8px 4px'};border:none;cursor:pointer;font-size:${R.fontSize};font-weight:bold;background:${state.activeTab===name?(D?'#0f172a':'#fff'):'transparent'};border-bottom:${state.activeTab===name?`3px solid ${accentColor}`:'3px solid transparent'};color:${state.activeTab===name?accentColor:(D?'#94a3b8':'#888')};-webkit-tap-highlight-color:transparent;min-height:${R.isMobile?'44px':'auto'};`;
@@ -773,7 +1141,7 @@
                 <button onclick="window.__ERP_TOGGLE_DARK()" style="background:${D?'#fbbf24':'#1e293b'};color:${D?'#000':'#fff'};border:none;border-radius:${R.isMobile?'6px':'4px'};padding:${R.isMobile?'4px 8px':'2px 6px'};font-size:${R.fontSize};cursor:pointer;min-width:${R.isMobile?'36px':'auto'};min-height:${R.isMobile?'32px':'auto'};" title="تبديل الوضع">${D?'☀️':'🌙'}</button>
                 <button onclick="window.__ERP_FORCE_REVEAL()" style="background:#ef4444;color:white;border:none;border-radius:${R.isMobile?'6px':'4px'};padding:${R.isMobile?'4px 8px':'2px 6px'};font-size:${R.fontSize};font-weight:bold;cursor:pointer;min-width:${R.isMobile?'36px':'auto'};min-height:${R.isMobile?'32px':'auto'};" title="إجبار كشف الأرقام">🔓 كشف</button>
                 <button onclick="window.__ERP_TOGGLE()" style="background:none;border:none;cursor:pointer;font-size:${R.isMobile?'16px':'12px'};color:${D?'#94a3b8':'#aaa'};min-width:${R.isMobile?'32px':'auto'};min-height:${R.isMobile?'32px':'auto'};" title="تصغير">➖</button>
-                <button onclick="document.getElementById('elaraby-fixed-box').remove();document.getElementById('elaraby-mini-btn').remove();clearInterval(window.__ELARABY_INTERVAL);" style="background:none;border:none;cursor:pointer;font-size:${R.isMobile?'16px':'12px'};color:${D?'#94a3b8':'#aaa'};min-width:${R.isMobile?'32px':'auto'};min-height:${R.isMobile?'32px':'auto'};" title="إغلاق">✕</button>
+                <button onclick="window.__ERP_CLOSE_ALL()" style="background:none;border:none;cursor:pointer;font-size:${R.isMobile?'16px':'12px'};color:${D?'#94a3b8':'#aaa'};min-width:${R.isMobile?'32px':'auto'};min-height:${R.isMobile?'32px':'auto'};" title="إغلاق">✕</button>
               </div>
             </div>
             <div style="display:flex;justify-content:space-between;font-size:${R.fontSize};color:${textMuted};">
@@ -810,7 +1178,10 @@
           if (state.totalPages > 1 && state.scrapedPages.size < state.totalPages && !state.isAutoPilot) {
             html += `<div style="padding:${R.isMobile?'8px 12px':'6px'};background:${D?'#1e293b':'#fffbeb'};border-bottom:1px solid ${D?'#334155':'#fde68a'};display:flex;justify-content:space-between;align-items:center;"><span style="font-size:${R.fontSize};color:${D?'#fbbf24':'#92400e'};">⚠️ باقي ${state.totalPages - state.scrapedPages.size} صفحات</span><button onclick="window.__ERP_FETCH_ALL()" style="background:#f59e0b;color:#fff;border:none;padding:4px 8px;border-radius:${R.isMobile?'6px':'4px'};cursor:pointer;font-size:${R.fontSize};min-height:32px;">جلب الكل</button></div>`;
           }
-          html += `<table style="width:100%;border-collapse:collapse;font-size:${R.fontSize};"><tbody>`;
+          // Virtual Scroll Container
+          html += `<div id="erp-virtual-container" style="overflow-y:auto;flex:1;background:${bgContent};-webkit-overflow-scrolling:touch;max-height:500px;">
+            <table style="width:100%;border-collapse:collapse;font-size:${R.fontSize};">
+              <tbody id="erp-virtual-tbody">`;
           if (state.searchQuery) {
             const matches = Object.values(DIR_CACHE.get()).filter(c => `${c.name} ${c.phones.join(' ')} ${c.sap.join(' ')}`.toLowerCase().includes(state.searchQuery));
             if (matches.length > 0) {
@@ -820,14 +1191,17 @@
               });
             }
           }
-          const sorted = getFilteredRows();
-          let count = 0;
-          sorted.forEach(r => {
-            count++;
-            html += renderVirtualRow(r, count);
-          });
-          if (count === 0) html += `<tr><td colspan="2" style="padding:20px;text-align:center;">لا توجد نتائج</td></tr>`;
-          html += `</tbody></table>`;
+          html += `</tbody></table></div>`;
+          // Initialize virtual scroll after HTML is set
+          setTimeout(() => {
+            const container = document.getElementById('erp-virtual-container');
+            const tbody = document.getElementById('erp-virtual-tbody');
+            if (container && tbody) {
+              const sorted = getFilteredRows();
+              VIRTUAL_SCROLL.init(container, tbody);
+              VIRTUAL_SCROLL.setRows(sorted);
+            }
+          }, 0);
         }
 
         if (state.activeTab === 'directory') {
@@ -896,10 +1270,19 @@
       // 🟢 التشغيل
       // =====================================================================
       updateUI(true);
-      log('🚀 كشف الأرقام v15 يعمل...', 'success', '📱');
+      log('🚀 كشف الأرقام v16 يعمل...', 'success', '📱');
       requestNotificationPermission();
+      
+      // Initialize Offline DB and handlers v16
+      OFFLINE_DB.init().then(() => {
+        setupOnlineOfflineHandlers();
+        log('💾 قاعدة بيانات الطابور غير المتصل جاهزة', 'info', '💾');
+      }).catch(e => log('⚠️ فشل تهيئة IndexedDB', 'error', '⚠️'));
+      
       extractFromDOM();
       window.__ELARABY_INTERVAL = setInterval(() => { extractFromDOM(); }, 3000);
+      // Periodic incremental sync
+      setInterval(() => { if (state.isOnline) syncIncremental(); }, 60000);
 
       // Resize handler - إعادة بناء UI عند تغير حجم الشاشة
       let lastWidth = window.innerWidth;

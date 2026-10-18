@@ -27,3 +27,12 @@ venv/
 
 # === Logs ===
 *.jsonl
+
+# === Tooling artifacts (not source) ===
+.playwright-mcp/
+*.bak
+
+# === Local work material (HTML dumps / review files — not source) ===
+اكواد/
+مراجعة قطع الغيار/
+مشروع_فحص_التقارير_وقطع_الغيار/
