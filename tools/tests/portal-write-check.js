@@ -154,11 +154,28 @@ function yesterdayParts() {
  * على DOM وهمي، ويعيد القيم المكتوبة في خانات الفورم.
  */
 async function runScenario({ label, secondVisit, forceOverwrite, baseType, existingSerial, existingSerial2, baseLine }) {
+  // الـ base input (ldv_warrantydate) في البوابة الفعلية هو:
+  //   <input type="text" style="display:none" data-type="date" data-ui="datetimepicker"
+  //          value="2020-07-25T00:00:00.0000000">   ← ISO datetime، وليس DD/MM/YYYY
+  // (مستخرج من صفحة البوابة المحفوظة). therefore:
+  //   - baseType === 'date'  → <input type="date">  (يريد YYYY-MM-DD)
+  //   - غير ذلك            → حقل datetime مخفي (يريد ISO datetime كامل)
+  let baseEl;
+  if (baseType === 'date') {
+    baseEl = makeElement('ldv_warrantydate', 'date');
+  } else {
+    baseEl = makeElement('ldv_warrantydate', 'text');
+    baseEl.setAttribute('data-type', 'date');
+    baseEl.setAttribute('data-ui', 'datetimepicker');
+    baseEl.style.display = 'none';
+    baseEl.value = '2020-07-25T00:00:00.0000000'; // قيمة موجودة (كما في البوابة)
+    baseEl.__writes = []; // لا نعدّ القيمة الأولية كـ «كتابة»
+  }
   const elementsByld = {
     'ats_producttypebrand_name': makeElement('ats_producttypebrand_name', 'text'),
     'ldv_serialnumber': makeElement('ldv_serialnumber', 'text', existingSerial || ''),
     'ldv_serialnumber1': existingSerial2 === undefined ? null : makeElement('ldv_serialnumber1', 'text', existingSerial2),
-    'ldv_warrantydate': makeElement('ldv_warrantydate', baseType || 'hidden'),
+    'ldv_warrantydate': baseEl,
     'ldv_warrantydate_datepicker_description': makeElement('ldv_warrantydate_datepicker_description', 'text')
   };
   const { sandbox } = buildSandbox(elementsByld);
@@ -211,18 +228,15 @@ async function runScenario({ label, secondVisit, forceOverwrite, baseType, exist
      'payload.date = يوم/شهر/سنة -> ' + (a.task.payload && a.task.payload.date));
   ok(a.data.secondVisitMode === true, 'secondVisitMode يصل للموجِّه -> ' + a.data.secondVisitMode);
   ok(!a.thrown, 'executePage1_Review اكتمل بلا خطأ' + (a.thrown ? ' [' + a.thrown.message + ']' : ''));
-  ok(a.writes.length === 1 && a.writes[0] === display,
-     'الخانة المخفية ldv_warrantydate <= ' + JSON.stringify(a.writes));
+  ok(a.writes.length === 1 && a.writes[0] === iso + 'T00:00:00.0000000',
+     'الخانة المخفية ldv_warrantydate <= ' + JSON.stringify(a.writes) + ' (ISO datetime، كما في البوابة)');
   ok(a.pickerWrites.length === 1 && a.pickerWrites[0] === display,
      'الخانة الظاهرة ldv_warrantydate_datepicker_description <= ' + JSON.stringify(a.pickerWrites));
   ok(a.fr.warrantyDate && a.fr.warrantyDate.ok === true,
      'FR.warrantyDate.ok = true -> ' + JSON.stringify(a.fr.warrantyDate));
 
-  // نفي الصيغة القديمة صراحةً: القيمة ليست شهر/يوم (إلا لو تساوى الشهر واليوم فعلًا)
-  if (y.day !== y.month) {
-    ok(a.pickerWrites[0] !== `${y.month}/${y.day}/${y.year}`,
-       'ليست بصيغة شهر/يوم (' + `${y.month}/${y.day}/${y.year}` + ')');
-  }
+  // نفي الصيغة القديمة صراحةً: القيمة المكتوبة في الخانة المخفية ليست DD/MM/YYYY
+  ok(a.writes[0] !== display, 'الخانة المخفية ليست بصيغة يوم/شهر/سنة (كانت تفسد القيمة)');
 
   // ── 2) نفس السيناريو لو كان الحقل type="date" ───────────────────────────────
   console.log('\n-- 2) نفس السيناريو لو كان الحقل type="date" --');
@@ -262,7 +276,7 @@ async function runScenario({ label, secondVisit, forceOverwrite, baseType, exist
   console.log('  | الخانة                                   | القيمة المكتوبة        |');
   console.log('  +------------------------------------------+------------------------+');
   const rows = [
-    ['ldv_warrantydate (hidden)', JSON.stringify(a.writes[0])],
+    ['ldv_warrantydate (hidden, type=text)', JSON.stringify(a.writes[0])],
     ['ldv_warrantydate_datepicker_description', JSON.stringify(a.pickerWrites[0])],
     ['ldv_warrantydate (type=date)', JSON.stringify(b.writes[0])],
     ['ldv_serialnumber (مسلسل حقيقي موجود)', JSON.stringify(c.serialFinal) + ' — بلا كتابة'],

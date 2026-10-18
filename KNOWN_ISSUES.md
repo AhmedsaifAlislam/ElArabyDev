@@ -334,6 +334,7 @@ Entity 'account' With Id = 00000000-0000-0000-0000-000000000000 Does Not Exist
 | 15 | تسجيل التتبع كان يُضيّع رسالة الخطأ | متوسطة | محلولة | الملء التلقائي |
 | 16 | تاريخ الضمان يُكتب MM/DD/YYYY فترفض البوابة النموذج | حرجة | محلولة | الملء التلقائي |
 | 22 | «زيارة ثانية» تُتخطّى بالكامل (تخطي الصفحة 1) فلا يُكتب تاريخ الضمان | حرجة | محلولة | الملء التلقائي |
+| 23 | الحقل `ldv_warrantydate` (المخفي) يخزّن ISO datetime، لا DD/MM/YYYY | حرجة | محلولة | الملء التلقائي |
 
 ---
 
@@ -400,6 +401,36 @@ The form could not be submitted for the following reasons:
 - `tools/tests/portal-write-check.js` — 17 فحصًا (date + serial-protection) على DOM وهمي، وأُثبت 3 إخفاقات عند إزالة الحماية.
 - تشغيل كود الإضافة الحقيقي على DOM وهمي (بدون بوابة) لأمر `CAS2026101754045578` بنوع «بوتوجاز»: تاريخ الضمان المكتوب = `17/10/2026` في الخانة الظاهرة (`ldv_warrantydate_datepicker_description`) والمخفية، و`2026-10-17` لو كان الحقل `type="date"` — وهو نفس ما كان يكتبه V1/V2 (`data.date` حرفيًا).
 - مطابقة `src` ↔ `deploy` بعد النشر.
+
+---
+
+## محلول مؤخراً — الموجة 6: صيغة الحقل المخفي (2026-10-18)
+
+### 23. الحقل `ldv_warrantydate` (المخفي) يخزّن ISO datetime، لا DD/MM/YYYY (حرجة)
+**المشكلة (السبب الأعمق لرسالة «تاريخ الضمان must have a valid date format»):**
+صفحة البوابة (محفوظة: `اكواد/...Partner Portal...html`) أظهرت أن:
+```html
+<input id="ldv_warrantydate" type="text" value="2020-07-25T00:00:00.0000000"
+       style="display:none" data-type="date" data-ui="datetimepicker" ...>
+<input id="ldv_warrantydate_datepicker_description" type="text"
+       data-date-format="DD/MM/YYYY" placeholder="DD/MM/YYYY" ...>
+```
+أي أن البوابة تخزّن **ISO datetime كامل** (`YYYY-MM-DDT00:00:00.0000000`) في الحقل المخفي،
+وتعرض DD/MM/YYYY في الحقل الظاهر. الإصلاح (موجة 4/5) كتب `portalDisplay` (DD/MM/YYYY) في **الحقل المخفي**
+(لأن `baseEl.type === 'text'` فاختار فرع `else`)، ففسد Value («17/10/2026») ورفض السيرفر الإرسال.
+
+**الحل:**
+- `setPowerAppsDate()` يختار قيمة الحقل المخفي حسب طبيعته:
+  - `type="date"` → `YYYY-MM-DD`
+  - حقل datetime مخفي (`data-type="date"` / `data-ui="datetimepicker"` / `display:none`) → `YYYY-MM-DDT00:00:00.0000000`
+  - غير ذلك → DD/MM/YYYY (fallback V1/V2)
+- الحقل الظاهر (datepicker_description) يبقى DD/MM/YYYY (كما V1/V2).
+- `tools/tests/portal-write-check.js` (17 فحصًا) على DOM وهمي (بشكل البوابة الفعلي)،
+  وأُثبت 2 إخفاقات عند إرجاع العلّة.
+
+**التحقق:**
+- `node tools/tests/portal-write-check.js` → 17 passed, 0 failed.
+- مطابقة `src` ↔ `deploy` (SHA256) بعد النشر.
 
 ---
 

@@ -5,6 +5,24 @@
 > **الإصدار:** يتبع [Semantic Versioning](https://semver.org/)
 ---
 
+## [2026-10-18] — الموجة 6: صيغة الحقل المخفي `ldv_warrantydate` (Autofill)
+
+### إصلاح (Fix) — حرجة (السبب الأعمق)
+- **الحقل المخفي `ldv_warrantydate` (type=text, style=display:none, data-type=date) يخزّن ISO datetime كامل** (`2020-07-25T00:00:00.0000000`)، وليس DD/MM/YYYY.
+  الإصلاح (موجة 4/5) كتب `portalDisplay` (DD/MM/YYYY) في هذا الحقل (لأن `baseEl.type === 'text'` فاختار فرع `else`)، ففسد Value («17/10/2026») → رفض السيرفر الإرسال.
+- **الحل:** `setPowerAppsDate()` يختار قيمة الحقل المخفي حسب طبيعته:
+  - `type="date"` → `YYYY-MM-DD`
+  - حقل datetime مخفي (`data-type="date"` / `data-ui="datetimepicker"` / `display:none`) → `YYYY-MM-DDT00:00:00.0000000`
+  - غير ذلك → DD/MM/YYYY (fallback V1/V2)
+- الحقل الظاهر (datepicker_description) يبقى DD/MM/YYYY (كما V1/V2).
+
+### تحقق (Verification)
+- `tools/tests/portal-write-check.js` → **17 passed, 0 failed** (DOM وهمي (بشكل البوابة الفعلي)).
+- أُثبت 2 إخفاقات عند إرجاع العلّة.
+- `tools/deploy.ps1` ناجح، ومطابقة `src` ↔ `deploy` بالكامل.
+
+---
+
 ## [2026-10-18] — الموجة 5: مسار «الزيارة الثانية» (Autofill)
 
 ### إصلاح (Fix) — حرجة

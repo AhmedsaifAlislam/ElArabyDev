@@ -371,14 +371,25 @@ window.AutoFillEngine = window.AutoFillEngine || {};
         await emulateUserInput(pickerEl, portalDisplay);
       }
 
-      // 3. Write to base hidden / value input
+      // 3. Write to base hidden / value input.
+      //    The portal stores this field as an ISO datetime string, e.g.
+      //    "2020-07-25T00:00:00.0000000" (see the saved portal markup:
+      //    <input id="ldv_warrantydate" type="text" value="2020-07-25T00:00:00.0000000"
+      //           style="display:none" data-type="date" data-ui="datetimepicker" ...>).
+      //    Writing the display string (DD/MM/YYYY) here corrupted the value and is
+      //    what triggered "must have a valid date format. Example: {1}".
       if (baseEl) {
+        let baseValue;
         if (baseEl.type === 'date') {
-          await emulateUserInput(baseEl, isoDate);
+          baseValue = isoDate;                       // <input type="date"> wants YYYY-MM-DD
+        } else if (baseEl.getAttribute && (baseEl.getAttribute('data-type') === 'date' ||
+                   baseEl.getAttribute('data-ui') === 'datetimepicker' ||
+                   (baseEl.style && baseEl.style.display === 'none'))) {
+          baseValue = isoDate + 'T00:00:00.0000000'; // hidden datetime field wants full ISO datetime
         } else {
-          // Both datepicker input and underlying input must hold the formatted date string
-          await emulateUserInput(baseEl, portalDisplay);
+          baseValue = portalDisplay;                 // V1/V2 fallback (visible-style field)
         }
+        await emulateUserInput(baseEl, baseValue);
       }
       return true;
     };
