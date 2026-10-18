@@ -495,6 +495,45 @@
     return parsed;
   };
 
+  /**
+   * تحويل تاريخ إلى صيغة البوابة: يوم/شهر/سنة (DD/MM/YYYY) + ISO لحقول type="date"
+   *
+   * ⚠️ البوابة تعرض التواريخ بصيغة DD/MM/YYYY — وهي الصيغة الموثّقة في SHARED_KNOWLEDGE.md
+   *    (daterangepicker: locale.format = 'DD/MM/YYYY')، ونفس ما كان يعمل في V1 و V2
+   *    (كانا يكتبان data.date كما هو = DD/MM/YYYY).
+   *    كتابة شهر/يوم (MM/DD/YYYY) يجعل السيرفر يرفض النموذج بالرسالة:
+   *    «تاريخ الضمان must have a valid date format. Example: {1}»
+   *    لأن المكوّن الثاني (اليوم) يتجاوز 12.
+   *
+   * @param {string} rawDate - تاريخ بصيغة DD/MM/YYYY أو YYYY-MM-DD
+   * @returns {{day:number, month:number, year:number, iso:string, display:string}|null}
+   */
+  window.parsePortalDate = function (rawDate) {
+    if (!rawDate || typeof rawDate !== 'string') return null;
+    const s = rawDate.trim();
+    let day = null, month = null, year = null;
+    const mDmy = s.match(/^(\d{1,2})[\/\-\.](\d{1,2})[\/\-\.](\d{4})$/);
+    const mYmd = s.match(/^(\d{4})[\/\-\.](\d{1,2})[\/\-\.](\d{1,2})$/);
+    if (mDmy) {
+      day = parseInt(mDmy[1], 10); month = parseInt(mDmy[2], 10); year = parseInt(mDmy[3], 10);
+    } else if (mYmd) {
+      year = parseInt(mYmd[1], 10); month = parseInt(mYmd[2], 10); day = parseInt(mYmd[3], 10);
+    } else {
+      const parsed = new Date(s);
+      if (isNaN(parsed.getTime())) return null;
+      year = parsed.getFullYear(); month = parsed.getMonth() + 1; day = parsed.getDate();
+    }
+    if (!(month >= 1 && month <= 12) || !(day >= 1 && day <= 31) || !(year > 1900)) return null;
+    const pad = function (n) { return String(n).padStart(2, '0'); };
+    return {
+      day: day,
+      month: month,
+      year: year,
+      iso: year + '-' + pad(month) + '-' + pad(day),
+      display: pad(day) + '/' + pad(month) + '/' + year
+    };
+  };
+
   // محددات افتراضية في حال تعذر تحميل selectors.json
   function getHardcodedDefaults() {
     return {

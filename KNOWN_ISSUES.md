@@ -332,6 +332,7 @@ Entity 'account' With Id = 00000000-0000-0000-0000-000000000000 Does Not Exist
 | 13 | فرع على البوابة كان يُعيد تحميل نفس التبويب (لا تبويب جديد لكل بلاغ) | حرجة | محلولة | الملء التلقائي |
 | 14 | استيلاء content-script.js على الدوال المشتركة → RangeError يوقف الدورة | حرجة | محلولة | الملء التلقائي |
 | 15 | تسجيل التتبع كان يُضيّع رسالة الخطأ | متوسطة | محلولة | الملء التلقائي |
+| 16 | تاريخ الضمان يُكتب MM/DD/YYYY فترفض البوابة النموذج | حرجة | محلولة | الملء التلقائي |
 
 ---
 
@@ -357,6 +358,27 @@ RangeError: Maximum call stack size exceeded
 ### 15. تسجيل التتبع كان يُضيّع رسالة الخطأ (متوسطة)
 **المشكلة:** `traceEvent()` في `content-script.js` كان يبني `entry.details = details.details || null` فيرمي كل حقل آخر — ومنه `error` و`stack` — فكان السجل يُظهر `PROCESS_QUEUE_ON_LOAD_ERROR` بلا أي سبب ظاهر.
 **الحل:** استبقاء الحقول الإضافية داخل `details` (بنفس سلوك `runtime-trace.js`)، وإضافة `error`+`name`+`stack` عند التقاط خطأ `processQueueOnLoad` مع إظهار تنبيه على الصفحة لتسريع التشخيص.
+
+### 16. تاريخ الضمان كان يُكتب شهر/يوم (MM/DD/YYYY) فترفض البوابة النموذج (حرجة)
+**المشكلة:** `setPowerAppsDate()` في `engine-page1.js` كان يبني قيمة العرض:
+`${pad(dObj.month)}/${pad(dObj.day)}/${dObj.year}` — أي **شهر/يوم/سنة**.
+البوابة تعرض التواريخ بصيغة **يوم/شهر/سنة (DD/MM/YYYY)**، فقيمة مثل `10/17/2026` تُقرأ عندها كـ «شهر 17» → غير صالحة، فيرفض السيرفر الإرسال:
+```
+The form could not be submitted for the following reasons:
+تاريخ الضمان must have a valid date format. Example: {1}
+```
+**السبب الجذري (استنتاج خاطئ من مثال متماثل):** تعليق سابق في الملف استند إلى رسالة البوابة
+«Example: **10**/10/2026» واستنتج MM/DD/YYYY — لكن `10/10` تاريخ **متماثل** لا يفرّق بين الصيغتين، فكان الاستنتاج بلا دليل.
+**أدلة الصيغة الصحيحة (4 مصادر متطابقة):**
+1. `SHARED_KNOWLEDGE.md` — `daterangepicker: locale.format = 'DD/MM/YYYY'` و `moment(...).format('DD/MM/YYYY')`.
+2. `Tempermonky/report-processor.js` — «Portal dates might be in various formats, normalize to **DD/MM/YYYY**».
+3. المرجع الحيّ V1 و V2 (`مساعد التقفيلات`) — `FR.date` يكتب `data.date` كما هو من البحث، وهو `DD/MM/YYYY` (ولم يتضمنا أي معالجة datepicker خاصة).
+4. `fill-options.js` — يولّد `dateStr` بصيغة `DD/MM/YYYY` (أمس).
+**الحل:**
+- إضافة المصدر الوحيد `window.parsePortalDate(rawDate)` في `shared/portal-selectors.js` (يعيد `{day, month, year, iso, display}` مع `display = DD/MM/YYYY` و`iso = YYYY-MM-DD`، ويرفض شهرًا غير صالح).
+- `engine-page1.js` يستخدمه بدل التحليل المحلي (وأُزيل الكود الميت الذي كان فيه فرعان متطابقان).
+- حقول `type="date"` تبقى تأخذ ISO، والباقي يأخذ `DD/MM/YYYY`.
+**التحقق:** اختبارا 10 (runtime: `17/10/2026` ← `17/10/2026` وليس `10/17/2026`، ورفض `17/13/2026`) و11 (static: لا يوجد بناء MM/DD في `engine-page1.js`)، وأُثبت أنهما غير شكليين (4 إخفاقات عند إرجاع العلّة).
 
 ---
 

@@ -321,37 +321,20 @@ window.AutoFillEngine = window.AutoFillEngine || {};
       const pickerEl = document.getElementById(`${baseId}_datepicker_description`) ||
                        document.querySelector(`input[id*="${baseId}"][id*="datepicker"]`);
 
-      // Parse day, month, year from input
-      let dObj = null;
-      const mDmy = rawDate.match(/^(\d{1,2})[\/\-\.](\d{1,2})[\/\-\.](\d{4})$/);
-      const mYmd = rawDate.match(/^(\d{4})[\/\-\.](\d{1,2})[\/\-\.](\d{1,2})$/);
-      if (mDmy) {
-        // If year is last, detect whether day or month is first
-        const p1 = parseInt(mDmy[1], 10);
-        const p2 = parseInt(mDmy[2], 10);
-        const y = parseInt(mDmy[3], 10);
-        if (p1 > 12) {
-          dObj = { day: p1, month: p2, year: y }; // definitely day/month/year
-        } else {
-          dObj = { day: p1, month: p2, year: y };
-        }
-      } else if (mYmd) {
-        dObj = { year: parseInt(mYmd[1], 10), month: parseInt(mYmd[2], 10), day: parseInt(mYmd[3], 10) };
-      }
+      // تحليل التاريخ عبر المصدر الوحيد: shared/portal-selectors.js → window.parsePortalDate
+      // ⚠️ صيغة البوابة يوم/شهر/سنة (DD/MM/YYYY) — موثّقة في SHARED_KNOWLEDGE.md
+      //    (daterangepicker: locale.format = 'DD/MM/YYYY')، وهي نفس ما كان يعمل في V1/V2.
+      //    كتابة MM/DD/YYYY كانت تُرفض من السيرفر بالرسالة:
+      //    «تاريخ الضمان must have a valid date format. Example: {1}»
+      const parsedDate = (typeof window.parsePortalDate === 'function')
+        ? window.parsePortalDate(rawDate)
+        : null;
+      if (!parsedDate) return false;
 
-      if (!dObj) {
-        const parsed = new Date(rawDate);
-        if (!isNaN(parsed.getTime())) {
-          dObj = { year: parsed.getFullYear(), month: parsed.getMonth() + 1, day: parsed.getDate() };
-        }
-      }
-
-      if (!dObj) return false;
-
-      const pad = n => String(n).padStart(2, '0');
-      const isoDate = `${dObj.year}-${pad(dObj.month)}-${pad(dObj.day)}`;
-      // Portal error specifically stated: "Example: 10/10/2026" (MM/DD/YYYY or M/D/YYYY)
-      const portalDisplay = `${pad(dObj.month)}/${pad(dObj.day)}/${dObj.year}`;
+      const dObj = { day: parsedDate.day, month: parsedDate.month, year: parsedDate.year };
+      const isoDate = parsedDate.iso;
+      // يوم/شهر/سنة — نفس صيغة العرض في البوابة (وليس MM/DD/YYYY)
+      const portalDisplay = parsedDate.display;
 
       // 1. Try jQuery DateTimePicker first if portal has initialized it
       try {

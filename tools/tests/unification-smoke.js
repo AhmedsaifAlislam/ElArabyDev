@@ -194,6 +194,7 @@ function load(sandbox, file) {
   const refLS = sandbox.window.loadSelectors;
   const refFF = sandbox.window.findFirst;
   const refGT = sandbox.window.generateTaskId;
+  const refPD = sandbox.window.parsePortalDate;
 
   for (const f of [
     'shared/message-bus.js', 'shared/storage-proxy.js', 'modules/autofill/runtime-trace.js',
@@ -210,6 +211,7 @@ function load(sandbox, file) {
   ok(sandbox.window.loadSelectors === refLS, 'content-script.js: لم يستولِ على window.loadSelectors');
   ok(sandbox.window.findFirst === refFF, 'content-script.js: لم يستولِ على window.findFirst');
   ok(sandbox.window.generateTaskId === refGT, 'content-script.js: لم يستولِ على window.generateTaskId');
+  ok(sandbox.window.parsePortalDate === refPD, 'content-script.js: لم يستولِ على window.parsePortalDate');
 
   let recErrLS = null, recErrFF = null, recErrGT = null;
   try { await sandbox.window.loadSelectors(); } catch (e) { recErrLS = e; }
@@ -220,7 +222,7 @@ function load(sandbox, file) {
   ok(!recErrGT, 'window.generateTaskId() يعمل بلا RangeError' + (recErrGT ? ' [' + recErrGT.message + ']' : ''));
 
   console.log('-- 9) static: لا تعريف عام بنفس أسماء الدوال المشتركة --');
-  const SHARED_NAMES = ['findFirst', 'loadSelectors', 'parseDataLine', 'generateTaskId'];
+  const SHARED_NAMES = ['findFirst', 'loadSelectors', 'parseDataLine', 'generateTaskId', 'parsePortalDate'];
   const topLevelDecl = new RegExp('^(?:async\\s+)?function\\s+(?:' + SHARED_NAMES.join('|') + ')\\s*\\(');
   for (const f of ['content-script.js', 'popup.js', 'control-panel.js',
                    'modules/autofill/engine-page1.js', 'modules/autofill/engine-page2.js',
@@ -228,6 +230,24 @@ function load(sandbox, file) {
     const bad = read(f).split(/\r?\n/).find((l) => topLevelDecl.test(l));
     ok(!bad, f + ': لا يوجد function declaration عام لدوال مشتركة' + (bad ? ' -> ' + bad.trim() : ''));
   }
+
+  console.log('-- 10) regression: صيغة تاريخ البوابة يوم/شهر/سنة (DD/MM/YYYY) --');
+  // العلّة: كتابة MM/DD/YYYY جعلت السيرفر يرفض النموذج:
+  // «تاريخ الضمان must have a valid date format. Example: {1}»
+  const dtA = sandbox.window.parsePortalDate('17/10/2026');
+  ok(!!dtA && dtA.display === '17/10/2026', 'parsePortalDate("17/10/2026").display = 17/10/2026 (يوم أولاً) -> ' + (dtA && dtA.display));
+  ok(!!dtA && dtA.iso === '2026-10-17', 'parsePortalDate("17/10/2026").iso = 2026-10-17 -> ' + (dtA && dtA.iso));
+  const dtB = sandbox.window.parsePortalDate('2026-10-17');
+  ok(!!dtB && dtB.display === '17/10/2026', 'parsePortalDate("2026-10-17").display = 17/10/2026 -> ' + (dtB && dtB.display));
+  const dtC = sandbox.window.parsePortalDate('04/10/2023');
+  ok(!!dtC && dtC.display === '04/10/2023', 'parsePortalDate("04/10/2023") بلا تبديل شهر/يوم -> ' + (dtC && dtC.display));
+  ok(sandbox.window.parsePortalDate('17/13/2026') === null, 'parsePortalDate يرفض شهرًا غير صالح (17/13/2026)');
+  ok(sandbox.window.parsePortalDate('') === null, 'parsePortalDate("") = null');
+
+  console.log('-- 11) static: engine-page1 لا يبني تاريخًا بصيغة شهر/يوم --');
+  const p1src = read('modules/autofill/engine-page1.js');
+  ok(!/\$\{pad\(dObj\.month\)\}/.test(p1src), 'engine-page1.js: لا يوجد بناء MM/DD/YYYY');
+  ok(/window\.parsePortalDate/.test(p1src), 'engine-page1.js: يستخدم المصدر الوحيد window.parsePortalDate');
 
   console.log('\n=== RESULT: ' + pass + ' passed, ' + fail + ' failed ===');
   if (fail > 0) {
