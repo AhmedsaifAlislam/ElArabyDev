@@ -266,6 +266,51 @@ function load(sandbox, file) {
   ok(!!needsPage3Line && /data\.secondVisitMode/.test(needsPage3Line),
      'engine-orchestrator: needsPage3 يشمل وضع الزيارة الثانية' + (needsPage3Line ? ' -> ' + needsPage3Line.trim().slice(0, 90) : ' [لم يُعثر على needsPage3]'));
 
+  console.log('-- 13) regression: مؤشر «مصدر الأرقام» (البوابة أم الإضافة) --');
+  // العلّة: المستخدم لا يعرف هل الأرقام الظاهرة أظهرتها الشركة/البوابة أصلاً
+  // أم أن أداة كشف الأرقام بالمضافة هي التي كشفتها. البوابة تتحكم بذلك عبر
+  // window.crmAccount.hideCustomersPhones، والـ Layer0 يفرضها false.
+  function envWithHtml() {
+    const e = makeEnv();
+    e.sandbox.document.documentElement = {
+      _a: {},
+      setAttribute(k, v) { this._a[k] = String(v); },
+      getAttribute(k) { return Object.prototype.hasOwnProperty.call(this._a, k) ? this._a[k] : null; }
+    };
+    return e;
+  }
+
+  const env2 = envWithHtml();
+  load(env2.sandbox, 'elaraby-phone-reveal-layer0.js');
+  ok(!!env2.sandbox.__eaPhoneSource && env2.sandbox.__eaPhoneSource.source === 'unknown',
+    'Layer0: ينشر unknown قبل رصد إعداد البوابة');
+
+  env2.sandbox.crmAccount = { hideCustomersPhones: true };
+  ok(!!env2.sandbox.__eaPhoneSource && env2.sandbox.__eaPhoneSource.source === 'extension',
+    'Layer0: البوابة تخفي الأرقام -> المصدر = extension');
+  ok(!!env2.sandbox.__eaPhoneSource && env2.sandbox.__eaPhoneSource.portalHideCustomersPhones === true,
+    'Layer0: القيمة الأصلية للبوابة (true) محفوظة');
+  ok(env2.sandbox.crmAccount.hideCustomersPhones === false,
+    'Layer0: يستمر في فرض hideCustomersPhones = false');
+  ok(env2.sandbox.document.documentElement.getAttribute('data-ea-phones-source') === 'extension',
+    'Layer0: يضبط <html data-ea-phones-source="extension">');
+
+  const env3 = envWithHtml();
+  load(env3.sandbox, 'elaraby-phone-reveal-layer0.js');
+  env3.sandbox.crmAccount = { hideCustomersPhones: false };
+  ok(!!env3.sandbox.__eaPhoneSource && env3.sandbox.__eaPhoneSource.source === 'company',
+    'Layer0: البوابة تعرض الأرقام أصلاً -> المصدر = company');
+  ok(env3.sandbox.document.documentElement.getAttribute('data-ea-phones-source') === 'company',
+    'Layer0: يضبط <html data-ea-phones-source="company">');
+
+  const l0src = read('elaraby-phone-reveal-layer0.js');
+  ok(/eaNoteOriginal/.test(l0src) && /data-ea-phones-source/.test(l0src),
+    'Layer0: يحتوي مسبر المصدر (eaNoteOriginal + data-ea-phones-source)');
+  const oesrc = read('order-extractor.js');
+  ok(/data-ea-phones-source/.test(oesrc), 'order-extractor: يقرأ data-ea-phones-source');
+  ok(/id="oe-phone-source"/.test(oesrc) && /updatePhoneSourceBadge/.test(oesrc),
+    'order-extractor: يحتوي شارة مصدر الأرقام في نافذة الاستخراج');
+
   console.log('\n=== RESULT: ' + pass + ' passed, ' + fail + ' failed ===');
   if (fail > 0) {
     console.log('Failures:');

@@ -31,7 +31,50 @@
         let checkInterval = null;
         let iframeObserver = null;
 
+        // ── Source probe (S1) ─────────────────────────────────────
+        // نسجّل قيمة البوابة الأصلية لإعداد hideCustomersPhones *قبل* أن نفرضها
+        // false، حتى تعرف أدوات أخرى (نافذة استخراج البلاغات) هل الأرقام معروضة
+        // من البوابة/الشركة نفسها أم كشفتها هذه الإضافة.
+        //   company   = البوابة تعرض الأرقام أصلاً (hideCustomersPhones === false)
+        //   extension = البوابة تخفيها وكشفتها الإضافة (true ثم فرضناها false)
+        //   unknown   = لم نرَ الإعداد (البوابة لم تصرّح به)
+        let _eaOriginalHide = null;
+        let _eaForcedByExtension = false;
+
+        function eaPublishSource() {
+            try {
+                let source = 'unknown';
+                if (_eaOriginalHide === false) source = 'company';
+                else if (_eaOriginalHide === true || _eaForcedByExtension) source = 'extension';
+                const payload = {
+                    source: source,
+                    portalHideCustomersPhones: _eaOriginalHide,
+                    forcedByExtension: _eaForcedByExtension,
+                    ts: Date.now()
+                };
+                window.__eaPhoneSource = payload;
+                const el = document.documentElement;
+                if (el) {
+                    el.setAttribute('data-ea-phones-source', source);
+                    el.setAttribute('data-ea-phones-portal-hide', String(_eaOriginalHide));
+                    el.setAttribute('data-ea-phones-forced', String(_eaForcedByExtension));
+                }
+                try { window.dispatchEvent(new CustomEvent('ea-phones-source', { detail: payload })); } catch (_) {}
+            } catch (_) {}
+        }
+
+        function eaNoteOriginal(value, where) {
+            if (_eaOriginalHide !== null || typeof value !== 'boolean') return;
+            _eaOriginalHide = value;
+            if (value === true) _eaForcedByExtension = true;
+            console.log('[Phone Reveal L0] 🔎 Source probe: portal hideCustomersPhones = ' + value + ' (' + where + ')');
+            eaPublishSource();
+        }
+
         function forceHidePhones(obj, source = 'unknown') {
+            if (obj && typeof obj === 'object' && typeof obj.hideCustomersPhones === 'boolean') {
+                eaNoteOriginal(obj.hideCustomersPhones, 'forceHidePhones:' + source);
+            }
             if (obj && typeof obj === 'object' && obj.hideCustomersPhones === true) {
                 obj.hideCustomersPhones = false;
                 console.log('[Phone Reveal L0] 📱 Forced hideCustomersPhones = false (source: ' + source + ')');
@@ -44,6 +87,7 @@
         function createCrmAccountProxy(target) {
             return new Proxy(target, {
                 set: function(obj, prop, value) {
+                    if (prop === 'hideCustomersPhones') eaNoteOriginal(value, 'proxy-set');
                     if (prop === 'hideCustomersPhones' && value === true) {
                         console.log('[Phone Reveal L0] 🚫 Blocked attempt to set hideCustomersPhones = true');
                         obj[prop] = false;
@@ -285,7 +329,8 @@
             startPeriodicCheck();
             setupStorageListener();
             setupMessageListener();
-            console.log('[Phone Reveal L0] ✅ Layer 0 initialized with Proxy + Observer + Iframe monitoring + Storage listener + Message listener');
+            eaPublishSource();
+            console.log('[Phone Reveal L0] ✅ Layer 0 initialized with Proxy + Observer + Iframe monitoring + Storage listener + Message listener + Source probe');
         }
 
         if (document.readyState === 'loading') {

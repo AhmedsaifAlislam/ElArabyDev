@@ -318,6 +318,24 @@
         #oe-status.ok { background:#0d2b1c; color:#2bd46f; border-color:#1a4a2a; }
         #oe-status.error { background:#2a0808; color:#ff6b6b; border-color:#4a1a1a; }
         #oe-status.warn { background:#2a2008; color:#f0b429; border-color:#4a3a1a; }
+        #oe-phone-source {
+          display: none;
+          align-items: center;
+          gap: 6px;
+          font-size: 10px;
+          font-weight: 700;
+          padding: 5px 8px;
+          border-radius: 4px;
+          margin-top: 5px;
+          border: 1px solid #1e2340;
+          background: #12162a;
+          color: #7a9cc8;
+          cursor: help;
+        }
+        #oe-phone-source.visible { display: flex; }
+        #oe-phone-source.company { background:#0d2b1c; color:#2bd46f; border-color:#1a4a2a; }
+        #oe-phone-source.extension { background:#2a2008; color:#f0b429; border-color:#4a3a1a; }
+        #oe-phone-source.unknown { background:#1a1a2a; color:#8899bb; border-color:#2a2a40; }
       </style>
 
       <h3>📥 استخراج البلاغات</h3>
@@ -336,6 +354,8 @@
           سحب تقارير البلاغات (أبطأ لكن أكمل)
         </label>
       </div>
+
+      <div id="oe-phone-source"></div>
 
       <div id="oe-buttons">
         <button class="oe-btn-primary" id="oe-extract-all">▶️ استخراج كل الصفحات</button>
@@ -365,6 +385,54 @@
 
     renderCheckboxes();
     setupEventListeners();
+    watchPhoneSource();
+  }
+
+  // ── Phone source badge (S1) — يقرأ إعداد البوابة الأصلي من عنصر <html> ──
+  function getPhoneSource() {
+    try {
+      const el = document.documentElement;
+      const src = el && el.getAttribute('data-ea-phones-source');
+      const forced = el ? el.getAttribute('data-ea-phones-forced') === 'true' : false;
+      const portalHide = el ? el.getAttribute('data-ea-phones-portal-hide') : null;
+      if (src === 'company' || src === 'extension' || src === 'unknown') {
+        return { source: src, forced: forced, portalHide: portalHide };
+      }
+    } catch (_) {}
+    return { source: 'unknown', forced: false, portalHide: null };
+  }
+
+  function updatePhoneSourceBadge() {
+    const el = document.getElementById('oe-phone-source');
+    if (!el) return;
+    const info = getPhoneSource();
+    let icon, text, tip;
+    if (info.source === 'company') {
+      icon = '🏢';
+      text = 'الأرقام معروضة من البوابة/الشركة';
+      tip = 'إعداد البوابة (hideCustomersPhones) = false؛ الأرقام ظاهرة من جهة الشركة نفسها — لا دخل لأداة كشف الأرقام في إظهارها.';
+    } else if (info.source === 'extension') {
+      icon = '📱';
+      text = 'الأرقام مكشوفة بواسطة الإضافة';
+      tip = 'إعداد البوابة (hideCustomersPhones) = true؛ البوابة تخفي الأرقام وأداة كشف الأرقام بالمضافة هي التي أظهرتها.';
+    } else {
+      icon = '❓';
+      text = 'مصدر الأرقام غير معروف بعد';
+      tip = 'لم يُرصد إعداد البوابة بعد. فعّل أداة كشف الأرقام وحدّث صفحة Orders ليظهر المصدر بدقة.';
+    }
+    el.className = 'visible ' + info.source;
+    el.title = tip;
+    el.innerHTML = '<span>' + icon + '</span><span>' + text + '</span>';
+  }
+
+  function watchPhoneSource() {
+    updatePhoneSourceBadge();
+    try {
+      const obs = new MutationObserver(() => updatePhoneSourceBadge());
+      obs.observe(document.documentElement, { attributes: true, attributeFilter: ['data-ea-phones-source'] });
+    } catch (_) {
+      setInterval(updatePhoneSourceBadge, 2000);
+    }
   }
 
   function renderCheckboxes() {
