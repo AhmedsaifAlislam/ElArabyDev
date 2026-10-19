@@ -18,6 +18,7 @@
     { id: 'product',     label: 'نوع المنتج',          hidden: false },
     { id: 'phone',       label: 'رقم الموبايل',        hidden: true  },
     { id: 'phone2',      label: 'رقم شخص ذو صله',     hidden: true  },
+    { id: 'phoneSource', label: 'مصدر الرقم',          hidden: true  },
     { id: 'complaint',   label: 'شكوى العميل',        hidden: false },
     { id: 'bookingDate', label: 'تاريخ الحجز',         hidden: false },
     { id: 'officeNotes', label: 'ملاحظات المكتب',      hidden: false },
@@ -81,10 +82,17 @@
   async function fetchCustomerId(incidentId) {
     if (customerIdCache.has(incidentId)) return customerIdCache.get(incidentId);
     try {
-      const resp = await fetch('/_api/incidents(' + incidentId + ')?$select=_customerid_value');
+      const resp = await fetch('/_api/incidents(' + incidentId + ')?$select=_customerid_value,ldv_mobilenumber,ldv_referencecontact');
       const data = await resp.json();
       const id = data._customerid_value || null;
       customerIdCache.set(incidentId, id);
+      // أثر جانبي: خزّن الهاتفين من نفس النداء لتفادي نداء إضافي لاحقًا (S4)
+      if (!incidentPhoneCache.has(incidentId)) {
+        incidentPhoneCache.set(incidentId, {
+          mobile: normalizePhone(data.ldv_mobilenumber),
+          related: normalizePhone(data.ldv_referencecontact),
+        });
+      }
       return id;
     } catch (e) {
       customerIdCache.set(incidentId, null);
@@ -105,6 +113,136 @@
     } catch (e) {
       customerAreaCache.set(customerId, '');
       return '';
+    }
+  }
+
+  // =========================================================
+  // أرقام الهواتف (S3/S4)
+  // الشبكة (بورتال Orders) لا تعرض عمود هاتف إطلاقًا، لذا نملأ
+  // «رقم الموبايل» و«رقم شخص ذو صله» من ثلاثة مصادر بالترتيب:
+  //   1) خلايا الشبكة — لو كان العرض يحتوي أعمدة هاتف فعلاً
+  //   2) ذاكرة أداة «كشف الأرقام» في localStorage
+  //   3) الـ Web API مباشرة (ldv_mobilenumber / ldv_referencecontact)
+  // ونُوسم كل صف بمصدره ليظهر في عمود «مصدر الرقم» (اختياري).
+  // =========================================================
+  const incidentPhoneCache = new Map(); // incidentId -> { mobile, related }
+
+  const PHONE_SOURCE_LABELS = {
+    company:   'البوابة (الشركة)',
+    extension: 'الإضافة (كشف)',
+    api:       'الإضافة (API)',
+  };
+
+  function normalizePhone(v) {
+    const s = String(v == null ? '' : v).trim();
+    if (!s || s.includes('*')) return '';
+    const m = s.match(/01[0-9]{9}/);
+    if (m) return m[0];
+    const digits = s.replace(/[^\d]/g, '');
+    return digits.length >= 7 ? digits : '';
+  }
+
+  function phoneSourceLabel(src) {
+    return PHONE_SOURCE_LABELS[src] || '';
+  }
+
+  // قيمة خلية الشبكة: نرفض الأقنعة (*****) والفراغ
+  function cleanGridPhone(v) {
+    const s = String(v == null ? '' : v).trim();
+    return (!s || s.indexOf('*') !== -1) ? '' : s;
+  }
+
+  function getPortalPhoneSource() {
+    try {
+      const el = document.documentElement;
+      const s = el && el.getAttribute('data-ea-phones-source');
+      if (s === 'company' || s === 'extension') return s;
+    } catch (_) {}
+    return 'unknown';
+  }
+
+  function isPhoneColumnEnabled() {
+    return selectedColumns.some(c => (c.id === 'phone' || c.id === 'phone2' || c.id === 'phoneSource') && !c.hidden);
+  }
+
+  function readRevealDirectory() {
+    try { return JSON.parse(localStorage.getItem('elaraby_phone_directory') || '{}'); } catch (_) { return {}; }
+  }
+
+  async function fetchIncidentPhones(incidentId) {
+    if (!incidentId) return { mobile: '', related: '' };
+    if (incidentPhoneCache.has(incidentId)) return incidentPhoneCache.get(incidentId);
+    let out = { mobile: '', related: '' };
+    try {
+      const resp = await fetch('/_api/incidents(' + incidentId + ')?$select=ldv_mobilenumber,ldv_referencecontact');
+      if (resp.ok) {
+        const d = await resp.json();
+        out = { mobile: normalizePhone(d.ldv_mobilenumber), related: normalizePhone(d.ldv_referencecontact) };
+      }
+    } catch (e) {
+      console.warn('[OrderExtractor] fetchIncidentPhones failed:', e.message);
+    }
+    incidentPhoneCache.set(incidentId, out);
+    return out;
+  }
+
+  async function enrichOrdersWithPhones(orders, portalHeaders) {
+    if (!isPhoneColumnEnabled()) return;
+    if (!Array.isArray(orders) || !orders.length) return;
+
+    const headerMap = mapPortalHeaders(portalHeaders || []);
+    const phoneHdr = headerMap['phone'];
+    const phone2Hdr = headerMap['phone2'];
+    const custHdr = headerMap['customer'];
+    const portalSource = getPortalPhoneSource();
+
+    // صفوف وصلت بأرقام جاهزة (تقارير/استخراج سابق) وبلا وسم مصدر
+    for (const o of orders) {
+      if ((o._phone || o._phone2) && !o._phoneSource) {
+        o._phoneSource = (portalSource === 'company') ? 'company' : 'extension';
+      }
+    }
+
+    // 1) خلايا الشبكة (لو كان العرض يحتوي أعمدة هاتف فعلاً)
+    for (const o of orders) {
+      if (o._phone || o._phone2) continue;
+      const gPhone = phoneHdr ? normalizePhone(o[phoneHdr]) : '';
+      const gPhone2 = phone2Hdr ? normalizePhone(o[phone2Hdr]) : '';
+      if (gPhone || gPhone2) {
+        o._phone = gPhone;
+        o._phone2 = gPhone2;
+        o._phoneSource = (portalSource === 'company') ? 'company' : 'extension';
+      }
+    }
+
+    // 2) ذاكرة أداة «كشف الأرقام» (مفتاحها اسم العميل)
+    const dir = readRevealDirectory();
+    for (const o of orders) {
+      if (o._phone || o._phone2) continue;
+      const name = custHdr ? String(o[custHdr] || '').trim() : '';
+      const entry = name ? dir[name] : null;
+      if (entry && Array.isArray(entry.phones) && entry.phones.length) {
+        o._phone = normalizePhone(entry.phones[0]);
+        o._phone2 = normalizePhone(entry.phones[1]);
+        if (o._phone || o._phone2) o._phoneSource = 'extension';
+      }
+    }
+
+    // 3) الـ Web API (المصدر الدقيق: ldv_mobilenumber / ldv_referencecontact)
+    const apiNeed = orders.filter(o => !o._phone && !o._phone2 && o._orderId);
+    if (!apiNeed.length) return;
+    const BATCH = 8;
+    for (let i = 0; i < apiNeed.length; i += BATCH) {
+      if (stopRequested) break;
+      const batch = apiNeed.slice(i, i + BATCH);
+      await Promise.allSettled(batch.map(async (o) => {
+        const p = await fetchIncidentPhones(o._orderId);
+        if (p.mobile) o._phone = p.mobile;
+        if (p.related) o._phone2 = p.related;
+        if (o._phone || o._phone2) o._phoneSource = 'api';
+      }));
+      setStatus(`⏳ جاري جلب أرقام الهواتف... ${Math.min(i + BATCH, apiNeed.length)}/${apiNeed.length}`, 'warn');
+      await new Promise(r => setTimeout(r, 120));
     }
   }
 
@@ -214,9 +352,13 @@
     } else {
       selectedColumns = DEFAULT_COLUMNS.map(c => ({ ...c }));
     }
-    // Force all non-phone columns to be visible — only phones can be toggled
+    // ترحيل: أضف أي عمود جديد لم يكن محفوظًا في إعدادات المستخدم (مثل «مصدر الرقم»)
+    DEFAULT_COLUMNS.forEach(def => {
+      if (!selectedColumns.some(c => c.id === def.id)) selectedColumns.push({ ...def });
+    });
+    // Force all non-phone columns to be visible — only phones (and المصدر) can be toggled
     selectedColumns.forEach(c => {
-      if (c.id !== 'phone' && c.id !== 'phone2') c.hidden = false;
+      if (c.id !== 'phone' && c.id !== 'phone2' && c.id !== 'phoneSource') c.hidden = false;
     });
   }
 
@@ -345,6 +487,10 @@
           <input type="checkbox" id="oe-include-phones" style="accent-color:#0a7cff;" />
           إضافة أرقام الموبايل
         </label>
+        <label style="display:flex;align-items:center;gap:5px;cursor:pointer;font-size:10px;color:#8899bb;margin-top:3px;margin-inline-start:16px;">
+          <input type="checkbox" id="oe-include-phone-source" style="accent-color:#0a7cff;" />
+          إظهار عمود «مصدر الرقم»
+        </label>
         <label style="display:flex;align-items:center;gap:5px;cursor:pointer;font-size:10px;color:#38bdf8;margin-top:3px;">
           <input type="checkbox" id="oe-include-future" checked style="accent-color:#0284c7;" />
           📅 تضمين وتظليل البلاغات المستقبلية (+3 أيام)
@@ -437,13 +583,36 @@
 
   function renderCheckboxes() {
     const phoneCb = document.getElementById('oe-include-phones');
+    const sourceCb = document.getElementById('oe-include-phone-source');
+    const phoneCol = selectedColumns.find(c => c.id === 'phone');
+    const phone2Col = selectedColumns.find(c => c.id === 'phone2');
+    const sourceCol = selectedColumns.find(c => c.id === 'phoneSource');
+
+    function syncSourceEnabled() {
+      if (!sourceCb) return;
+      const on = phoneCb ? phoneCb.checked : false;
+      sourceCb.disabled = !on;
+      if (sourceCb.parentElement) sourceCb.parentElement.style.opacity = on ? '1' : '0.45';
+      if (!on) {
+        sourceCb.checked = false;
+        if (sourceCol) sourceCol.hidden = true;
+      }
+    }
+
     if (phoneCb) {
-      const phoneCol = selectedColumns.find(c => c.id === 'phone');
-      const phone2Col = selectedColumns.find(c => c.id === 'phone2');
       phoneCb.checked = phoneCol ? !phoneCol.hidden : false;
       phoneCb.addEventListener('change', () => {
         if (phoneCol) phoneCol.hidden = !phoneCb.checked;
         if (phone2Col) phone2Col.hidden = !phoneCb.checked;
+        syncSourceEnabled();
+        saveSettings();
+      });
+      syncSourceEnabled();
+    }
+    if (sourceCb) {
+      sourceCb.checked = sourceCol ? !sourceCol.hidden : false;
+      sourceCb.addEventListener('change', () => {
+        if (sourceCol) sourceCol.hidden = !sourceCb.checked;
         saveSettings();
       });
     }
@@ -718,7 +887,7 @@
       const selectFields = [
         'incidentid', 'ticketnumber', 'title',
         'ldv_scheduledservicestartdate', 'ldv_appointmentdate',
-        'ldv_address', 'ldv_mobilenumber', 'ldv_sapordernumber',
+        'ldv_address', 'ldv_mobilenumber', 'ldv_referencecontact', 'ldv_sapordernumber',
         '_ldv_producttype_value', '_ldv_problem_value',
         '_ats_territories_value', '_customerid_value', 'statuscode'
       ].join(',');
@@ -755,7 +924,11 @@
         if (headerMap['address']) o[headerMap['address']] = item.ldv_address || '';
         if (headerMap['sap']) o[headerMap['sap']] = item.ldv_sapordernumber || '';
         if (headerMap['area']) o[headerMap['area']] = item['_ats_territories_value@OData.Community.Display.V1.FormattedValue'] || '';
-        if (headerMap['phone']) o[headerMap['phone']] = item.ldv_mobilenumber || '';
+        // أرقام الهواتف: من الـ API مباشرة — مصدرها الإضافة دائمًا
+        o._phone = normalizePhone(item.ldv_mobilenumber);
+        o._phone2 = normalizePhone(item.ldv_referencecontact);
+        if (o._phone || o._phone2) o._phoneSource = 'api';
+        if (headerMap['phone'] && o._phone) o[headerMap['phone']] = o._phone;
         if (headerMap['serviceType']) o[headerMap['serviceType']] = 'صيانة';
         if (headerMap['hasComplaint']) o[headerMap['hasComplaint']] = 'لا';
         if (headerMap['technician']) o[headerMap['technician']] = 'متنقلة';
@@ -891,6 +1064,10 @@
     console.log('[OrderExtractor] exportXLSX called. Orders:', allOrders.length);
     console.log('[OrderExtractor] ExcelJS available:', typeof ExcelJS !== 'undefined');
 
+    // ── S3/S4: املأ أرقام الهواتف (شبكة → ذاكرة الأداة → API) مع وسم المصدر ──
+    try { await enrichOrdersWithPhones(allOrders, portalHeaders); }
+    catch (e) { console.warn('[OrderExtractor] phone enrichment failed:', e.message); }
+
     // Fallback to SheetJS if ExcelJS not loaded
     if (typeof ExcelJS === 'undefined') {
       console.log('[OrderExtractor] ExcelJS not available, falling back to SheetJS');
@@ -934,7 +1111,7 @@
       'orderNo': 17.61, 'customer': 14.33, 'area': 8.4, 'address': 8.4,
       'product': 8.4, 'complaint': 8.4, 'bookingDate': 9.11, 'officeNotes': 8.4,
       'callNotes': 8.4, 'serviceType': 4.44, 'hasComplaint': 4.44, 'sap': 8.4,
-      'technician': 8.4, 'phone': 8.4, 'phone2': 8.4,
+      'technician': 8.4, 'phone': 8.4, 'phone2': 8.4, 'phoneSource': 14,
     };
     fieldIds.forEach((id, idx) => {
       const col = ws.getColumn(idx + 1);
@@ -1000,6 +1177,12 @@
         let val = '';
         if (srcFieldId === 'area' && order.area) {
           val = order.area;
+        } else if (srcFieldId === 'phone') {
+          val = order._phone || cleanGridPhone(srcHeader ? order[srcHeader] : '');
+        } else if (srcFieldId === 'phone2') {
+          val = order._phone2 || cleanGridPhone(srcHeader ? order[srcHeader] : '');
+        } else if (srcFieldId === 'phoneSource') {
+          val = phoneSourceLabel(order._phoneSource);
         } else if (srcHeader) {
           val = order[srcHeader] || '';
         }
@@ -1163,7 +1346,12 @@
         const col = selectedColumns.find(c => c.label === h);
         const srcFieldId = col ? col.id : null;
         const srcHeader = srcFieldId ? headerMap[srcFieldId] : null;
-        let val = srcHeader ? (order[srcHeader] || '') : '';
+        let val = '';
+        if (srcFieldId === 'area' && order.area) val = order.area;
+        else if (srcFieldId === 'phone') val = order._phone || cleanGridPhone(srcHeader ? order[srcHeader] : '');
+        else if (srcFieldId === 'phone2') val = order._phone2 || cleanGridPhone(srcHeader ? order[srcHeader] : '');
+        else if (srcFieldId === 'phoneSource') val = phoneSourceLabel(order._phoneSource);
+        else if (srcHeader) val = order[srcHeader] || '';
         return val.replace(/\r?\n/g, ' ').replace(/\s+/g, ' ').trim();
       });
       wsData.push(row);
@@ -1174,7 +1362,7 @@
       'orderNo': 17.61, 'customer': 14.33, 'area': 8.4, 'address': 8.4,
       'product': 8.4, 'complaint': 8.4, 'bookingDate': 9.11, 'officeNotes': 8.4,
       'callNotes': 8.4, 'serviceType': 4.44, 'hasComplaint': 4.44, 'sap': 8.4,
-      'technician': 8.4, 'phone': 8.4, 'phone2': 8.4,
+      'technician': 8.4, 'phone': 8.4, 'phone2': 8.4, 'phoneSource': 14,
     };
     ws['!cols'] = fieldIds.map(id => ({ wch: COL_WIDTHS[id] || 8.4 }));
     ws['!rtl'] = true;

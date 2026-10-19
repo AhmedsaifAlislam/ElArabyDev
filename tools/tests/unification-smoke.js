@@ -311,6 +311,31 @@ function load(sandbox, file) {
   ok(/id="oe-phone-source"/.test(oesrc) && /updatePhoneSourceBadge/.test(oesrc),
     'order-extractor: يحتوي شارة مصدر الأرقام في نافذة الاستخراج');
 
+  console.log('-- 14) static: أعمدة الهواتف ووسم المصدر في الاستخراج (S3/S4) --');
+  // العلّة: نافذة «استخراج البلاغات» كانت تُنتج عمودي هاتف فارغين لأن شبكة
+  // بوابة Orders لا تعرض عمود هاتف إطلاقًا. الحل: ملؤهما من
+  // (خلايا الشبكة ← ذاكرة أداة الكشف ← Web API) مع وسم المصدر لكل صف.
+  ok(/id: 'phoneSource',\s*label: 'مصدر الرقم'/.test(oesrc),
+    'order-extractor: عمود «مصدر الرقم» مُعرّف في DEFAULT_COLUMNS');
+  ok(/function enrichOrdersWithPhones\(orders, portalHeaders\)/.test(oesrc),
+    'order-extractor: دالة enrichOrdersWithPhones موجودة');
+  ok(/await enrichOrdersWithPhones\(allOrders, portalHeaders\)/.test(oesrc),
+    'order-extractor: الإثراء يُستدعى داخل exportXLSX (نقطة التصدير الوحيدة)');
+  ok(/srcFieldId === 'phone'[\s\S]{0,90}order\._phone/.test(oesrc),
+    'order-extractor: addDataRow يقرأ _phone كبديل لعمود الشبكة');
+  ok(/srcFieldId === 'phone2'[\s\S]{0,90}order\._phone2/.test(oesrc),
+    'order-extractor: addDataRow يقرأ _phone2 كبديل لعمود الشبكة');
+  ok(/'ldv_mobilenumber', 'ldv_referencecontact'/.test(oesrc),
+    'order-extractor: يجلب ldv_referencecontact (رقم شخص ذو صلة)');
+  ok(/\$select=_customerid_value,ldv_mobilenumber,ldv_referencecontact/.test(oesrc),
+    'order-extractor: يجلب الهاتفين مع نداء العميل نفسه (بلا نداء إضافي)');
+  ok(/PHONE_SOURCE_LABELS/.test(oesrc) && /company:/.test(oesrc) && /api:/.test(oesrc),
+    'order-extractor: وسوم المصدر (البوابة/الإضافة) مُعرّفة');
+  ok(/oe-include-phone-source/.test(oesrc),
+    'order-extractor: مربع اختيار «إظهار عمود مصدر الرقم» موجود');
+  ok(/readRevealDirectory/.test(oesrc) && /elaraby_phone_directory/.test(oesrc),
+    'order-extractor: يقرأ ذاكرة أداة كشف الأرقام (elaraby_phone_directory)');
+
   console.log('\n=== RESULT: ' + pass + ' passed, ' + fail + ' failed ===');
   if (fail > 0) {
     console.log('Failures:');
