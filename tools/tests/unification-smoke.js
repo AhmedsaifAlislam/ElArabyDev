@@ -336,6 +336,38 @@ function load(sandbox, file) {
   ok(/readRevealDirectory/.test(oesrc) && /elaraby_phone_directory/.test(oesrc),
     'order-extractor: يقرأ ذاكرة أداة كشف الأرقام (elaraby_phone_directory)');
 
+  console.log('-- 15) regression: دقّة فلتر «أكتر من 3 أيام» (S5) --');
+  // العلّة: OR بين حقلَي تاريخ كان يُدرج بلاغًا مجدولًا اليوم لمجرد أن حقل
+  // «موعد» آخر بعيد. القاعدة الصحيحة: التاريخ الفعلي = المجدول وإلا الموعد.
+  {
+    const fsrc = read('Tempermonky/future-orders-reveal.js');
+    const m = fsrc.match(/function isFutureBeyond\([\s\S]*?\n  \}/);
+    ok(!!m, 'future-orders-reveal: دالة isFutureBeyond موجودة');
+    if (m) {
+      const f = vm.runInNewContext(m[0] + '\nisFutureBeyond;', {});
+      const X = new Date('2026-10-22T23:59:59.999').getTime();
+      const far = new Date('2026-10-25T00:00:00').toISOString();
+      const near = new Date('2026-10-20T09:00:00').toISOString();
+      ok(f({ ldv_scheduledservicestartdate: far }, X) === true,
+        'S5: مجدول بعد الحد -> مستقبلي');
+      ok(f({ ldv_scheduledservicestartdate: near }, X) === false,
+        'S5: مجدول قبل الحد -> ليس مستقبلي');
+      ok(f({ ldv_scheduledservicestartdate: near, ldv_appointmentdate: far }, X) === false,
+        'S5: مجدول اليوم + موعد بعيد -> يُرفض (العلّة المُصلَحة)');
+      ok(f({ ldv_appointmentdate: far }, X) === true,
+        'S5: بلا تاريخ مجدول + موعد بعيد -> مستقبلي');
+      ok(f({}, X) === false, 'S5: بلا أي تاريخ -> يُرفض');
+    }
+    ok(/thresholdMs/.test(oesrc) && /list = list\.filter\(item =>/.test(oesrc),
+      'order-extractor: تصفية دقيقة للمستقبلي (thresholdMs + list.filter)');
+    ok(/const eff = item\.ldv_scheduledservicestartdate \|\| item\.ldv_appointmentdate;/.test(oesrc),
+      'order-extractor: التاريخ الفعلي = المجدول وإلا الموعد');
+    ok(/fbFilter/.test(oesrc),
+      'order-extractor: استعلام احتياطي (fbFilter) عند رفض OR');
+    ok(/isFutureBeyond/.test(fsrc) && (fsrc.match(/isFutureBeyond\(x, thresholdMs\)/g) || []).length >= 2,
+      'future-orders-reveal: التصفية مطبّقة على المسارين (الأساسي والاحتياطي)');
+  }
+
   console.log('\n=== RESULT: ' + pass + ' passed, ' + fail + ' failed ===');
   if (fail > 0) {
     console.log('Failures:');

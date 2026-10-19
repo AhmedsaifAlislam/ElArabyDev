@@ -40,6 +40,15 @@
     return d.toISOString();
   }
 
+  // «مستقبلي» فعلاً = التاريخ الفعلي (المجدول وإلا الموعد) بعد الحد (S5).
+  // يمنع إدراج بلاغ مجدول اليوم لمجرد أن حقل «موعد» آخر بعيد.
+  function isFutureBeyond(item, thresholdMs) {
+    const eff = item.ldv_scheduledservicestartdate || item.ldv_appointmentdate;
+    if (!eff) return false;
+    const ms = new Date(eff).getTime();
+    return !isNaN(ms) && ms > thresholdMs;
+  }
+
   function formatDateDisplay(dateStr) {
     if (!dateStr) return 'غير محدد';
     try {
@@ -54,6 +63,7 @@
   // ── Fetch Future Orders from Dataverse Web API ──
   async function fetchFutureOrdersApi() {
     const threeDaysIso = getThreeDaysLaterIso();
+    const thresholdMs = new Date(threeDaysIso).getTime();
     log(`جاري جلب البلاغات المحجوزة بعد تاريخ: ${threeDaysIso}`);
 
     // Filter: appointment date or scheduled service start date > 3 days from now
@@ -83,7 +93,7 @@
         throw new Error(`API returned HTTP ${resp.status}`);
       }
       const data = await resp.json();
-      const list = data.value || [];
+      const list = (data.value || []).filter(x => isFutureBeyond(x, thresholdMs));
       log(`تم جلب ${list.length} بلاغ مستقبلي بنجاح`, 'success');
       return list;
     } catch (e) {
@@ -95,7 +105,7 @@
         const resp2 = await fetch(fallbackUrl);
         if (resp2.ok) {
           const data2 = await resp2.json();
-          return data2.value || [];
+          return (data2.value || []).filter(x => isFutureBeyond(x, thresholdMs));
         }
       } catch (err2) {
         log(`فشل الاستعلام الاحتياطي: ${err2.message}`, 'error');

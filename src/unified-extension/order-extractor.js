@@ -892,13 +892,36 @@
         '_ats_territories_value', '_customerid_value', 'statuscode'
       ].join(',');
 
+      // نداء واسع (OR) لجمع المرشّحين، ثم تصفية دقيقة أدناه
       const filter = `statecode eq 0 and (ldv_scheduledservicestartdate gt ${threeDaysIso} or ldv_appointmentdate gt ${threeDaysIso})`;
       const url = `/_api/incidents?$filter=${encodeURIComponent(filter)}&$select=${selectFields}&$orderby=ldv_scheduledservicestartdate asc`;
 
+      let list = [];
       const resp = await fetch(url);
-      if (!resp.ok) return [];
-      const data = await resp.json();
-      const list = data.value || [];
+      if (resp.ok) {
+        const data = await resp.json();
+        list = data.value || [];
+      } else {
+        // احتياطي: بعض مخططات Dataverse لا تقبل OR بين حقلَي تاريخ
+        const fbFilter = `statecode eq 0 and ldv_scheduledservicestartdate gt ${threeDaysIso}`;
+        const fbUrl = `/_api/incidents?$filter=${encodeURIComponent(fbFilter)}&$select=${selectFields}&$orderby=ldv_scheduledservicestartdate asc`;
+        const fbResp = await fetch(fbUrl);
+        if (fbResp.ok) {
+          const fbData = await fbResp.json();
+          list = fbData.value || [];
+        }
+      }
+
+      // تصفية دقيقة (S5): «مستقبلي» = التاريخ الفعلي (المجدول وإلا الموعد) بعد الحد.
+      // يمنع الحالة الخاطئة: بلاغ مجدول اليوم لكن حقل «موعد» آخر بعيد — الذي
+      // كان يُدرج بالخطأ بسبب OR بين الحقلين في الاستعلام.
+      const thresholdMs = new Date(threeDaysIso).getTime();
+      list = list.filter(item => {
+        const eff = item.ldv_scheduledservicestartdate || item.ldv_appointmentdate;
+        if (!eff) return false;
+        const ms = new Date(eff).getTime();
+        return !isNaN(ms) && ms > thresholdMs;
+      });
 
       const headerMap = mapPortalHeaders(portalHeaders);
       const mappedOrders = list.map(item => {
