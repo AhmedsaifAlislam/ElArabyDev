@@ -2,7 +2,7 @@
 // control-panel.js — لوحة التحكم الذكية v1.0
 // بصمة الإصدار: تُطبع في الـ log وتظهر بجانب عنوان اللوحة، للتأكد أن المتصفح
 // حمّل أحدث نسخة من الإضافة (Reload من edge://extensions مطلوب بعد أي نشر).
-const PANEL_BUILD = '2026-10-19.11';
+const PANEL_BUILD = '2026-10-19.12';
 // Floating panel with auto-detecting page tabs
 // =========================================================
 (function () {
@@ -155,6 +155,7 @@ const escapeHtml = s => String(s ?? "").replace(/&/g, "&amp;").replace(/</g, "&l
       modelInput: ["#ldv_actualmodel_name", "input[aria-label*='الموديل الفعلي']"],
       modelInput2: ["#ldv_actualmodel2_name", "input[aria-label*='الموديل الفعلي 2']"],
       modelBtn: ["button[aria-label*='الموديل الفعلي Launch lookup modal']", ".launchentitylookup"],
+      modelBtn2: ["#ldv_actualmodel2_lookupmodalbutton", "#ldv_actualmodel2_name_lookupmodalbutton", "button[id*='actualmodel2'][id*='lookup']", "button[aria-label*='الموديل الفعلي 2']"],
       brandInput: ["#ats_producttypebrand_name", "input[aria-label*='العلامة التجاريه']"],
       brandBtn: ["button[aria-label*='العلامة التجاريه Launch lookup modal']", ".launchentitylookup"],
       nextBtn: ["#NextButton", "input[type='button'][value='Next']", "input[type='button'][value='التالي']", "button[aria-label='التالي']", "button[type='submit']"],
@@ -1317,7 +1318,14 @@ function getCSS() {
     logEvent('EXEC_PAGE1', 'بدء التنفيذ');
     setStatus(shadow, '⏳ جاري التنفيذ...');
     try {
-      if (shadow.getElementById('chk-duplicate').checked) await doDuplicate(shadow);
+      let dupOk = true;
+      if (shadow.getElementById('chk-duplicate').checked) dupOk = await doDuplicate(shadow);
+      if (dupOk === false) {
+        // لا نضغط Next عندما يكون الموديل 2 غير مربوط — البوابة سترفض النموذج حتماً.
+        logEvent('EXEC_PAGE1', 'إيقاف التنفيذ: الموديل 2 غير مربوط (GUID فارغ)');
+        await sleep(300);
+        return;
+      }
       if (shadow.getElementById('chk-next1').checked) await doNext(shadow);
       setStatus(shadow, '✅ تم التنفيذ بنجاح', 'success');
       logEvent('EXEC_PAGE1', 'اكتمل التنفيذ');
@@ -1338,32 +1346,101 @@ function getCSS() {
     return false;
   }
 
-  async function fillLookupField(inputEl, val, btnSel) {
-    if (!inputEl || !val) return false;
-    if (typeof window.fillPowerAppsLookup === 'function') {
-      try {
-        const res = await window.fillPowerAppsLookup(inputEl, inputEl.id || 'Lookup', val, btnSel);
-        if (res && res.ok !== false) return true;
-      } catch (_) {}
+  // حقول الـ lookup في PowerApps: العنصر المرئي <field>_name، والعنصر المخفي <field> يحمل الـ GUID.
+  function findLookupGuidField(inputEl) {
+    if (!inputEl) return null;
+    const doc = inputEl.ownerDocument || document;
+    const id = (inputEl.id || '').trim();
+    const baseId = id.replace(/_name$/i, '');
+    if (!baseId) return null;
+
+    const direct = doc.getElementById(baseId);
+    if (direct && direct.type === 'hidden') return direct;
+
+    const needle = baseId.toLowerCase();
+    return Array.from(doc.querySelectorAll('input[type="hidden"]'))
+      .find(h => ((h.id || '') + ' ' + (h.name || '')).toLowerCase().includes(needle)) || null;
+  }
+
+  async function clearLookupField(inputEl) {
+    if (!inputEl) return;
+    const group = inputEl.closest('.input-group') || inputEl.parentElement;
+    const clearBtn = group?.querySelector(
+      'button.clearlookupfield, button[aria-label*="Clear lookup"], button[title*="Clear lookup"], button[aria-label*="مسح"]'
+    );
+    if (clearBtn) {
+      await safeClick(clearBtn);
+      await sleep(400);
     }
-    if (typeof window.AutoFillEngine?.Lookups?.fillPowerAppsLookup === 'function') {
-      try {
-        const res = await window.AutoFillEngine.Lookups.fillPowerAppsLookup(inputEl, val, btnSel);
-        if (res && res.ok !== false) return true;
-      } catch (_) {}
+    if ((inputEl.value || '').trim()) {
+      inputEl.value = '';
+      try { inputEl.dispatchEvent(new Event('input', { bubbles: true })); } catch(_) {}
+      try { inputEl.dispatchEvent(new Event('change', { bubbles: true })); } catch(_) {}
+      await sleep(200);
     }
+  }
+
+  // تعبئة حقل lookup عبر فتح نافذة البحث والاختيار الفعلي — لا حقن نصي.
+  // ترجع { ok, selected, reason } وتتحقق من الـ GUID المخفي بعد الاختيار.
+  async function fillLookupField(inputEl, val, btnSel, opts = {}) {
+    if (!inputEl || !val) return { ok: false, reason: 'invalid-args' };
+    const doc = inputEl.ownerDocument || document;
+    const guidEl = findLookupGuidField(inputEl);
+    const curText = (inputEl.value || inputEl.getAttribute('value') || '').trim();
+    const curGuid = guidEl ? String(guidEl.value || '').trim() : '';
+
+    // 1) مربوط فعلاً بالبوابة (GUID موجود) — لا داعي لإعادة الفتح
+    if (curGuid && curText) {
+      logEvent('LOOKUP_FILL', `${inputEl.id}: مربوط بالفعل — تخطي`);
+      return { ok: true, already: true, selected: curText };
+    }
+
+    // 2) نص بلا GUID (حقن نصي سابق) — لازم تفريغه وإلا سيُتخطّى البحث كأن القيمة مطابقة
+    if (curText && !curGuid) {
+      logEvent('LOOKUP_FILL', `${inputEl.id}: نص بلا GUID — تفريغ الحقل قبل البحث`);
+      await clearLookupField(inputEl);
+    }
+
+    const fallbackButtons = Array.isArray(btnSel) ? btnSel : (btnSel ? [btnSel] : []);
+    const lookupBtn = (typeof window.findSafeLookupButton === 'function')
+      ? window.findSafeLookupButton(inputEl, fallbackButtons)
+      : null;
+    if (!lookupBtn) {
+      logEvent('LOOKUP_FILL', `${inputEl.id}: زر فتح البحث غير موجود — فشل`);
+      return { ok: false, reason: 'lookup-btn-not-found' };
+    }
+
+    const lookupModalFn = window.fillLookupModal || window.AutoFillEngine?.Lookups?.fillLookupModal;
+    if (typeof lookupModalFn !== 'function') {
+      logEvent('LOOKUP_FILL', `${inputEl.id}: محرك البحث fillLookupModal غير متاح — فشل`);
+      return { ok: false, reason: 'lookup-engine-missing' };
+    }
+
+    let res = null;
     try {
-      if (typeof emulateUserInput === 'function') {
-        await emulateUserInput(inputEl, val);
-      } else {
-        inputEl.value = val;
-        inputEl.dispatchEvent(new Event('input', { bubbles: true }));
-        inputEl.dispatchEvent(new Event('change', { bubbles: true }));
-      }
-      return true;
-    } catch (_) {
-      return false;
+      res = await lookupModalFn(lookupBtn, val, doc, { fallbackButtons, ...opts });
+    } catch (e) {
+      logEvent('LOOKUP_FILL', `${inputEl.id}: استثناء أثناء البحث — ${e?.message || e}`);
+      return { ok: false, reason: 'lookup-exception' };
     }
+    if (!res || res.ok === false) {
+      logEvent('LOOKUP_FILL', `${inputEl.id}: فشل البحث — ${res?.reason || 'unknown'}`);
+      return { ok: false, reason: res?.reason || 'lookup-failed' };
+    }
+
+    await sleep(700);
+    const newText = (inputEl.value || '').trim();
+    const newGuid = guidEl ? String(guidEl.value || '').trim() : '';
+    if (guidEl && !newGuid) {
+      logEvent('LOOKUP_FILL', `${inputEl.id}: لم يُثبَّت الاختيار (GUID فارغ) — فشل`);
+      return { ok: false, reason: 'lookup-not-committed' };
+    }
+    if (!newText) {
+      logEvent('LOOKUP_FILL', `${inputEl.id}: الحقل بقي فارغاً بعد الاختيار — فشل`);
+      return { ok: false, reason: 'lookup-empty-after-select' };
+    }
+    logEvent('LOOKUP_FILL', `${inputEl.id}: نجح — "${newText}"`);
+    return { ok: true, selected: newText };
   }
 
   async function fillInputField(inputEl, val) {
@@ -1468,7 +1545,7 @@ function getCSS() {
     if (!isAC) {
       logEvent('EXEC_PAGE1', 'تخطي التكرار: الجهاز ليس تكييف');
       setStatus(shadow, '⚠️ التكرار متاح للتكييف فقط', 'warn');
-      return;
+      return true;
     }
 
     const modelEl = findFirst(CFG.modelInput) || findFieldByLabel(['الموديل الفعلي 1', 'الموديل الفعلي', 'Model']);
@@ -1485,14 +1562,32 @@ function getCSS() {
     let serialDuplicated = false;
     let preservedModel = false;
     let preservedSerial = false;
+    let modelFailure = '';
+
+    // «مربوط» = يوجد GUID مخفي، وليس مجرد نص في الحقل.
+    // نص بلا GUID يعني حقناً نصياً سابقاً فاشلاً → يجب إعادة الربط لا الحفاظ عليه.
+    const model2GuidEl = findLookupGuidField(model2El);
+    const model2Guid = model2GuidEl ? String(model2GuidEl.value || '').trim() : '';
+    const model2Bound = model2Guid ? true : (!model2GuidEl && !isEmptyValue(model2Val));
 
     // Rule: Model 1 -> Model 2
     if (!isEmptyValue(model1Val)) {
-      if (isEmptyValue(model2Val)) {
+      if (!model2Bound) {
         if (model2El) {
           logEvent('EXEC_PAGE1', `نسخ الموديل 1 إلى الموديل 2: "${model1Val}"`);
-          await fillLookupField(model2El, model1Val, CFG.modelBtn);
-          modelDuplicated = true;
+          // ⚠️ نسخ lookup = فتح نافذة البحث واختيار صف فعلي (لا حقن نصي) —
+          // الحقن النصي يترك حقل الـ GUID المخفي فارغاً فترفض البوابة النموذج.
+          const res = await fillLookupField(model2El, model1Val, CFG.modelBtn2 || CFG.modelBtn, { isModel: true });
+          if (res?.ok) {
+            modelDuplicated = true;
+            logEvent('EXEC_PAGE1', `✅ تم ربط الموديل 2 بالبوابة: "${res.selected || model1Val}"`);
+          } else {
+            modelFailure = res?.reason || 'unknown';
+            logEvent('EXEC_PAGE1', `❌ فشل ربط الموديل 2 — ${modelFailure}`);
+          }
+        } else {
+          modelFailure = 'field-not-found';
+          logEvent('EXEC_PAGE1', '❌ حقل الموديل الفعلي 2 غير موجود في الصفحة');
         }
       } else {
         logEvent('EXEC_PAGE1', `الموديل 2 يحتوي بالفعل على قيمة: "${model2Val}" — الحفاظ عليها وعدم التعديل`);
@@ -1518,6 +1613,11 @@ function getCSS() {
       logEvent('EXEC_PAGE1', 'السيريال 1 فارغ — عدم اختراع قيمة وعدم تعديل السيريال 2');
     }
 
+    if (modelFailure) {
+      setStatus(shadow, `❌ الموديل 2 لم يُربط بالبوابة (${modelFailure}) — البوابة سترفض النموذج. افتح البحث واختر الموديل يدويًا`, 'error');
+      return false;
+    }
+
     if (modelDuplicated || serialDuplicated) {
       setStatus(shadow, '✅ تم تكرار بيانات التكييف للحقول الفارغة فقط', 'success');
     } else if (preservedModel || preservedSerial) {
@@ -1525,6 +1625,7 @@ function getCSS() {
     } else {
       setStatus(shadow, '⚠️ لا توجد بيانات في الموديل 1 أو السيريال 1 للنسخ', 'warn');
     }
+    return true;
   }
 
   async function fillDefaultDeviceData(shadow) {
@@ -1559,14 +1660,16 @@ function getCSS() {
     const p1 = matchedProfile.page1Defaults || {};
     let filledCount = 0;
     let preservedCount = 0;
+    let failedCount = 0;
 
     // 1. العلامة التجارية (Brand) - fill only if empty
     const brandEl = findFirst(CFG.brandInput) || findFieldByLabel(['العلامة التجاريه', 'العلامة التجارية', 'Brand']);
     if (brandEl) {
       const curVal = (brandEl.value || brandEl.getAttribute?.('value') || '').trim();
       if (isEmptyValue(curVal) && p1.brand) {
-        const ok = await fillLookupField(brandEl, p1.brand, CFG.brandBtn);
-        if (ok) filledCount++;
+        const res = await fillLookupField(brandEl, p1.brand, CFG.brandBtn, { isBrand: true });
+        if (res?.ok) filledCount++;
+        else { failedCount++; logEvent('DEFAULT_P1', `فشل ربط العلامة التجارية — ${res?.reason || 'unknown'}`); }
       } else if (!isEmptyValue(curVal)) {
         preservedCount++;
       }
@@ -1577,8 +1680,9 @@ function getCSS() {
     if (model1El) {
       const curVal = (model1El.value || model1El.getAttribute?.('value') || '').trim();
       if (isEmptyValue(curVal) && p1.model1) {
-        const ok = await fillLookupField(model1El, p1.model1, CFG.modelBtn);
-        if (ok) filledCount++;
+        const res = await fillLookupField(model1El, p1.model1, CFG.modelBtn, { isModel: true });
+        if (res?.ok) filledCount++;
+        else { failedCount++; logEvent('DEFAULT_P1', `فشل ربط الموديل 1 — ${res?.reason || 'unknown'}`); }
       } else if (!isEmptyValue(curVal)) {
         preservedCount++;
       }
@@ -1590,8 +1694,9 @@ function getCSS() {
       const curVal = (model2El.value || model2El.getAttribute?.('value') || '').trim();
       const targetModel2 = p1.model2 || p1.model1;
       if (isEmptyValue(curVal) && targetModel2) {
-        const ok = await fillLookupField(model2El, targetModel2, CFG.modelBtn);
-        if (ok) filledCount++;
+        const res = await fillLookupField(model2El, targetModel2, CFG.modelBtn2 || CFG.modelBtn, { isModel: true });
+        if (res?.ok) filledCount++;
+        else { failedCount++; logEvent('DEFAULT_P1', `فشل ربط الموديل 2 — ${res?.reason || 'unknown'}`); }
       } else if (!isEmptyValue(curVal)) {
         preservedCount++;
       }
@@ -1635,8 +1740,10 @@ function getCSS() {
       }
     }
 
-    logEvent('DEFAULT_P1', `اكتمل: تم تعبئة ${filledCount} حقل، والحفاظ على ${preservedCount} حقل`);
-    if (filledCount > 0) {
+    logEvent('DEFAULT_P1', `اكتمل: تم تعبئة ${filledCount} حقل، والحفاظ على ${preservedCount} حقل، وفشل ${failedCount}`);
+    if (failedCount > 0) {
+      setStatus(shadow, `⚠️ تم تعبئة ${filledCount} حقل، لكن فشل ربط ${failedCount} حقل lookup — راجع اللوج (السبب غالبًا عدم تطابق البحث)`, 'warn');
+    } else if (filledCount > 0) {
       setStatus(shadow, `✅ تم تعبئة ${filledCount} حقل افتراضي (${matchedProfile.name})`, 'success');
     } else if (preservedCount > 0) {
       setStatus(shadow, `ℹ️ جميع الحقول ممتلئة بالفعل (تم الحفاظ عليها)`, 'success');

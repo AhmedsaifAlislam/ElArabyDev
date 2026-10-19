@@ -506,6 +506,54 @@ The form could not be submitted for the following reasons:
 
 ---
 
+## محلول مؤخراً — الموجة 11: «الموديل الفعلى 2 اجبارى» في الصفحة الأولى (2026-10-19)
+
+### 25. نسخ الموديل 1 → الموديل 2 كان يحقن نصًا فقط بلا GUID (حرجة)
+
+**الأعراض:** بعد «تنفيذ» الصفحة الأولى والانتقال للثانية، ترفض البوابة النموذج:
+```
+The form could not be submitted for the following reasons:
+الموديل الفعلى 2 اجبارى
+```
+رغم أن خانة «الموديل الفعلي 2» تظهر مملوءة بالاسم.
+
+**السبب الجذري (توقيع دالة خاطئ — لا علاقة له بالبوابة):**
+`fillLookupField` في `control-panel.js` كانت تنادي:
+```js
+window.fillPowerAppsLookup(inputEl, inputEl.id || 'Lookup', val, btnSel);
+```
+بينما التوقيع الحقيقي في `engine-lookups.js`:
+```js
+fillPowerAppsLookup(inputSelector, searchValue, opts = {})
+```
+⇒ العنصر يمرَّر مكان الـ selector (فيرمي `querySelector` استثناءً)، والـ id يمرَّر مكان قيمة البحث،
+و`opts` نص بدل كائن، و`btnSel` (المعامل الرابع) **متجاهَل تمامًا**. والاستثناء مبلوع في
+`catch (_) {}` مرتين ⇒ يسقط التنفيذ على `emulateUserInput` الذي يكتب نصًا في `ldv_actualmodel2_name`
+فقط، ولا يلمس `input[type=hidden]#ldv_actualmodel2` (الـ GUID).
+
+**الأثر:** حقل الـ lookup يظهر «ممتلئًا» لكن البوابة تراه فارغًا. ونفس العيب أصاب ٣ مواضع أخرى:
+العلامة التجارية (1568) والموديل 1 (1580) والموديل 2 في «البيانات الافتراضية» (1593، وكانت تستخدم
+`modelBtn` الخاص بالموديل 1). و`doDuplicate` كانت تتجاهل القيمة المرجعة وتضع «نجاح»،
+و`executePage1` تضغط Next دائمًا وتطبع «✅ تم التنفيذ بنجاح».
+
+**الحل:**
+- `fillLookupField` أُعيدت كتابتها: `findSafeLookupButton` + `fillLookupModal` (مودال البحث الحقيقي)،
+  وتُرجع `{ ok, selected, reason }`.
+- `findLookupGuidField()`: يحدد `<field>` المخفي المقابل لـ `<field>_name`، و`clearLookupField()`
+  يفرّغ النص القديم قبل البحث (لأن `fillLookupModal` تتخطى الفتح إذا «طابقت» القيمة الظاهرة).
+- التحقق بعد الاختيار: GUID فارغ ⇒ `lookup-not-committed` (فشل صريح، لا نجاح كاذب).
+- `doDuplicate`: «مربوط» = GUID موجود (لا نص فقط)، وتُرجع `false` عند الفشل.
+- `executePage1`: لا تضغط Next عند فشل ربط الموديل 2، وتعرض السبب.
+- `modelBtn2` أُضيف إلى `getFallbackCfg` واستُخدم في كل مواضع الموديل 2.
+- «البيانات الافتراضية»: عدّاد فشل + تحذير بدل نجاح صامت.
+
+**التحقق:**
+- `node --check src/unified-extension/control-panel.js` ✅
+- `node tools/tests/unification-smoke.js` → **92 passed, 0 failed** (منها 6 فحوصات انحدار جديدة).
+- تجربة حية: `PANEL_BUILD = 2026-10-19.12` — يظهر `LOOKUP_FILL: ldv_actualmodel2_name: نجح — "AY-A12NSE …"`.
+
+---
+
 ## محلول مؤخراً — الموجة 4 (فرعية): تقوية control-panel.js (2026-10-18)
 
 ### 17. تعقيم XSS في control-panel.js — escapeHtml محلي (متوسطة)

@@ -368,6 +368,19 @@ function load(sandbox, file) {
       'future-orders-reveal: التصفية مطبّقة على المسارين (الأساسي والاحتياطي)');
   }
 
+  console.log('-- 16) regression: نسخ الموديل 2 عبر lookup حقيقي (لا حقن نصي) --');
+  // العلّة (2026-10-19): control-panel كان يمرر عنصر DOM مكان الـ selector إلى
+  // fillPowerAppsLookup → استثناء مبلوع → حقن نص في <field>_name فقط → GUID فارغ
+  // → البوابة ترفض: «الموديل الفعلى 2 اجبارى».
+  const cpsrc = read('control-panel.js');
+  ok(!/fillPowerAppsLookup\(\s*inputEl\s*,/.test(cpsrc),
+     'control-panel.js: لا يمرر inputEl كأول معامل لـ fillPowerAppsLookup');
+  ok(/function findLookupGuidField\s*\(/.test(cpsrc), 'control-panel.js: يحدد حقل الـ GUID المخفي');
+  ok(/lookupModalFn\(lookupBtn, val, doc/.test(cpsrc), 'control-panel.js: fillLookupField يفتح مودال البحث ويختار');
+  ok(/lookup-not-committed/.test(cpsrc), 'control-panel.js: يفشل صريحًا لو الـ GUID بقي فارغًا');
+  ok(/dupOk === false/.test(cpsrc), 'control-panel.js: لا يضغط Next بعد فشل ربط الموديل 2');
+  ok(/CFG\.modelBtn2/.test(cpsrc), 'control-panel.js: يستخدم زر البحث الخاص بالموديل 2');
+
   console.log('\n=== RESULT: ' + pass + ' passed, ' + fail + ' failed ===');
   if (fail > 0) {
     console.log('Failures:');
