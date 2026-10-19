@@ -466,6 +466,10 @@ The form could not be submitted for the following reasons:
     شبكات الصفحة (فنيين/مشاكل) ويظنها نتائج بحث، ويكمل بصف خاطئ ثم يفشل.
 11. **الإغلاق عبر** `[...doc.querySelectorAll('[data-dismiss="modal"]')].reverse()[0]` ⇒ قد يكون زر إغلاق
     **النموذج** فيُقفل النافذة الأولى (وهو ما رصده المستخدم: «يفتح ويُقفل، ويقفل النافذة الأولى»).
+12. **الكود المطلوب غير موجود في قائمة البوابة:** `getSmartProblemCode` كان يمرّر رد الـ AI كما هو ⇒ الـ AI أرجع
+    `WM30` (خارج القائمة المسموحة أصلًا) ⇒ `no-match`. وبعد فلترة نوع المنتج «غساله» لا تعرض البوابة إلا
+    **5 مشاكل تركيبية**: `GI00 / SR00 / SR01 / WM01 / WMK0`، ولا وجود لأكواد الصيانة `WM02…WM05` في هذه القائمة —
+    ولا حتى بالبحث داخلها. لذلك «مشاكل فقط» لا يمكنها إضافة `WM05` على هذه الأوامر أصلًا.
 
 **الحل:**
 - `modules/autofill/engine-lookups.js` — إضافة `clickOnce()` و`selectLookupRow()` و`isLookupRowSelected()`
@@ -485,6 +489,11 @@ The form could not be submitted for the following reasons:
 - `modules/autofill/engine-page2.js` — `resolveTechnician`: `if (found && found[1])` لتفعيل الرجوع إلى L3.
 - `control-panel.js` — `executePage2`: قراءة المنطقة + `registerRegion` + تمريرها + حفظ الـ roster
   + احتياطي أخير (أول فني متاح `'*'`) + **إبلاغ صادق** بنتيجة كل بند.
+- `modules/autofill/engine-page2.js` — `getSmartProblemCode`: رفض أي كود من الـ AI خارج `ALLOWED_PROBLEM_CODES`
+  والرجوع لخريطة الجهاز.
+- `modules/autofill/engine-lookups.js` — `searchInLookupModal()` (بحث داخل مودال الاختيار لمعالجة ترقيم الصفحات)
+  + إرجاع `available` مع `no-match` + بثّ `priorityPattern` فقط في تقارير التركيب.
+- `control-panel.js` — عرض الأكواد المتاحة في الـ log وحالة اللوحة، وعدم كتابة «تم التنفيذ بنجاح» عند الفشل.
 
 **التحقق (حي على البوابة — بلاغ تجريبي):**
 - **الفني:** 3 صفوف ⇒ تحديد ⇒ `ats_contact_name` + `ats_contact` (GUID) ⇒ «حفظ» ⇒ **ظهر في شبكة الفنيين**

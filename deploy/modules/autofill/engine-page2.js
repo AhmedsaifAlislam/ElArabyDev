@@ -67,6 +67,10 @@ window.AutoFillEngine = window.AutoFillEngine || {};
     return null;
   }
 
+  // الأكواد المسموح بها من الـ AI — أي كود خارجها يُرفض (الـ AI كان يخترع أكوادًا
+  // مثل WM30 غير موجودة في البوابة إطلاقًا، فيفشل الاختيار بـ no-match).
+  const ALLOWED_PROBLEM_CODES = ['*AC02', '*AC03', '*GS04', '*WM05', '*GR01', '*GR02', '*GR03', '*DW06', '*HT01', '*تركيب'];
+
   async function getSmartProblemCode(deviceName, isInstallRow) {
     if (isInstallRow) return '*تركيب';
     const complaintCode = window.AutoFillEngine.Page1?.readComplaintCodeFromPage ? window.AutoFillEngine.Page1.readComplaintCodeFromPage() : '';
@@ -75,7 +79,12 @@ window.AutoFillEngine = window.AutoFillEngine || {};
         const aiResult = await window.aiService.prompt(
           `شكوى العميل: "${complaintCode || 'غير محدد'}"\nنوع الجهاز: "${deviceName}"\nاختر كود العطل المناسب من: *AC02, *AC03, *GS04, *WM05, *GR01, *GR02, *GR03, *DW06, *HT01, *تركيب\nأرجع الكود فقط بدون شرح.`
         );
-        if (aiResult && /\*[A-Z]{2}\d{2}|\*تركيب/.test(aiResult.trim())) return aiResult.trim();
+        if (aiResult) {
+          const found = (aiResult.trim().match(/\*[A-Z]{2}\d{2}|\*تركيب|^[A-Z]{2}\d{2}/) || [])[0];
+          const candidate = found ? (found.startsWith('*') ? found : '*' + found) : '';
+          if (candidate && ALLOWED_PROBLEM_CODES.includes(candidate)) return candidate;
+          if (candidate) log('AI returned a code outside the allowed list: ' + candidate + ' — falling back to the device map');
+        }
       } catch (_) {}
     }
     return getProblemCode(deviceName, isInstallRow);

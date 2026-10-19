@@ -799,8 +799,40 @@ window.AutoFillEngine = window.AutoFillEngine || {};
     return false;
   }
 
+  // بحث داخل مودال الاختيار الحالي (يخدم حالة وجود ترقيم صفحات: الكود المطلوب
+  // قد يكون في صفحة تالية). يرجع true لو أمكن تنفيذ البحث.
+  async function searchInLookupModal(lookupModal, term) {
+    if (!lookupModal || !term) return false;
+    const docs = [lookupModal];
+    lookupModal.querySelectorAll('iframe').forEach(f => {
+      try { const d = f.contentDocument; if (d) docs.push(d); } catch(_) {}
+    });
+    let input = null;
+    for (const d of docs) {
+      const candidates = Array.from(d.querySelectorAll('input[placeholder*="Search"], input[type="search"], .entitylist-search input'));
+      input = candidates.find(i => i.offsetParent !== null) || null;
+      if (input) break;
+    }
+    if (!input) return false;
+    const clean = String(term).replace(/\*/g, '');
+    try { input.focus(); } catch(_) {}
+    const desc = Object.getOwnPropertyDescriptor(Object.getPrototypeOf(input), 'value') || Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value');
+    try { desc.set.call(input, clean); } catch(_) { input.value = clean; }
+    try { input.dispatchEvent(new Event('input', { bubbles: true })); } catch(_) {}
+    try { input.dispatchEvent(new Event('change', { bubbles: true })); } catch(_) {}
+    await sleep(300);
+    const btn = input.closest('.input-group')?.querySelector('button')
+      || input.parentElement?.parentElement?.querySelector('button');
+    if (btn) clickOnce(btn);
+    ['keydown', 'keypress', 'keyup'].forEach(ev => {
+      try { input.dispatchEvent(new KeyboardEvent(ev, { key: 'Enter', keyCode: 13, which: 13, bubbles: true })); } catch(_) {}
+    });
+    await sleep(1500);
+    return true;
+  }
+
   async function handleSubgridIframeModal(btnRegex, targetName, pickRandomIfTargetMissing = true, excludePattern = null, priorityPattern = null) {
-    log('[subgrid build 2026-10-19.9] single-click lookup + rows from lookup modal only');
+    log('[subgrid build 2026-10-19.10] search-in-lookup fallback + available list on no-match');
     const addBtn = Array.from(document.querySelectorAll('a, button, input[type="button"]'))
       .filter(b => b.offsetParent !== null)
       .find(b => btnRegex.test((b.innerText || b.title || b.value || '').trim()));
@@ -899,7 +931,9 @@ window.AutoFillEngine = window.AutoFillEngine || {};
         if (items.length > 0) break;
         await sleep(300);
       }
-      
+      // قائمة ما تعرضه البوابة فعلًا (قبل استبعاد أي صفوف) — تُعاد للمستخدم عند الفشل
+      const rawItems = items.slice();
+
       // Filter out excluded patterns (e.g. ترصيد for problems)
       if (excludePattern && items.length) {
         const before = items.length;
@@ -923,15 +957,40 @@ window.AutoFillEngine = window.AutoFillEngine || {};
             exactMatch = items.find(i => i.innerText.toLowerCase().includes(cleanTarget.toLowerCase()));
           }
         }
+
+        // الكود غير موجود في الصفحة الحالية من النتائج → ابحث به داخل المودال
+        // (يعالج ترقيم الصفحات: الصف المطلوب قد يكون في صفحة تالية)
+        if (!exactMatch && cleanTarget) {
+          log(`"${cleanTarget}" not in current page of results — searching inside the lookup...`);
+          const searched = await searchInLookupModal(lookupModal, cleanTarget);
+          if (searched) {
+            let after = [];
+            for (let k = 0; k < 15; k++) {
+              after = getRowsFromDocs(collectDocs(lookupModal));
+              if (after.length) break;
+              await sleep(400);
+            }
+            if (excludePattern && after.length) after = after.filter(i => !excludePattern.test(i.innerText));
+            if (after.length) {
+              items = after;
+              exactMatch = items.find(i => i.innerText.toLowerCase().includes(cleanTarget.toLowerCase())) || null;
+              log(`After search: ${items.length} rows, match=${!!exactMatch}`);
+            }
+          }
+        }
         
         const rand = exactMatch || (pickRandomIfTargetMissing ? items[Math.floor(Math.random() * items.length)] : null);
         
         if (!rand) {
           log('No match for "' + cleanTarget + '" in ' + items.length + ' items — skipping');
+          const available = rawItems
+            .map(i => (i.innerText || '').replace(/\s+/g, ' ').trim().slice(0, 70))
+            .filter(Boolean)
+            .slice(0, 12);
           closeLookupModalOnly(iframeDoc);
           await sleep(600);
           closeFormModal(formModal);
-          return { ok: false, reason: 'no-match' };
+          return { ok: false, reason: 'no-match', available };
         }
         
         selectedName = rand.innerText.trim();

@@ -2,7 +2,7 @@
 // control-panel.js — لوحة التحكم الذكية v1.0
 // بصمة الإصدار: تُطبع في الـ log وتظهر بجانب عنوان اللوحة، للتأكد أن المتصفح
 // حمّل أحدث نسخة من الإضافة (Reload من edge://extensions مطلوب بعد أي نشر).
-const PANEL_BUILD = '2026-10-19.9';
+const PANEL_BUILD = '2026-10-19.10';
 // Floating panel with auto-detecting page tabs
 // =========================================================
 (function () {
@@ -1689,7 +1689,7 @@ function getCSS() {
       const addProblems = shortcutType === 'prob' || shortcutType === 'all';
       const addTech = shortcutType === 'tech' || shortcutType === 'all';
       const P2 = (window.AutoFillEngine && window.AutoFillEngine.Page2) || {};
-      let probOk = false, probLabel = '', techOk = false, techLabel = '';
+      let probOk = false, probLabel = '', probReason = '', probAvailable = [], techOk = false, techLabel = '';
 
       if (addProblems) {
         const device = readDeviceHint();
@@ -1702,10 +1702,21 @@ function getCSS() {
         if (probCode && typeof handleSubgridIframeModal === 'function') {
           setStatus(shadow, `⏳ جاري إضافة المشكلة: ${probCode}...`);
           try {
-            const probRes = await handleSubgridIframeModal(/اضاف[ةه]\s*المشاكل\s*الفعلي[ةه]|Add.*Problem/i, probCode, false, /ترصيد|ارضي|أرضي|بلاغ/i, /Premium\s*care|بريميم.?كير|تركيب وتشغيل/i);
+            const probRes = await handleSubgridIframeModal(
+              /اضاف[ةه]\s*المشاكل\s*الفعلي[ةه]|Add.*Problem/i,
+              probCode,
+              false,
+              /ترصيد|ارضي|أرضي|بلاغ/i,
+              isInstall ? /تركيب وتشغيل/i : null
+            );
             probOk = !!(probRes && probRes.ok);
             probLabel = (probRes && probRes.name) || probCode;
-            logEvent('EXEC_PAGE2', `نتيجة المشكلة: ok=${probOk} name=${probLabel} reason=${(probRes && probRes.reason) || '—'}`);
+            probReason = (probRes && probRes.reason) || '';
+            probAvailable = (probRes && Array.isArray(probRes.available)) ? probRes.available : [];
+            logEvent('EXEC_PAGE2', `نتيجة المشكلة: ok=${probOk} name=${probLabel} reason=${probReason || '—'}`);
+            if (!probOk && probAvailable.length) {
+              logEvent('EXEC_PAGE2', 'الأكواد المتاحة في هذه القائمة: ' + probAvailable.join(' | '));
+            }
           } catch (e) {
             logEvent('EXEC_PAGE2', 'فشل إضافة المشكلة: ' + (e.message || e));
           }
@@ -1760,18 +1771,23 @@ function getCSS() {
         }
       }
 
+      let outcomeOk = true;
       if (addProblems || addTech) {
         const bits = [];
-        if (addProblems) bits.push(probOk ? `✅ مشكلة: ${probLabel}` : '⚠️ فشلت المشكلة');
+        if (addProblems) {
+          if (probOk) bits.push(`✅ مشكلة: ${probLabel}`);
+          else if (probAvailable.length) bits.push(`⚠️ المشكلة "${probLabel}" غير متاحة — المتاح: ${probAvailable.slice(0, 5).join(' | ')}`);
+          else bits.push(`⚠️ فشلت المشكلة (${probReason || 'سبب غير معروف'})`);
+        }
         if (addTech) bits.push(techOk ? `✅ فني: ${techLabel}` : '⚠️ فشل الفني');
-        const allOk = (!addProblems || probOk) && (!addTech || techOk);
-        setStatus(shadow, bits.join(' | '), allOk ? 'success' : 'warn');
+        outcomeOk = (!addProblems || probOk) && (!addTech || techOk);
+        setStatus(shadow, bits.join(' | '), outcomeOk ? 'success' : 'warn');
       }
 
       // 3. التالي
       await doNext(shadow);
 
-      setStatus(shadow, '✅ تم التنفيذ بنجاح', 'success');
+      if (outcomeOk) setStatus(shadow, '✅ تم التنفيذ بنجاح', 'success');
       logEvent('EXEC_PAGE2', 'اكتمل التنفيذ');
       await sleep(800);
       if (!isMinimized) {
