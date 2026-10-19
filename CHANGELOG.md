@@ -5,6 +5,21 @@
 > **الإصدار:** يتبع [Semantic Versioning](https://semver.org/)
 ---
 
+## [2026-10-19] — متابعة الموجة 4: تنظيف control-panel.js (كود ميّت + اعتماد صريح)
+
+### صيانة (Maintainability) — بلا تغيير سلوكي
+- **حذف كود ميّت:** `getAllDocs()` و `findAllInFrames()` كانتا معرّفتين في `control-panel.js` ولم تُستدعَيا ولا مرة. الاعتماد الفعلي على `frame-walker.js` يتم عبر `getShallowDocs()` و `findFirstInFrames()`.
+- **توضيح الدلالة:** تعليق `findFirstInFrames()` كان يقول «shallow» بينما التنفيذ تعاقبي فعليًا (يستدعي `window.findInFrames` من frame-walker). صُحّح التعليق ليطابق السلوك — وهو المتوافق مع قاعدة PowerApps في `SHARED_KNOWLEDGE.md` §11 (العناصر داخل iframes متداخلة).
+- **إزالة فرع ميّت:** في `doNext()` كان فحص `typeof clickNextAndWaitForSave === 'function'` لدالة **غير موجودة في أي ملف** — أُزيل الفرع.
+- **اعتماد صريح:** أُضيف `shared/frame-walker.js` إلى كتلة `control-panel.js` في `manifest.json` (كان الاعتماد ضمنيًا على كتلة المحرك). المكتبة محمية بتحميل مزدوج (`__elarabyFrameWalkerLoaded`) فالتحميل المزدوج آمن.
+
+### تحقق (Verification)
+- `node --check` نظيف ✅
+- `tools/tests/unification-smoke.js` → **86 passed, 0 failed** ✅
+- `tools/deploy.ps1` ناجح + مطابقة `src` ↔ `deploy` (SHA256) ✅
+
+---
+
 ## [2026-10-18] — الموجة 6: صيغة الحقل المخفي `ldv_warrantydate` (Autofill)
 
 ### إصلاح (Fix) — حرجة (السبب الأعمق)

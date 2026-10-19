@@ -104,6 +104,7 @@
     {
       "matches": ["https://elarabyportalpfs.powerappsportals.com/*"],
       "js": [
+        "shared/frame-walker.js",
         "control-panel.js",
         "features/attachments/multi-uploader.js",
         "fabs-controller.js"

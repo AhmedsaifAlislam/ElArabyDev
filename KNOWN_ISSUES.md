@@ -464,9 +464,10 @@ The form could not be submitted for the following reasons:
 ### 21. توحيد عبور الـ iframes عبر `shared/frame-walker.js` (صيانة — متوسطة)
 **المشكلة:** 19 موضع عبور `iframe` يدوي مكرر (`contentDocument || contentWindow?.document` داخل `try/catch`) — خطر التناقض وصعوبة الصيانة.
 **الحل:**
-- دوال موحدة: `getShallowDocs()` (سلوك حالي: main + iframes مستوى أول فقط)، `getAllDocs()` (تعاقبي عبر `frame-walker.js`)، `findFirstInFrames()`، `findAllInFrames()`
+- دوال موحدة: `getShallowDocs()` (سلوك حالي: main + iframes مستوى أول فقط)، `findFirstInFrames()` (تعاقبي عبر `window.findInFrames` من frame-walker، مع رجوع سطحي تلقائي عند غيابه)
 - استبدال الـ 19 موضعًا بدعوات الدوال الموحدة
-- إضافة `shared/frame-walker.js` للكتلة في `manifest.json` لضمان ترتيب التحميل قبل `control-panel.js`
+- إضافة `shared/frame-walker.js` إلى كتلة `control-panel.js` في `manifest.json` (اعتماد صريح — المكتبة محمية بتحميل مزدوج `__elarabyFrameWalkerLoaded`)
+  > تحديث (2026-10-19): `getAllDocs()` و `findAllInFrames()` أُزيلا لأنهما لم يُستخدما إطلاقًا (كود ميّت). التفاصيل في `CHANGELOG.md`.
 **السبب الجذري (استنتاج خاطئ من مثال متماثل):** تعليق سابق في الملف استند إلى رسالة البوابة
 «Example: **10**/10/2026» واستنتج MM/DD/YYYY — لكن `10/10` تاريخ **متماثل** لا يفرّق بين الصيغتين، فكان الاستنتاج بلا دليل.
 **أدلة الصيغة الصحيحة (4 مصادر متطابقة):**

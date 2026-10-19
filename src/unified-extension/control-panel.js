@@ -37,15 +37,10 @@ const escapeHtml = s => String(s ?? "").replace(/&/g, "&amp;").replace(/</g, "&l
       .filter(Boolean)];
   }
 
-  // Recursive walk: uses shared/frame-walker.js if available
-  function getAllDocs(root = document) {
-    if (typeof window.getAccessibleDocs === 'function') {
-      try { return window.getAccessibleDocs(root); } catch (_) {}
-    }
-    return getShallowDocs(root);
-  }
-
-  // Find first matching element across shallow docs
+  // Find first matching element across frames.
+  // Prefers shared/frame-walker.js `findInFrames` — recursive walk of nested iframes
+  // (matches the PowerApps rule in SHARED_KNOWLEDGE.md §11: elements live in nested iframes).
+  // Falls back to a shallow walk (main + first-level iframes) only when frame-walker is absent.
   function findFirstInFrames(selector, root = document) {
     if (typeof window.findInFrames === 'function') {
       try { return window.findInFrames(selector, root); } catch (_) {}
@@ -56,19 +51,6 @@ const escapeHtml = s => String(s ?? "").replace(/&/g, "&amp;").replace(/</g, "&l
       if (el) return el;
     }
     return null;
-  }
-
-  // Find all matching elements across shallow docs
-  function findAllInFrames(selector, root = document) {
-    if (typeof window.findAllInFrames === 'function') {
-      try { return window.findAllInFrames(selector, root); } catch (_) {}
-    }
-    const results = [];
-    const docs = getShallowDocs(root);
-    for (const doc of docs) {
-      results.push(...doc.querySelectorAll(selector));
-    }
-    return results;
   }
 
   // كتابة localStorage مؤجلة (debounce) — تُستبدل الكتابة المتزامنة في كل حدث
@@ -1649,10 +1631,6 @@ function getCSS() {
 
   async function doNext(shadow) {
     logEvent('NAV', 'الانتقال للصفحة التالية');
-    if (typeof clickNextAndWaitForSave === 'function') {
-      await clickNextAndWaitForSave(CFG);
-      return;
-    }
     // بحث في main + iframes
     let btn = null;
     const allDocs = getShallowDocs();
