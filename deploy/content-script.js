@@ -43,7 +43,7 @@ function sendSmartLog(eventType, details) {
 }
 
 async function sysLog(msg, type='info') {
-  const symbol = type === 'error' ? 'Œ' : type === 'success' ? '✅' : type === 'warn' ? '⚠ï¸' : 'ℹï¸';
+  const symbol = type === 'error' ? 'Œ' : type === 'success' ? '✅' : type === 'warn' ? '⚠️' : 'ℹ️';
   const text = `[${new Date().toLocaleTimeString('en-US', {hour12:false})}] ${symbol} ${msg}`;
   console.log(LOG_PREFIX, text);
   try {
@@ -154,7 +154,7 @@ function safeClick(element, description = 'element') {
     return true;
   } catch (e) {
     delete document.body.dataset.isAutofilling;
-    err(`ðŸ’¥ safeClick failed for ${description}: ${e.message}`);
+    err(`💥 safeClick failed for ${description}: ${e.message}`);
     return false;
   }
 }
@@ -208,7 +208,7 @@ async function waitForSaveComplete(startUrl, cfg, maxWaitMs = 15000) {
     const hasError = !!document.querySelector('.alert-danger, .validation-summary-errors');
     
     if (!isBlocked && hasError) {
-      warn('⚠ï¸ Validation error appeared during wait. Aborting wait.');
+      warn('⚠️ Validation error appeared during wait. Aborting wait.');
       break;
     }
     await sleep(1000);
