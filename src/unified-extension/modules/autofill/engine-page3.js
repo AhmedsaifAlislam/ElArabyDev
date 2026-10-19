@@ -249,15 +249,21 @@ window.AutoFillEngine = window.AutoFillEngine || {};
     }
 
     // 3. حفظ
-    const saveBtn = iframeDoc.querySelector('#InsertButton, #SubmitButton, button[type="submit"], input[type="submit"], button.btn-primary');
+    const saveBtn = (window.AutoFillEngine?.Lookups?.findModalSaveButton && window.AutoFillEngine.Lookups.findModalSaveButton(iframeDoc))
+      || iframeDoc.getElementById('InsertButton') || iframeDoc.getElementById('SubmitButton');
     if (saveBtn) {
       saveBtn.click();
+      let closed = false;
       const saveDeadline = Date.now() + 10000;
       while (Date.now() < saveDeadline) {
-        if (modal.offsetParent === null || !document.body.contains(modal)) break;
+        if (!document.body.contains(modal) || !modal.classList.contains('in')) { closed = true; break; }
         await sleep(400);
       }
       await sleep(1200);
+      if (!closed) {
+        log('Page3 save did not close the modal — treating as failure');
+        return { ok: false, reason: 'save-not-confirmed' };
+      }
       return { ok: true, name: subSearch || mainSearch };
     }
 
@@ -387,15 +393,21 @@ window.AutoFillEngine = window.AutoFillEngine || {};
     }
 
     // 9. Save
-    const saveBtn = iframeDoc.querySelector('#InsertButton, #SubmitButton, input[value="حفظ"], button[type="submit"], input[type="submit"], button.btn-primary');
+    const saveBtn = (window.AutoFillEngine?.Lookups?.findModalSaveButton && window.AutoFillEngine.Lookups.findModalSaveButton(iframeDoc))
+      || iframeDoc.getElementById('InsertButton') || iframeDoc.getElementById('SubmitButton');
     if (saveBtn) {
       saveBtn.click();
+      let closed = false;
       const saveDeadline = Date.now() + 10000;
       while (Date.now() < saveDeadline) {
-        if (modal.offsetParent === null || !document.body.contains(modal)) break;
+        if (!document.body.contains(modal) || !modal.classList.contains('in')) { closed = true; break; }
         await sleep(400);
       }
       await sleep(1500);
+      if (!closed) {
+        log('Page3 spare-part save did not close the modal — treating as failure');
+        return { ok: false, reason: 'save-not-confirmed' };
+      }
       return { ok: true, name: partSearch || partCodeOnly };
     }
 

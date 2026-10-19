@@ -149,10 +149,10 @@ window.AutoFillEngine = window.AutoFillEngine || {};
     try { el.dispatchEvent(new Event('focus', { bubbles: true })); } catch(_) {}
     for (const ev of ['pointerdown', 'mousedown', 'pointerup', 'mouseup', 'click']) {
       try {
-        // البوابة (PowerApps) تربط اختيار صفوف الـ lookup (span[role="checkbox"])
-        // بـ PointerEvent حقيقي. `new MouseEvent('pointerdown')` لا يُفعّل المعالج
-        // => الصف لا يُختار ويظل زر «اختر» disabled.
-        // تحقق حي على البوابة 2026-10-19 (مودال الفنيين).
+        // إرسال أحداث حقيقية (PointerEvent للمؤشرات) لمطابقة سلوك المستخدم الفعلي.
+        // ⚠️ تنبيه: هذه الدالة تُطلق نقرة **مرتين** (MouseEvent('click') + el.click()).
+        // لا تستخدمها لعناصر «التبديل» (span[role="checkbox"]) — استخدم clickOnce/selectLookupRow.
+        // (تحقق حي 2026-10-19)
         const isPointer = ev.startsWith('pointer');
         const Ctor = (isPointer && typeof view.PointerEvent === 'function') ? view.PointerEvent : MouseEvent;
         const init = { bubbles: true, cancelable: true, view };
@@ -171,6 +171,73 @@ window.AutoFillEngine = window.AutoFillEngine || {};
     } catch(_) {}
     try { el.dispatchEvent(new Event('blur', { bubbles: true })); } catch(_) {}
     return true;
+  }
+
+  // ── نقر واحد فقط (بلا تكرار) ──
+  // صفوف lookup في الصفحة الثانية تستخدم span[role="checkbox"] وهو عنصر «تبديل»:
+  // أي نقرتين متتاليتين تُلغي التحديد ⇒ يبقى زر «اختر» disabled.
+  // تحقق حي على البوابة 2026-10-19 (مودال المشاكل + مودال الفنيين).
+  function clickOnce(el) {
+    if (!el) return false;
+    try { el.focus(); } catch(_) {}
+    try {
+      if (typeof el.click === 'function') {
+        el.click();
+      } else {
+        const view = (el.ownerDocument && el.ownerDocument.defaultView) || window;
+        el.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, view }));
+      }
+    } catch(_) {}
+    return true;
+  }
+
+  // حالة تحديد الصف: true / false / null (نمط غير معروف)
+  function isLookupRowSelected(row) {
+    if (!row) return null;
+    const span = row.querySelector('span[role="checkbox"]');
+    if (span && span.hasAttribute('aria-checked')) return span.getAttribute('aria-checked') === 'true';
+    const radio = row.querySelector('input[type="radio"]');
+    if (radio) return !!radio.checked;
+    const chk = row.querySelector('input[type="checkbox"]');
+    if (chk) return !!chk.checked;
+    return null;
+  }
+
+  // اختيار صف داخل مودال lookup: نقرة واحدة على عنصر التحديد الصحيح + التحقق.
+  // يرجع false إذا لم يُحدَّد الصف فعلًا (بدل الاستمرار بنجاح وهمي).
+  async function selectLookupRow(row) {
+    if (!row) return false;
+    const radio = row.querySelector('input[type="radio"]');
+    const chk = row.querySelector('input[type="checkbox"]');
+    if (radio || chk) {
+      const el = radio || chk;
+      clickOnce(el);
+      try { el.checked = true; el.dispatchEvent(new Event('change', { bubbles: true })); } catch(_) {}
+      return true;
+    }
+    const spanChk = row.querySelector('span[role="checkbox"]');
+    const td = spanChk ? spanChk.closest('td') : null;
+    for (const el of [spanChk, td, row]) {
+      if (!el) continue;
+      if (isLookupRowSelected(row) === true) return true;
+      clickOnce(el);
+      await sleep(350);
+    }
+    const state = isLookupRowSelected(row);
+    return state === null ? true : state === true;
+  }
+
+  // إيجاد زر «حفظ» داخل iframe نموذج.
+  // ⚠️ لا تستخدم querySelector('#InsertButton, …, button.btn-primary') — قائمة المحدّدات
+  // ترجع أول عنصر في ترتيب الـ DOM، وزر «اختر» المخفي لمودال lookup يسبق «حفظ»
+  // فيُضغط زر مخفي ولا يُحفظ النموذج. (تحقق حي 2026-10-19)
+  function findModalSaveButton(doc) {
+    if (!doc) return null;
+    const byId = doc.getElementById('InsertButton') || doc.getElementById('SubmitButton');
+    if (byId) return byId;
+    const cands = Array.from(doc.querySelectorAll('input[type="submit"], button[type="submit"], button.btn-primary, input[type="button"]'));
+    return cands.find(b => b.offsetParent !== null && !b.disabled &&
+      /save|submit|حفظ|insert/i.test((b.innerText || b.value || b.title || '').trim())) || null;
   }
 
   // Checks if a modal element is currently "open/visible" on screen.
@@ -359,27 +426,8 @@ window.AutoFillEngine = window.AutoFillEngine || {};
       return codePart;
     };
 
-    // Priority: input[type=radio] > input[type=checkbox] > span[role="checkbox"] (Portal ARIA pattern) > row click
-    const clickRow = async (row) => {
-      const radio = row.querySelector('input[type="radio"]');
-      const chk = row.querySelector('input[type="checkbox"]');
-      const spanChk = row.querySelector('span[role="checkbox"], span.fa');
-      if (radio) {
-        await dispatchClickSequence(radio);
-        try { radio.click(); } catch(_) {}
-        try { radio.checked = true; radio.dispatchEvent(new Event('change', { bubbles: true })); } catch(_) {}
-      } else if (chk) {
-        await dispatchClickSequence(chk);
-        try { chk.click(); } catch(_) {}
-        try { chk.checked = true; chk.dispatchEvent(new Event('change', { bubbles: true })); } catch(_) {}
-      } else if (spanChk) {
-        await dispatchClickSequence(spanChk);
-        try { spanChk.click(); } catch(_) {}
-      } else {
-        await dispatchClickSequence(row);
-        try { row.click(); } catch(_) {}
-      }
-    };
+    // اختيار الصف: نقرة واحدة فقط (span[role="checkbox"] عنصر تبديل — نقرتان تُلغي التحديد).
+    const clickRow = async (row) => selectLookupRow(row);
 
     const pickAndConfirm = async (items) => {
       let match;
@@ -426,8 +474,12 @@ window.AutoFillEngine = window.AutoFillEngine || {};
         if (!match) return { ok: false, reason: 'no-match' };
       }
 
-      await clickRow(match);
+      const rowSelected = await clickRow(match);
       await sleep(1000);
+      if (rowSelected === false) {
+        warn('Lookup row did not get selected — aborting (avoid false success)');
+        return { ok: false, reason: 'row-not-selected' };
+      }
 
       // Select button — prioritize button inside the active modal!
       const modalBtns = Array.from(modal.querySelectorAll('button, input[type="button"], input[type="submit"]'));
@@ -459,8 +511,11 @@ window.AutoFillEngine = window.AutoFillEngine || {};
           await sleep(250);
         }
         await sleep(500);
+      } else if (rowSelected === true) {
+        log('No enabled select button — row already selected (assuming auto-confirm).');
       } else {
-        warn('Modal select button (اختر / Select) not found!');
+        warn('Modal select button (اختر / Select) not found or disabled!');
+        return { ok: false, reason: 'select-btn-not-found' };
       }
       return { ok: true, selected: match.innerText?.trim() };
     };
@@ -585,7 +640,15 @@ window.AutoFillEngine = window.AutoFillEngine || {};
     }
 
     await sleep(600);
-    const lookupBtn = iframeDoc.querySelector('button.launchentitylookup, button.lookup-btn, .input-group-btn button');
+    // الزر قد يظهر متأخرًا بعد تحميل الـ iframe (سباق توقيت حقيقي) — ننتظره بدل الفشل الفوري.
+    // (رُصد حيًا 2026-10-19 أثناء الاختبار)
+    let lookupBtn = null;
+    const lbDeadline = Date.now() + 10000;
+    while (Date.now() < lbDeadline) {
+      lookupBtn = iframeDoc.querySelector('button.launchentitylookup, button.lookup-btn, .input-group-btn button:not(.clearlookupfield)');
+      if (lookupBtn) break;
+      await sleep(400);
+    }
     if (!lookupBtn) {
       warn('handlePage2Modal: Lookup button not found inside iframe');
       const closeBtn = modal.querySelector('[data-dismiss="modal"]');
@@ -608,16 +671,28 @@ window.AutoFillEngine = window.AutoFillEngine || {};
     }
 
     await sleep(1000);
-    const saveBtn = iframeDoc.querySelector('#InsertButton, #SubmitButton, button[type="submit"], input[type="submit"], button.btn-primary');
+    // ⚠️ مهم جدًا (تحقق حي 2026-10-19): querySelector بقائمة محدّدات يرجع **أول عنصر
+    // في ترتيب الـ DOM** — وزر «اختر» المخفي لمودال lookup يأتي قبل «حفظ»، فكان
+    // الحفظ يضغط زرًا مخفيًا ولا يُحفظ النموذج أبدًا (ثم يُبلَّغ بنجاح وهمي).
+    // الحل: البحث بالـ id أولًا (#InsertButton/#SubmitButton) ثم أزرار مرئية نصّها حفظ/Submit.
+    const saveBtn = iframeDoc.getElementById('InsertButton')
+      || iframeDoc.getElementById('SubmitButton')
+      || Array.from(iframeDoc.querySelectorAll('input[type="submit"], button[type="submit"], button.btn-primary, input[type="button"]'))
+        .find(b => b.offsetParent !== null && !b.disabled && /save|submit|حفظ|insert/i.test((b.innerText || b.value || b.title || '').trim()));
     if (saveBtn) {
-      log('Clicking Save/Submit inside iframe modal');
-      await dispatchClickSequence(saveBtn);
-      const saveDeadline = Date.now() + 10000;
+      log(`Clicking Save/Submit inside iframe modal: "${(saveBtn.value || saveBtn.innerText || '').trim()}"`);
+      clickOnce(saveBtn);
+      const saveDeadline = Date.now() + 12000;
+      let closed = false;
       while (Date.now() < saveDeadline) {
-        if (!isModalOpen(modal) || !document.body.contains(modal)) break;
+        if (!isModalOpen(modal) || !document.body.contains(modal)) { closed = true; break; }
         await sleep(400);
       }
       await sleep(1000);
+      if (!closed) {
+        warn('handlePage2Modal: Save clicked but modal did not close — treating as failure');
+        return { ok: false, reason: 'save-not-confirmed', selected: result.selected };
+      }
       return { ok: true, selected: result.selected };
     } else {
       warn('handlePage2Modal: Save button not found inside iframe modal');
@@ -793,27 +868,39 @@ window.AutoFillEngine = window.AutoFillEngine || {};
         }
         
         selectedName = rand.innerText.trim();
-        const radio = rand.querySelector('input[type="radio"], input[type="checkbox"]');
-        if (radio) await dispatchClickSequence(radio); else await dispatchClickSequence(rand);
+        const rowSelected = await selectLookupRow(rand);
         await sleep(600);
+        if (rowSelected === false) {
+          log('Subgrid row did not get selected — aborting (avoid false success)');
+          const cBtn2 = Array.from(iframeDoc.querySelectorAll('[data-dismiss="modal"]')).filter(b => b.offsetParent !== null).reverse()[0];
+          if (cBtn2) await dispatchClickSequence(cBtn2);
+          await sleep(1000);
+          return { ok: false, reason: 'row-not-selected' };
+        }
         
         log(`Selected: ${selectedName.slice(0, 50)}, clicking اختر...`);
         let selBtn = null;
         for (const d of allDocs) {
           if (!d) continue;
-          const found = Array.from(d.querySelectorAll('button.btn-primary, input.btn-primary, input[value="اختر"], input[value="Select"], button[aria-label="Select"], button[aria-label*="اختر"]')).filter(b => b.offsetParent !== null);
+          const found = Array.from(d.querySelectorAll('button.btn-primary, input.btn-primary, input[value="اختر"], input[value="Select"], button[aria-label="Select"], button[aria-label*="اختر"]')).filter(b => b.offsetParent !== null && !b.disabled);
           if (found.length) { selBtn = found[found.length - 1]; break; }
         }
         if (!selBtn) {
           for (const d of allDocs) {
             if (!d) continue;
-            const modalClose = Array.from(d.querySelectorAll('[data-dismiss="modal"]')).find(b => b.offsetParent !== null && /اختر|select/i.test(b.innerText));
+            const modalClose = Array.from(d.querySelectorAll('[data-dismiss="modal"]')).find(b => b.offsetParent !== null && !b.disabled && /اختر|select/i.test(b.innerText));
             if (modalClose) { selBtn = modalClose; break; }
           }
         }
         if (selBtn) {
           try { selBtn.focus(); } catch(_) {}
           await dispatchClickSequence(selBtn);
+        } else {
+          log('Select button not found/disabled after row selection — aborting (avoid false success)');
+          const cBtn3 = Array.from(iframeDoc.querySelectorAll('[data-dismiss="modal"]')).filter(b => b.offsetParent !== null).reverse()[0];
+          if (cBtn3) await dispatchClickSequence(cBtn3);
+          await sleep(1000);
+          return { ok: false, reason: 'select-btn-not-found' };
         }
         await sleep(2000);
       } else {
@@ -834,25 +921,33 @@ window.AutoFillEngine = window.AutoFillEngine || {};
     }
     
     log('Clicking Save on primary modal...');
-    const subBtn = iframeDoc.getElementById('InsertButton') || iframeDoc.getElementById('SubmitButton') || Array.from(iframeDoc.querySelectorAll('input[type="submit"], button.btn-primary')).find(b => b.offsetParent !== null && /save|submit|حفظ|insert/i.test(b.innerText || b.value || b.title));
+    const subBtn = iframeDoc.getElementById('InsertButton') || iframeDoc.getElementById('SubmitButton') || Array.from(iframeDoc.querySelectorAll('input[type="submit"], button.btn-primary, input[type="button"]')).find(b => b.offsetParent !== null && !b.disabled && /save|submit|حفظ|insert/i.test(b.innerText || b.value || b.title));
     if (subBtn) {
-      await dispatchClickSequence(subBtn);
+      clickOnce(subBtn);
       log('Waiting for primary modal to close...');
+      let closed = false;
       const startClose = Date.now();
       while (Date.now() - startClose < 15000) {
-        if (targetIframe && targetIframe.offsetParent === null) { log('Primary modal closed.'); break; }
+        if ((targetIframe && targetIframe.offsetParent === null) || !document.body.contains(targetIframe)) { closed = true; log('Primary modal closed.'); break; }
         await sleep(500);
       }
       await sleep(1500);
+      if (!closed) {
+        warn('Subgrid save did not close the modal — treating as failure');
+        return { ok: false, reason: 'save-not-confirmed', name: selectedName };
+      }
       return { ok: true, name: selectedName };
     }
-    return { ok: false };
+    return { ok: false, reason: 'save-btn-not-found' };
   }
 
   // Export to namespace and global scope for 100% backward compatibility
   const Lookups = {
     findSafeLookupButton,
     dispatchClickSequence,
+    clickOnce,
+    selectLookupRow,
+    findModalSaveButton,
     waitForModalCloseIfOpen,
     waitForModalIframe,
     fillLookupModal,

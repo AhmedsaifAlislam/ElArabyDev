@@ -214,7 +214,7 @@ function calculateTotalSparePartsPrice() {
   - النتائج: `table tr` داخل `.modal-body` (نص الصف = `CODE - (الوصف)`).
   - أزرار: `.modal-footer` → Close / Select / Cancel. زر الاختيار `aria-label="Select"`، الإلغاء `aria-label="Cancel"`.
   - ترقيم: `li` (`1 2 3 … 120`) أو `a[data-page="N"][aria-label="page N"]`.
-  - طريقة الاختيار: نقر الصف ثم زر Select. **(محلول — 2026-10-19:** البوابة تربط اختيار الصف بـ **`PointerEvent` حقيقي**؛ إرسال `MouseEvent` بنوع `pointerdown` لا يُفعّل المعالج فيبقى زر «اختر» `disabled`. الحل: إرسال `PointerEvent('pointerdown'/'pointerup')` — مطبَّق في `dispatchClickSequence` بـ `engine-lookups.js`).**
+  - طريقة الاختيار: نقر الصف ثم زر Select. **(محلول — 2026-10-19:** صفوف مودالات الصفحة الثانية تستخدم `span[role="checkbox"]` وهو **عنصر تبديل (toggle)**: **نقرة واحدة** تُحدده، و**نقرتان متتاليتان تُلغي التحديد** ⇒ يبقى زر «اختر» `disabled`. القواعد: (1) انقر **مرة واحدة** على الـ `span` (أو `<td data-th="Select">`) — **لا** على `<tr>`؛ (2) **لا تستخدم `dispatchClickSequence()`** لاختيار الصفوف لأنها تُطلق نوعين من النقر (`MouseEvent('click')` + `el.click()`) — استخدم `clickOnce()` / `selectLookupRow()` في `engine-lookups.js`؛ (3) تحقّق من `aria-checked="true"` قبل المتابعة.**
 - **قيد مهم:** CSS/`browser_query` لا تخترق iframe — للفحص الآلي يفتح الـ URL في تبويب أو يقرأ من `collectAllDocs`.
 - **التحقق من الفلترة:** القائمة تعرض **كل** أكواد المشاكل (كل الفئات، ~1200 كود/120 صفحة) مرتبة أبجديًا — **ليست مفلترة حسب المنتج**. الأكواد تبدأ بـ `AC*` ثم `AF*` ثم `AL*`.
 
@@ -229,10 +229,28 @@ function calculateTotalSparePartsPrice() {
   ويُعرض **فورًا بلا بحث** (مثال: «3 records found»).
 - **صف الفني:** `<tr data-id="<GUID>" data-entity="contact" data-name="…">` والاختيار عبر
   `span[role="checkbox"][aria-checked]` — **لا يوجد** `input[type=radio]` ولا `input[type=checkbox]`.
-- **الاختيار الصحيح:** `PointerEvent` على الـ span ⇒ `aria-checked=true` ⇒ زر «اختر» (`aria-label="Select"`) يُفعَّل
-  ⇒ النقر يملأ `ats_contact_name` + `ats_contact` (GUID) + `ats_contact_entityname="contact"`.
+- **الاختيار الصحيح:** **نقرة واحدة** على الـ `span[role="checkbox"]` ⇒ `aria-checked=true` ⇒ زر «اختر»
+  (`aria-label="Select"`) يُفعَّل ⇒ النقر يملأ `ats_contact_name` + `ats_contact` (GUID) + `ats_contact_entityname="contact"`.
+  ⚠️ نقرتان = إلغاء التحديد (انظر قاعدة الـ toggle أعلاه).
+- **زر الحفظ (مصيدة مهمة):** الحفظ هو `input#InsertButton` (type=button، نصه «حفظ»، مرئي). زر «اختر»
+  (`button.btn-primary`، **مخفي**) يأتي **قبله في ترتيب الـ DOM** — لذلك
+  `iframeDoc.querySelector('#InsertButton, …, button.btn-primary')` يُرجع «اختر» المخفي ولا يُحفظ النموذج أبدًا.
+  **القاعدة:** ابحث بالـ id أولًا (`getElementById('InsertButton')`) أو استخدم `findModalSaveButton(doc)`.
+- **سباق توقيت:** `button.launchentitylookup` قد يظهر بعد تحميل الـ iframe بعدة ثوانٍ — يجب **انتظاره في حلقة**
+  (حتى ~10 ثوانٍ) بدل الاستعلام مرة واحدة.
 - **حقل «المنطقة» غير موجود في DOM** لهذا البلاغ (`#ldv_area_name`/`#ldv_area`/`input[aria-label*="منطقة"]` = لا شيء) —
   المنطقة تُقرأ عبر واجهة البوابة (`readRegionFromPage` → `_api/incidents` → `_api/accounts._ldv_area_value`).
+
+### مودال «إضافة المشاكل الفعلية المستخدمة» (الصفحة الثانية) — تحقق حي 2026-10-19
+
+- نفس البنية تمامًا: مودال خارجي ← iframe (`entityformid=4b0af62b-…`, الكيان `ldv_case_problem`).
+- الحقول: `#ldv_producttype_name` («غساله» — تُملأ تلقائيًا) + `#ats_producttypeproblem_name` (النتيجة) + زر
+  `button.launchentitylookup` («المشاكل الفعلية المستخدمة Launch lookup modal») + `input#InsertButton` («حفظ»).
+- الـ lookup يُعرض **10 صفوف** فورًا: `GI00` (ترصيد بلاغ أرضى) و`SR00/SR01` (مبيعات) و`WM02…WM05` وأخرى.
+  **لا تنسَ استبعاد** `/ترصيد|ارضي|أرضي|بلاغ/`.
+- صف المشكلة: `<tr data-id="…" data-entity="ldv_productproblem" data-name="WM05 - (…)" data-th="Select">`
+  والاختيار عبر `span[role="checkbox"]` — **`handleSubgridIframeModal` كان ينقر الـ `<tr>`** (لا يُحدد شيئًا).
+  **القاعدة:** استخدم `selectLookupRow(row)`.
 
 ### قسم "أكواد الأعطال" (يظهر في أوامر معينة — subgrid في الصفحة)
 

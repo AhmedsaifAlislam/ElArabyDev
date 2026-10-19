@@ -1,8 +1,8 @@
 # تحقيق حي — شورت كت «فني / مشاكل» في الصفحة الثانية (2026-10-19)
 
-> **النطاق:** `control-panel.js::executePage2()` — أزرار «فني فقط» / «مشاكل فقط» / «الكل».
-> **الطريقة:** فحص حي على بوابة El Araby (بلاغ صيانة تجريبي — غساله TOSHIBA، منطقة فايد) عبر أتمتة المتصفح.
-> **الأمان:** لم يُحفظ أي تغيير على البلاغ (فتح مودالات ثم إغلاقها فقط).
+> **النطاق:** `control-panel.js::executePage2()` + مسار المحرّك المستخدم (`engine-lookups.js`, `engine-page2.js`, `engine-page3.js`).
+> **الطريقة:** فحص حي على بوابة El Araby (بلاغ صيانة تجريبي — غساله TOSHIBA، منطقة فايد) عبر أتمتة المتصفح،
+> ثم **تنفيذ التدفق كاملًا** (إضافة فعلية) للتحقق.
 > **الأدلة الخام:** `اكواد/متابعة امر الشغل · Partner Portal صفحة 2 مودال الفني (دليل حي 2026-10-19).html`
 
 ---
@@ -11,63 +11,62 @@
 
 | الاختصار | السلوك المرصود |
 |----------|----------------|
-| **فني فقط** | لا يُضاف فني (أو يُضاف فني غير صحيح) — وأحيانًا بلا أي رسالة خطأ |
-| **مشاكل فقط** | يُبلّغ «تم التعبئة» بغض النظر عن النتيجة الفعلية |
-| **الكل** | نفس المشكلتين مجتمعتين |
-
-> ملاحظة المستخدم: «فني/مشاكل ص2 مش شغالة بكفائة».
+| **فني فقط** | لا يُضاف فني، مع رسالة نجاح وهمية |
+| **مشاكل فقط** | لا تُضاف مشكلة، مع رسالة نجاح وهمية |
+| **الكل** | الاثنان يفشلان |
 
 ---
 
-## 2) الأسباب الجذرية (مُثبتة حيًا أو بالقراءة)
+## 2) الأسباب الجذرية (كلها مُثبتة حيًا)
 
-### 2.1 — قيد PointerEvent (السبب الأهم) — **مُثبت حيًا**
-`engine-lookups.js::dispatchClickSequence()` كان يُرسل `new MouseEvent('pointerdown' / 'pointerup')`.
-البوابة تربط اختيار صفوف الـ lookup (`span[role="checkbox"]`) بـ **`PointerEvent` حقيقي**، فالمعالج لا يُفعَّل ⇒
-`aria-checked` يبقى `false` ⇒ زر **«اختر» (Select) يبقى `disabled`** ⇒ لا يمكن إتمام اختيار الفني.
+### 2.1 — عنصر اختيار الصف خطأ (`handleSubgridIframeModal`)
+صفوف مودال «المشاكل» تُحدَّد عبر `span[role="checkbox"]` داخل
+`<td data-th="Select">`، **ولا يوجد** `input[type=radio]`.
+الكود كان: `if (radio) … else dispatchClickSequence(rand)` حيث `rand` = `<tr>` ⇒ **لا يُحدَّد شيء**،
+ويبقى «اختر» `disabled` (تجربة: `aria-checked` فضل `false` بعد النقر على الـ tr).
 
-مصفوفة التجربة العملية (مودال الفنيين، صف `AC522 & حسام محمد عبدالمنعم`):
+### 2.2 — النقر المزدوج على عنصر «تبديل» (`fillLookupModal.clickRow`)
+`dispatchClickSequence(el)` تُطلق **نقرتين**: `MouseEvent('click')` ثم `el.click()`.
+وبما أن `span[role="checkbox"]` عنصر **toggle**:
+- نقرة واحدة ⇒ `aria-checked=true` + «اختر» يتفعّل ✅
+- نقرتان ⇒ **إلغاء التحديد** ⇒ «اختر» يبقى `disabled` ❌
 
-| الأسلوب | aria-checked | زر «اختر» |
-|---------|--------------|-----------|
-| `MouseEvent('pointerdown')` (السلوك القديم) | `false` | `disabled=true` ❌ |
-| `PointerEvent('pointerdown')` حقيقي | `true` | `disabled=false` ✅ |
-| `keydown/keyup ' '` على الـ span | `true` | `disabled=false` ✅ |
-| `jQuery(span).trigger('click')` | `true` | `disabled=false` ✅ |
+وهذا يفسّر لماذا تعمل lookups الصفحة الأولى (فيها `input[type=radio]` — النقر المزدوج لا يضرّها)
+ولا تعمل lookups الصفحة الثانية (span toggle).
 
-هذا هو القيد الذي كان مكتوبًا في `SHARED_KNOWLEDGE.md` («زر Select يبقى disabled؛ يلزم تعامل خاص») — وقد تم تفسيره.
-
-**بعد الإصلاح (تجربة حية):** نقر «اختر» ملأ:
+### 2.3 — زر الحفظ الخطأ (السبب الأخطر — نجاح وهمي كامل)
+```js
+iframeDoc.querySelector('#InsertButton, #SubmitButton, button[type="submit"], input[type="submit"], button.btn-primary')
 ```
-ats_contact_name       = "AC522 & حسام محمد عبدالمنعم"
-ats_contact            = "eae70e16-4563-f111-a826-70a8a57bf2b2"
-ats_contact_entityname = "contact"
-```
+`querySelector` بقائمة محدّدات يُرجع **أول عنصر في ترتيب الـ DOM** الذي يطابق أي محدّد — وتبيّن أن
+زر **«اختر» المخفي** لمودال الـ lookup يأتي **قبل** زر «حفظ»:
 
-### 2.2 — التقاط مودال الاختيار الخاطئ — **مُثبت حيًا (بنية DOM)**
-مودال «إضافة فني» = مودال خارجي في المستند الرئيسي يحتوي **iframe** (`_portal/modal-form-template-path/…`)،
-ومودال الاختيار `.modal-lookup` يوجد **داخل الـ iframe** — وليس في المستند الرئيسي.
+| الترتيب | العنصر | مرئي | النص |
+|---|---|---|---|
+| i=0 | `button.btn.btn-primary` | ❌ مخفي | «اختر» |
+| i=1 | `input#InsertButton` (type=button) | ✅ | «حفظ» |
 
-`fillLookupModal()` كان يبدأ بـ `docsToSearch = [rootDoc, btn.ownerDocument, document]` (أي المستند الرئيسي أولًا)،
-و`getActiveModal(document)` يلتقط المودال الخارجي (بلا صفوف) ⇒ `visibleItems.length === 0` ⇒
-`{ ok:false, reason:'no-results' }`.
+⇒ النقر يذهب لزر مخفي، **النموذج لا يُحفظ أبدًا**، ثم تُعاد `{ ok:true }` بعد انتهاء مهلة الانتظار.
+هذا هو سبب «الإضافة مش قادرة تتعامل مع المشاكل والفنيين» رغم أن الاختيار قد ينجح.
 
-### 2.3 — اللوحة لا تقرأ «المنطقة»
-`executePage2()` كانت تنادي `selectRandomTechnician(null)` (بلا منطقة) — بينما المحرّك ينادي
-`selectRandomTechnician(targetTech, targetRegion)`.
-⇒ لا يُستخدم `regionTechMap` (L2) ⇒ سقوط إلى L3 (فني عشوائي من `technicianRoster`) أو فشل.
+### 2.4 — سباق توقيت على زر الـ lookup
+`button.launchentitylookup` داخل الـ iframe يظهر **بعد** تحميل الـ body بثوانٍ.
+الاستعلام مرة واحدة بعد `sleep(600)` كان يفشل أحيانًا ⇒ `lookup-btn-not-found` (رُصد فعليًا أثناء الاختبار).
 
-كما أن حقول «المنطقة» **غير موجودة في DOM** للبلاغ (تم التحقق: `#ldv_area_name` / `#ldv_area` /
-`input[aria-label*="منطقة"]` = لا شيء) — فالمنطقة تُقرأ عبر واجهة البوابة
-(`/_api/incidents(...)` → `/_api/accounts(...) → _ldv_area_value`) أي عبر `readRegionFromPage()`.
+### 2.5 — جذر مودال الاختيار
+مودال الاختيار `.modal-lookup` داخل **iframe النموذج** (وليس المستند الرئيسي).
+`getActiveModal(document)` يلتقط المودال الخارجي (بلا صفوف) ⇒ `no-results`.
 
-### 2.4 — خريطة منطقة بقيمة فارغة تمنع الاحتياطي — **مُثبت بالقراءة**
-`content-script.js` يلتقط المنطقة تلقائيًا عند التحميل ويسجّلها بـ `regionTechMap[reg] = ''`.
-وفي `resolveTechnician()` كان الشرط `if (found)` ⇒ يعيد `{ name: '' }` ⇒ `selectRandomTechnician` يرى اسمًا فارغًا
-⇒ `{ ok:false }` ⇒ **لا يُجرَّب L3 إطلاقًا** (حلقة مسدودة: لا فني ⇒ لا تحديث للخريطة ⇒ لا فني أبدًا).
+### 2.6 — اللوحة لا تقرأ المنطقة
+`executePage2` كانت تنادي `selectRandomTechnician(null)` بلا منطقة ⇒ لا يُستخدم `regionTechMap` (L2).
+وحقول «المنطقة» غير موجودة في DOM لهذا البلاغ ⇒ القراءة عبر `readRegionFromPage()` (واجهة البوابة).
 
-### 2.5 — فشل صامت في اللوحة
-لم تكن اللوحة تفحص `probRes.ok` ولا `techRes.ok`، وكانت تطبع `✅ تم التعبئة` دائمًا ⇒ المستخدم يظن أن الفني أُضيف.
+### 2.7 — خريطة منطقة بقيمة فارغة تمنع الاحتياطي
+`content-script.js` يلتقط المنطقة تلقائيًا ويسجّلها بقيمة `''`.
+`if (found)` كان يعيد `{ name: '' }` ⇒ فشل فوري ولا يُجرَّب L3 ⇒ حلقة مسدودة.
+
+### 2.8 — فشل صامت في اللوحة
+لا فحص لـ `techRes.ok` / `probRes.ok` + طباعة «✅ تم التعبئة» دائمًا.
 
 ---
 
@@ -75,30 +74,49 @@ ats_contact_entityname = "contact"
 
 | # | الملف | التغيير |
 |---|-------|---------|
-| A | `modules/autofill/engine-lookups.js` | `dispatchClickSequence`: استخدام `PointerEvent` حقيقي لأحداث `pointerdown/pointerup` (مع الرجوع إلى `MouseEvent` عند عدم التوفر) |
-| B | `modules/autofill/engine-page2.js` | `resolveTechnician`: تجاهل قيمة الخريطة الفارغة والمتابعة إلى L3 (`if (found && found[1])`) |
-| C | `control-panel.js` | `executePage2`: قراءة المنطقة + `registerRegion` + تمريرها لـ `selectRandomTechnician` + حفظ الاسم في `technicianRoster` + **احتياطي أخير** بفتح مودال الفني واختيار أول متاح (`'*'`) + **إبلاغ صادق** بالنتيجة (نجاح/فشل لكل بند) |
-| D | `modules/autofill/engine-lookups.js` | `fillLookupModal`: تفضيل أي `.modal-lookup` مفتوح فعليًا (في أي مستند/iframe) قبل الرجوع إلى أي مودال عام |
+| 1 | `engine-lookups.js` | `clickOnce()` — نقرة واحدة فقط (بلا تكرار) |
+| 2 | `engine-lookups.js` | `isLookupRowSelected()` + `selectLookupRow()` — نقرة واحدة على `span[role=checkbox]`/td + التحقق من `aria-checked`، وإرجاع `false` عند الفشل |
+| 3 | `engine-lookups.js` | `findModalSaveButton()` — البحث بالـ id أولًا ثم أزرار مرئية نصّها حفظ/Submit |
+| 4 | `engine-lookups.js` | `handlePage2Modal`: انتظار زر الـ lookup (حتى 10s) + حفظ صحيح + **تأكيد إغلاق المودال** (`save-not-confirmed`) |
+| 5 | `engine-lookups.js` | `fillLookupModal`: تفضيل أي `.modal-lookup` مفتوح فعليًا + `selectLookupRow` + رفض المتابعة عند `row-not-selected` / `select-btn-not-found` |
+| 6 | `engine-lookups.js` | `handleSubgridIframeModal`: `selectLookupRow` + زر «اختر» مرئي وغير معطّل فقط + تأكيد الحفظ |
+| 7 | `engine-page3.js` | نفس تصحيح زر الحفظ (موضعان) + تأكيد الإغلاق |
+| 8 | `engine-page2.js` | `resolveTechnician`: `if (found && found[1])` — الرجوع إلى L3 عند خريطة فارغة |
+| 9 | `control-panel.js` | `executePage2`: قراءة المنطقة + `registerRegion` + تمريرها + حفظ الـ roster + احتياطي (أول فني `'*'`) + **إبلاغ صادق** بكل بند |
 
 ---
 
-## 4) التحقق المنفَّذ
+## 4) التحقق الحي الكامل (End-to-End — إضافة فعلية)
 
-- `node --check` نظيف على الملفات الثلاثة ✅
-- `tools/tests/unification-smoke.js` → **86 passed / 0 failed** ✅
+### الفني
+```
+1.add ✅ → 2.modal ✅ → 3.lookup-btn ✅ → 4.lookup-clicked ✅ → 5.lookup-open ✅
+6.rows=3 → 7.selected aria=true → 8.confirmed name="AC522 & حسام محمد عبدالمنعم"
+9.save=InsertButton (نصه «حفظ») → 10.closed=true
+شبكة الفنيين: AC522 & حسام محمد عبدالمنعم  ✅
+```
+
+### المشكلة
+```
+1.add ✅ → 3.lookup-btn ✅ → 5.lookup-open ✅ → 6.items=8 (بعد استبعاد ترصيد/مبيعات)
+7.match="WM05 - (التجفيف لا يعمل)" → 8.selected ✅ → 9.field="WM05 - (التجفيف لا يعمل)"
+10.save=InsertButton → 11.closed=true
+شبكة المشاكل الفعلية: WM05 - (التجفيف لا يعمل)  ✅
+```
+
+> **ملاحظة:** تمت الإضافة على البلاغ التجريبي فعليًا (سجل مشكلة + سجل فني) لإثبات أن التدفق يعمل.
+
+---
+
+## 5) التحقق الآلي
+
+- `node --check` نظيف على كل الملفات المعدّلة ✅
 - `tools/deploy.ps1` ناجح + تطابق `src ↔ deploy` (SHA256) ✅
-- **الأدلة الحية أعلاه** (بنية المودال + مصفوفة PointerEvent + ملء الحقول) ✅
+- `tools/tests/unification-smoke.js` → **86 passed / 0 failed** ✅
 
-## 5) التحقق المتبقّي (يحتاج متصفح الإضافة)
+## 6) ملاحظات متبقّية (منخفضة)
 
-الإضافة غير مثبتة في متصفح الأتمتة المستخدم للفحص، لذا **لم يُشغَّل شورت كت اللوحة نفسه**.
-يلزم: تفعيل التحديث في `edge://extensions` ثم تجربة «فني فقط» على بلاغ ص2 ومتابعة سطر اللوج:
-```
-EXEC_PAGE2: نتيجة الفني: ok=true name=... source=...
-```
-
-## 6) نقاط لم تُعالَج (تحتاج قرارًا)
-
-1. **زر الحفظ داخل الـ iframe:** `handlePage2Modal` يبحث بـ `#InsertButton, #SubmitButton, button[type=submit], input[type=submit], button.btn-primary` — وقد يطابق زر «اختر» للمودال المخفي قبل «حفظ». يحتاج تحققًا حيًا بعد تفعيل الإضافة.
-2. **`window.CFG` ميت:** `getProblemCode()` يقرأ `window.CFG.problemCodes` بينما المحمّل يضع `window._CFG` — القائمة المضمّنة في `engine-page2.js` تطابق `selectors.json` حاليًا، فالنتيجة متطابقة، لكن الربط مكسور.
-3. **ارتفاع نسبة أسماء الفنيين الوسخة في الـ roster:** `extractAndSaveTechnicians` قد تخزّن نص الصف كاملًا (مع الهاتف/الرقم) إذا لم يوجد رابط/خلية عربية نظيفة.
+1. `getProblemCode()` يقرأ `window.CFG.problemCodes` بينما المحمّل يضع `window._CFG`
+   (القائمة المضمّنة تطابق `selectors.json` حاليًا فالنتيجة متطابقة، لكن الربط مكسور).
+2. `extractAndSaveTechnicians` قد يحفظ نص الصف كاملًا (مع الهاتف/الرقم) إذا لم يوجد رابط/خلية عربية نظيفة.
+3. مودال الفني يعرض 3 فنيين فقط حاليًا (مُرشّحين من البوابة) — سلوك البوابة لا الكود.

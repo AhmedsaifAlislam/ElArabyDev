@@ -443,30 +443,44 @@ The form could not be submitted for the following reasons:
 **الأدلة الحية:** `اكواد/متابعة امر الشغل · Partner Portal صفحة 2 مودال الفني (دليل حي 2026-10-19).html`
 + `analysis/page2-technician-shortcut-investigation-2026-10-19.md`.
 
-**الأسباب الجذرية (مُثبتة حيًا):**
-1. **`dispatchClickSequence` كان يرسل `new MouseEvent('pointerdown'/'pointerup')`** — والبوابة تربط اختيار صف الـ lookup
-   (`span[role="checkbox"]`) بـ **`PointerEvent` حقيقي** ⇒ `aria-checked` يبقى `false` ⇒ زر «اختر» يبقى `disabled`
-   (وهو «القيد» الذي كان موثّقًا بلا تفسير في `SHARED_KNOWLEDGE.md` سطر 217).
-2. **جذر المودال:** مودال الاختيار `.modal-lookup` موجود **داخل iframe نموذج الفني** — و`getActiveModal(document)`
+**الأسباب الجذرية (مُثبتة حيًا على البوابة):**
+1. **عنصر الاختيار الخطأ:** صفوف الـ lookup في صفحة 2 تُحدَّد عبر `span[role="checkbox"]`
+   (لا توجد `input[type=radio]`) — و`handleSubgridIframeModal` كان ينقر **`<tr>`** نفسه ⇒ لا يُحدَّد أي شيء.
+2. **النقر المزدوج على عنصر تبديل:** `fillLookupModal.clickRow` كان ينقر الـ span **مرتين**
+   (`dispatchClickSequence` تُطلق `MouseEvent('click')` ثم `el.click()`) — و`span[role="checkbox"]`
+   **عنصر toggle**: نقرة = تحديد، نقرتان = **إلغاء التحديد** ⇒ «اختر» يبقى `disabled`.
+3. **زر الحفظ الخطأ:** `iframeDoc.querySelector('#InsertButton, …, button.btn-primary')` يُرجع **أول عنصر في
+   ترتيب الـ DOM** — وهو زر **«اختر» المخفي** لمودال الـ lookup (قبل «حفظ») ⇒ يُضغط زر مخفي
+   ⇒ **النموذج لا يُحفظ أبدًا**، ومع ذلك تُعاد `{ok:true}`.
+4. **سباق توقيت:** `button.launchentitylookup` داخل الـ iframe يظهر متأخرًا؛ الاستعلام مرة واحدة يفشل
+   ⇒ `lookup-btn-not-found`.
+5. **جذر المودال:** مودال الاختيار `.modal-lookup` موجود **داخل iframe النموذج** — و`getActiveModal(document)`
    كان يلتقط المودال الخارجي (بلا صفوف) ⇒ `{ ok:false, reason:'no-results' }`.
-3. **اللوحة لا تقرأ المنطقة:** `selectRandomTechnician(null)` بلا منطقة ⇒ لا يُستخدم `regionTechMap` (L2)
+6. **اللوحة لا تقرأ المنطقة:** `selectRandomTechnician(null)` بلا منطقة ⇒ لا يُستخدم `regionTechMap` (L2)
    ⇒ سقوط إلى L3 (فني عشوائي) أو فشل.
-4. **خريطة منطقة فارغة:** `regionTechMap[region] = ''` (منطقة مُلتقطة تلقائيًا) كانت تُعامَل كنجاح باسم فارغ
+7. **خريطة منطقة فارغة:** `regionTechMap[region] = ''` (منطقة مُلتقطة تلقائيًا) كانت تُعامَل كنجاح باسم فارغ
    ⇒ تمنع الرجوع إلى L3 (حلقة مسدودة: لا فني ⇒ لا تحديث للخريطة ⇒ لا فني).
-5. **فشل صامت:** اللوحة لم تكن تفحص `techRes.ok` / `probRes.ok` وكانت تطبع «✅ تم التعبئة» دائمًا.
+8. **فشل صامت:** اللوحة كانت تطبع «✅ تم التعبئة» دائمًا بلا فحص `techRes.ok` / `probRes.ok`.
 
 **الحل:**
-- `modules/autofill/engine-lookups.js` — `dispatchClickSequence`: استخدام `PointerEvent` لأحداث pointer (مع fallback `MouseEvent`).
-- `modules/autofill/engine-lookups.js` — `fillLookupModal`: تفضيل أي `.modal-lookup` مفتوح فعليًا (في أي مستند/iframe) قبل المودال العام.
-- `modules/autofill/engine-page2.js` — `resolveTechnician`: `if (found && found[1])` والمتابعة إلى L3 عند قيمة فارغة.
+- `modules/autofill/engine-lookups.js` — إضافة `clickOnce()` و`selectLookupRow()` و`isLookupRowSelected()`
+  و`findModalSaveButton()`؛ اختيار الصف = **نقرة واحدة** على `span[role="checkbox"]` (أو الـ td) **مع التحقق**
+  من `aria-checked`، ورفض المتابعة عند الفشل (`row-not-selected`).
+- `modules/autofill/engine-lookups.js` — `handlePage2Modal`: انتظار زر الـ lookup في حلقة، الحفظ عبر
+  `getElementById('InsertButton')` أولًا، و**تأكيد إغلاق المودال** بعد الحفظ (`save-not-confirmed` عند الفشل).
+- `modules/autofill/engine-lookups.js` — `fillLookupModal`: تفضيل أي `.modal-lookup` مفتوح فعليًا (في أي مستند/iframe).
+- `modules/autofill/engine-lookups.js` — `handleSubgridIframeModal`: اختيار الصف عبر `selectLookupRow`،
+  اختيار زر «اختر» **مرئي وغير معطّل** فقط، وتأكيد إغلاق المودال بعد الحفظ.
+- `modules/autofill/engine-page3.js` — نفس تصحيح زر الحفظ (موضعان) + تأكيد الإغلاق.
+- `modules/autofill/engine-page2.js` — `resolveTechnician`: `if (found && found[1])` لتفعيل الرجوع إلى L3.
 - `control-panel.js` — `executePage2`: قراءة المنطقة + `registerRegion` + تمريرها + حفظ الـ roster
-  + احتياطي أخير (فتح مودال الفني واختيار أول متاح `'*'`) + **إبلاغ صادق** بالنتيجة لكل بند.
+  + احتياطي أخير (أول فني متاح `'*'`) + **إبلاغ صادق** بنتيجة كل بند.
 
-**التحقق:**
-- تحقق حي كامل على البوابة: بعد Select أصبح `ats_contact_name` + `ats_contact` (GUID) + `ats_contact_entityname="contact"`
-  (ثم أُغلق المودال **بدون حفظ**).
-- `node --check` نظيف + `tools/deploy.ps1` + مطابقة `src ↔ deploy` (SHA256) + `unification-smoke` → **86/0**.
-- **المتبقّي:** تشغيل اللوحة فعليًا في متصفح الإضافة (الإضافة غير مثبتة في متصفح الفحص الآلي).
+**التحقق (حي على البوابة — بلاغ تجريبي):**
+- **الفني:** 3 صفوف ⇒ تحديد ⇒ `ats_contact_name` + `ats_contact` (GUID) ⇒ «حفظ» ⇒ **ظهر في شبكة الفنيين**
+  (`AC522 & حسام محمد عبدالمنعم`).
+- **المشكلة:** 8 صفوف بعد استبعاد الترصيد/المبيعات ⇒ `WM05 - (التجفيف لا يعمل)` ⇒ **ظهرت في شبكة المشاكل الفعلية**.
+- `node --check` + `tools/deploy.ps1` + مطابقة `src ↔ deploy` (SHA256) + `unification-smoke` → **86/0**.
 
 **ملاحظات لم تُعالَج (منخفضة):** `getProblemCode()` يقرأ `window.CFG.problemCodes` بينما المحمّل يضع `window._CFG`
 (القائمة المضمّنة تطابق `selectors.json` حاليًا فالنتيجة متطابقة، لكن الربط مكسور).
