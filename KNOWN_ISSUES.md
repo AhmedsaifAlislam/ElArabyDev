@@ -461,6 +461,11 @@ The form could not be submitted for the following reasons:
 7. **خريطة منطقة فارغة:** `regionTechMap[region] = ''` (منطقة مُلتقطة تلقائيًا) كانت تُعامَل كنجاح باسم فارغ
    ⇒ تمنع الرجوع إلى L3 (حلقة مسدودة: لا فني ⇒ لا تحديث للخريطة ⇒ لا فني).
 8. **فشل صامت:** اللوحة كانت تطبع «✅ تم التعبئة» دائمًا بلا فحص `techRes.ok` / `probRes.ok`.
+9. **نقر مزدوج على زر «اضافة المشاكل الفعلية المستخدمة»** ⇒ المودال يُفتح ويُغلق فورًا.
+10. **`handleSubgridIframeModal` كان يمسح كل جداول المستند الرئيسي** بحثًا عن نتائج الاختيار ⇒ يلتقط صفوف
+    شبكات الصفحة (فنيين/مشاكل) ويظنها نتائج بحث، ويكمل بصف خاطئ ثم يفشل.
+11. **الإغلاق عبر** `[...doc.querySelectorAll('[data-dismiss="modal"]')].reverse()[0]` ⇒ قد يكون زر إغلاق
+    **النموذج** فيُقفل النافذة الأولى (وهو ما رصده المستخدم: «يفتح ويُقفل، ويقفل النافذة الأولى»).
 
 **الحل:**
 - `modules/autofill/engine-lookups.js` — إضافة `clickOnce()` و`selectLookupRow()` و`isLookupRowSelected()`
@@ -471,6 +476,11 @@ The form could not be submitted for the following reasons:
 - `modules/autofill/engine-lookups.js` — `fillLookupModal`: تفضيل أي `.modal-lookup` مفتوح فعليًا (في أي مستند/iframe).
 - `modules/autofill/engine-lookups.js` — `handleSubgridIframeModal`: اختيار الصف عبر `selectLookupRow`،
   اختيار زر «اختر» **مرئي وغير معطّل** فقط، وتأكيد إغلاق المودال بعد الحفظ.
+- `modules/autofill/engine-lookups.js` — `handleSubgridIframeModal`: نقرة واحدة على زر الإضافة، اختيار iframe
+  مودال النموذج، **انتظار فتح مودال الاختيار فعليًا**، قراءة الصفوف **منه فقط**، اختيار الصف عبر
+  `selectLookupRow`، «اختر» مرئي وغير معطّل فقط، التحقق أن الحقل امتلأ (`field-not-filled`)، وتأكيد الحفظ.
+- `modules/autofill/engine-lookups.js` — `closeLookupModalOnly()` / `closeFormModal()` بدل الإغلاق العشوائي
+  بـ `[data-dismiss]` المعكوس؛ و`getVisibleItems` يقرأ من مودال الاختيار أولًا.
 - `modules/autofill/engine-page3.js` — نفس تصحيح زر الحفظ (موضعان) + تأكيد الإغلاق.
 - `modules/autofill/engine-page2.js` — `resolveTechnician`: `if (found && found[1])` لتفعيل الرجوع إلى L3.
 - `control-panel.js` — `executePage2`: قراءة المنطقة + `registerRegion` + تمريرها + حفظ الـ roster

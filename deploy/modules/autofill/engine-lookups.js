@@ -383,20 +383,27 @@ window.AutoFillEngine = window.AutoFillEngine || {};
     // ── Try direct pick first (Brand modal shows all items on open) ──
     const getVisibleItems = () => {
       const selectors = ['section.modal.modal-lookup table tbody tr', '.modal table tbody tr', '[role="dialog"] table tbody tr', '.modal [role="row"]', '[role="dialog"] [role="option"]'];
-      let all = [];
-      const searchRoots = [modal, rootDoc, document].filter(Boolean);
-      for (const root of searchRoots) {
+      const readFrom = (root) => {
+        if (!root) return [];
+        const out = [];
         for (const sel of selectors) {
           try {
-            all.push(...Array.from(root.querySelectorAll(sel)).filter(r =>
+            out.push(...Array.from(root.querySelectorAll(sel)).filter(r =>
               r.offsetParent !== null &&
               r.innerText.trim().length > 0 &&
               !/norecords|لاتوجد|no\s*records|لا\s*توجد/i.test(r.innerText.replace(/\s/g, ''))
             ));
           } catch (_) {}
         }
-      }
-      return [...new Set(all)];
+        return out;
+      };
+      // مودال الاختيار أولًا: إن وُجدت صفوف بداخله فهي المصدر الوحيد للنتائج.
+      // (ضمّ المستند الرئيسي كان يُدخل صفوف شبكات الصفحة كأنها نتائج بحث — 2026-10-19)
+      const fromModal = readFrom(modal);
+      if (fromModal.length) return [...new Set(fromModal)];
+      const fromRoot = (rootDoc && rootDoc !== modal) ? readFrom(rootDoc) : [];
+      if (fromRoot.length) return [...new Set(fromRoot)];
+      return [...new Set(readFrom(document !== rootDoc ? document : null))];
     };
 
     // Wait briefly for items to appear without searching
@@ -762,31 +769,69 @@ window.AutoFillEngine = window.AutoFillEngine || {};
     return document.querySelector('section.modal.modal-lookup.in, .modal.show, .modal.in, div[role="dialog"]') || null;
   }
 
+  // ── أدوات مودال الاختيار داخل iframe النموذج ──
+  // ترجع آخر مودال اختيار مفتوح فعليًا (وليس أي مودال عام).
+  function findOpenLookupModal(rootDoc) {
+    if (!rootDoc) return null;
+    try {
+      const list = Array.from(rootDoc.querySelectorAll('.modal-lookup, section.modal.modal-lookup, .modal.modal-lookup'));
+      const open = list.filter(m => isModalOpen(m));
+      return open[open.length - 1] || null;
+    } catch (_) { return null; }
+  }
+
+  // إغلاق مودال الاختيار **وحده** — لا تلمس مودال النموذج.
+  // (الاعتماد على آخر [data-dismiss="modal"] كان يضغط زر إغلاق النموذج نفسه
+  //  فيقفل النافذة الأولى بالخطأ — رُصد حيًا 2026-10-19.)
+  function closeLookupModalOnly(rootDoc) {
+    const lm = findOpenLookupModal(rootDoc);
+    if (!lm) return false;
+    const btn = lm.querySelector('button.form-close, .cancel, [data-dismiss="modal"]');
+    if (btn) { clickOnce(btn); return true; }
+    return false;
+  }
+
+  // إغلاق مودال النموذج عبر زر إغلاقه في رأس المودال فقط.
+  function closeFormModal(formModal) {
+    if (!formModal || !document.body.contains(formModal)) return false;
+    const btn = formModal.querySelector('button.form-close, .modal-header .close, .modal-header [data-dismiss="modal"]');
+    if (btn) { clickOnce(btn); return true; }
+    return false;
+  }
+
   async function handleSubgridIframeModal(btnRegex, targetName, pickRandomIfTargetMissing = true, excludePattern = null, priorityPattern = null) {
     const addBtn = Array.from(document.querySelectorAll('a, button, input[type="button"]'))
       .filter(b => b.offsetParent !== null)
       .find(b => btnRegex.test((b.innerText || b.title || b.value || '').trim()));
 
-    if (!addBtn) return null;
+    if (!addBtn) return { ok: false, reason: 'add-btn-not-found' };
 
     log(`Opening subgrid modal for: ${btnRegex.source}...`);
-    await dispatchClickSequence(addBtn);
-    
-    let iframeDoc = null, targetIframe = null, lookupBtn = null;
-    
-    for (let i = 0; i < 30; i++) {
-      await sleep(500);
-      const iframe = Array.from(document.querySelectorAll('iframe')).find(ifr => ifr.offsetParent !== null && ifr.contentDocument);
-      if (iframe && iframe.contentDocument) {
-        targetIframe = iframe;
-        iframeDoc = iframe.contentDocument;
-        lookupBtn = iframeDoc.querySelector('button.launchentitylookup');
-        const selectEl = iframeDoc.querySelector('select:not([disabled])');
-        if ((lookupBtn && lookupBtn.offsetParent !== null) || (selectEl && selectEl.offsetParent !== null)) break;
-      }
+    // نقرة واحدة فقط: النقر المزدوج على زر الإضافة قد يفتح/يغلق النموذج فورًا.
+    clickOnce(addBtn);
+
+    // انتظر **مودال النموذج** ثم الـ iframe الذي بداخله تحديدًا.
+    // (الاعتماد على أول iframe مرئي في الصفحة كان يلتقط iframe آخر عند وجود أكثر من واحد.)
+    let formModal = null, iframeDoc = null, targetIframe = null, lookupBtn = null;
+
+    for (let i = 0; i < 40; i++) {
+      await sleep(400);
+      formModal = Array.from(document.querySelectorAll('.modal.in, section.modal.in')).find(m => m.querySelector('iframe'));
+      if (!formModal) continue;
+      targetIframe = formModal.querySelector('iframe');
+      if (!targetIframe) continue;
+      try { iframeDoc = targetIframe.contentDocument || targetIframe.contentWindow?.document; } catch(_) { iframeDoc = null; }
+      if (!iframeDoc || !iframeDoc.body) continue;
+      lookupBtn = iframeDoc.querySelector('button.launchentitylookup');
+      const selectEl = iframeDoc.querySelector('select:not([disabled])');
+      if ((lookupBtn && lookupBtn.offsetParent !== null) || (selectEl && selectEl.offsetParent !== null)) break;
     }
-    
-    if (!iframeDoc) return null;
+
+    if (!iframeDoc) {
+      warn('handleSubgridIframeModal: form iframe not found');
+      closeFormModal(formModal);
+      return { ok: false, reason: 'form-modal-not-found' };
+    }
     
     let selectedName = targetName || 'Selected Item';
     const cleanTarget = targetName ? targetName.replace(/\*/g, '') : null;
@@ -810,27 +855,48 @@ window.AutoFillEngine = window.AutoFillEngine || {};
         const results = [];
         docs.forEach(doc => {
           if (!doc) return;
-          const rws = doc.querySelectorAll('table tbody tr, div[role="grid"] tr, table tr:not(:first-child)');
+          const rws = doc.querySelectorAll('table tbody tr, div[role="grid"] tr');
           rws.forEach(r => {
             if (r.offsetParent !== null && r.innerText.trim() && !/norecords|لا توجد/i.test(r.innerText.replace(/\s/g,''))) results.push(r);
           });
         });
-        return results;
+        return [...new Set(results)];
       }
-      const allDocs = [...new Set([...collectDocs(iframeDoc), ...collectDocs(document)])];
-      
-      let items = [];
-      for (let attempt = 0; attempt < 3 && items.length === 0; attempt++) {
-        if (attempt > 0) { log(`Retry #${attempt}: clicking magnifying glass...`); await sleep(1500); }
-        try { lookupBtn.focus(); } catch(_) {}
-        await dispatchClickSequence(lookupBtn);
-        
-        for (let j = 0; j < 16; j++) {
-          await sleep(500);
-          items = getRowsFromDocs(allDocs);
-          if (items.length > 0) break;
+
+      // ── افتح مودال الاختيار بنقرة **واحدة** وانتظر ظهوره فعليًا ──
+      // (النقر المزدوج كان يفتحه ثم يغلقه، فيبدو للمستخدم أنه «يفتح ويُقفل» فورًا)
+      let lookupModal = null;
+      for (let attempt = 0; attempt < 3 && !lookupModal; attempt++) {
+        if (attempt > 0) {
+          log(`Retry #${attempt}: opening lookup again...`);
+          closeLookupModalOnly(iframeDoc);
+          await sleep(800);
+          lookupBtn = iframeDoc.querySelector('button.launchentitylookup') || lookupBtn;
         }
-        if (items.length === 0) await sleep(1000);
+        try { lookupBtn.focus(); } catch(_) {}
+        clickOnce(lookupBtn);
+        const openDeadline = Date.now() + 8000;
+        while (Date.now() < openDeadline) {
+          lookupModal = findOpenLookupModal(iframeDoc);
+          if (lookupModal) break;
+          await sleep(300);
+        }
+      }
+
+      if (!lookupModal) {
+        warn('Lookup modal did not open — aborting');
+        closeFormModal(formModal);
+        return { ok: false, reason: 'lookup-not-opened' };
+      }
+      log('Lookup modal opened.');
+
+      // ── الصفوف من مودال الاختيار **فقط** ──
+      // (كان يمسح كل جداول الصفحة الرئيسية أيضًا فيلتقط صفوف الشبكات ويظنها نتائج بحث)
+      let items = [];
+      for (let j = 0; j < 20; j++) {
+        items = getRowsFromDocs(collectDocs(lookupModal));
+        if (items.length > 0) break;
+        await sleep(300);
       }
       
       // Filter out excluded patterns (e.g. ترصيد for problems)
@@ -861,9 +927,9 @@ window.AutoFillEngine = window.AutoFillEngine || {};
         
         if (!rand) {
           log('No match for "' + cleanTarget + '" in ' + items.length + ' items — skipping');
-          const cBtn = Array.from(iframeDoc.querySelectorAll('[data-dismiss="modal"]')).filter(b => b.offsetParent !== null).reverse()[0];
-          if (cBtn) await dispatchClickSequence(cBtn);
-          await sleep(1000);
+          closeLookupModalOnly(iframeDoc);
+          await sleep(600);
+          closeFormModal(formModal);
           return { ok: false, reason: 'no-match' };
         }
         
@@ -872,21 +938,23 @@ window.AutoFillEngine = window.AutoFillEngine || {};
         await sleep(600);
         if (rowSelected === false) {
           log('Subgrid row did not get selected — aborting (avoid false success)');
-          const cBtn2 = Array.from(iframeDoc.querySelectorAll('[data-dismiss="modal"]')).filter(b => b.offsetParent !== null).reverse()[0];
-          if (cBtn2) await dispatchClickSequence(cBtn2);
-          await sleep(1000);
+          closeLookupModalOnly(iframeDoc);
+          await sleep(600);
+          closeFormModal(formModal);
           return { ok: false, reason: 'row-not-selected' };
         }
         
         log(`Selected: ${selectedName.slice(0, 50)}, clicking اختر...`);
+        // زر «اختر» يُبحث عنه داخل مودال الاختيار فقط (لا في الصفحة الرئيسية)
+        const lookupDocs = [...new Set([...collectDocs(lookupModal), iframeDoc])];
         let selBtn = null;
-        for (const d of allDocs) {
+        for (const d of lookupDocs) {
           if (!d) continue;
           const found = Array.from(d.querySelectorAll('button.btn-primary, input.btn-primary, input[value="اختر"], input[value="Select"], button[aria-label="Select"], button[aria-label*="اختر"]')).filter(b => b.offsetParent !== null && !b.disabled);
           if (found.length) { selBtn = found[found.length - 1]; break; }
         }
         if (!selBtn) {
-          for (const d of allDocs) {
+          for (const d of lookupDocs) {
             if (!d) continue;
             const modalClose = Array.from(d.querySelectorAll('[data-dismiss="modal"]')).find(b => b.offsetParent !== null && !b.disabled && /اختر|select/i.test(b.innerText));
             if (modalClose) { selBtn = modalClose; break; }
@@ -894,21 +962,34 @@ window.AutoFillEngine = window.AutoFillEngine || {};
         }
         if (selBtn) {
           try { selBtn.focus(); } catch(_) {}
-          await dispatchClickSequence(selBtn);
+          clickOnce(selBtn);
         } else {
           log('Select button not found/disabled after row selection — aborting (avoid false success)');
-          const cBtn3 = Array.from(iframeDoc.querySelectorAll('[data-dismiss="modal"]')).filter(b => b.offsetParent !== null).reverse()[0];
-          if (cBtn3) await dispatchClickSequence(cBtn3);
-          await sleep(1000);
+          closeLookupModalOnly(iframeDoc);
+          await sleep(600);
+          closeFormModal(formModal);
           return { ok: false, reason: 'select-btn-not-found' };
         }
-        await sleep(2000);
+        await sleep(1500);
+
+        // تحقق أن الحقل المستهدف امتلأ فعلًا بعد «اختر» (بدل افتراض النجاح)
+        let targetInput = null;
+        try { targetInput = lookupBtn.closest('.input-group')?.querySelector('input') || null; } catch(_) {}
+        const filled = targetInput ? (targetInput.value || '').trim() : '';
+        log(`Lookup target value after Select: "${filled}"`);
+        if (targetInput && !filled) {
+          warn('Target field still empty after Select — aborting');
+          closeLookupModalOnly(iframeDoc);
+          await sleep(600);
+          closeFormModal(formModal);
+          return { ok: false, reason: 'field-not-filled' };
+        }
       } else {
-        log('No items found in lookup! Closing modal.');
-        const closeBtn = Array.from(iframeDoc.querySelectorAll('[data-dismiss="modal"]')).filter(b => b.offsetParent !== null).reverse()[0];
-        if (closeBtn) await dispatchClickSequence(closeBtn);
-        await sleep(1000);
-        return { ok: false };
+        log('No items found in lookup — closing lookup modal only.');
+        closeLookupModalOnly(iframeDoc);
+        await sleep(600);
+        closeFormModal(formModal);
+        return { ok: false, reason: 'no-items' };
       }
     } else {
       const selectEl = iframeDoc.querySelector('select');
