@@ -2,7 +2,7 @@
 // control-panel.js — لوحة التحكم الذكية v1.0
 // بصمة الإصدار: تُطبع في الـ log وتظهر بجانب عنوان اللوحة، للتأكد أن المتصفح
 // حمّل أحدث نسخة من الإضافة (Reload من edge://extensions مطلوب بعد أي نشر).
-const PANEL_BUILD = '2026-10-19.10';
+const PANEL_BUILD = '2026-10-19.11';
 // Floating panel with auto-detecting page tabs
 // =========================================================
 (function () {
@@ -403,6 +403,11 @@ function getCSS() {
         <button class="p2-sc" data-sc="all" style="background:#1a2744;border-color:#2563eb"><span class="sc-icon">⚡</span>الكل</button>
       </div>
     </div>
+    <div id="cp-problem-picker" style="display:none;margin:6px 0 2px;padding:6px;border:1px dashed #f59e0b;border-radius:6px;background:#1a1408">
+      <div class="cp-label" style="margin:0 0 3px;color:#fbbf24">⚠️ الكود المطلوب غير متاح — اختر من المتاح:</div>
+      <select class="cp-select" id="cp-problem-select"></select>
+      <button class="cp-btn cp-btn-exec" id="btn-add-problem" type="button" style="margin-top:4px">➕ إضافة المشكلة المختارة</button>
+    </div>
     <button class="cp-btn cp-btn-exec" id="btn-exec2">▶ تنفيذ يدوي</button>
   </div>
   <div class="cp-tab" data-page="PAGE_3" id="tab-p3">
@@ -709,6 +714,14 @@ function getCSS() {
         runExclusive(shadow, `شورت كت ص2 ${sc}`, () => executePage2(shadow, sc));
       };
     });
+    const addProbBtn = shadow.getElementById('btn-add-problem');
+    if (addProbBtn) {
+      addProbBtn.onclick = () => {
+        logEvent('CLICK', 'نقر على إضافة المشكلة المختارة');
+        runExclusive(shadow, 'إضافة مشكلة مختارة', () => addSelectedProblem(shadow));
+      };
+    }
+    renderProblemOptions(shadow, loadProblemOptions());
     shadow.getElementById('btn-exec3').onclick = () => { logEvent('CLICK', 'نقر على تنفيذ الكل'); runExclusive(shadow, 'تنفيذ الكل', () => executePage3(shadow)); };
     const btnCopyCodes = shadow.getElementById('btn-copy-codes');
     if (btnCopyCodes) {
@@ -1663,6 +1676,80 @@ function getCSS() {
   // ════════════════════════════════════════════
   // PAGE 2
   // ════════════════════════════════════════════
+
+  // ── قائمة اختيار المشكلة ────────────────────────────────────────────────
+  // البوابة تفلتر قائمة المشاكل بنوع المنتج، فكثيرًا لا يحتوي الفلتر على الكود
+  // الذي يطلبه المحرّك/الـ AI. بدل تخمين كود غير موجود، نعرض للمستخدم ما تعرضه
+  // البوابة فعلًا (تُرجَع من handleSubgridIframeModal في available) ليختار بنفسه.
+  const PROBLEM_OPTIONS_KEY = 'cp-problem-options';
+
+  function loadProblemOptions() {
+    try {
+      const raw = localStorage.getItem(PROBLEM_OPTIONS_KEY);
+      const obj = safeParseJSON(raw, null);
+      if (!obj || !Array.isArray(obj.list)) return [];
+      // القائمة صالحة 30 دقيقة فقط — بعدها تكون مرتبطة بأمر شغل آخر
+      if (obj.ts && (Date.now() - obj.ts) > 30 * 60 * 1000) return [];
+      return obj.list.filter(Boolean);
+    } catch (_) { return []; }
+  }
+
+  function saveProblemOptions(options) {
+    try { localStorage.setItem(PROBLEM_OPTIONS_KEY, JSON.stringify({ ts: Date.now(), list: options || [] })); } catch (_) {}
+  }
+
+  function extractProblemCode(label) {
+    const s = String(label || '').trim();
+    const head = s.split(/\s+[-–]\s+/)[0] || s;
+    return head.trim() || s;
+  }
+
+  function renderProblemOptions(shadow, options) {
+    const box = shadow.getElementById('cp-problem-picker');
+    const sel = shadow.getElementById('cp-problem-select');
+    if (!box || !sel) return;
+    const list = (options || []).filter(Boolean);
+    saveProblemOptions(list);
+    if (!list.length) { box.style.display = 'none'; return; }
+    sel.innerHTML = list
+      .map(o => `<option value="${String(o).replace(/"/g, '&quot;')}">${String(o).replace(/</g, '&lt;')}</option>`)
+      .join('');
+    box.style.display = 'block';
+  }
+
+  async function addSelectedProblem(shadow) {
+    const sel = shadow.getElementById('cp-problem-select');
+    const label = sel ? sel.value : '';
+    if (!label) { setStatus(shadow, '⚠️ اختر مشكلة من القائمة أولًا', 'warn'); return; }
+    const code = extractProblemCode(label);
+    logEvent('PROB_PICK', `إضافة مشكلة مختارة: ${label}`);
+    setStatus(shadow, `⏳ جاري إضافة المشكلة: ${code}...`);
+    if (typeof handleSubgridIframeModal !== 'function') {
+      setStatus(shadow, '❌ محرّك الاختيار غير متاح', 'error');
+      return;
+    }
+    try {
+      const res = await handleSubgridIframeModal(
+        /اضاف[ةه]\s*المشاكل\s*الفعلي[ةه]|Add.*Problem/i,
+        code,
+        false,
+        /ترصيد|ارضي|أرضي|بلاغ/i,
+        null
+      );
+      if (res && res.ok) {
+        logEvent('PROB_PICK', `✅ أُضيفت: ${res.name || label}`);
+        setStatus(shadow, `✅ أُضيفت المشكلة: ${res.name || label}`, 'success');
+      } else {
+        const reason = (res && res.reason) || 'سبب غير معروف';
+        logEvent('PROB_PICK', `⚠️ فشل الإضافة: ${reason}`);
+        setStatus(shadow, `⚠️ فشل إضافة "${code}" (${reason})`, 'warn');
+      }
+    } catch (e) {
+      logEvent('PROB_PICK', 'خطأ: ' + (e.message || e));
+      setStatus(shadow, '❌ خطأ: ' + (e.message || ''), 'error');
+    }
+  }
+
   async function executePage2(shadow, shortcutType) {
     logEvent('EXEC_PAGE2', `بدء التنفيذ${shortcutType ? ' [شورت كت: ' + shortcutType + ']' : ''}`);
     setStatus(shadow, '⏳ جاري التنفيذ...');
@@ -1716,6 +1803,8 @@ function getCSS() {
             logEvent('EXEC_PAGE2', `نتيجة المشكلة: ok=${probOk} name=${probLabel} reason=${probReason || '—'}`);
             if (!probOk && probAvailable.length) {
               logEvent('EXEC_PAGE2', 'الأكواد المتاحة في هذه القائمة: ' + probAvailable.join(' | '));
+              renderProblemOptions(shadow, probAvailable);
+              logEvent('EXEC_PAGE2', 'تم عرض قائمة الاختيار السريع — اختر مشكلة واضغط «إضافة المشكلة المختارة»');
             }
           } catch (e) {
             logEvent('EXEC_PAGE2', 'فشل إضافة المشكلة: ' + (e.message || e));
@@ -1782,6 +1871,12 @@ function getCSS() {
         if (addTech) bits.push(techOk ? `✅ فني: ${techLabel}` : '⚠️ فشل الفني');
         outcomeOk = (!addProblems || probOk) && (!addTech || techOk);
         setStatus(shadow, bits.join(' | '), outcomeOk ? 'success' : 'warn');
+      }
+
+      // لا تنتقل للصفحة التالية إذا فشلت المشكلة — اترك المستخدم يختار من القائمة
+      if (addProblems && !probOk) {
+        logEvent('EXEC_PAGE2', 'تم إيقاف الانتقال: المشكلة لم تُضف بعد');
+        return;
       }
 
       // 3. التالي
