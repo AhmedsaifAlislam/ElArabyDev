@@ -233,11 +233,17 @@ window.AutoFillEngine = window.AutoFillEngine || {};
         const { regionTechMap = {} } = await chrome.storage.local.get({ regionTechMap: {} });
         const normRegion = normStr(region);
         const found = Object.entries(regionTechMap).find(([k]) => normStr(k) === normRegion);
-        if (found) {
+        // القيمة قد تكون '' (منطقة مُلتقطة تلقائيًا ولم يُسند لها فني بعد) =>
+        // نتجاهلها ونكمل إلى L3 بدل الفشل الفوري (2026-10-19).
+        if (found && found[1]) {
           log(`[TECHNICIAN] region="${region}" resolved="${found[1]}" source=region_mapping`);
           return { name: found[1], source: 'region_mapping' };
         }
-        log(`[TECHNICIAN] region="${region}" not found in regionTechMap (${Object.keys(regionTechMap).length} entries)`);
+        if (found) {
+          log(`[TECHNICIAN] region="${region}" mapped to an empty technician — falling back to L3`);
+        } else {
+          log(`[TECHNICIAN] region="${region}" not found in regionTechMap (${Object.keys(regionTechMap).length} entries)`);
+        }
       } catch(e) {
         warn('[TECHNICIAN] regionTechMap read failed:', e.message);
       }

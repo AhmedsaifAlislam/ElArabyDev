@@ -1,7 +1,7 @@
 # المشاكل المعروفة — Known Issues
 # El Araby System — Known Issues & Solutions
 
-> **آخر تحديث:** 2026-10-18
+> **آخر تحديث:** 2026-10-19
 
 ---
 
@@ -431,6 +431,45 @@ The form could not be submitted for the following reasons:
 **التحقق:**
 - `node tools/tests/portal-write-check.js` → 17 passed, 0 failed.
 - مطابقة `src` ↔ `deploy` (SHA256) بعد النشر.
+
+---
+
+## محلول مؤخراً — الموجة 7: شورت كت الصفحة 2 «الفني / المشاكل» (2026-10-19)
+
+### 24. «فني فقط» لا يُضيف فنيًا — قيد PointerEvent + جذر مودال خاطئ (حرجة)
+
+**الأعراض:** شورت كت «فني» في الصفحة الثانية لا يُضيف فنيًا (أو يُضيف فنيًا غير صحيح)، و«مشاكل» تُبلّغ نجاحًا دون التحقق من النتيجة.
+
+**الأدلة الحية:** `اكواد/متابعة امر الشغل · Partner Portal صفحة 2 مودال الفني (دليل حي 2026-10-19).html`
++ `analysis/page2-technician-shortcut-investigation-2026-10-19.md`.
+
+**الأسباب الجذرية (مُثبتة حيًا):**
+1. **`dispatchClickSequence` كان يرسل `new MouseEvent('pointerdown'/'pointerup')`** — والبوابة تربط اختيار صف الـ lookup
+   (`span[role="checkbox"]`) بـ **`PointerEvent` حقيقي** ⇒ `aria-checked` يبقى `false` ⇒ زر «اختر» يبقى `disabled`
+   (وهو «القيد» الذي كان موثّقًا بلا تفسير في `SHARED_KNOWLEDGE.md` سطر 217).
+2. **جذر المودال:** مودال الاختيار `.modal-lookup` موجود **داخل iframe نموذج الفني** — و`getActiveModal(document)`
+   كان يلتقط المودال الخارجي (بلا صفوف) ⇒ `{ ok:false, reason:'no-results' }`.
+3. **اللوحة لا تقرأ المنطقة:** `selectRandomTechnician(null)` بلا منطقة ⇒ لا يُستخدم `regionTechMap` (L2)
+   ⇒ سقوط إلى L3 (فني عشوائي) أو فشل.
+4. **خريطة منطقة فارغة:** `regionTechMap[region] = ''` (منطقة مُلتقطة تلقائيًا) كانت تُعامَل كنجاح باسم فارغ
+   ⇒ تمنع الرجوع إلى L3 (حلقة مسدودة: لا فني ⇒ لا تحديث للخريطة ⇒ لا فني).
+5. **فشل صامت:** اللوحة لم تكن تفحص `techRes.ok` / `probRes.ok` وكانت تطبع «✅ تم التعبئة» دائمًا.
+
+**الحل:**
+- `modules/autofill/engine-lookups.js` — `dispatchClickSequence`: استخدام `PointerEvent` لأحداث pointer (مع fallback `MouseEvent`).
+- `modules/autofill/engine-lookups.js` — `fillLookupModal`: تفضيل أي `.modal-lookup` مفتوح فعليًا (في أي مستند/iframe) قبل المودال العام.
+- `modules/autofill/engine-page2.js` — `resolveTechnician`: `if (found && found[1])` والمتابعة إلى L3 عند قيمة فارغة.
+- `control-panel.js` — `executePage2`: قراءة المنطقة + `registerRegion` + تمريرها + حفظ الـ roster
+  + احتياطي أخير (فتح مودال الفني واختيار أول متاح `'*'`) + **إبلاغ صادق** بالنتيجة لكل بند.
+
+**التحقق:**
+- تحقق حي كامل على البوابة: بعد Select أصبح `ats_contact_name` + `ats_contact` (GUID) + `ats_contact_entityname="contact"`
+  (ثم أُغلق المودال **بدون حفظ**).
+- `node --check` نظيف + `tools/deploy.ps1` + مطابقة `src ↔ deploy` (SHA256) + `unification-smoke` → **86/0**.
+- **المتبقّي:** تشغيل اللوحة فعليًا في متصفح الإضافة (الإضافة غير مثبتة في متصفح الفحص الآلي).
+
+**ملاحظات لم تُعالَج (منخفضة):** `getProblemCode()` يقرأ `window.CFG.problemCodes` بينما المحمّل يضع `window._CFG`
+(القائمة المضمّنة تطابق `selectors.json` حاليًا فالنتيجة متطابقة، لكن الربط مكسور).
 
 ---
 

@@ -5,6 +5,35 @@
 > **الإصدار:** يتبع [Semantic Versioning](https://semver.org/)
 ---
 
+## [2026-10-19] — الموجة 7: إصلاح شورت كت الصفحة 2 («فني فقط» / «مشاكل فقط»)
+
+### إصلاح (Fix) — حرجة (فحص حي على البوابة)
+- **`engine-lookups.js::dispatchClickSequence`:** أُرسل الأحداث `pointerdown`/`pointerup` كـ **`PointerEvent` حقيقي**
+  بدلًا من `new MouseEvent('pointerdown')`. البوابة تربط اختيار صفوف الـ lookup (`span[role="checkbox"]`) بـ `PointerEvent`،
+  فالمعالج لم يكن يُفعَّل ⇒ `aria-checked` يبقى `false` ⇒ زر «اختر» (Select) يبقى `disabled` ⇒ تعذّر إتمام اختيار الفني.
+  (مع fallback إلى `MouseEvent` عند عدم توفر `PointerEvent`.)
+- **`engine-lookups.js::fillLookupModal`:** صار يُفضّل أي `.modal-lookup` مفتوح فعليًا في أي مستند/iframe قبل الرجوع إلى
+  أي مودال عام — لأن مودال اختيار الفني يقع **داخل iframe** نموذج «إضافة فني»، بينما `getActiveModal(document)` كان يلتقط
+  المودال الخارجي (بلا صفوف) ⇒ `{ ok:false, reason:'no-results' }`.
+- **`engine-page2.js::resolveTechnician`:** القيمة الفارغة في `regionTechMap` (منطقة مُلتقطة تلقائيًا بلا فني) كانت تُعامَل
+  كنجاح باسم فارغ ⇒ تمنع الرجوع إلى L3. الشرط أصبح `if (found && found[1])` مع تسجيل الحالة.
+- **`control-panel.js::executePage2`:** قراءة المنطقة عبر `AutoFillEngine.Page2.readRegionFromPage()` + `registerRegion()`
+  + تمرير المنطقة إلى `selectRandomTechnician(null, region)` + حفظ الاسم في `technicianRoster` + **احتياطي أخير** يفتح
+  مودال الفني ويختار أول متاح (`'*'`) — و**إبلاغ صادق** بنتيجة كل بند بدل «✅ تم التعبئة» الدائمة.
+
+### توثيق (Docs)
+- `SHARED_KNOWLEDGE.md`: حُلّ «القيد» القديم (زر Select يبقى disabled) بتفسيره وربطه بـ `PointerEvent`، وأُضيفت بنية مودال
+  «إضافة فني» (iframe + `#ats_contact_name`/`#ats_contact` + صف `span[role="checkbox"]`).
+- `KNOWN_ISSUES.md`: بند **24** (الموجة 7) بالأسباب الجذرية الخمسة والدلائل.
+- `analysis/page2-technician-shortcut-investigation-2026-10-19.md`: التحقيق التفصيلي.
+- `اكواد/متابعة امر الشغل · Partner Portal صفحة 2 مودال الفني (دليل حي 2026-10-19).html`: الأدلة الخام (محلي — مُستثنى من git).
+
+### تحقق (Verification)
+- فحص حي: بعد Select أصبح `ats_contact_name` + `ats_contact` (GUID) + `ats_contact_entityname="contact"` ثم أُغلق المودال **بدون حفظ**.
+- `node --check` نظيف ✅ | `unification-smoke.js` → **86 passed, 0 failed** ✅ | `deploy.ps1` + مطابقة SHA256 ✅
+
+---
+
 ## [2026-10-19] — متابعة الموجة 4: تنظيف control-panel.js (كود ميّت + اعتماد صريح)
 
 ### صيانة (Maintainability) — بلا تغيير سلوكي

@@ -1685,6 +1685,8 @@ function getCSS() {
       // 2. المشاكل والفنية حسب الشورت كت
       const addProblems = shortcutType === 'prob' || shortcutType === 'all';
       const addTech = shortcutType === 'tech' || shortcutType === 'all';
+      const P2 = (window.AutoFillEngine && window.AutoFillEngine.Page2) || {};
+      let probOk = false, probLabel = '', techOk = false, techLabel = '';
 
       if (addProblems) {
         const device = readDeviceHint();
@@ -1696,7 +1698,16 @@ function getCSS() {
         logEvent('EXEC_PAGE2', `كود المشكلة: ${probCode || 'غير موجود'}`);
         if (probCode && typeof handleSubgridIframeModal === 'function') {
           setStatus(shadow, `⏳ جاري إضافة المشكلة: ${probCode}...`);
-          await handleSubgridIframeModal(/اضاف[ةه]\s*المشاكل\s*الفعلي[ةه]|Add.*Problem/i, probCode, false, /ترصيد|ارضي|أرضي|بلاغ/i, /Premium\s*care|بريميم.?كير|تركيب وتشغيل/i);
+          try {
+            const probRes = await handleSubgridIframeModal(/اضاف[ةه]\s*المشاكل\s*الفعلي[ةه]|Add.*Problem/i, probCode, false, /ترصيد|ارضي|أرضي|بلاغ/i, /Premium\s*care|بريميم.?كير|تركيب وتشغيل/i);
+            probOk = !!(probRes && probRes.ok);
+            probLabel = (probRes && probRes.name) || probCode;
+            logEvent('EXEC_PAGE2', `نتيجة المشكلة: ok=${probOk} name=${probLabel}`);
+          } catch (e) {
+            logEvent('EXEC_PAGE2', 'فشل إضافة المشكلة: ' + (e.message || e));
+          }
+        } else {
+          logEvent('EXEC_PAGE2', 'لا يوجد كود مشكلة — تم التخطي');
         }
         await sleep(2000);
       }
@@ -1704,17 +1715,54 @@ function getCSS() {
       if (addTech) {
         if (typeof selectRandomTechnician === 'function') {
           setStatus(shadow, '⏳ جاري إضافة فني...');
-          logEvent('EXEC_PAGE2', 'إضافة فني');
-          let techRes = await selectRandomTechnician(null);
-          if (!techRes || !techRes.ok) {
-            await sleep(3000);
-            techRes = await selectRandomTechnician(null);
+          // المنطقة: نفس مسار المحرّك (DOM ثم واجهة البوابة) لاختيار الفني الصحيح
+          let region = '';
+          try {
+            if (typeof P2.readRegionFromPage === 'function') region = (await P2.readRegionFromPage()) || '';
+          } catch (e) { logEvent('EXEC_PAGE2', 'تعذّر قراءة المنطقة: ' + (e.message || e)); }
+          logEvent('EXEC_PAGE2', `إضافة فني — المنطقة: ${region || 'غير محددة'}`);
+          if (region && typeof P2.registerRegion === 'function') {
+            try { await P2.registerRegion(region); } catch (_) {}
           }
+          const normTech = (r) => (r && r.ok) ? { ok: true, name: r.name || r.selected || '', source: r.source || '' } : null;
+          let techRes = normTech(await selectRandomTechnician(null, region || null));
+          if (!techRes) {
+            await sleep(3000);
+            techRes = normTech(await selectRandomTechnician(null, region || null));
+          }
+          // احتياطي أخير: افتح مودال الفني واختر أول متاح (wildcard '*')
+          // (يفيد أيضًا في تعبئة roster الفنيين تلقائيًا لمحاولات لاحقة).
+          if (!techRes && typeof window.handlePage2Modal === 'function') {
+            logEvent('EXEC_PAGE2', 'لا يوجد فني مُحلَّل — احتياطي: أول فني متاح من المودال');
+            setStatus(shadow, '⏳ جاري فتح مودال الفني...');
+            try {
+              techRes = normTech(await window.handlePage2Modal(/[اإأ]ضاف[ةه]\s*فن|Add.*Tech/i, '*'));
+            } catch (e) { logEvent('EXEC_PAGE2', 'فشل الاحتياطي: ' + (e.message || e)); }
+          }
+          if (techRes && techRes.name && !/موجود مسبقاً/.test(techRes.name)) {
+            techOk = true;
+            techLabel = techRes.name;
+            try {
+              const { technicianRoster = [] } = await chrome.storage.local.get({ technicianRoster: [] });
+              const cleanN = techRes.name.replace(/\s+/g, ' ').trim();
+              if (cleanN && !technicianRoster.includes(cleanN)) {
+                await chrome.storage.local.set({ technicianRoster: [...technicianRoster, cleanN] });
+              }
+            } catch (_) {}
+            if (region && typeof P2.registerRegion === 'function') {
+              try { await P2.registerRegion(region, techRes.name); } catch (_) {}
+            }
+          }
+          logEvent('EXEC_PAGE2', `نتيجة الفني: ok=${techOk} name=${techLabel || '—'} source=${techRes ? techRes.source : 'failed'}`);
         }
       }
 
       if (addProblems || addTech) {
-        setStatus(shadow, '✅ تم التعبئة', 'success');
+        const bits = [];
+        if (addProblems) bits.push(probOk ? `✅ مشكلة: ${probLabel}` : '⚠️ فشلت المشكلة');
+        if (addTech) bits.push(techOk ? `✅ فني: ${techLabel}` : '⚠️ فشل الفني');
+        const allOk = (!addProblems || probOk) && (!addTech || techOk);
+        setStatus(shadow, bits.join(' | '), allOk ? 'success' : 'warn');
       }
 
       // 3. التالي

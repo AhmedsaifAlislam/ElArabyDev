@@ -214,9 +214,25 @@ function calculateTotalSparePartsPrice() {
   - النتائج: `table tr` داخل `.modal-body` (نص الصف = `CODE - (الوصف)`).
   - أزرار: `.modal-footer` → Close / Select / Cancel. زر الاختيار `aria-label="Select"`، الإلغاء `aria-label="Cancel"`.
   - ترقيم: `li` (`1 2 3 … 120`) أو `a[data-page="N"][aria-label="page N"]`.
-  - طريقة الاختيار: نقر الصف ثم زر Select. **(قيد:** النقر الآلي على صف lookup الفني لا يُفعّل الاختيار — زر Select يبقى disabled؛ يلزم تعامل خاص).**
+  - طريقة الاختيار: نقر الصف ثم زر Select. **(محلول — 2026-10-19:** البوابة تربط اختيار الصف بـ **`PointerEvent` حقيقي**؛ إرسال `MouseEvent` بنوع `pointerdown` لا يُفعّل المعالج فيبقى زر «اختر» `disabled`. الحل: إرسال `PointerEvent('pointerdown'/'pointerup')` — مطبَّق في `dispatchClickSequence` بـ `engine-lookups.js`).**
 - **قيد مهم:** CSS/`browser_query` لا تخترق iframe — للفحص الآلي يفتح الـ URL في تبويب أو يقرأ من `collectAllDocs`.
 - **التحقق من الفلترة:** القائمة تعرض **كل** أكواد المشاكل (كل الفئات، ~1200 كود/120 صفحة) مرتبة أبجديًا — **ليست مفلترة حسب المنتج**. الأكواد تبدأ بـ `AC*` ثم `AF*` ثم `AL*`.
+
+### مودال «إضافة فني» (الصفحة الثانية) — اكتشاف حي 2026-10-19
+
+- **زر الفتح:** `اضافة فنى` (في المستند الرئيسي).
+- **البنية:** مودال خارجي (`section.modal.modal-form.modal-form-insert`) ← بداخله **iframe**
+  (`/_portal/modal-form-template-path/…?refentity=incident&refrel=ats_incident_ats_caseresource_Case`).
+- **حقول الـ iframe:** `#ats_contact_name` (نص، مطلوب) + `#ats_contact` (hidden, GUID) + `#ats_contact_entityname` (hidden)
+  + زر `button.launchentitylookup` («Launch lookup modal») + زر الحفظ `input.submit-btn.btn-primary` («حفظ»).
+- **مهم:** مودال الاختيار (`.modal-lookup`) موجود **داخل الـ iframe نفسه** — ليس في المستند الرئيسي —
+  ويُعرض **فورًا بلا بحث** (مثال: «3 records found»).
+- **صف الفني:** `<tr data-id="<GUID>" data-entity="contact" data-name="…">` والاختيار عبر
+  `span[role="checkbox"][aria-checked]` — **لا يوجد** `input[type=radio]` ولا `input[type=checkbox]`.
+- **الاختيار الصحيح:** `PointerEvent` على الـ span ⇒ `aria-checked=true` ⇒ زر «اختر» (`aria-label="Select"`) يُفعَّل
+  ⇒ النقر يملأ `ats_contact_name` + `ats_contact` (GUID) + `ats_contact_entityname="contact"`.
+- **حقل «المنطقة» غير موجود في DOM** لهذا البلاغ (`#ldv_area_name`/`#ldv_area`/`input[aria-label*="منطقة"]` = لا شيء) —
+  المنطقة تُقرأ عبر واجهة البوابة (`readRegionFromPage` → `_api/incidents` → `_api/accounts._ldv_area_value`).
 
 ### قسم "أكواد الأعطال" (يظهر في أوامر معينة — subgrid في الصفحة)
 

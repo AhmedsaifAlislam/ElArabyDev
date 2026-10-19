@@ -143,11 +143,27 @@ window.AutoFillEngine = window.AutoFillEngine || {};
 
   async function dispatchClickSequence(el) {
     if (!el) return false;
+    const doc = el.ownerDocument || document;
+    const view = doc.defaultView || window;
     try { el.focus(); } catch(_) {}
     try { el.dispatchEvent(new Event('focus', { bubbles: true })); } catch(_) {}
     for (const ev of ['pointerdown', 'mousedown', 'pointerup', 'mouseup', 'click']) {
       try {
-        el.dispatchEvent(new MouseEvent(ev, { bubbles: true, cancelable: true, view: window }));
+        // البوابة (PowerApps) تربط اختيار صفوف الـ lookup (span[role="checkbox"])
+        // بـ PointerEvent حقيقي. `new MouseEvent('pointerdown')` لا يُفعّل المعالج
+        // => الصف لا يُختار ويظل زر «اختر» disabled.
+        // تحقق حي على البوابة 2026-10-19 (مودال الفنيين).
+        const isPointer = ev.startsWith('pointer');
+        const Ctor = (isPointer && typeof view.PointerEvent === 'function') ? view.PointerEvent : MouseEvent;
+        const init = { bubbles: true, cancelable: true, view };
+        if (Ctor === view.PointerEvent) {
+          init.pointerId = 1;
+          init.pointerType = 'mouse';
+          init.isPrimary = true;
+          init.button = 0;
+          init.buttons = ev === 'pointerdown' ? 1 : 0;
+        }
+        el.dispatchEvent(new Ctor(ev, init));
       } catch(_) {}
     }
     try {
@@ -252,14 +268,26 @@ window.AutoFillEngine = window.AutoFillEngine || {};
     // Wait for modal to appear — search across rootDoc, btn.ownerDocument, and top document
     let modal = null;
     const docsToSearch = [...new Set([rootDoc, btn.ownerDocument, document].filter(Boolean))];
+    // مودال الـ lookup قد يكون داخل iframe الخاص بنموذج (مثل «اضافة فنى»)، بينما
+    // getActiveModal على المستند الرئيسي يلتقط المودال الخارجي (بلا صفوف).
+    // لذا نُفضّل أي `.modal-lookup` مفتوح فعليًا قبل الرجوع لأي مودال عام (2026-10-19).
+    const findOpenLookup = (d) => {
+      try {
+        const list = Array.from(d.querySelectorAll('.modal-lookup, section.modal.modal-lookup'));
+        const open = list.filter(m => isModalOpen(m));
+        return open[open.length - 1] || null;
+      } catch (_) { return null; }
+    };
     const deadline = Date.now() + 8000;
     while (Date.now() < deadline) {
       for (const d of docsToSearch) {
-        modal = getActiveModal(d);
-        if (modal) {
-          rootDoc = d;
-          break;
-        }
+        const lm = findOpenLookup(d);
+        if (lm) { modal = lm; rootDoc = d; break; }
+      }
+      if (modal) break;
+      for (const d of docsToSearch) {
+        const m = getActiveModal(d);
+        if (m) { modal = m; rootDoc = d; break; }
       }
       if (modal) break;
       await sleep(300);
