@@ -1,5 +1,8 @@
 // =========================================================
 // control-panel.js — لوحة التحكم الذكية v1.0
+// بصمة الإصدار: تُطبع في الـ log وتظهر بجانب عنوان اللوحة، للتأكد أن المتصفح
+// حمّل أحدث نسخة من الإضافة (Reload من edge://extensions مطلوب بعد أي نشر).
+const PANEL_BUILD = '2026-10-19.9';
 // Floating panel with auto-detecting page tabs
 // =========================================================
 (function () {
@@ -168,11 +171,11 @@ const escapeHtml = s => String(s ?? "").replace(/&/g, "&amp;").replace(/</g, "&l
     if (!isWorkOrderPage()) return;
     if (!await ensureReady()) return;
     if (document.getElementById(PANEL_ID)) return;
-    logEvent('INIT', 'بدء تحميل لوحة التحكم');
+    logEvent('INIT', 'بدء تحميل لوحة التحكم — build ' + PANEL_BUILD);
     await loadProductsDb();
     injectPanel();
     observePageChanges();
-    logEvent('INIT', 'تم تحميل لوحة التحكم');
+    logEvent('INIT', 'تم تحميل لوحة التحكم — build ' + PANEL_BUILD);
   }
 
   function loadState() {
@@ -363,7 +366,7 @@ function getCSS() {
   function getHTML() {
     return `
 <div class="cp-header" id="cp-header">
-  <span class="cp-title">⚙ لوحة التحكم</span>
+  <span class="cp-title">⚙ لوحة التحكم <span style="opacity:.55;font-weight:400;font-size:10px">b${PANEL_BUILD}</span></span>
   <div style="display:flex;align-items:center;gap:2px">
     <button class="cp-dock" id="cp-dock" title="إرساء">⛶</button>
     <button class="cp-toggle" id="cp-toggle" title="تصغير">−</button>
@@ -1702,7 +1705,7 @@ function getCSS() {
             const probRes = await handleSubgridIframeModal(/اضاف[ةه]\s*المشاكل\s*الفعلي[ةه]|Add.*Problem/i, probCode, false, /ترصيد|ارضي|أرضي|بلاغ/i, /Premium\s*care|بريميم.?كير|تركيب وتشغيل/i);
             probOk = !!(probRes && probRes.ok);
             probLabel = (probRes && probRes.name) || probCode;
-            logEvent('EXEC_PAGE2', `نتيجة المشكلة: ok=${probOk} name=${probLabel}`);
+            logEvent('EXEC_PAGE2', `نتيجة المشكلة: ok=${probOk} name=${probLabel} reason=${(probRes && probRes.reason) || '—'}`);
           } catch (e) {
             logEvent('EXEC_PAGE2', 'فشل إضافة المشكلة: ' + (e.message || e));
           }

@@ -800,6 +800,7 @@ window.AutoFillEngine = window.AutoFillEngine || {};
   }
 
   async function handleSubgridIframeModal(btnRegex, targetName, pickRandomIfTargetMissing = true, excludePattern = null, priorityPattern = null) {
+    log('[subgrid build 2026-10-19.9] single-click lookup + rows from lookup modal only');
     const addBtn = Array.from(document.querySelectorAll('a, button, input[type="button"]'))
       .filter(b => b.offsetParent !== null)
       .find(b => btnRegex.test((b.innerText || b.title || b.value || '').trim()));
