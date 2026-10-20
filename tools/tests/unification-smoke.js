@@ -469,6 +469,21 @@ function load(sandbox, file) {
   ok(/بانتظار اختيار «تمت الصيانة»/.test(cpsrc),
      'control-panel.js: ينتظر إغلاق نافذة الحالة قبل فتح مودال الأكواد');
 
+  console.log('-- 18) regression: الصفحة الثالثة — مطابقة دقيقة + حزمة v2 + قطع شائعة --');
+  ok(!/\|\|\s*rows\[0\]/.test(cpsrc), 'control-panel.js: أُزيل اختيار «أول صف» الأعمى');
+  ok(/function scoreLookupRow\s*\(/.test(cpsrc), 'control-panel.js: scoreLookupRow (مطابقة بالنقاط)');
+  ok(/reason:\s*'no-match'/.test(cpsrc), 'control-panel.js: يرجع no-match بدل اختيار خاطئ');
+  ok(/function fillLookupWithPick\s*\(/.test(cpsrc), 'control-panel.js: fillLookupWithPick (اختيار يدوي)');
+  ok(/function parsePartName\s*\(/.test(cpsrc), 'control-panel.js: parsePartName يفكك "CODE _ (NAME)"');
+  ok(/tr\[data-entity="msdyn_inventoryadjustmentproduct"\]/.test(cpsrc), 'control-panel.js: يقرأ صفوف القطع بالمخطط الفعلي');
+  ok(/version:\s*2/.test(cpsrc), 'control-panel.js: حزمة ELARABY_CODES_BUNDLE v2');
+  ok(/حزمة قديمة/.test(cpsrc), 'control-panel.js: يرفض حزمة v1 القديمة');
+  ok(/function showPartsReview\s*\(/.test(cpsrc), 'control-panel.js: لوحة مراجعة القطع قبل اللصق');
+  ok(/ats_warrantystatus/.test(cpsrc), 'control-panel.js: يقرأ/يضبط ضمان صف القطعة');
+  ok(/elaraby_fav_parts/.test(cpsrc), 'control-panel.js: القطع الشائعة محفوظة محليًا');
+  ok(/lookup-not-committed/.test(cpsrc), 'control-panel.js: تحقق GUID بعد اختيار lookup');
+  ok(/id="cp-fav-parts"/.test(cpsrc), 'control-panel.js: واجهة القطع الشائعة في التبويب');
+
   console.log('\n=== RESULT: ' + pass + ' passed, ' + fail + ' failed ===');
   if (fail > 0) {
     console.log('Failures:');

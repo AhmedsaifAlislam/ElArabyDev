@@ -75,12 +75,28 @@
 - **الصفوف تُحمَّل عبر AJAX** من `/_services/entity-subgrid-data.json/{guid}` — غير موجودة في HTML المصدر. انتظر تحميل الصفوف قبل قراءتها.
 - **الأعمدة** (عبر `data-attribute`): `msdyn_product` (اسم القطعة)، `ats_quantity`، `ats_availablequantity`، `ats_price`، `ats_totalprice`، `ats_inventorystatus`، `ats_warrantystatus`، `ats_plantid`.
 - **الأسعار** في خلايا `[data-attribute="ats_totalprice"]` — `data-value` عبارة عن **JSON** مثل `{"Value": 1500.0}` (لا تقرأها كنص رقمي مباشر).
+- **مخطط الصف الفعلي (مؤكد من `اكواد/` في 2026-10-20):**
+  ```html
+  <tr data-id="<rowGuid>" data-entity="msdyn_inventoryadjustmentproduct" data-name="CODE _ (الاسم العربي)">
+    <td data-attribute="msdyn_product" data-value='{"Id":"<guid>","Name":"CODE _ (الاسم العربي)"}'>
+    <td data-attribute="ats_price"        data-value='{"Value":165}'>
+    <td data-attribute="ats_quantity"     data-value="1">
+    <td data-attribute="ats_totalprice"   data-value='{"Value":165}'>
+    <td data-attribute="ats_availablequantity" data-value="0">
+    <td data-attribute="ats_inventorystatus"   data-value='{"Value":963400000}' aria-label="Inside">
+    <td data-attribute="ats_warrantystatus"    data-value='{"Value":963400001}' aria-label="Out">
+  </tr>
+  ```
+  - `data-name` = `"CODE _ (NAME)"` ⇒ فكّكه على ` _ ` ثم الأقواس. **البحث في lookup يكون بالكود وحده**، لا بالاسم الكامل.
+  - `msdyn_product.data-value.Id` = GUID القطعة — استخدمه للتحقق من الصف بعد الحفظ وللقطع الشائعة.
+  - **لا يوجد `ats_defectmajor` في صف القطعة** — الاقتران بالعطل موجود فقط داخل نموذج الإضافة. **لا تخمّنه بالكلمات المفتاحية**؛ اعرضه للمراجعة.
+  - الضمان يُقرأ من `ats_warrantystatus`: `963400000` = داخل، `963400001` = خارج.
 
 ### حقول التكلفة والتعليق (كلها في نفس الصفحة)
 
 | الحقل | id / data-logical-name | النوع | ملاحظات |
 |-------|------------------------|-------|---------|
-| تكلفة قطع الغيار المستخدمة | `ldv_originaltotalusedsparepartscost` | money readonly | يُحسب تلقائياً بـ `calculateTotalSparePartsPrice()` **فقط** لو الحالة = `963400000` (مستعمل) |
+| تكلفة قطع الغيار المستخدمة | `ldv_originaltotalusedsparepartscost` | money readonly | يُحسب تلقائياً بـ `calculateTotalSparePartsPrice()` **فقط** لو الحالة = `963400000` (مستعمل) — **وتبقى 0 عندما تكون القطعة داخل الضمان** (تصحيح 2026-10-20) |
 | المبلغ المحصل | `ldv_actualcollectedamount` | money | للمدفوعات/التحصيل |
 | التكلفة الإجمالية | `ldv_originaltotalvisitcost` | money readonly | visit + spare parts |
 | **آخر تعليق** | `ldv_resourcelastcomment` | text (maxlength 2000) | **required** — حقل التعليق في PAGE_3 |

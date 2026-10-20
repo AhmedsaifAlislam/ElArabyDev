@@ -2,7 +2,7 @@
 // control-panel.js — لوحة التحكم الذكية v1.0
 // بصمة الإصدار: تُطبع في الـ log وتظهر بجانب عنوان اللوحة، للتأكد أن المتصفح
 // حمّل أحدث نسخة من الإضافة (Reload من edge://extensions مطلوب بعد أي نشر).
-const PANEL_BUILD = '2026-10-20.13';
+const PANEL_BUILD = '2026-10-20.14';
 // Floating panel with auto-detecting page tabs
 // =========================================================
 (function () {
@@ -339,6 +339,21 @@ function getCSS() {
 .cp-note-item .ni-text{flex:1;line-height:1.4}
 .cp-amount{width:100%;padding:4px 6px;margin:2px 0 4px;background:#0a0f1f;color:#a8c7fa;border:1px solid #232840;border-radius:5px;font-size:11px;direction:ltr;text-align:left}
 .cp-amount::placeholder{color:#334466}
+.cp-parts-review{max-height:230px;overflow:auto;margin:6px 0;padding:6px;border:1px solid #2a3f6b;border-radius:6px;background:#0b1324}
+.cp-part-row{padding:5px 3px;border-bottom:1px solid #16213a;font-size:11px}
+.cp-part-row:last-of-type{border-bottom:none}
+.cp-part-name{color:#cfe0ff;display:block;margin-bottom:3px;word-break:break-word}
+.cp-part-ctl{display:flex;gap:3px;align-items:center;flex-wrap:wrap}
+.cp-part-ctl select{flex:1;min-width:90px;background:#0a0f1f;color:#a8c7fa;border:1px solid #232840;border-radius:4px;font-size:10px;padding:2px}
+.cp-w-btn{border:1px solid #232840;background:#111a2e;color:#8fa6c8;border-radius:4px;font-size:10px;padding:2px 6px;cursor:pointer;font-family:inherit}
+.cp-w-btn.on{background:#14532d;border-color:#22c55e;color:#bbf7d0}
+.cp-w-btn.on-out{background:#4a1d1d;border-color:#ef4444;color:#fecaca}
+.cp-star{border:none;background:transparent;color:#475569;font-size:15px;cursor:pointer;padding:0 2px;line-height:1}
+.cp-star.on{color:#fbbf24}
+.cp-fav-parts{display:flex;flex-wrap:wrap;gap:3px;margin:3px 0 4px}
+.cp-fav-chip{background:#1a2744;border:1px solid #f59e0b;color:#fde68a;border-radius:10px;font-size:10px;padding:2px 6px;cursor:pointer;font-family:inherit}
+.cp-fav-chip small{color:#94a3b8;margin-left:3px}
+#cp-pick{position:fixed;right:10px;bottom:70px;width:300px;max-width:calc(100vw - 20px);z-index:2147483600;background:#0b1324;border:1px solid #f59e0b;border-radius:6px;padding:7px;box-shadow:0 4px 18px #000c}
 .cp-btn-gold{background:linear-gradient(135deg,#f59e0b,#d97706);color:#000;font-size:11px;padding:6px}
 .cp-panel.docked{position:relative!important;bottom:auto!important;right:auto!important;margin:6px 12px;width:auto;max-height:none;min-width:0;max-width:none;min-height:0;resize:none;box-shadow:0 2px 10px rgba(0,0,0,.3)}
 .cp-panel.docked .cp-header{cursor:default}
@@ -425,12 +440,25 @@ function getCSS() {
       </button>
     </div>
     <div id="cp-codes-preview" class="cp-codes-preview-box"></div>
+    <div id="cp-parts-review" class="cp-parts-review" style="display:none"></div>
+    <div id="cp-fav-parts-wrap" style="display:none">
+      <div class="cp-notes-title" style="margin:2px 0">⭐ قطع شائعة</div>
+      <div id="cp-fav-parts" class="cp-fav-parts"></div>
+    </div>
+    <div id="cp-pick" style="display:none">
+      <div id="cp-pick-title" style="font-size:11px;color:#fbbf24;margin-bottom:4px"></div>
+      <select id="cp-pick-select" class="cp-select"></select>
+      <div style="display:flex;gap:4px;margin-top:5px">
+        <button id="cp-pick-ok" class="cp-btn cp-btn-exec" type="button" style="flex:1;font-size:11px">✅ اختيار</button>
+        <button id="cp-pick-skip" class="cp-btn" type="button" style="flex:1;font-size:11px;background:#334466">⏭ تخطّي</button>
+      </div>
+    </div>
     <label class="cp-label">أكواد إضافية (اختيار متعدد):</label>
     <div class="cp-codes" id="cp-codes-list"></div>
     <!-- Manual JSON input (replaces window.prompt) -->
     <div id="cp-manual-json-wrap" style="display:none;margin:8px 0">
       <label class="cp-label">أو الصق JSON يدوياً:</label>
-      <textarea id="cp-manual-json" class="cp-amount" rows="3" placeholder='{"type":"ELARABY_CODES_BUNDLE","version":1,"faultCodes":[...],"spareParts":[...]}'></textarea>
+      <textarea id="cp-manual-json" class="cp-amount" rows="3" placeholder='{"type":"ELARABY_CODES_BUNDLE","version":2,"faultCodes":[...],"spareParts":[...]}'></textarea>
       <div style="display:flex;gap:4px;margin-top:4px">
         <button class="cp-btn cp-btn-exec" id="cp-manual-json-apply" style="flex:1">✅ تطبيق</button>
         <button class="cp-btn" id="cp-manual-json-cancel" style="flex:1;background:#334466">✕ إلغاء</button>
@@ -472,12 +500,17 @@ function getCSS() {
     for (const doc of allDocs) {
       // البحث أولاً في شبكات قطع الغيار المحددة حصراً لتجنب قراءة شبكة أكواد الأعطال (WorkOrder_defect)
       let rows = Array.from(doc.querySelectorAll(
-        '#InventoryAdjustmentProduct_Subgrid table tbody tr, ' +
-        '#InventoryAdjustmentProduct_SubGrid table tbody tr, ' +
-        '#InventoryAdjustmentProductIsLscYes_Subgrid table tbody tr, ' +
-        'div[data-name*="InventoryAdjustmentProduct"] table tbody tr, ' +
-        'div[data-name*="inventoryadjustmentproduct"] table tbody tr'
+        'tr[data-entity="msdyn_inventoryadjustmentproduct"]',
       ));
+      if (rows.length === 0) {
+        rows = Array.from(doc.querySelectorAll(
+          '#InventoryAdjustmentProduct_Subgrid table tbody tr, ' +
+          '#InventoryAdjustmentProduct_SubGrid table tbody tr, ' +
+          '#InventoryAdjustmentProductIsLscYes_Subgrid table tbody tr, ' +
+          'div[data-name*="InventoryAdjustmentProduct"] table tbody tr, ' +
+          'div[data-name*="inventoryadjustmentproduct"] table tbody tr'
+        ));
+      }
 
       if (rows.length === 0) {
         // فحص الجداول التي ترويستها تحتوي صراحة على "قطعة الغيار" ولا تحتوي على "كود العطل"
@@ -505,63 +538,34 @@ function getCSS() {
         if (!rawText || /no\s*records|لا\s*توجد/i.test(rawText)) return;
         if (/sort\s*descending|sort\s*ascending/i.test(rawText) && !tr.querySelector('td[data-attribute]')) return;
 
-        let rawName = tr.getAttribute('data-name') || '';
+        const rowId = tr.getAttribute('data-id') || '';
+        const prodTd = tr.querySelector('td[data-attribute="msdyn_product"]');
+        let productId = '';
+        if (prodTd) {
+          try { productId = JSON.parse(prodTd.getAttribute('data-value') || '{}').Id || ''; } catch(_) {}
+        }
 
-        const codeTd = tr.querySelector('td[data-attribute="ats_productcode"], td[data-attribute="productnumber"], td[data-attribute*="code"]');
-        const prodTd = tr.querySelector('td[data-attribute="msdyn_product"], td[data-attribute*="product"]:not([data-attribute*="code"]):not([data-attribute*="price"])');
+        // الاسم الفعلي كما يخزّنه البورتال: "CODE _ (الاسم العربي)"
+        const rawName = (tr.getAttribute('data-name') || (prodTd && prodTd.getAttribute('aria-label')) || '').trim();
+        const parsed = parsePartName(rawName);
+        let code = parsed.code;
+        let name = parsed.name;
+
+        if (!code) {
+          const codeTd = tr.querySelector('td[data-attribute="ats_productcode"], td[data-attribute="productnumber"]');
+          if (codeTd) code = (codeTd.getAttribute('data-value') || codeTd.innerText || '').trim();
+        }
+        if (!code && !name && prodTd) {
+          const t = (prodTd.innerText || '').trim();
+          if (t) { const p2 = parsePartName(t); code = p2.code; name = p2.name || t; }
+        }
+        if (code) code = code.replace(/[\s_\-–—]+$/, '').trim();
+
         const qtyTd = tr.querySelector('td[data-attribute="ats_quantity"], td[data-attribute="quantity"]');
         const priceTd = tr.querySelector('td[data-attribute="ats_price"]');
         const totalTd = tr.querySelector('td[data-attribute="ats_totalprice"]');
-
-        let code = '';
-        if (codeTd) {
-          code = (codeTd.getAttribute('data-value') || codeTd.innerText || '').trim();
-        }
-
-        let name = '';
-        if (prodTd) {
-          try {
-            const parsed = JSON.parse(prodTd.getAttribute('data-value') || '{}');
-            if (parsed.Name) name = parsed.Name;
-          } catch(_) {}
-          if (!name) {
-            name = (prodTd.getAttribute('data-value') || prodTd.innerText || '').trim();
-          }
-        }
-
-        // استخراج الكود والاسم في حال عدم توفرهما بحقول مخصصة
-        if (!code && !name && rawName) {
-          const parenMatch = rawName.match(/^([^(]+?)\s*\((.+)\)\s*$/);
-          if (parenMatch) {
-            code = parenMatch[1].trim();
-            name = parenMatch[2].trim();
-          } else {
-            const dashMatch = rawName.match(/^([^-]+?)\s*[-_]\s*(.+)$/);
-            if (dashMatch) {
-              code = dashMatch[1].trim();
-              name = dashMatch[2].trim();
-            } else {
-              name = rawName.trim();
-            }
-          }
-        } else if (!name && rawName) {
-          name = rawName.trim();
-        }
-
-        if (!code && name) {
-          const parenMatch = name.match(/^([^(]+?)\s*\((.+)\)\s*$/);
-          if (parenMatch) {
-            code = parenMatch[1].trim();
-          } else {
-            const partsWithSpaces = name.split(/\s+[-–—_]\s+/);
-            if (partsWithSpaces.length > 1) {
-              code = partsWithSpaces[0].trim();
-            }
-          }
-        }
-        if (code) {
-          code = code.replace(/[\s_\-–—]+$/, '').trim();
-        }
+        const wTd = tr.querySelector('td[data-attribute="ats_warrantystatus"]');
+        const invTd = tr.querySelector('td[data-attribute="ats_inventorystatus"]');
 
         let qty = 1;
         if (qtyTd) {
@@ -569,28 +573,45 @@ function getCSS() {
           if (!isNaN(qVal) && qVal > 0) qty = qVal;
         }
 
-        let priceVal = 0;
-        let totalVal = 0;
+        const moneyOf = (td) => {
+          if (!td) return 0;
+          try {
+            const v = JSON.parse(td.getAttribute('data-value') || '{}').Value;
+            if (typeof v === 'number') return v;
+          } catch(_) {}
+          const n = parseFloat((td.getAttribute('data-value') || td.innerText || '0').replace(/[^0-9.]/g, ''));
+          return isNaN(n) ? 0 : n;
+        };
+        let priceVal = moneyOf(priceTd);
+        const totalVal = moneyOf(totalTd);
+        if (priceVal === 0 && totalVal > 0 && qty > 0) priceVal = totalVal / qty;
 
-        if (priceTd) {
-          try { priceVal = JSON.parse(priceTd.getAttribute('data-value') || '{}').Value || 0; } catch(_) {
-            priceVal = parseFloat((priceTd.getAttribute('data-value') || priceTd.innerText || '0').replace(/[^0-9.]/g, '')) || 0;
-          }
-        }
-        if (totalTd) {
-          try { totalVal = JSON.parse(totalTd.getAttribute('data-value') || '{}').Value || 0; } catch(_) {
-            totalVal = parseFloat((totalTd.getAttribute('data-value') || totalTd.innerText || '0').replace(/[^0-9.]/g, '')) || 0;
-          }
-        }
-
-        if (priceVal === 0 && totalVal > 0 && qty > 0) {
-          priceVal = totalVal / qty;
+        // الضمان لكل صف: داخل (in) / خارج (out)
+        let warranty = '';
+        if (wTd) {
+          const aria = (wTd.getAttribute('aria-label') || '').toLowerCase();
+          const raw = wTd.getAttribute('data-value') || '';
+          if (aria.includes('out') || raw.includes('963400001')) warranty = 'out';
+          else if (aria.includes('in') || raw.includes('963400000')) warranty = 'in';
+          else if (/خارج/.test(wTd.innerText || '')) warranty = 'out';
+          else if (/داخل/.test(wTd.innerText || '')) warranty = 'in';
         }
 
-        if ((name || code) && (priceVal > 0 || totalVal > 0 || (rawText && !rawText.includes('كود العطل')))) {
+        let inventoryStatus = '';
+        if (invTd) {
+          const aria = (invTd.getAttribute('aria-label') || '').toLowerCase();
+          inventoryStatus = aria === 'inside' ? 'inside' : aria === 'outside' ? 'outside' : '';
+        }
+
+        if (name || code) {
           parts.push({
             code: code || '',
-            name: name || rawName || '',
+            name: name || '',
+            fullName: rawName || (code && name ? `${code} _ (${name})` : (code || name)),
+            productId: productId || '',
+            rowId: rowId || '',
+            warranty: warranty || '',
+            inventoryStatus: inventoryStatus || '',
             price: priceVal,
             qty: qty,
             total: totalVal || (priceVal * qty)
@@ -703,6 +724,8 @@ function getCSS() {
   }
 
   function bindEvents(shadow) {
+    PANEL_SHADOW = shadow;
+    renderFavParts(shadow);
     shadow.getElementById('cp-toggle').onclick = () => { logEvent('CLICK', 'نقر على زر التبديل'); toggle(shadow); };
     shadow.getElementById('cp-dock').onclick = () => { logEvent('CLICK', 'نقر على زر الإرساء'); toggleDock(shadow); };
     const defaultBtn = shadow.getElementById('btn-default-p1');
@@ -1176,7 +1199,7 @@ function getCSS() {
       }
     }
     if (page === 'PAGE_2') updateDeviceInfo(shadow);
-    if (page === 'PAGE_3') updateDeviceCodes(shadow);
+    if (page === 'PAGE_3') { updateDeviceCodes(shadow); renderFavParts(shadow); }
   }
 
   function detectInstallation() {
@@ -2213,12 +2236,17 @@ function getCSS() {
     const partsRes = readPartsFromGrid();
     const amtVal = shadow ? (shadow.getElementById('cp-amount')?.value?.trim() || readCollectedAmountFromPage()) : readCollectedAmountFromPage();
     const notesVal = readNotesFromPage();
+    const isLscEl = findFirstInFrames('#ldv_islsc');
+    const isLscVal = isLscEl ? String(isLscEl.value || '').trim() : '';
 
     return {
       type: 'ELARABY_CODES_BUNDLE',
-      version: 1,
+      version: 2,
       copiedAt: new Date().toISOString(),
       sourceUrl: location.pathname + location.search,
+      // سياق البلاغ المصدر (للعلم وللعرض — لا يُطبّق تلقائيًا على البلاغ الجديد)
+      sparePartsStatus: readSparePartsStatusFromPage() || '',
+      isLsc: isLscVal,
       faultCodes,
       spareParts: partsRes?.parts || [],
       amount: amtVal || '0',
@@ -2385,7 +2413,384 @@ function getCSS() {
     if (open.length === 0) clearOrphanBackdrops(reason);
   }
 
-  async function fillIframeLookup(iframeDoc, inputId, searchValue) {
+  // ════════════════════════════════════════════════════════════════════════════
+  // مطابقة نصوص دقيقة (بلا اختيار «أول صف» أعمى)
+  // ════════════════════════════════════════════════════════════════════════════
+  let PANEL_SHADOW = null;
+
+  function normalizeAr(s) {
+    return String(s || '').toLowerCase()
+      .replace(/[\u064B-\u0652\u0670]/g, '')
+      .replace(/[أإآٱ]/g, 'ا')
+      .replace(/ى/g, 'ي')
+      .replace(/ة/g, 'ه')
+      .replace(/[_\u2012\u2013\u2014()\[\]:,،.]/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
+  }
+
+  // "CODE _ (NAME)" ⇒ CODE  |  "CODE _ NAME" ⇒ CODE  |  "CODE (NAME)" ⇒ CODE
+  function simplifySearchText(v) {
+    let s = String(v || '').trim();
+    if (!s) return '';
+    let m = s.match(/^(.+?)\s+_\s+/);
+    if (m) return m[1].trim();
+    if (s.includes('(')) s = s.split('(')[0].trim();
+    const parts = s.split(/\s+[-–—]\s+/);
+    return (parts.length > 1 ? parts[0] : s).trim();
+  }
+
+  // يفكك "CODE _ (الاسم العربي)" إلى كود واسم منفصلين
+  function parsePartName(raw) {
+    const s = String(raw || '').trim();
+    if (!s) return { code: '', name: '', fullName: '' };
+    let m = s.match(/^(.+?)\s+_\s+\((.*)\)\s*$/);
+    if (m) return { code: m[1].trim(), name: m[2].trim(), fullName: s };
+    m = s.match(/^(.+?)\s+_\s+(.+)$/);
+    if (m) return { code: m[1].trim(), name: m[2].trim(), fullName: s };
+    m = s.match(/^(.+?)\s*\((.*)\)\s*$/);
+    if (m) return { code: m[1].trim(), name: m[2].trim(), fullName: s };
+    m = s.match(/^(.+?)\s+[-–—]\s+(.+)$/);
+    if (m) return { code: m[1].trim(), name: m[2].trim(), fullName: s };
+    return { code: '', name: s, fullName: s };
+  }
+
+  function scoreLookupRow(rowText, target) {
+    const rt = normalizeAr(rowText);
+    const tt = normalizeAr(target);
+    if (!rt || !tt) return 0;
+    const code = normalizeAr(simplifySearchText(target));
+    if (rt === tt) return 100;
+    if (code && rt === code) return 98;
+    if (code) {
+      const re = new RegExp('(^|\\s)' + code.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '(\\s|$)');
+      if (re.test(rt)) return 95;
+    }
+    if (rt.includes(tt)) return 80;
+    if (code && rt.includes(code)) return 75;
+    const words = tt.split(' ').filter(w => w.length >= 3);
+    if (words.length && words.every(w => rt.includes(w))) return 60;
+    return 0;
+  }
+
+  // الحقل المخفي الذي يحمل GUID الاختيار (ats_x_name ⇒ ats_x)
+  function findIframeLookupGuid(doc, inputId) {
+    if (!doc || !inputId) return null;
+    const base = String(inputId).replace(/_name$/, '');
+    if (!base || base === inputId) return null;
+    try {
+      return doc.getElementById(base) || doc.querySelector(`input[name="${base}"]`) || null;
+    } catch(_) { return null; }
+  }
+
+  async function closeLookupModalInDoc(modal) {
+    if (!modal) return;
+    const btn = modal.querySelector('button.close, [data-dismiss="modal"], button[aria-label*="Close"]');
+    if (btn) clickOnceSafe(btn);
+    else {
+      try { modal.classList.remove('in', 'show'); modal.style.display = 'none'; } catch(_) {}
+    }
+    await sleep(300);
+  }
+
+  // قائمة اختيار سريعة داخل اللوحة (بدل الاختيار الأعمى أو window.prompt)
+  function promptLookupPick(title, options) {
+    const sh = PANEL_SHADOW;
+    const box = sh && sh.getElementById('cp-pick');
+    const sel = sh && sh.getElementById('cp-pick-select');
+    const titleEl = sh && sh.getElementById('cp-pick-title');
+    const list = (options || []).map(o => String(o || '').trim()).filter(Boolean);
+    if (!box || !sel || !list.length) return Promise.resolve(null);
+    if (box._resolve) { try { box._resolve(null); } catch(_) {} }
+
+    sel.innerHTML = '';
+    list.forEach(o => {
+      const opt = document.createElement('option');
+      opt.value = o;
+      opt.textContent = o.length > 80 ? o.slice(0, 80) + '…' : o;
+      sel.appendChild(opt);
+    });
+    if (titleEl) titleEl.textContent = title || 'اختر من المتاح:';
+    box.style.display = 'block';
+
+    return new Promise(resolve => {
+      let done = false;
+      const okBtn = sh.getElementById('cp-pick-ok');
+      const skipBtn = sh.getElementById('cp-pick-skip');
+      let timer = null;
+      const finish = (val) => {
+        if (done) return;
+        done = true;
+        box._resolve = null;
+        box.style.display = 'none';
+        if (okBtn) okBtn.onclick = null;
+        if (skipBtn) skipBtn.onclick = null;
+        if (timer) clearTimeout(timer);
+        resolve(val);
+      };
+      box._resolve = finish;
+      if (okBtn) okBtn.onclick = () => finish(sel.value || null);
+      if (skipBtn) skipBtn.onclick = () => finish(null);
+      timer = setTimeout(() => finish(null), 90000);
+    });
+  }
+
+  // ════════════════════════════════════════════════════════════════════════════
+  // الضمان لكل قطعة (داخل/خارج) — الحقل على مستوى صف الشبكة: ats_warrantystatus
+  // ════════════════════════════════════════════════════════════════════════════
+  function findPartRowOnPage(part) {
+    if (!part) return null;
+    const id = String(part.productId || '').trim().toLowerCase();
+    const code = String(part.code || '').trim().toLowerCase();
+    let rows = [];
+    try { rows = Array.from(document.querySelectorAll('tr[data-entity="msdyn_inventoryadjustmentproduct"]')); } catch(_) {}
+    if (!rows.length) {
+      for (const doc of getShallowDocs()) {
+        try { rows = rows.concat(Array.from(doc.querySelectorAll('tr[data-entity="msdyn_inventoryadjustmentproduct"]'))); } catch(_) {}
+      }
+    }
+    return rows.find(r => {
+      if (id) {
+        const td = r.querySelector('td[data-attribute="msdyn_product"]');
+        if (td && (td.getAttribute('data-value') || '').toLowerCase().includes(id)) return true;
+      }
+      if (code) {
+        const txt = ((r.getAttribute('data-name') || '') + ' ' + (r.innerText || '')).toLowerCase();
+        if (txt.includes(code)) return true;
+      }
+      return false;
+    }) || null;
+  }
+
+  function readRowWarranty(row) {
+    const td = row && row.querySelector('td[data-attribute="ats_warrantystatus"]');
+    if (!td) return '';
+    const aria = (td.getAttribute('aria-label') || '').toLowerCase();
+    if (aria === 'in' || aria.includes('inside')) return 'in';
+    if (aria === 'out' || aria.includes('outside')) return 'out';
+    const raw = td.getAttribute('data-value') || '';
+    if (raw.includes('963400000')) return 'in';
+    if (raw.includes('963400001')) return 'out';
+    const txt = (td.innerText || '').trim();
+    if (/داخل/.test(txt)) return 'in';
+    if (/خارج/.test(txt)) return 'out';
+    return '';
+  }
+
+  // لا ينقر أي شيء: يعدّل فقط لو الشبكة فيها select فعلي، ثم يتحقق من النتيجة.
+  async function applyWarrantyToRow(part, desired) {
+    if (!desired) return { ok: true, skipped: true };
+    const row = findPartRowOnPage(part);
+    if (!row) return { ok: false, reason: 'row-not-found' };
+    const current = readRowWarranty(row);
+    if (current === desired) return { ok: true, already: true };
+    const td = row.querySelector('td[data-attribute="ats_warrantystatus"]');
+    const sel = td && td.querySelector('select');
+    if (sel) {
+      sel.value = desired === 'in' ? '963400000' : '963400001';
+      try { sel.dispatchEvent(new Event('input', { bubbles: true })); } catch(_) {}
+      try { sel.dispatchEvent(new Event('change', { bubbles: true })); } catch(_) {}
+      await sleep(800);
+      if (readRowWarranty(row) === desired) return { ok: true, changed: true };
+    }
+    return { ok: false, reason: 'manual', current };
+  }
+
+  // ════════════════════════════════════════════════════════════════════════════
+  // القطع الشائعة (⭐) — تُحفظ محليًا وتظهر في تبويب الصفحة الثالثة
+  // ════════════════════════════════════════════════════════════════════════════
+  const FAV_PARTS_KEY = 'elaraby_fav_parts';
+
+  function loadFavParts() {
+    const v = safeParseJSON(localStorage.getItem(FAV_PARTS_KEY), {});
+    return (v && typeof v === 'object' && !Array.isArray(v)) ? v : {};
+  }
+  function saveFavParts(map) {
+    try { localStorage.setItem(FAV_PARTS_KEY, JSON.stringify(map)); } catch(_) {}
+  }
+  function favKeyOf(p) {
+    return String((p && (p.productId || p.code || p.name)) || '').trim();
+  }
+  function isFavPart(p) {
+    const k = favKeyOf(p);
+    return !!(k && loadFavParts()[k]);
+  }
+  function toggleFavPart(p) {
+    const k = favKeyOf(p);
+    if (!k) return false;
+    const map = loadFavParts();
+    if (map[k]) { delete map[k]; saveFavParts(map); return false; }
+    map[k] = {
+      code: p.code || '', name: p.name || '', productId: p.productId || '',
+      count: 0, warranty: p.warranty || '',
+      majorCode: p.majorCode || '', subCode: p.subCode || '', at: Date.now()
+    };
+    saveFavParts(map);
+    return true;
+  }
+  function bumpFavUsage(p) {
+    const k = favKeyOf(p);
+    if (!k) return;
+    const map = loadFavParts();
+    if (!map[k]) return;
+    map[k].count = (map[k].count || 0) + 1;
+    if (p.warranty) map[k].warranty = p.warranty;
+    if (p.majorCode) map[k].majorCode = p.majorCode;
+    if (p.subCode) map[k].subCode = p.subCode;
+    saveFavParts(map);
+  }
+
+  function renderFavParts(shadow) {
+    const sh = shadow || PANEL_SHADOW;
+    if (!sh) return;
+    const wrap = sh.getElementById('cp-fav-parts-wrap');
+    const box = sh.getElementById('cp-fav-parts');
+    if (!wrap || !box) return;
+    const map = loadFavParts();
+    const list = Object.entries(map)
+      .sort((a, b) => ((b[1].count || 0) - (a[1].count || 0)) || ((b[1].at || 0) - (a[1].at || 0)))
+      .slice(0, 12);
+    if (!list.length) { wrap.style.display = 'none'; box.innerHTML = ''; return; }
+    wrap.style.display = 'block';
+    box.innerHTML = '';
+    list.forEach(([k, v]) => {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'cp-fav-chip';
+      b.textContent = (v.code || v.name || k) + (v.count ? ` ×${v.count}` : '');
+      b.title = v.name || v.code || k;
+      b.onclick = () => quickAddFavoritePart(sh, k);
+      box.appendChild(b);
+    });
+  }
+
+  async function quickAddFavoritePart(shadow, key) {
+    const fav = loadFavParts()[key];
+    if (!fav) return;
+    await runExclusive(shadow, `إضافة ${fav.code || fav.name}`, async () => {
+      let faultCode = fav.majorCode ? { majorCode: fav.majorCode, defectCode: fav.subCode || '' } : null;
+      if (!faultCode) {
+        const cb = shadow.querySelector('.fault-cb:checked');
+        if (cb) {
+          const p = cb.value.split(',');
+          faultCode = { majorCode: p[0] || '', defectCode: p[1] || '' };
+        }
+      }
+      if (!faultCode) {
+        setStatus(shadow, '⚠️ اختر كود عطل أولًا (لربط القطعة)', 'warn');
+        return;
+      }
+      const part = { code: fav.code, name: fav.name, productId: fav.productId, qty: 1, warranty: fav.warranty || '' };
+      const res = await addSparePartPage3(part, faultCode);
+      if (res && res.ok) {
+        bumpFavUsage({ ...part, majorCode: faultCode.majorCode, subCode: faultCode.defectCode });
+        setStatus(shadow, `✅ أُضيفت: ${fav.code || fav.name}`, 'success');
+      } else {
+        setStatus(shadow, `⚠️ ${res?.reason || 'فشل الإضافة'}`, 'warn');
+      }
+      renderFavParts(shadow);
+    });
+  }
+
+  // ════════════════════════════════════════════════════════════════════════════
+  // لوحة مراجعة قبل اللصق: كود العطل + الضمان + ⭐ لكل قطعة
+  // ════════════════════════════════════════════════════════════════════════════
+  function showPartsReview(shadow, jobs, allCodes) {
+    const box = shadow.getElementById('cp-parts-review');
+    if (!box) return Promise.resolve(jobs);
+    box.innerHTML = '';
+    return new Promise(resolve => {
+      const state = jobs.map(j => ({
+        sparePart: j.sparePart,
+        faultCode: j.faultCode,
+        warranty: j.sparePart.warranty === 'out' ? 'out' : 'in'
+      }));
+
+      state.forEach((it, i) => {
+        const row = document.createElement('div');
+        row.className = 'cp-part-row';
+
+        const nameEl = document.createElement('span');
+        nameEl.className = 'cp-part-name';
+        const codeTxt = it.sparePart.code || simplifySearchText(it.sparePart.fullName || '') || '';
+        nameEl.textContent = `${i + 1}. ${codeTxt}${it.sparePart.name ? ' — ' + it.sparePart.name : ''} ×${it.sparePart.qty || 1}`;
+        row.appendChild(nameEl);
+
+        const ctl = document.createElement('div');
+        ctl.className = 'cp-part-ctl';
+
+        if (allCodes && allCodes.length) {
+          const sel = document.createElement('select');
+          allCodes.forEach(c => {
+            const label = c.fullCode || c.defectCode || c.majorCode || '';
+            const o = document.createElement('option');
+            o.value = JSON.stringify({ majorCode: c.majorCode || '', defectCode: c.defectCode || '', fullCode: c.fullCode || '' });
+            o.textContent = label || '(بدون كود)';
+            if (it.faultCode && (label === (it.faultCode.fullCode || it.faultCode.defectCode || it.faultCode.majorCode))) o.selected = true;
+            sel.appendChild(o);
+          });
+          sel.onchange = () => { try { it.faultCode = JSON.parse(sel.value); } catch(_) {} };
+          ctl.appendChild(sel);
+        } else {
+          it.faultCode = null;
+          const none = document.createElement('span');
+          none.style.cssText = 'color:#64748b;font-size:10px';
+          none.textContent = 'بدون كود عطل';
+          ctl.appendChild(none);
+        }
+
+        const bIn = document.createElement('button');
+        bIn.type = 'button'; bIn.className = 'cp-w-btn'; bIn.textContent = 'داخل';
+        const bOut = document.createElement('button');
+        bOut.type = 'button'; bOut.className = 'cp-w-btn'; bOut.textContent = 'خارج';
+        const syncW = () => {
+          bIn.className = 'cp-w-btn' + (it.warranty === 'in' ? ' on' : '');
+          bOut.className = 'cp-w-btn' + (it.warranty === 'out' ? ' on-out' : '');
+        };
+        bIn.onclick = () => { it.warranty = 'in'; syncW(); };
+        bOut.onclick = () => { it.warranty = 'out'; syncW(); };
+        syncW();
+        ctl.appendChild(bIn);
+        ctl.appendChild(bOut);
+
+        const star = document.createElement('button');
+        star.type = 'button';
+        star.className = 'cp-star' + (isFavPart({ ...it.sparePart }) ? ' on' : '');
+        star.textContent = '★';
+        star.title = 'تمييز كقطعة شائعة';
+        star.onclick = () => {
+          const on = toggleFavPart({ ...it.sparePart, warranty: it.warranty });
+          star.className = 'cp-star' + (on ? ' on' : '');
+          renderFavParts(shadow);
+        };
+        ctl.appendChild(star);
+
+        row.appendChild(ctl);
+        box.appendChild(row);
+      });
+
+      const actions = document.createElement('div');
+      actions.style.cssText = 'display:flex;gap:4px;margin-top:7px';
+      const okBtn = document.createElement('button');
+      okBtn.type = 'button'; okBtn.className = 'cp-btn cp-btn-exec'; okBtn.style.flex = '1'; okBtn.textContent = '▶ تنفيذ اللصق';
+      const cancelBtn = document.createElement('button');
+      cancelBtn.type = 'button'; cancelBtn.className = 'cp-btn'; cancelBtn.style.cssText = 'flex:1;background:#334466'; cancelBtn.textContent = '✕ إلغاء';
+      const finish = (val) => {
+        box.style.display = 'none';
+        box.innerHTML = '';
+        resolve(val);
+      };
+      okBtn.onclick = () => finish(state);
+      cancelBtn.onclick = () => finish(null);
+      actions.appendChild(okBtn);
+      actions.appendChild(cancelBtn);
+      box.appendChild(actions);
+
+      box.style.display = 'block';
+    });
+  }
+
+  async function fillIframeLookup(iframeDoc, inputId, searchValue, opts = {}) {
     if (!iframeDoc || !inputId) return { ok: false, reason: 'معاملات البحث غير صالحة' };
     const input = iframeDoc.getElementById(inputId);
     if (!input) return { ok: false, reason: `الحقل ${inputId} غير موجود في النموذج` };
@@ -2398,9 +2803,9 @@ function getCSS() {
 
     if (!launchBtn) return { ok: false, reason: `زر فتح البحث لـ ${inputId} غير موجود` };
 
-    // تفريغ القيمة السابقة إذا كانت موجودة
-    const clearBtn = group.querySelector('button[aria-label*="Clear"], button[title*="Clear"]');
-    if (clearBtn && input.value) {
+    // تفريغ القيمة السابقة (نص + GUID) — وإلا قد تتخطى البوابة البحث وتُبقي القديم
+    const clearBtn = group.querySelector('button[aria-label*="Clear"], button[title*="Clear"], button[aria-label*="مسح"], button[title*="مسح"]');
+    if (clearBtn && (input.value || findIframeLookupGuid(iframeDoc, inputId))) {
       await safeClick(clearBtn);
       await sleep(400);
     }
@@ -2439,6 +2844,7 @@ function getCSS() {
     if (partsWithSpaces.length > 1) {
       cleanSearch = partsWithSpaces[0].trim();
     }
+    if (!cleanSearch) cleanSearch = simplifySearchText(searchValue);
 
     if (cleanSearch && searchInput && searchBtn) {
       logEvent('PASTE_CODES', `كتابة نص البحث: "${cleanSearch}"`);
@@ -2477,17 +2883,27 @@ function getCSS() {
 
     if (rows.length === 0) {
       logEvent('PASTE_CODES', `لا توجد صفوف نتائج في بحث ${inputId} عن "${cleanSearch}"`);
-      const closeBtn = lookupModal.querySelector('button.close, [data-dismiss="modal"]');
-      if (closeBtn) await safeClick(closeBtn);
+      await closeLookupModalInDoc(lookupModal);
       return { ok: false, reason: `لا توجد نتائج مطابقة لـ "${cleanSearch}"` };
     }
 
-    // مطابقة الصف الأنسب
-    const targetLower = cleanSearch.toLowerCase();
-    const matchRow = rows.find(r => r.innerText.toLowerCase().includes(targetLower)) || rows[0];
+    // ── مطابقة مرتّبة بالنقاط: لا «أول صف» أعمى أبدًا ──
+    const target = (opts.exactText || searchValue || cleanSearch || '').trim();
+    const scored = rows
+      .map(r => ({ row: r, text: (r.innerText || '').trim(), score: scoreLookupRow(r.innerText || '', target) }))
+      .sort((a, b) => b.score - a.score);
+    const best = scored[0];
 
-    await safeClick(matchRow);
-    const radio = matchRow.querySelector('input[type="radio"], input[type="checkbox"]');
+    if (!best || best.score < 50) {
+      const available = scored.slice(0, 25).map(s => s.text);
+      logEvent('PASTE_CODES', `⚠️ ${inputId}: لا مطابقة كافية لـ "${target}" (أعلى نتيجة ${best ? best.score : 0}%) — ${available.length} بديل متاح`);
+      await closeLookupModalInDoc(lookupModal);
+      return { ok: false, reason: 'no-match', searched: target, available };
+    }
+
+    logEvent('PASTE_CODES', `${inputId}: اختيار "${best.text.slice(0, 70)}" (مطابقة ${best.score}%)`);
+    await safeClick(best.row);
+    const radio = best.row.querySelector('input[type="radio"], input[type="checkbox"]');
     if (radio) {
       radio.checked = true;
       try { radio.dispatchEvent(new Event('change', { bubbles: true })); } catch(_) {}
@@ -2500,12 +2916,14 @@ function getCSS() {
       return /^(اختر|select)$/i.test(t) || (b.classList.contains('btn-primary') && !/بحث|search/i.test(t));
     }) || lookupModal.querySelector('button.btn-primary, button.primary, button[aria-label*="Select"], button[title*="Select"], button[aria-label*="اختر"], button[title*="اختر"]');
 
-    if (selectBtn) {
-      selectBtn.removeAttribute('disabled');
-      selectBtn.classList.remove('disabled');
-      await safeClick(selectBtn);
-      try { selectBtn.click(); } catch(_) {}
+    if (!selectBtn) {
+      await closeLookupModalInDoc(lookupModal);
+      return { ok: false, reason: 'زر «اختر» غير موجود في نافذة البحث' };
     }
+
+    selectBtn.removeAttribute('disabled');
+    selectBtn.classList.remove('disabled');
+    clickOnceSafe(selectBtn);           // نقرة واحدة (كانت مرتين)
 
     const lookupCloseDeadline = Date.now() + 8000;
     while (Date.now() < lookupCloseDeadline) {
@@ -2514,16 +2932,47 @@ function getCSS() {
     }
 
     await sleep(1000);
-    logEvent('PASTE_CODES', `تم اختيار القيمة بنجاح لـ ${inputId}: "${input.value}"`);
-    return { ok: true, val: input.value };
+
+    // ── تحقق فعلي: النص + GUID المخفي (نفس قاعدة الصفحة الأولى) ──
+    const finalVal = String(input.value || '').trim();
+    const guidEl = findIframeLookupGuid(iframeDoc, inputId);
+    if (!finalVal) {
+      logEvent('PASTE_CODES', `❌ ${inputId}: الحقل فارغ بعد الاختيار`);
+      return { ok: false, reason: 'lookup-not-committed', selected: best.text };
+    }
+    if (guidEl && !String(guidEl.value || '').trim()) {
+      logEvent('PASTE_CODES', `❌ ${inputId}: "${finalVal}" معروض بلا GUID — لم يُثبَّت الاختيار`);
+      return { ok: false, reason: 'lookup-not-committed', selected: finalVal };
+    }
+
+    logEvent('PASTE_CODES', `✅ ${inputId}: "${finalVal}"`);
+    return { ok: true, val: finalVal, selected: finalVal, score: best.score };
+  }
+
+  // يعبّي حقل lookup، ولو مفيش مطابقة يعرض قائمة اختيار من اللوحة (لا اختيار أعمى)
+  async function fillLookupWithPick(iframeDoc, inputId, searchValue, label, waitAfter = 1500) {
+    if (!searchValue) return { ok: true, skipped: true };
+    let res = await fillIframeLookup(iframeDoc, inputId, searchValue);
+    if (!res.ok && res.reason === 'no-match') {
+      const short = String(searchValue).slice(0, 45);
+      const pick = await promptLookupPick(`${label}: لا مطابقة لـ «${short}» — اختر الصحيح:`, res.available);
+      if (!pick) {
+        logEvent('PASTE_CODES', `⏭ تخطّي ${label} («${short}») بطلب المستخدم`);
+        return { ok: false, reason: 'user-skipped' };
+      }
+      logEvent('PASTE_CODES', `اختيار يدوي لـ ${label}: "${pick}"`);
+      res = await fillIframeLookup(iframeDoc, inputId, pick, { exactText: pick });
+    }
+    await sleep(waitAfter);
+    return res;
   }
 
   async function addSparePartPage3(spObj, faultCodeObj = null) {
     if (!spObj) return { ok: false, reason: 'بيانات قطعة الغيار غير صالحة' };
     const majorSearch = (faultCodeObj?.majorCode || faultCodeObj?.majorName || spObj.majorCode || spObj.majorName || '').trim();
     const subSearch = (faultCodeObj?.defectCode || faultCodeObj?.fullCode || spObj.defectCode || spObj.defect || spObj.fullCode || '').trim();
-    const partSearch = (spObj.name || spObj.code || spObj.product || '').trim();
-    const partCodeOnly = (spObj.code || partSearch.split(/\s*[_–—]\s*/)[0] || '').trim();
+    const partSearch = (spObj.fullName || spObj.code || spObj.name || spObj.product || '').trim();
+    const partCodeOnly = (spObj.code || simplifySearchText(partSearch) || partSearch).trim();
     const qty = String(spObj.qty || 1);
 
     // 1. التحقق من وجود قطعة الغيار في الجدول بالفعل
@@ -2629,28 +3078,44 @@ function getCSS() {
 
     // 5. كود العطل الرئيسي
     if (majorSearch) {
-      await fillIframeLookup(iframeDoc, 'ats_modeldefectmajor_name', majorSearch);
-      await sleep(2000);
+      const r = await fillLookupWithPick(iframeDoc, 'ats_modeldefectmajor_name', majorSearch, 'كود العطل الرئيسي', 2000);
+      if (!r.ok) {
+        await closeModalSafely(modal, 'فشل اختيار كود العطل الرئيسي');
+        return { ok: false, reason: `major-${r.reason || 'failed'}` };
+      }
     }
 
     // 6. كود العطل الفرعي
     if (subSearch) {
-      await fillIframeLookup(iframeDoc, 'ats_defectcodedefectmajor_name', subSearch);
-      await sleep(1500);
+      const r = await fillLookupWithPick(iframeDoc, 'ats_defectcodedefectmajor_name', subSearch, 'كود العطل الفرعي', 1500);
+      if (!r.ok) {
+        await closeModalSafely(modal, 'فشل اختيار كود العطل الفرعي');
+        return { ok: false, reason: `sub-${r.reason || 'failed'}` };
+      }
     }
 
     // 7. قطعة الغيار
     if (partCodeOnly || partSearch) {
-      await fillIframeLookup(iframeDoc, 'ats_modeldefectspid_name', partCodeOnly || partSearch);
-      await sleep(1200);
+      const r = await fillLookupWithPick(iframeDoc, 'ats_modeldefectspid_name', partCodeOnly || partSearch, 'قطعة الغيار', 1200);
+      if (!r.ok) {
+        await closeModalSafely(modal, 'فشل اختيار قطعة الغيار');
+        return { ok: false, reason: `part-${r.reason || 'failed'}` };
+      }
     }
 
-    // 8. الكمية
+    // 8. الكمية (native setter + تحقق)
     const qtyInput = iframeDoc.getElementById('ats_quantity');
     if (qtyInput) {
-      qtyInput.value = qty;
-      try { qtyInput.dispatchEvent(new Event('input', { bubbles: true })); } catch(_) {}
-      try { qtyInput.dispatchEvent(new Event('change', { bubbles: true })); } catch(_) {}
+      if (typeof emulateUserInput === 'function') {
+        try { await emulateUserInput(qtyInput, qty); } catch(_) {}
+      }
+      if (String(qtyInput.value || '') !== String(qty)) {
+        qtyInput.value = qty;
+        try { qtyInput.dispatchEvent(new Event('input', { bubbles: true })); } catch(_) {}
+        try { qtyInput.dispatchEvent(new Event('change', { bubbles: true })); } catch(_) {}
+        try { qtyInput.dispatchEvent(new Event('blur', { bubbles: true })); } catch(_) {}
+      }
+      logEvent('PASTE_CODES', `الكمية بعد الكتابة: "${qtyInput.value}"`);
     }
 
     // 9. زر الحفظ
@@ -2670,7 +3135,20 @@ function getCSS() {
         return { ok: false, reason: 'save-not-confirmed' };
       }
       clearOrphanBackdrops('بعد حفظ قطعة الغيار');
-      return { ok: true, name: partSearch || partCodeOnly };
+
+      // الضمان (داخل/خارج) — تعديل آمن فقط لو الحقل قابل للتعديل، ثم تحقق فعلي
+      let warrantyManual = '';
+      if (spObj.warranty) {
+        const w = await applyWarrantyToRow({ productId: spObj.productId, code: spObj.code, name: spObj.name }, spObj.warranty);
+        const wanted = spObj.warranty === 'out' ? 'خارج' : 'داخل';
+        if (w && w.ok === false && w.reason === 'manual') {
+          warrantyManual = w.current || 'unknown';
+          logEvent('PASTE_CODES', `⚠️ ضمان ${spObj.code || spObj.name}: المطلوب «${wanted}» والحالي «${w.current || 'غير معروف'}» — يحتاج تعديلًا يدويًا`);
+        } else if (w && w.ok) {
+          logEvent('PASTE_CODES', `✅ ضمان ${spObj.code || spObj.name}: ${wanted}`);
+        }
+      }
+      return { ok: true, name: partSearch || partCodeOnly, warrantyManual };
     }
 
     await closeModalSafely(modal, 'زر حفظ قطعة الغيار غير موجود');
@@ -2782,14 +3260,20 @@ function getCSS() {
 
     // 4. خطوة كود العطل الرئيسي (Major defect lookup)
     if (mainSearch) {
-      await fillIframeLookup(iframeDoc, 'ats_modeldefectmajor_name', mainSearch);
-      await sleep(2000);
+      const r = await fillLookupWithPick(iframeDoc, 'ats_modeldefectmajor_name', mainSearch, 'كود العطل الرئيسي', 2000);
+      if (!r.ok) {
+        await closeModalSafely(modal, 'فشل اختيار كود العطل الرئيسي');
+        return { ok: false, reason: `major-${r.reason || 'failed'}` };
+      }
     }
 
     // 5. خطوة كود العطل الفرعي (Sub defect lookup)
     if (subSearch) {
-      await fillIframeLookup(iframeDoc, 'ats_defectcodedefectmajor_name', subSearch);
-      await sleep(1200);
+      const r = await fillLookupWithPick(iframeDoc, 'ats_defectcodedefectmajor_name', subSearch, 'كود العطل الفرعي', 1200);
+      if (!r.ok) {
+        await closeModalSafely(modal, 'فشل اختيار كود العطل الفرعي');
+        return { ok: false, reason: `sub-${r.reason || 'failed'}` };
+      }
     }
 
     // 6. نقر زر الحفظ (InsertButton / SubmitButton)
@@ -2893,6 +3377,13 @@ function getCSS() {
       const rawSpareParts = Array.isArray(bundle?.spareParts) ? bundle.spareParts : [];
       const rawFaultCodes = Array.isArray(bundle?.faultCodes) ? bundle.faultCodes : [];
 
+      // حزمة v1 القديمة لا تحمل معرّفات القطع/الضمان ⇒ نرفضها بدل التخمين
+      if (bundle && Number(bundle.version || 0) < 2) {
+        logEvent('PASTE_CODES', `رفض حزمة v${bundle.version || '?'} — تحتاج إعادة نسخ`);
+        setStatus(shadow, '❌ حزمة قديمة (v1) — اضغط «نسخ الأكواد» من البلاغ الأصلي مرة أخرى', 'error');
+        return;
+      }
+
       if (rawSpareParts.length === 0 && rawFaultCodes.length === 0) {
         setStatus(shadow, '⚠️ لا توجد أكواد أو قطع غيار منسوخة! اضغط على "نسخ الأكواد" أولاً أو الصق JSON في الحافظة', 'warn');
         return;
@@ -2950,17 +3441,33 @@ function getCSS() {
 
       logEvent('PASTE_CODES', `الخطة: ${sparePartJobs.length} قطع غيار عبر (اضافة قطعة غيار) + ${standaloneFaultCodes.length} أكواد عطل عبر (اضافة كود عطل)`);
 
+      // ── مراجعة قبل التنفيذ: كود العطل + الضمان (داخل/خارج) + ⭐ لكل قطعة ──
+      if (sparePartJobs.length > 0) {
+        setStatus(shadow, '👁️ راجع القطع (كود العطل + الضمان) ثم اضغط «تنفيذ اللصق»');
+        const chosen = await showPartsReview(shadow, sparePartJobs, rawFaultCodes);
+        if (!chosen) {
+          logEvent('PASTE_CODES', 'أُلغي اللصق من لوحة المراجعة');
+          setStatus(shadow, 'ℹ️ أُلغي اللصق', 'warn');
+          return;
+        }
+        sparePartJobs.length = 0;
+        chosen.forEach(c => sparePartJobs.push(c));
+        logEvent('PASTE_CODES', `تم تأكيد ${chosen.length} قطعة من لوحة المراجعة`);
+      }
+
       let addedPartsCount = 0;
       let addedCodesCount = 0;
+      const manualWarranty = [];
 
       // ── أ: تنفيذ إضافة قطع الغيار عبر "اضافة قطعة غيار" ──
       for (let i = 0; i < sparePartJobs.length; i++) {
         const job = sparePartJobs[i];
         const label = job.sparePart.code || job.sparePart.name || `قطعة ${i + 1}`;
         setStatus(shadow, `⏳ جاري إضافة قطعة غيار (${i + 1}/${sparePartJobs.length}): ${label}...`);
-        const res = await addSparePartPage3(job.sparePart, job.faultCode);
+        const res = await addSparePartPage3({ ...job.sparePart, warranty: job.warranty }, job.faultCode);
         if (res && res.ok) {
           if (!res.alreadyExists) addedPartsCount++;
+          if (res.warrantyManual) manualWarranty.push(`${label} (مطلوب: ${job.warranty === 'out' ? 'خارج' : 'داخل'})`);
           logEvent('PASTE_CODES', `✅ تم إضافة قطعة الغيار: ${label}`);
         } else {
           logEvent('PASTE_CODES', `⚠️ تعذر إضافة قطعة الغيار ${label}: ${res?.reason || 'غير معروف'}`);
@@ -2984,13 +3491,19 @@ function getCSS() {
       }
 
       refreshCopiedCodesPreview(shadow);
+      renderFavParts(shadow);
+
+      if (manualWarranty.length) {
+        logEvent('PASTE_CODES', `⚠️ ضمان يحتاج تعديلًا يدويًا: ${manualWarranty.join('، ')}`);
+      }
 
       const summaryParts = [];
       if (addedPartsCount > 0) summaryParts.push(`${addedPartsCount} قطعة غيار`);
       if (addedCodesCount > 0) summaryParts.push(`${addedCodesCount} كود عطل`);
 
       if (summaryParts.length > 0) {
-        setStatus(shadow, `✅ تم لصق ${summaryParts.join(' و ')} بنجاح!`, 'success');
+        const warn = manualWarranty.length ? ` — ⚠️ راجع الضمان يدويًا: ${manualWarranty.join('، ')}` : '';
+        setStatus(shadow, `✅ تم لصق ${summaryParts.join(' و ')} بنجاح!${warn}`, manualWarranty.length ? 'warn' : 'success');
       } else {
         setStatus(shadow, 'ℹ️ جميع قطع الغيار والأكواد مضافة بالفعل في هذا البلاغ', 'success');
       }
