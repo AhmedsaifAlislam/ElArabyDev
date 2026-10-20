@@ -28,6 +28,11 @@
     return;
   }
 
+  // حارس تكرار الحقن: إعادة الحقن من 🧰 كانت تضيف مستمع click جديدًا على نفس
+  // الأيقونة (الضغط ينفّذ المعالج مرتين فيُفتح ويُغلق) + مستمعات document مكررة.
+  if (window.__eaMsqInited) return;
+  window.__eaMsqInited = true;
+
   let SERVICES = [];
   let TIPS = [];
 
@@ -596,15 +601,24 @@
     }
 
     // مستمعات الأحداث
+    // الأيقونة هي زر الفتح/الإغلاق (بلا سحب محلي ولا إخفاء يتعارض مع الربط المركزي)
     fab.addEventListener('click', () => {
-      if (fabMoved) return;
       panel.classList.toggle('visible');
-      fab.classList.toggle('hidden', panel.classList.contains('visible'));
+      panel.style.removeProperty('display');
     });
 
-    document.getElementById('msq-close').addEventListener('click', () => {
-      panel.classList.remove('visible');
-      fab.classList.remove('hidden');
+    const closeBtn = document.getElementById('msq-close');
+    if (closeBtn) {
+      closeBtn.addEventListener('click', () => {
+        panel.classList.remove('visible');
+        panel.style.removeProperty('display');
+      });
+    }
+
+    // جسر اختياري من لوحة 🧰 (الأداة تعمل بدونه عبر أيقونتها)
+    document.addEventListener('msq-open', () => {
+      panel.classList.add('visible');
+      panel.style.removeProperty('display');
     });
 
     delaySlider.addEventListener('input', () => delayLabel.textContent = (delaySlider.value / 1000).toFixed(1) + ' ث');
@@ -661,32 +675,23 @@
     instrBtn.addEventListener('click', () => { if (!isRunning) sendAllTips(); });
     stopBtn.addEventListener('click', () => { stopReq = true; stopBtn.setAttribute('disabled', 'disabled'); });
 
-    let fabDragging = false, fabMoved = false, fabStartX = 0, fabStartY = 0, fabOrigX = 0, fabOrigY = 0;
-    fab.addEventListener('mousedown', e => {
-      fabDragging = true; fabMoved = false;
-      fabStartX = e.clientX; fabStartY = e.clientY;
-      fabOrigX = fab.offsetLeft; fabOrigY = fab.offsetTop;
-      e.preventDefault();
-    });
-    document.addEventListener('mousemove', e => {
-      if (!fabDragging) return;
-      const dx = e.clientX - fabStartX, dy = e.clientY - fabStartY;
-      if (Math.abs(dx) > 3 || Math.abs(dy) > 3) fabMoved = true;
-      fab.style.left = (fabOrigX + dx) + 'px'; fab.style.top = (fabOrigY + dy) + 'px';
-      fab.style.bottom = 'auto'; fab.style.right = 'auto';
-    });
-    document.addEventListener('mouseup', () => { fabDragging = false; });
-
     let dragX = 0, dragY = 0, dragging = false;
     h.addEventListener('mousedown', e => {
       if (e.target === document.getElementById('msq-close')) return;
-      dragging = true; dragX = e.clientX - panel.offsetLeft; dragY = e.clientY - panel.offsetTop;
+      const rect = panel.getBoundingClientRect();
+      dragging = true;
+      dragX = e.clientX - rect.left;
+      dragY = e.clientY - rect.top;
       panel.classList.add('dragging');
     });
     document.addEventListener('mousemove', e => {
       if (!dragging) return;
-      panel.style.left = (e.clientX - dragX) + 'px'; panel.style.top = (e.clientY - dragY) + 'px';
-      panel.style.right = 'auto'; panel.style.bottom = 'auto';
+      // CSS يفرض left/bottom بـ!important → لا بد من setProperty(..., 'important')
+      // وإلا ظلّت اللوحة ثابتة والسحب يعمل على الشريط فقط.
+      panel.style.setProperty('left', (e.clientX - dragX) + 'px', 'important');
+      panel.style.setProperty('top', (e.clientY - dragY) + 'px', 'important');
+      panel.style.setProperty('right', 'auto', 'important');
+      panel.style.setProperty('bottom', 'auto', 'important');
     });
     document.addEventListener('mouseup', () => { dragging = false; panel.classList.remove('dragging'); });
   }

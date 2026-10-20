@@ -117,7 +117,18 @@
     let committed = '';        // نص مؤكد من الجلسات السابقة
     let sessionFinal = '';     // نص نهائي داخل الجلسة الحالية
     let restartTimer = null;
-    let lastResultAt = 0;
+    let silenceTimer = null;
+
+    // إيقاف تلقائي بعد 5 ثوانٍ بلا كلام (يُعاد تسليحه مع كل نتيجة)
+    const SILENCE_MS = 5000;
+    function armSilence() {
+      clearTimeout(silenceTimer);
+      silenceTimer = setTimeout(() => {
+        if (!wantListening) return;
+        stopRec();
+        statusEl.textContent = '⏹️ توقف تلقائيًا بعد 5 ثوانٍ صمت — اضغط للتحدث من جديد';
+      }, SILENCE_MS);
+    }
 
     function paint(text) {
       const t = String(text || '').replace(/\s+/g, ' ').trim();
@@ -152,7 +163,7 @@
       rec.onstart = () => uiListening(true);
 
       rec.onresult = (ev) => {
-        lastResultAt = Date.now();
+        armSilence();
         let finals = '';
         let interim = '';
         for (let i = 0; i < ev.results.length; i++) {
@@ -171,6 +182,7 @@
         if (err === 'no-speech' || err === 'aborted') return;
         if (err === 'not-allowed' || err === 'service-not-allowed') {
           wantListening = false;
+          clearTimeout(silenceTimer);
           uiListening(false);
           statusEl.textContent = '⚠️ المتصفح رفض الميكروفون — اسمح بالوصول من أيقونة القفل في شريط العنوان';
           stopMeter();
@@ -186,14 +198,7 @@
       rec.onend = () => {
         commitSession();
         if (!wantListening) { uiListening(false); statusEl.textContent = 'جاهز'; return; }
-        // توقف تلقائي بعد 90 ثانية بلا أي كلام → نقفل المايك (خصوصية)
-        if (Date.now() - lastResultAt > 90000) {
-          wantListening = false;
-          uiListening(false);
-          statusEl.textContent = '⏹️ توقف تلقائيًا لعدم وجود كلام — اضغط للتحدث من جديد';
-          stopMeter();
-          return;
-        }
+        // مؤقت الصمت (5 ثوانٍ) هو المسؤول عن الإيقاف — هنا نكمل الاستماع فقط
         clearTimeout(restartTimer);
         restartTimer = setTimeout(startSession, 300);
       };
@@ -204,6 +209,7 @@
     function stopRec() {
       wantListening = false;
       clearTimeout(restartTimer);
+      clearTimeout(silenceTimer);
       try { if (rec) rec.stop(); } catch (_) {}
       commitSession();
       uiListening(false);
@@ -215,8 +221,8 @@
       wantListening = true;
       committed = resultEl.textContent.trim();
       sessionFinal = '';
-      lastResultAt = Date.now();
       uiListening(true);
+      armSilence();
       startMeter();
       startSession();
     }

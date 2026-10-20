@@ -39,8 +39,10 @@
       color: '#10b981',
       group: 'إرسال',
       openByClick: true,
-      panel: '#msq-panel.visible',
       defaultVisible: true,
+      // غير مقيد بلوحة 🧰: السكربت يدير لوحته وأيقونته بنفسه (فتح/إغلاق مستقل)
+      // openEvent جسر اختياري فقط (لو غابت اللوحة تعمل الأداة بأيقونتها)
+      openEvent: 'msq-open',
       // مقيّد بمواقع المحادثة — لا يُحقن في البورتال
       homeMatch: /(^|\.)(facebook\.com|messenger\.com|instagram\.com|whatsapp\.com)/i,
       homeUrl: 'https://www.messenger.com/'
@@ -980,8 +982,6 @@
         if (panel) {
           panel.style.setProperty('display', 'block', 'important');
           panel.style.setProperty('visibility', 'visible', 'important');
-          // إذا كانت لوحة msq-panel تحتاج class .visible
-          if (tool.id === 'msq-fab') panel.classList.add('visible');
           console.log('[fabs] panel shown via selector:', tool.id);
         } else {
           console.warn('[fabs] panel not found for:', tool.id, tool.panel);
