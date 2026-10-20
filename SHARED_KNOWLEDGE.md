@@ -256,6 +256,19 @@ ProblemCodes.isKnownCode('HT01');          // true
 - `valueFormat` = `major,sub,full` — وهو نفس قيمة `checkbox.fault-cb` التي تُقرأ في `executePage3`.
 - القائمة تُبنى من الكتالوج عبر `defectCodesFor()` — ممنوع كتابة الأكواد HTML داخل اللوحة.
 
+#### إدارة الأكواد من اللوحة (طبقة تعديل)
+- الزر «✏️ إدارة أكواد الأعطال» (تبويب الصفحة ٣) يفتح محررًا: إضافة / تعديل / حذف.
+- التعديلات في `chrome.storage.local → defect_catalog_user`:
+  ```json
+  { "version": 1, "codes": [
+      { "family": "AC", "major": "AC007", "sub": "1234", "full": "…", "desc": "…" },
+      { "family": "AC", "major": "AC003", "sub": "L02B", "removed": true }
+  ] }
+  ```
+- الدمج في `mergedDefectCodes(family)`: نفس `family|major|sub` = استبدال، و`removed` = حذف.
+- «📤 نسخ JSON» يصدّر الكتالوج المدموج بالكامل → ألصقه في `defect-catalog.json` ثم `deploy.ps1`.
+- «↩️ استعادة» (بتأكيد مزدوج) يلغي كل التعديلات الشخصية.
+
 ### ملاحظات الموديل — طبقتان (رسمية + شخصية) — 2026-10-20
 
 | الطبقة | المكان | من يعدّلها | تظهر عند |

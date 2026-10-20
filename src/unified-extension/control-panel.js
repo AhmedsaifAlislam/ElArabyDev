@@ -2,7 +2,7 @@
 // control-panel.js — لوحة التحكم الذكية v1.0
 // بصمة الإصدار: تُطبع في الـ log وتظهر بجانب عنوان اللوحة، للتأكد أن المتصفح
 // حمّل أحدث نسخة من الإضافة (Reload من edge://extensions مطلوب بعد أي نشر).
-const PANEL_BUILD = '2026-10-20.20';
+const PANEL_BUILD = '2026-10-20.21';
 // Floating panel with auto-detecting page tabs
 // =========================================================
 (function () {
@@ -334,6 +334,14 @@ function getCSS() {
 .cp-model-note.note-warning{background:#7c4d00;border-color:#f59e0b;color:#fef3c7}
 .cp-model-note.note-danger{background:#7f1d1d;border-color:#dc2626;color:#fecaca}
 .cp-note-badge{display:inline-block;background:#1d4ed8;color:#dbeafe;border-radius:4px;padding:0 4px;margin-inline-end:4px;font-size:9px;font-weight:900;vertical-align:middle}
+.cp-defect-row{display:flex;align-items:center;gap:4px;background:#0b1220;border:1px solid #1e293b;border-radius:4px;padding:3px 5px;margin-bottom:3px;font-size:10px}
+.cp-defect-row.user{border-color:#a16207}
+.cp-defect-code{font-weight:900;color:#93c5fd;white-space:nowrap;font-size:10px}
+.cp-defect-row.user .cp-defect-code{color:#fbbf24}
+.cp-defect-desc{flex:1;color:#cbd5e1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.cp-defect-mini{background:#1e293b;border:1px solid #334155;color:#e2e8f0;border-radius:3px;padding:0 4px;font-size:10px;cursor:pointer;line-height:16px}
+.cp-defect-mini:hover{background:#334155}
+.cp-defect-del:hover{background:#7f1d1d;border-color:#dc2626}
 .cp-note-item{background:#0f1a2e;padding:3px 6px;border-radius:5px;margin-bottom:1px;cursor:grab;font-size:10px;line-height:1.4;border:1px solid transparent;transition:all .12s;display:flex;align-items:flex-start;gap:4px;user-select:none}
 .cp-note-item:hover{background:#162a45;border-color:#2a4a6a}
 .cp-note-item:active{cursor:grabbing}
@@ -476,6 +484,34 @@ function getCSS() {
     </div>
     <label class="cp-label">أكواد إضافية (اختيار متعدد):</label>
     <div class="cp-codes" id="cp-codes-list"></div>
+    <button class="cp-btn cp-btn-inject" id="cp-defect-edit-btn" type="button" style="margin:6px 0">✏️ إدارة أكواد الأعطال (إضافة/تعديل/حذف)</button>
+    <div id="cp-defect-editor" style="display:none;background:#0f172a;border:1px solid #334155;border-radius:6px;padding:6px;margin-bottom:8px">
+      <div style="display:flex;gap:4px;align-items:center;margin-bottom:5px">
+        <select id="cp-defect-family" class="cp-select" style="flex:1;margin:0">
+          <option value="AC">تكييف (AC)</option>
+          <option value="GS">بوتجاز ومسطح (GS)</option>
+          <option value="GR">ثلاجات (GR)</option>
+          <option value="WM">غسالات (WM)</option>
+          <option value="HT">سخانات (HT)</option>
+          <option value="DW">غسالات أطباق (DW)</option>
+        </select>
+        <button class="cp-btn cp-btn-inject" id="cp-defect-export" type="button" style="flex:1;margin:0;font-size:10px">📤 نسخ JSON</button>
+        <button class="cp-btn" id="cp-defect-reset" type="button" style="flex:0 0 78px;margin:0;font-size:10px;background:#334466">↩️ استعادة</button>
+      </div>
+      <div id="cp-defect-count" style="font-size:9px;color:#64748b;margin-bottom:4px"></div>
+      <div id="cp-defect-list" style="max-height:170px;overflow:auto;margin-bottom:6px"></div>
+      <div class="cp-notes-title" style="margin:4px 0">➕ إضافة / تعديل كود</div>
+      <div style="display:flex;gap:4px;margin-bottom:4px">
+        <input id="cp-defect-major" class="cp-amount" placeholder="AC001" style="flex:1;margin:0;font-size:10px;text-transform:uppercase">
+        <input id="cp-defect-sub" class="cp-amount" placeholder="0005" style="flex:1;margin:0;font-size:10px;text-transform:uppercase">
+      </div>
+      <input id="cp-defect-full" class="cp-amount" placeholder="الكود الكامل (اختياري)" style="width:100%;box-sizing:border-box;margin:0 0 4px;font-size:10px;text-transform:uppercase">
+      <input id="cp-defect-desc" class="cp-amount" placeholder="الوصف" style="width:100%;box-sizing:border-box;margin:0 0 4px;font-size:10px">
+      <div style="display:flex;gap:4px">
+        <button class="cp-btn cp-btn-exec" id="cp-defect-save" type="button" style="flex:1">➕ إضافة</button>
+        <button class="cp-btn" id="cp-defect-cancel-edit" type="button" style="flex:0 0 80px;background:#334466;display:none">✕ إلغاء</button>
+      </div>
+    </div>
     <!-- Manual JSON input (replaces window.prompt) -->
     <div id="cp-manual-json-wrap" style="display:none;margin:8px 0">
       <label class="cp-label">أو الصق JSON يدوياً:</label>
@@ -756,6 +792,7 @@ function getCSS() {
     shadow.getElementById('btn-exec2').onclick = () => { logEvent('CLICK', 'نقر على تنفيذ الصفحة 2'); runExclusive(shadow, 'تنفيذ الصفحة 2', () => executePage2(shadow)); };
     bindAutoNext2(shadow);
     bindModelNoteEditor(shadow);
+    bindDefectEditor(shadow);
     const stopBtn = shadow.getElementById('cp-stop');
     if (stopBtn) stopBtn.onclick = () => { logEvent('CLICK', 'نقر على إيقاف'); cancelExecution(shadow, 'user').catch(() => {}); };
     shadow.querySelectorAll('.p2-sc').forEach(btn => {
@@ -1401,13 +1438,258 @@ function getCSS() {
     return getDeviceAC() ? 'AC' : '';
   }
 
+  // ── إدارة أكواد الأعطال: تعديل/حذف/إضافة فوق كتالوج الإضافة ─────────
+  // الملف الرسمي للقراءة فقط وقت التشغيل ⇒ التعديلات تُحفظ في
+  // chrome.storage.local → defect_catalog_user وتُدمج مع defect-catalog.json،
+  // ويمكن تصديرها JSON للنشر الدائم.
+  const LS_DEFECT_USER = 'defect_catalog_user';
+  let _defectUser = null;
+  let _defectEditingKey = '';
+  let _defectDeleteArmed = null;
+  let _defectResetArmed = 0;
+
+  function defectKey(family, major, sub) {
+    return [family, major, sub].map(x => String(x || '').trim().toUpperCase()).join('|');
+  }
+
+  function bundledDefectCodes(family) {
+    const fam = String(family || '').toUpperCase();
+    const entry = _defectCatalog && _defectCatalog.families && _defectCatalog.families[fam];
+    return (entry && Array.isArray(entry.codes)) ? entry.codes.filter(c => c && c.major) : [];
+  }
+
+  async function loadDefectUser(force) {
+    if (_defectUser && !force) return _defectUser;
+    try {
+      const got = await chrome.storage.local.get({ [LS_DEFECT_USER]: { version: 1, codes: [] } });
+      const v = got && got[LS_DEFECT_USER];
+      _defectUser = (v && typeof v === 'object') ? v : { version: 1, codes: [] };
+      if (!Array.isArray(_defectUser.codes)) _defectUser.codes = [];
+    } catch (e) {
+      _defectUser = { version: 1, codes: [] };
+      logEvent('CODES', 'تعذّر قراءة تعديلات الأعطال: ' + (e.message || e));
+    }
+    return _defectUser;
+  }
+
+  async function saveDefectUser(data) {
+    _defectUser = (data && typeof data === 'object') ? data : { version: 1, codes: [] };
+    _defectUser.version = 1;
+    if (!Array.isArray(_defectUser.codes)) _defectUser.codes = [];
+    try { await chrome.storage.local.set({ [LS_DEFECT_USER]: _defectUser }); }
+    catch (e) { logEvent('CODES', 'تعذّر حفظ تعديلات الأعطال: ' + (e.message || e)); }
+    if (PANEL_SHADOW) {
+      try { renderDefectEditor(PANEL_SHADOW); } catch (_) {}
+      try { updateDeviceCodes(PANEL_SHADOW); } catch (_) {}
+    }
+  }
+
+  // دمج الرسمي + تعديلات المستخدم: same key = استبدال، removed = حذف.
+  function mergedDefectCodes(family) {
+    const fam = String(family || '').toUpperCase();
+    const map = new Map();
+    bundledDefectCodes(fam).forEach(c => {
+      map.set(defectKey(fam, c.major, c.sub), { ...c, family: fam, _src: 'bundled' });
+    });
+    const overrides = (_defectUser && Array.isArray(_defectUser.codes))
+      ? _defectUser.codes.filter(c => c && String(c.family || '').toUpperCase() === fam)
+      : [];
+    overrides.forEach(c => {
+      if (!c || !c.major) return;
+      const k = defectKey(fam, c.major, c.sub);
+      if (c.removed) { map.delete(k); return; }
+      map.set(k, {
+        major: String(c.major).toUpperCase(),
+        sub: String(c.sub || '').toUpperCase(),
+        full: c.full || '',
+        desc: c.desc || '',
+        family: fam,
+        _src: 'user'
+      });
+    });
+    return Array.from(map.values());
+  }
+
   function defectCodesFor(device, family) {
-    if (!_defectCatalog || !_defectCatalog.families) return [];
     const fam = family || defectFamilyOf(device);
     if (!fam) return [];
-    const entry = _defectCatalog.families[fam];
-    const codes = (entry && Array.isArray(entry.codes)) ? entry.codes : [];
-    return codes.filter(c => c && c.major);
+    return mergedDefectCodes(fam);
+  }
+
+  function renderDefectEditor(shadow) {
+    const box = shadow.getElementById('cp-defect-editor');
+    const list = shadow.getElementById('cp-defect-list');
+    if (!box || !list) return;
+    const famSel = shadow.getElementById('cp-defect-family');
+    const fam = (famSel && famSel.value) ? famSel.value : 'AC';
+    const codes = mergedDefectCodes(fam);
+    const count = shadow.getElementById('cp-defect-count');
+    if (count) count.textContent = `${codes.length} كود — العائلة ${fam}`;
+    if (!codes.length) {
+      list.innerHTML = '<div class="cp-empty">لا توجد أكواد لهذه العائلة — أضف أول كود من الأسفل</div>';
+      return;
+    }
+    list.innerHTML = codes.map(c => {
+      const major = escapeHtml(c.major);
+      const sub = escapeHtml(c.sub || '');
+      const desc = escapeHtml(c.desc || '');
+      return `<div class="cp-defect-row${c._src === 'user' ? ' user' : ''}" data-major="${major}" data-sub="${sub}" data-desc="${desc}">`
+        + `<span class="cp-defect-code">${major}${sub ? '/' + sub : ''}</span>`
+        + `<span class="cp-defect-desc" title="${desc}">${desc || '—'}</span>`
+        + `<button type="button" class="cp-defect-mini" data-act="edit" title="تعديل">✏️</button>`
+        + `<button type="button" class="cp-defect-mini cp-defect-del" data-act="del" title="حذف">🗑️</button>`
+        + `</div>`;
+    }).join('');
+  }
+
+  async function deleteDefectCode(shadow, family, major, sub) {
+    const user = await loadDefectUser();
+    const key = defectKey(family, major, sub);
+    const isBundled = bundledDefectCodes(family).some(c => defectKey(family, c.major, c.sub) === key);
+    let codes = (user.codes || []).filter(c => defectKey(c.family, c.major, c.sub) !== key);
+    if (isBundled) {
+      codes.push({ family, major, sub: sub || '', removed: true, updatedAt: new Date().toISOString() });
+    }
+    await saveDefectUser({ ...user, version: 1, codes });
+    setStatus(shadow, `🗑️ حُذف ${major}${sub ? '/' + sub : ''}`, 'success');
+    logEvent('CODES', `حذف كود عطل: ${family} ${major}/${sub}${isBundled ? ' (تجاوز الرسمي)' : ''}`);
+  }
+
+  function bindDefectEditor(shadow) {
+    const btn = shadow.getElementById('cp-defect-edit-btn');
+    const box = shadow.getElementById('cp-defect-editor');
+    const famSel = shadow.getElementById('cp-defect-family');
+    const list = shadow.getElementById('cp-defect-list');
+    const majorIn = shadow.getElementById('cp-defect-major');
+    const subIn = shadow.getElementById('cp-defect-sub');
+    const fullIn = shadow.getElementById('cp-defect-full');
+    const descIn = shadow.getElementById('cp-defect-desc');
+    const saveBtn = shadow.getElementById('cp-defect-save');
+    const cancelBtn = shadow.getElementById('cp-defect-cancel-edit');
+    if (!btn || !box || !famSel || !list || !majorIn || !subIn || !fullIn || !descIn || !saveBtn || !cancelBtn) return;
+    if (btn.dataset.bound === '1') return;
+    btn.dataset.bound = '1';
+
+    const clearForm = () => {
+      _defectEditingKey = '';
+      majorIn.value = ''; subIn.value = ''; fullIn.value = ''; descIn.value = '';
+      saveBtn.textContent = '➕ إضافة';
+      cancelBtn.style.display = 'none';
+    };
+
+    btn.onclick = async () => {
+      if (box.style.display === 'block') { box.style.display = 'none'; return; }
+      await Promise.all([loadDefectCatalog(), loadDefectUser()]);
+      famSel.value = defectFamilyOf(readDeviceHint()) || 'AC';
+      clearForm();
+      renderDefectEditor(shadow);
+      box.style.display = 'block';
+      logEvent('CODES', 'فتح محرر أكواد الأعطال');
+    };
+
+    famSel.onchange = () => { clearForm(); renderDefectEditor(shadow); };
+    cancelBtn.onclick = () => clearForm();
+
+    list.onclick = async (e) => {
+      const b = e.target.closest('button[data-act]');
+      const row = b && b.closest('.cp-defect-row');
+      if (!row) return;
+      const family = famSel.value;
+      const major = row.dataset.major;
+      const sub = row.dataset.sub || '';
+
+      if (b.dataset.act === 'del') {
+        const key = defectKey(family, major, sub);
+        const armed = _defectDeleteArmed && _defectDeleteArmed.key === key
+          && (Date.now() - _defectDeleteArmed.at < 4000);
+        if (!armed) {
+          _defectDeleteArmed = { key, at: Date.now() };
+          b.textContent = '⚠️';
+          setStatus(shadow, `⚠️ اضغط 🗑️ مرة أخرى لحذف ${major}${sub ? '/' + sub : ''}`, 'warn');
+          setTimeout(() => { try { b.textContent = '🗑️'; } catch (_) {} }, 4000);
+          return;
+        }
+        _defectDeleteArmed = null;
+        await deleteDefectCode(shadow, family, major, sub);
+        return;
+      }
+
+      majorIn.value = major;
+      subIn.value = sub;
+      fullIn.value = '';
+      descIn.value = row.dataset.desc || '';
+      const current = mergedDefectCodes(family)
+        .find(c => c.major === major && String(c.sub || '') === sub);
+      if (current && current.full) fullIn.value = current.full;
+      _defectEditingKey = defectKey(family, major, sub);
+      saveBtn.textContent = '💾 حفظ التعديل';
+      cancelBtn.style.display = 'block';
+      setStatus(shadow, `✏️ تعديل ${major}${sub ? '/' + sub : ''} — غيّر ثم احفظ`, 'warn');
+    };
+
+    saveBtn.onclick = async () => {
+      const family = famSel.value;
+      const major = majorIn.value.trim().toUpperCase();
+      const sub = subIn.value.trim().toUpperCase();
+      const full = fullIn.value.trim().toUpperCase();
+      const desc = descIn.value.trim();
+      if (!/^[A-Z]{2,3}\d{3}$/.test(major)) {
+        setStatus(shadow, '⚠️ الكود الرئيسي بصيغة AC001 (حرفان/ثلاثة + ٣ أرقام)', 'warn');
+        return;
+      }
+      if (!sub) { setStatus(shadow, '⚠️ أدخل الكود الفرعي (مثل 0005 أو 308A)', 'warn'); return; }
+
+      const user = await loadDefectUser();
+      const newKey = defectKey(family, major, sub);
+      const codes = (user.codes || []).filter(c => {
+        const k = defectKey(c.family, c.major, c.sub);
+        if (_defectEditingKey && k === _defectEditingKey) return false;
+        return k !== newKey;
+      });
+      codes.push({
+        family, major, sub, full: full || '',
+        desc, removed: false, updatedAt: new Date().toISOString()
+      });
+      await saveDefectUser({ ...user, version: 1, codes });
+      clearForm();
+      setStatus(shadow, `✅ حُفظ ${major}/${sub}`, 'success');
+      logEvent('CODES', `حفظ كود عطل: ${family} ${major}/${sub} — ${desc || 'بلا وصف'}`);
+    };
+
+    shadow.getElementById('cp-defect-export').onclick = async () => {
+      await loadDefectUser();
+      const fams = ['AC', 'GS', 'GR', 'WM', 'HT', 'DW'];
+      const out = { version: 1, updatedAt: new Date().toISOString(), families: {} };
+      fams.forEach(f => {
+        const label = (_defectCatalog && _defectCatalog.families && _defectCatalog.families[f] && _defectCatalog.families[f].label) || f;
+        out.families[f] = {
+          label,
+          codes: mergedDefectCodes(f).map(c => ({ major: c.major, sub: c.sub || '', full: c.full || '', desc: c.desc || '' }))
+        };
+      });
+      const json = JSON.stringify(out, null, 2);
+      try {
+        await navigator.clipboard.writeText(json);
+        setStatus(shadow, '📤 نُسخ JSON — ألصقه في defect-catalog.json للنشر الدائم', 'success');
+      } catch (_) {
+        console.log('[PortalHelper] defect-catalog.json\n' + json);
+        setStatus(shadow, '📋 تعذّر النسخ — الـ JSON مطبوع في Console', 'warn');
+      }
+      logEvent('CODES', 'تصدير كتالوج الأعطال');
+    };
+
+    shadow.getElementById('cp-defect-reset').onclick = async () => {
+      if (!_defectResetArmed || (Date.now() - _defectResetArmed > 4000)) {
+        _defectResetArmed = Date.now();
+        setStatus(shadow, '⚠️ اضغط «استعادة» مرة أخرى لإلغاء كل تعديلاتك على الكتالوج', 'warn');
+        return;
+      }
+      _defectResetArmed = 0;
+      await saveDefectUser({ version: 1, codes: [] });
+      clearForm();
+      setStatus(shadow, '↩️ استُعيد الكتالوج الرسمي كما هو', 'success');
+      logEvent('CODES', 'استعادة كتالوج الأعطال الرسمي');
+    };
   }
 
   function renderDefectCodes(shadow, codes, device, family) {
@@ -1440,9 +1722,9 @@ function getCSS() {
     const family = defectFamilyOf(device);
     logEvent('CODES', `device="${device}" defectFamily=${family || '؟'}`);
 
-    if (!_defectCatalog) {
+    if (!_defectCatalog || !_defectUser) {
       list.innerHTML = '<div class="cp-empty">⏳ جاري تحميل كتالوج الأعطال…</div>';
-      loadDefectCatalog().then(() => {
+      Promise.all([loadDefectCatalog(), loadDefectUser()]).then(() => {
         try { updateDeviceCodes(shadow); } catch (_) {}
       });
     } else {

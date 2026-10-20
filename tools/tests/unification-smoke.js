@@ -591,6 +591,19 @@ function load(sandbox, file) {
     const msqsrc = read('Tempermonky/messenger-sender.js');
     ok(/id: 'msq-fab'/.test(msqsrc) && /let fab = document\.getElementById\('msq-fab'\)/.test(msqsrc),
       'messenger-sender: ينشئ أيقونة #msq-fab بنفسه');
+    ok(/__eaMsqInited/.test(msqsrc),
+      'messenger-sender: حارس تكرار الحقن (كان يضاعف مستمع الأيقونة فتتجاهل الضغط)');
+    ok(!/fabMoved/.test(msqsrc) && !/fabDragging/.test(msqsrc),
+      'messenger-sender: لا سحب محلي للأيقونة (كان يقتلها بعد أول سحب) — تبقى في موضعها');
+    ok(/const closeBtn = document\.getElementById\('msq-close'\)[\s\S]{0,150}if \(closeBtn\)/.test(msqsrc),
+      'messenger-sender: زر الإغلاق محمي من null');
+    ok(/panel\.style\.setProperty\('left',[\s\S]{0,90}'important'\)/.test(msqsrc),
+      'messenger-sender: سحب اللوحة يغلب CSS !important (كانت لا تتحرك)');
+    const msqTool = (fabsrc2.match(/\{\s*id: 'msq-fab'[\s\S]*?\n    \}/) || [''])[0];
+    ok(msqTool && !/\bpanel:/.test(msqTool),
+      'fabs-controller: msq غير مقيد بلوحة 🧰 — السكربت يدير لوحته بنفسه');
+    ok(/openEvent: 'msq-open'/.test(msqTool) && /addEventListener\('msq-open'/.test(msqsrc),
+      'messenger-sender: جسر فتح اختياري من 🧰 (يعمل بدونه عبر الأيقونة)');
 
     // ── النطاق (scope): كل أداة تعمل في موقعها فقط ──
     ok(/\/\\\/Orders\(\\\/\|\$\|\[\?#\]\)\/i\.test\(location\.pathname\)/.test(rsrc),
@@ -637,8 +650,8 @@ function load(sandbox, file) {
       'voice-control: يجمّع النص النهائي بين الجلسات (لا يضيع الكلام السابق)');
     ok(/getUserMedia\(\{[\s\S]{0,200}autoGainControl: true/.test(vcsrc) && /analyser|createAnalyser/i.test(vcsrc),
       'voice-control: يضبط AGC/عزل الضوضاء + مؤشر مستوى الميكروفون');
-    ok(/ea-voice-level/.test(vcsrc) && /90\d{3}|90000/.test(vcsrc),
-      'voice-control: مؤشر مستوى + إيقاف تلقائي بعد فترة صمت (خصوصية)');
+    ok(/ea-voice-level/.test(vcsrc) && /SILENCE_MS = 5000/.test(vcsrc) && /armSilence\(\)/.test(vcsrc),
+      'voice-control: مؤشر مستوى + إيقاف تلقائي بعد 5 ثوانٍ صمت (يُعاد تسليحه مع كل نتيجة)');
   }
 
   console.log('-- 21.5) كل عنصر بنطاقنا نقرأه بـgetElementById يجب أن يُنشأ فعلاً --');
@@ -844,6 +857,31 @@ function load(sandbox, file) {
     ok(/const ok = await runShortcut\(shadow, btn\.dataset\.sc\)/.test(cp)
       && /const ok = await runShortcut\(shadow, sc\)/.test(cp),
       'P0-5: تنفيذ الصفحة 3 لا يبدأ إذا لم يُحدَّد أي كود');
+  }
+
+  console.log('-- 28) إدارة أكواد الأعطال: إضافة/تعديل/حذف (الحالية والمستقبلية) --');
+  {
+    const cp = read('control-panel.js');
+    ok(/id="cp-defect-edit-btn"/.test(cp) && /id="cp-defect-editor"/.test(cp) && /id="cp-defect-list"/.test(cp),
+      'اللوحة: زر ونافذة إدارة أكواد الأعطال موجودان');
+    ok(/id="cp-defect-major"/.test(cp) && /id="cp-defect-sub"/.test(cp) && /id="cp-defect-desc"/.test(cp),
+      'اللوحة: حقول إضافة كود (رئيسي/فرعي/وصف)');
+    ok(/LS_DEFECT_USER = 'defect_catalog_user'/.test(cp) && /chrome\.storage\.local\.set/.test(cp),
+      'التعديلات تُحفظ في chrome.storage.local (ملف الإضافة للقراءة فقط)');
+    ok(/function defectKey/.test(cp) && /function mergedDefectCodes/.test(cp),
+      'دمج الرسمي + تعديلات المستخدم بمفتاح family|major|sub');
+    ok(/if \(c\.removed\) \{ map\.delete\(k\); return; \}/.test(cp),
+      'الحذف يُخزَّن كتجاوز (removed) لا يُعيد الكود الرسمي');
+    ok(/function deleteDefectCode/.test(cp) && /_defectDeleteArmed/.test(cp),
+      'الحذف بتأكيد مزدوج (لا حذف بنقرة واحدة)');
+    ok(/function saveDefectUser/.test(cp) && /codes\.push\(\{/.test(cp),
+      'الإضافة/التعديل يُحفظان ويُعاد رسم القائمة');
+    ok(/id="cp-defect-export"/.test(cp) && /id="cp-defect-reset"/.test(cp),
+      'تصدير JSON للنشر الدائم + استعادة الأصل');
+    ok(/return mergedDefectCodes\(fam\);/.test(cp) && !/_defectCatalog\.families\[fam\]\.codes/.test(cp),
+      'قائمة checkboxes تقرأ من الدمج لا من الملف الرسمي مباشرة');
+    ok(/bindDefectEditor\(shadow\)/.test(cp),
+      'محرر الأعطال مربوط في bindEvents');
   }
 
   console.log('\n=== RESULT: ' + pass + ' passed, ' + fail + ' failed ===');
