@@ -2,7 +2,7 @@
 // control-panel.js — لوحة التحكم الذكية v1.0
 // بصمة الإصدار: تُطبع في الـ log وتظهر بجانب عنوان اللوحة، للتأكد أن المتصفح
 // حمّل أحدث نسخة من الإضافة (Reload من edge://extensions مطلوب بعد أي نشر).
-const PANEL_BUILD = '2026-10-19.12';
+const PANEL_BUILD = '2026-10-20.13';
 // Floating panel with auto-detecting page tabs
 // =========================================================
 (function () {
@@ -2310,6 +2310,81 @@ function getCSS() {
     return true;
   }
 
+  // ── حماية من تراكم ستائر Bootstrap (شاشة سوداء تتغمق تدريجيًا) ───────────────
+  // البوابة تستخدم Bootstrap 3: كل .modal-backdrop = أسود بعتامة 0.5 يغطي الشاشة.
+  // عند إغلاق المودال بغير طريق Bootstrap (زر form-close، أو مسار فشل) تبقى الستارة
+  // فتتراكم: 1=50%، 2=75%، 3=87.5% … ولهذا «تغمق الشاشة كل شوية».
+  function countBackdrops() {
+    try { return document.querySelectorAll('.modal-backdrop').length; } catch(_) { return 0; }
+  }
+
+  function hasVisibleModal() {
+    try {
+      for (const doc of getShallowDocs()) {
+        if (Array.from(doc.querySelectorAll('.modal')).some(m => isModalOpenSafe(m))) return true;
+      }
+      return false;
+    } catch(_) { return false; }
+  }
+
+  // نقرة واحدة فقط — نستخدم المحرك إن وُجد (يمنع النقر المزدوج على عناصر التبديل).
+  function clickOnceSafe(el) {
+    if (!el) return false;
+    const once = window.AutoFillEngine?.Lookups?.clickOnce;
+    if (typeof once === 'function') return once(el);
+    try { el.focus(); } catch(_) {}
+    try { el.click(); } catch(_) {}
+    return true;
+  }
+
+  // حذف الستائر اليتيمة فقط: لا يلمس شيئًا إذا كان هناك مودال مفتوح فعلًا.
+  function clearOrphanBackdrops(reason = '') {
+    if (hasVisibleModal()) return 0;
+    const nodes = Array.from(document.querySelectorAll('.modal-backdrop'));
+    if (nodes.length === 0) return 0;
+    nodes.forEach(n => { try { n.remove(); } catch(_) {} });
+    try { document.body.classList.remove('modal-open'); } catch(_) {}
+    try { document.body.style.removeProperty('padding-right'); } catch(_) {}
+    logEvent('OVERLAY', `تنظيف ${nodes.length} ستارة متراكمة${reason ? ' — ' + reason : ''}`);
+    return nodes.length;
+  }
+
+  // إغلاق آمن: Bootstrap API أولًا، ثم زر إغلاق واحد، ثم إخفاء قسري + تنظيف الستائر.
+  async function closeModalSafely(modal, reason = '') {
+    if (!modal) { clearOrphanBackdrops(reason); return false; }
+    const $ = window.jQuery || window.$;
+    if (typeof $ === 'function') {
+      try {
+        if ($(modal).data('bs.modal')) $(modal).modal('hide');
+      } catch(_) {}
+    }
+    if (isModalOpenSafe(modal)) {
+      const btn = modal.querySelector('button.form-close, .modal-header .close, .modal-header [data-dismiss="modal"]')
+               || modal.querySelector('[data-dismiss="modal"]');
+      if (btn) clickOnceSafe(btn);
+    }
+    const deadline = Date.now() + 2500;
+    while (Date.now() < deadline && isModalOpenSafe(modal)) await sleep(200);
+    if (isModalOpenSafe(modal)) {
+      try { modal.classList.remove('in', 'show'); modal.style.display = 'none'; } catch(_) {}
+      try { modal.setAttribute('aria-hidden', 'true'); } catch(_) {}
+      logEvent('OVERLAY', `إخفاء قسري لمودال لم يُغلق${reason ? ' — ' + reason : ''}`);
+      await sleep(200);
+    }
+    clearOrphanBackdrops(reason);
+    return !isModalOpenSafe(modal);
+  }
+
+  // قبل فتح مودال جديد: أغلق أي مودال عالق (يمنع فتح مودال فوق مودال ⇒ ستارتان).
+  async function resetModalsBeforeStep(reason = '') {
+    const open = Array.from(document.querySelectorAll('.modal')).filter(isModalOpenSafe);
+    for (const m of open) {
+      logEvent('OVERLAY', `مودال مفتوح قبل «${reason}» — إغلاقه أولًا`);
+      await closeModalSafely(m, reason);
+    }
+    if (open.length === 0) clearOrphanBackdrops(reason);
+  }
+
   async function fillIframeLookup(iframeDoc, inputId, searchValue) {
     if (!iframeDoc || !inputId) return { ok: false, reason: 'معاملات البحث غير صالحة' };
     const input = iframeDoc.getElementById(inputId);
@@ -2496,17 +2571,16 @@ function getCSS() {
 
     if (!addBtn) {
       logEvent('PASTE_CODES', 'لم يتم العثور على زر إضافة قطعة غيار مرئي');
+      clearOrphanBackdrops('زر قطعة الغيار غير موجود');
       return { ok: false, reason: 'زر إضافة قطعة غيار غير موجود أو غير مرئي' };
     }
 
-    if (window.$ && window.$._data) {
-      try {
-        const ev = window.$._data(addBtn, 'events');
-        if (ev?.click?.[0]) ev.click[0].handler({ preventDefault: () => {} });
-      } catch(_) {}
-    }
-    await safeClick(addBtn);
-    try { addBtn.click(); } catch(_) {}
+    // ممنوع فتح مودال فوق مودال: أغلق أي مودال عالق أولًا (يمنع تراكم ستائر Bootstrap).
+    await resetModalsBeforeStep('إضافة قطعة غيار');
+
+    // نقرة واحدة فقط. كان هنا 3 نقرات (handler مباشر + safeClick + click) ⇒
+    // كل واحدة قد تفتح نسخة مودال جديدة، فتُضاف ستارة سوداء (opacity .5) لكل نسخة.
+    clickOnceSafe(addBtn);
     await sleep(1500);
 
     // 3. انتظار ظهور النافذة المنبثقة (المودال) - فحص كافة المودالات في الصفحة للوصول للمودال المفتوح فعلياً
@@ -2523,6 +2597,7 @@ function getCSS() {
     }
     if (!modal) {
       logEvent('PASTE_CODES', 'مودال إضافة قطعة غيار لم يفتح');
+      clearOrphanBackdrops('مودال قطعة الغيار لم يفتح');
       return { ok: false, reason: 'نافذة إضافة قطعة غيار لم تفتح' };
     }
 
@@ -2546,8 +2621,7 @@ function getCSS() {
     }
 
     if (!iframeDoc) {
-      const closeBtn = modal.querySelector('button.form-close, button.close, [data-dismiss="modal"]');
-      if (closeBtn) closeBtn.click();
+      await closeModalSafely(modal, 'فشل تحميل إطار قطعة الغيار');
       return { ok: false, reason: 'فشل تحميل إطار نموذج إضافة قطعة الغيار' };
     }
 
@@ -2583,19 +2657,23 @@ function getCSS() {
     const saveBtn = iframeDoc.querySelector('#InsertButton, #SubmitButton, input[value="حفظ"], input[value="Submit"], button[type="submit"], input[type="submit"], button.btn-primary');
     if (saveBtn) {
       logEvent('PASTE_CODES', 'نقر زر حفظ قطعة الغيار');
-      await safeClick(saveBtn);
-      try { saveBtn.click(); } catch(_) {}
+      clickOnceSafe(saveBtn);                 // نقرة واحدة (النقر المزدوج يكرر الحفظ)
       const saveDeadline = Date.now() + 15000;
       while (Date.now() < saveDeadline) {
         if (!isModalOpenSafe(modal) || !document.body.contains(modal)) break;
         await sleep(400);
       }
       await sleep(2500); // إتاحة وقت كافي للبورتال لتحديث شبكة المنتجات AJAX
+      if (isModalOpenSafe(modal)) {
+        // الحفظ لم يُغلق النموذج ⇒ فشل حقيقي، مع إغلاق المودال لمنع تراكم الستائر.
+        await closeModalSafely(modal, 'حفظ قطعة الغيار لم يُغلق النموذج');
+        return { ok: false, reason: 'save-not-confirmed' };
+      }
+      clearOrphanBackdrops('بعد حفظ قطعة الغيار');
       return { ok: true, name: partSearch || partCodeOnly };
     }
 
-    const closeBtn = modal.querySelector('button.form-close, button.close, [data-dismiss="modal"]');
-    if (closeBtn) closeBtn.click();
+    await closeModalSafely(modal, 'زر حفظ قطعة الغيار غير موجود');
     return { ok: false, reason: 'زر الحفظ غير موجود في نموذج قطعة الغيار' };
   }
 
@@ -2647,17 +2725,15 @@ function getCSS() {
 
     if (!addBtn) {
       logEvent('PASTE_CODES', 'لم يتم العثور على زر إضافة كود عطل مرئي');
+      clearOrphanBackdrops('زر كود العطل غير موجود');
       return { ok: false, reason: 'زر إضافة كود عطل غير موجود أو غير مرئي' };
     }
 
-    if (window.$ && window.$._data) {
-      try {
-        const ev = window.$._data(addBtn, 'events');
-        if (ev?.click?.[0]) ev.click[0].handler({ preventDefault: () => {} });
-      } catch(_) {}
-    }
-    await safeClick(addBtn);
-    try { addBtn.click(); } catch(_) {}
+    // ممنوع فتح مودال فوق مودال: أغلق أي مودال عالق أولًا (يمنع تراكم ستائر Bootstrap).
+    await resetModalsBeforeStep('إضافة كود عطل');
+
+    // نقرة واحدة فقط (كانت 3 نقرات ⇒ مودالات متعددة ⇒ ستائر سوداء متراكمة).
+    clickOnceSafe(addBtn);
     await sleep(1500);
 
     // 2. انتظار ظهور النافذة المنبثقة (المودال الخارجي)
@@ -2674,6 +2750,7 @@ function getCSS() {
     }
     if (!modal) {
       logEvent('PASTE_CODES', 'مودال إضافة كود عطل لم يفتح');
+      clearOrphanBackdrops('مودال كود العطل لم يفتح');
       return { ok: false, reason: 'نافذة إضافة كود عطل لم تفتح' };
     }
 
@@ -2697,8 +2774,7 @@ function getCSS() {
     }
 
     if (!iframeDoc) {
-      const closeBtn = modal.querySelector('button.form-close, button.close, [data-dismiss="modal"]');
-      if (closeBtn) closeBtn.click();
+      await closeModalSafely(modal, 'فشل تحميل إطار كود العطل');
       return { ok: false, reason: 'فشل تحميل إطار نموذج إضافة كود العطل (iframe)' };
     }
 
@@ -2720,25 +2796,29 @@ function getCSS() {
     const saveBtn = iframeDoc.querySelector('#InsertButton, #SubmitButton, input[value="حفظ"], input[value="Submit"], button[type="submit"], input[type="submit"], button.btn-primary');
     if (saveBtn) {
       logEvent('PASTE_CODES', 'نقر زر حفظ كود العطل');
-      await safeClick(saveBtn);
-      try { saveBtn.click(); } catch(_) {}
+      clickOnceSafe(saveBtn);                 // نقرة واحدة (النقر المزدوج يكرر الحفظ)
       const saveDeadline = Date.now() + 15000;
       while (Date.now() < saveDeadline) {
         if (!isModalOpenSafe(modal) || !document.body.contains(modal)) break;
         await sleep(400);
       }
       await sleep(2500); // إتاحة وقت كافي للبورتال لتحديث شبكة الأعطال AJAX
+      if (isModalOpenSafe(modal)) {
+        await closeModalSafely(modal, 'حفظ كود العطل لم يُغلق النموذج');
+        return { ok: false, reason: 'save-not-confirmed' };
+      }
+      clearOrphanBackdrops('بعد حفظ كود العطل');
       return { ok: true, name: subSearch || mainSearch };
     }
 
-    const closeBtn = modal.querySelector('button.form-close, button.close, [data-dismiss="modal"]');
-    if (closeBtn) closeBtn.click();
+    await closeModalSafely(modal, 'زر حفظ كود العطل غير موجود');
     return { ok: false, reason: 'لم يتم العثور على زر الحفظ' };
   }
 
   async function pasteCodesAction(shadow) {
     logEvent('PASTE_CODES', 'بدء لصق الأكواد وقطع الغيار');
     setStatus(shadow, '⏳ جاري قراءة البيانات المحفوظة...');
+    await resetModalsBeforeStep('لصق الأكواد');
     try {
       let bundle = null;
       try {
@@ -2914,14 +2994,17 @@ function getCSS() {
       } else {
         setStatus(shadow, 'ℹ️ جميع قطع الغيار والأكواد مضافة بالفعل في هذا البلاغ', 'success');
       }
+      clearOrphanBackdrops('نهاية لصق الأكواد');
     } catch (e) {
       logEvent('PASTE_CODES', `خطأ: ${e.message || e}`);
+      clearOrphanBackdrops('خطأ لصق الأكواد');
       setStatus(shadow, '❌ خطأ أثناء لصق الأكواد: ' + (e.message || ''), 'error');
     }
   }
 
   async function executePage3(shadow) {
     logEvent('EXEC_PAGE3', 'بدء التنفيذ');
+    logEvent('OVERLAY', `ستائر Bootstrap قبل التنفيذ: ${countBackdrops()}`);
     logPageSnapshot('قبل executePage3');
     setStatus(shadow, '⏳ جاري التنفيذ...');
     try {
@@ -2944,7 +3027,29 @@ function getCSS() {
           if (clearBtn) { clearBtn.click(); await sleep(500); }
           lookupBtn.click();
           logEvent('EXEC_PAGE3', 'تم فتح نافذة Lookup — اختار يدوياً');
-          setStatus(shadow, '✅ افتح النافذة واختر تمت الصيانة', 'success');
+
+          // ⚠️ لا نكمل قبل أن يغلق المستخدم النافذة: فتح مودال الأكواد فوقها
+          // كان يضيف ستارة Bootstrap ثانية (أسود 0.5) فوق الأولى ⇒ الشاشة تغمق.
+          const appearDeadline = Date.now() + 5000;
+          while (Date.now() < appearDeadline && !hasVisibleModal()) await sleep(250);
+
+          if (!hasVisibleModal()) {
+            logEvent('EXEC_PAGE3', 'نافذة الحالة لم تُرصد — استكمال التنفيذ مباشرة');
+            clearOrphanBackdrops('بعد محاولة فتح الحالة');
+          } else {
+            setStatus(shadow, '✅ اختر «تمت الصيانة» من النافذة — سيُستكمل التنفيذ بعد إغلاقها');
+            logEvent('EXEC_PAGE3', 'بانتظار اختيار «تمت الصيانة» (حتى دقيقتين)');
+            const pickDeadline = Date.now() + 120000;
+            while (Date.now() < pickDeadline && hasVisibleModal()) await sleep(500);
+            if (hasVisibleModal()) {
+              logEvent('EXEC_PAGE3', 'انتهت مهلة الاختيار — إغلاق النافذة وإيقاف التنفيذ');
+              await resetModalsBeforeStep('مهلة اختيار الحالة');
+              setStatus(shadow, '⚠️ لم يتم اختيار «تمت الصيانة» — أعد التنفيذ واختر الحالة', 'warn');
+              return;
+            }
+            clearOrphanBackdrops('بعد اختيار تمت الصيانة');
+            logEvent('EXEC_PAGE3', 'تم إغلاق نافذة الحالة — استكمال التنفيذ');
+          }
         } else {
           logEvent('EXEC_PAGE3', 'لم يتم العثور على زر Lookup');
           setStatus(shadow, '⚠️ لم يتم العثور على زر الحالة', 'warn');
@@ -2960,11 +3065,18 @@ function getCSS() {
         const mainCode = parts[0], subCode = parts[1] || null;
         logEvent('EXEC_PAGE3', `حقن كود: ${mainCode} / ${subCode || ''}`);
         setStatus(shadow, `⏳ جاري حقن ${mainCode}...`);
+        // أي مودال عالق من الكود السابق يُغلق أولًا (وإلا فتحنا مودالًا فوقه ⇒ ستارة إضافية).
+        await resetModalsBeforeStep(`حقن ${mainCode}`);
+        let codeRes = null;
         if (typeof addFaultCodePage3 === 'function') {
-          await addFaultCodePage3(mainCode, subCode, []);
+          codeRes = await addFaultCodePage3(mainCode, subCode, []);
         } else {
-          await addSingleFaultCode({ majorCode: mainCode, defectCode: subCode });
+          codeRes = await addSingleFaultCode({ majorCode: mainCode, defectCode: subCode });
         }
+        if (codeRes && codeRes.ok === false) {
+          logEvent('EXEC_PAGE3', `⚠️ فشل حقن ${mainCode}: ${codeRes.reason || 'غير معروف'}`);
+        }
+        clearOrphanBackdrops(`بعد حقن ${mainCode}`);
         await sleep(500);
       }
 
@@ -3038,8 +3150,10 @@ function getCSS() {
         }
       }
 
+      clearOrphanBackdrops('نهاية تنفيذ الصفحة 3');
       setStatus(shadow, '✅ تم التنفيذ بنجاح', 'success');
       logEvent('EXEC_PAGE3', 'اكتمل التنفيذ');
+      logEvent('OVERLAY', `ستائر Bootstrap بعد التنفيذ: ${countBackdrops()}`);
       await sleep(800);
       if (!isMinimized) {
         logEvent('EXEC_PAGE3', 'تصغير التبويب تلقائياً');
@@ -3047,6 +3161,7 @@ function getCSS() {
       }
     } catch (e) {
       logEvent('EXEC_PAGE3', `خطأ: ${e.message || e}`);
+      clearOrphanBackdrops('خطأ تنفيذ الصفحة 3');
       setStatus(shadow, '❌ خطأ: ' + (e.message || ''), 'error');
     }
   }
@@ -3098,6 +3213,8 @@ function getCSS() {
 
       // Every ~10000ms (counter ~8)
       if (heartbeatCounter % 8 === 0) {
+        // شبكة أمان: إزالة أي ستارة Bootstrap يتيمة (شاشة سوداء تتغمق تدريجيًا).
+        if (!hasVisibleModal()) clearOrphanBackdrops('فحص دوري');
         const url = location.href;
         const title = document.title;
         logPage('PAGE_STATE', `url=${url.slice(0,80)} title=${title.slice(0,40)}`);

@@ -554,6 +554,61 @@ fillPowerAppsLookup(inputSelector, searchValue, opts = {})
 
 ---
 
+## محلول مؤخراً — الموجة 13: الشاشة السوداء المتراكمة في «تنفيذ الكل» (2026-10-20)
+
+### 26. ستائر Bootstrap (`.modal-backdrop`) تتراكم بعد تنفيذ الصفحة الثالثة (حرجة)
+
+**الأعراض:** بعد «تنفيذ الكل» تغطي الشاشة مساحة سوداء، وكل فترة **تغمق أكثر** حتى تصبح الشاشة شبه سوداء،
+مع بقاء أدوات البوابة تعمل في الخلفية.
+
+**السبب الجذري (مؤكد من CSS البوابة نفسها في `اكواد/`):**
+```css
+.modal-backdrop{position:fixed;top:0;right:0;bottom:0;left:0;z-index:1040;background-color:#000}
+.modal-backdrop.in{opacity:.5}
+```
+كل ستارة = أسود 50% يغطي الشاشة. Bootstrap 3 يُنشئ ستارة عند `modal('show')` ويحذفها فقط عند
+`hidden.bs.modal`. إغلاق المودال بأي طريق آخر (زر `form-close`، أو مسار فشل، أو إخفاء يدوي)
+**يترك الستارة**، فتتراكم: 1=50%، 2=75%، 3=87.5%، 4=94%، 5=97%.
+
+**المولّدات في الكود (كلها كانت موجودة):**
+1. **`executePage3`:** خطوة «تمت الصيانة» تفتح نافذة الحالة **وتتركها مفتوحة**، ثم تُكمل مباشرة
+   بحقن الأكواد ⇒ مودال فوق مودال ⇒ ستارتان في كل تشغيل (`chk-done` مُحدد افتراضيًا!).
+2. **نقر ثلاثي:** `addSparePartPage3` و`addSingleFaultCode` كانت:
+   ```js
+   ev.click[0].handler({...});   // 1
+   await safeClick(addBtn);      // 2 (يطلق 5 أحداث منها click)
+   addBtn.click();               // 3
+   ```
+   كل نقرة قد تفتح نسخة مودال جديدة ⇒ ستارة لكل نسخة.
+3. **زر الحفظ** كان يُنقر مرتين (`safeClick` + `.click()`).
+4. **مسارات الفشل** (`iframe-not-found` / `save-not-confirmed` / `modal-not-found`) كانت ترجع
+   دون إغلاق المودال أو تنظيف الستارة، والعنصر التالي يفتح مودالًا جديدًا فوقها.
+5. **لا يوجد أي كود تنظيف** لـ `.modal-backdrop` في المشروع كله (بحث `src/` ⇒ صفر).
+
+**الحل:**
+- `clearOrphanBackdrops()` — تحذف الستائر اليتيمة **فقط** لو لا يوجد مودال ظاهر، وتزيل `body.modal-open`
+  و`padding-right`.
+- `closeModalSafely()` — `$(m).modal('hide')` ثم زر إغلاق واحد ثم إخفاء قسري + تنظيف.
+- `resetModalsBeforeStep()` — قبل فتح أي مودال في الصفحة 3 يُغلق أي مودال عالق من الخطوة السابقة.
+- `clickOnceSafe()` — نقرة واحدة على زر الإضافة/الحفظ.
+- **انتظار «تمت الصيانة»:** لا يُفتح مودال الأكواد حتى يغلق المستخدم نافذة الحالة (حتى دقيقتين)،
+  وإلا يتوقف التنفيذ برسالة صريحة بدل تكديس الستائر.
+- **شبكة أمان دورية** كل ~10 ثوانٍ في `observePageChanges` تُزيل أي ستارة يتيمة.
+- **صدق النتيجة:** عدم إغلاق النموذج بعد الحفظ ⇒ `save-not-confirmed` (فشل)، لا نجاح وهمي.
+
+**الحل الفوري للمستخدم قبل التحديث (من Console):**
+```js
+document.querySelectorAll('.modal-backdrop').forEach(e => e.remove());
+document.body.classList.remove('modal-open');
+```
+
+**التحقق:**
+- `node --check src/unified-extension/control-panel.js` ✅
+- `node tools/tests/unification-smoke.js` → **123 passed, 0 failed** (8 فحوصات انحدار جديدة).
+- `PANEL_BUILD = 2026-10-20.13`، ولوج `OVERLAY:` يثبت التنظيف.
+
+---
+
 ## محلول مؤخراً — الموجة 4 (فرعية): تقوية control-panel.js (2026-10-18)
 
 ### 17. تعقيم XSS في control-panel.js — escapeHtml محلي (متوسطة)

@@ -455,6 +455,20 @@ function load(sandbox, file) {
       'manifest: shared/problem-codes.js مُسجَّل كـ content script');
   }
 
+  console.log('-- 17) regression: منع تراكم ستائر Bootstrap (الشاشة السوداء) --');
+  // العلّة (2026-10-20): كل .modal-backdrop = أسود بعتامة .5؛ عند إغلاق المودال
+  // بغير طريق Bootstrap تبقى الستارة فتتراكم (1=50%، 2=75%، 3=87.5% …).
+  ok(/function clearOrphanBackdrops\s*\(/.test(cpsrc), 'control-panel.js: clearOrphanBackdrops موجودة');
+  ok(/function closeModalSafely\s*\(/.test(cpsrc), 'control-panel.js: closeModalSafely موجودة');
+  ok(/function resetModalsBeforeStep\s*\(/.test(cpsrc), 'control-panel.js: resetModalsBeforeStep موجودة');
+  ok(/clickOnceSafe\(addBtn\)/.test(cpsrc), 'control-panel.js: زر الإضافة يُنقر مرة واحدة');
+  ok(!/ev\.click\[0\]\.handler/.test(cpsrc), 'control-panel.js: أُزيل الاستدعاء المباشر لـ jQuery handler');
+  ok(!/addBtn\.click\(\)/.test(cpsrc), 'control-panel.js: أُزيلت النقرة الثانية على زر الإضافة');
+  ok(/if \(!hasVisibleModal\(\)\) clearOrphanBackdrops\('فحص دوري'\)/.test(cpsrc),
+     'control-panel.js: شبكة أمان دورية تزيل الستائر اليتيمة');
+  ok(/بانتظار اختيار «تمت الصيانة»/.test(cpsrc),
+     'control-panel.js: ينتظر إغلاق نافذة الحالة قبل فتح مودال الأكواد');
+
   console.log('\n=== RESULT: ' + pass + ' passed, ' + fail + ' failed ===');
   if (fail > 0) {
     console.log('Failures:');
