@@ -756,6 +756,27 @@ function load(sandbox, file) {
       'manifest: defect-catalog.json في web_accessible_resources');
   }
 
+  console.log('-- 25) الصفحة 2: «التالي» اختياري + قياس زمن المشكلة→الفني --');
+  {
+    const cp = read('control-panel.js');
+    ok(/<input type="checkbox" id="chk-next2">/.test(cp),
+      'control-panel: «التالي» في الصفحة 2 غير مفعّل افتراضيًا (لا checked)');
+    ok(/function bindAutoNext2/.test(cp) && /cp_auto_next2/.test(cp),
+      'control-panel: اختيار «التالي» يُحفظ في localStorage');
+    ok(/function autoNext2Enabled/.test(cp),
+      'control-panel: بوابة autoNext2Enabled موجودة');
+    ok(/if \(autoNext2Enabled\(shadow\)\) \{\s*await doNext\(shadow\);/.test(cp),
+      'control-panel: doNext لا يُنفّذ إلا عند تفعيل الخيار');
+    ok(!/\/\/ 3\. التالي\s*\n\s*await doNext\(shadow\);/.test(cp),
+      'control-panel: أُزيل الانتقال التلقائي غير المشروط');
+    ok(/recordPage2Timing/.test(cp) && /cp_timings/.test(cp) && /'TIMING'/.test(cp),
+      'control-panel: قياسات الصفحة 2 تُخزَّن وتُسجَّل');
+    ok(/timing\.problemMs/.test(cp) && /timing\.waitMs/.test(cp) && /timing\.techMs/.test(cp),
+      'control-panel: قياس مراحل (مشكلة / انتظار / فني)');
+    ok(/if \(!ready && probOk\)/.test(cp),
+      'control-panel: توقف صريح لو زر الفنيين لم يظهر بعد حفظ المشكلة');
+  }
+
   console.log('\n=== RESULT: ' + pass + ' passed, ' + fail + ' failed ===');
   if (fail > 0) {
     console.log('Failures:');

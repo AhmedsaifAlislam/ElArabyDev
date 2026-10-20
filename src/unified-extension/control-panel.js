@@ -2,7 +2,7 @@
 // control-panel.js — لوحة التحكم الذكية v1.0
 // بصمة الإصدار: تُطبع في الـ log وتظهر بجانب عنوان اللوحة، للتأكد أن المتصفح
 // حمّل أحدث نسخة من الإضافة (Reload من edge://extensions مطلوب بعد أي نشر).
-const PANEL_BUILD = '2026-10-20.17';
+const PANEL_BUILD = '2026-10-20.18';
 // Floating panel with auto-detecting page tabs
 // =========================================================
 (function () {
@@ -426,6 +426,7 @@ function getCSS() {
       <button class="cp-btn cp-btn-exec" id="btn-add-problem" type="button" style="margin-top:4px">➕ إضافة المشكلة المختارة</button>
     </div>
     <button class="cp-btn cp-btn-exec" id="btn-exec2">▶ تنفيذ يدوي</button>
+    <label class="cp-check" style="margin-top:6px"><input type="checkbox" id="chk-next2"> <span>الانتقال للصفحة التالية بعد المشاكل والفنيين</span></label>
   </div>
   <div class="cp-tab" data-page="PAGE_3" id="tab-p3">
     <div class="cp-tab-title">📋 الصفحة الثالثة — أكواد الأعطال</div>
@@ -732,6 +733,7 @@ function getCSS() {
     if (defaultBtn) defaultBtn.onclick = () => { logEvent('CLICK', 'نقر على تعبئة بيانات افتراضية'); runExclusive(shadow, 'تعبئة افتراضية', () => fillDefaultDeviceData(shadow)); };
     shadow.getElementById('btn-exec1').onclick = () => { logEvent('CLICK', 'نقر على تنفيذ الصفحة 1'); runExclusive(shadow, 'تنفيذ الصفحة 1', () => executePage1(shadow)); };
     shadow.getElementById('btn-exec2').onclick = () => { logEvent('CLICK', 'نقر على تنفيذ الصفحة 2'); runExclusive(shadow, 'تنفيذ الصفحة 2', () => executePage2(shadow)); };
+    bindAutoNext2(shadow);
     shadow.querySelectorAll('.p2-sc').forEach(btn => {
       btn.onclick = () => {
         const sc = btn.dataset.sc;
@@ -2000,9 +2002,45 @@ function getCSS() {
     }
   }
 
+  // ════════════════════════════════════════════
+  // PAGE 2 — الانتقال الاختياري + قياس التوقيت
+  // ════════════════════════════════════════════
+  const LS_AUTO_NEXT2 = 'cp_auto_next2';
+  const LS_TIMINGS = 'cp_timings';
+
+  // «التالي» في الصفحة ٢: غير مفعّل افتراضيًا، ويُحفظ اختيار المستخدم.
+  function bindAutoNext2(shadow) {
+    const cb = shadow.getElementById('chk-next2');
+    if (!cb) return;
+    try { cb.checked = localStorage.getItem(LS_AUTO_NEXT2) === '1'; } catch (_) {}
+    if (cb.dataset.bound === '1') return;
+    cb.dataset.bound = '1';
+    cb.addEventListener('change', () => {
+      try { localStorage.setItem(LS_AUTO_NEXT2, cb.checked ? '1' : '0'); } catch (_) {}
+      logEvent('EXEC_PAGE2', 'الانتقال للصفحة التالية: ' + (cb.checked ? 'مفعّل' : 'معطّل (يدوي)'));
+    });
+  }
+
+  function autoNext2Enabled(shadow) {
+    const cb = shadow.getElementById('chk-next2');
+    return !!(cb && cb.checked);
+  }
+
+  // آخر 20 قياسًا لمقارنة زمن «مشكلة → جاهزية الفني» بين البلاغات.
+  function recordPage2Timing(t) {
+    try {
+      const arr = JSON.parse(localStorage.getItem(LS_TIMINGS) || '[]');
+      if (!Array.isArray(arr)) throw new Error('bad-store');
+      arr.push(t);
+      while (arr.length > 20) arr.shift();
+      localStorage.setItem(LS_TIMINGS, JSON.stringify(arr));
+    } catch (_) {}
+  }
+
   async function executePage2(shadow, shortcutType) {
     logEvent('EXEC_PAGE2', `بدء التنفيذ${shortcutType ? ' [شورت كت: ' + shortcutType + ']' : ''}`);
     setStatus(shadow, '⏳ جاري التنفيذ...');
+    const timing = { at: Date.now(), problemMs: 0, waitMs: 0, techMs: 0, totalMs: 0, shortcut: shortcutType || 'manual' };
     try {
       await sleep(1000);
 
@@ -2058,15 +2096,30 @@ function getCSS() {
         } else {
           logEvent('EXEC_PAGE2', 'لا يوجد كود مشكلة — تم التخطي');
         }
+        timing.problemMs = Date.now() - timing.at;
+
         // توقيت ديناميكي: ابدأ الفنيين فور حفظ المشكلة وظهور زرهم (أقصر زمن ممكن)
         if (addTech && typeof P2.waitForProblemToTechReady === 'function') {
-          await P2.waitForProblemToTechReady(8000);
+          const waitStart = Date.now();
+          const ready = await P2.waitForProblemToTechReady(8000);
+          timing.waitMs = Date.now() - waitStart;
+          logEvent('TIMING', `مشكلة→جاهزية الفني: ${timing.waitMs}ms (${ready ? 'جاهز' : 'انتهت المهلة'})`);
+          if (!ready && probOk) {
+            setStatus(shadow, '⚠️ زر «إضافة فنيين» لم يظهر خلال 8 ثوانٍ — أوقفنا الإضافة', 'warn');
+            logEvent('EXEC_PAGE2', 'توقف: مودال المشكلة لم يُغلق أو زر الفنيين لم يظهر');
+            timing.totalMs = Date.now() - timing.at;
+            recordPage2Timing(timing);
+            return;
+          }
         } else if (typeof P2.waitForModalsToClose === 'function') {
+          const waitStart = Date.now();
           await P2.waitForModalsToClose(4000);
+          timing.waitMs = Date.now() - waitStart;
         }
       }
 
       if (addTech) {
+        const techStart = Date.now();
         if (typeof selectRandomTechnician === 'function') {
           setStatus(shadow, '⏳ جاري إضافة فني...');
           // المنطقة: نفس مسار المحرّك (DOM ثم واجهة البوابة) لاختيار الفني الصحيح
@@ -2110,6 +2163,7 @@ function getCSS() {
           }
           logEvent('EXEC_PAGE2', `نتيجة الفني: ok=${techOk} name=${techLabel || '—'} source=${techRes ? techRes.source : 'failed'}`);
         }
+        timing.techMs = Date.now() - techStart;
       }
 
       let outcomeOk = true;
@@ -2131,10 +2185,18 @@ function getCSS() {
         return;
       }
 
-      // 3. التالي
-      await doNext(shadow);
+      // 3. التالي — اختياري وغير مفعّل افتراضيًا
+      if (autoNext2Enabled(shadow)) {
+        await doNext(shadow);
+      } else {
+        logEvent('EXEC_PAGE2', 'الانتقال للصفحة التالية معطّل — اضغط «التالي» بنفسك');
+      }
 
-      if (outcomeOk) setStatus(shadow, '✅ تم التنفيذ بنجاح', 'success');
+      timing.totalMs = Date.now() - timing.at;
+      recordPage2Timing(timing);
+      logEvent('TIMING', `إجمالي الصفحة 2: ${timing.totalMs}ms | مشكلة=${timing.problemMs}ms | انتظار=${timing.waitMs}ms | فني=${timing.techMs}ms`);
+
+      if (outcomeOk) setStatus(shadow, `✅ تم التنفيذ بنجاح (${(timing.totalMs / 1000).toFixed(1)} ث)`, 'success');
       logEvent('EXEC_PAGE2', 'اكتمل التنفيذ');
       await sleep(800);
       if (!isMinimized) {
@@ -2143,6 +2205,8 @@ function getCSS() {
       }
     } catch (e) {
       logEvent('EXEC_PAGE2', `خطأ: ${e.message || e}`);
+      timing.totalMs = Date.now() - timing.at;
+      recordPage2Timing(timing);
       setStatus(shadow, '❌ خطأ: ' + (e.message || ''), 'error');
     }
   }
