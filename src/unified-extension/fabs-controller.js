@@ -979,6 +979,13 @@
       setTimeout(ping, 700);
     }
 
+    // ── معالج البلاغات: نفس القاعدة — السكربت لا يفتح لوحته بنفسه ──
+    if (tool.id === 'rp-fab') {
+      const ping = () => { try { document.dispatchEvent(new CustomEvent('ea-report-processor-open')); } catch (_) {} };
+      ping();
+      setTimeout(ping, 700);
+    }
+
     // ── لوحة التحكم (shadow root) ──
     if (tool.id === 'elaraby-control-panel-mini') {
       try {

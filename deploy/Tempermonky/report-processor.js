@@ -15,6 +15,21 @@
   const SLEEP = ms => new Promise(r => setTimeout(r, ms));
   const ORDERS_URL = 'https://elarabyportalpfs.powerappsportals.com/en-US/Orders/';
 
+  // حارس التكرار: الـ runner قد يحقن الملف أكثر من مرة عند كل ضغطة.
+  // بدونه تتكرر المستمعات وتُبنى عناصر منفصلة عن الـ DOM الظاهر.
+  if (window.__eaReportProcessorInited) return;
+  window.__eaReportProcessorInited = true;
+
+  // الفاب يُدار مركزياً من fabs-controller وقد لا يكون موجودًا —
+  // المراجع المباشرة لـ fab كانت ترمي ReferenceError وتقتل السكربت كله.
+  function getFab() {
+    try { return document.getElementById('rp-fab'); } catch (_) { return null; }
+  }
+  function setFabHidden(hidden) {
+    const f = getFab();
+    if (f) f.classList.toggle('hidden', !!hidden);
+  }
+
   // ══════════════════════════════════════════════════════════════════
   //  State
   // ══════════════════════════════════════════════════════════════════
@@ -874,6 +889,33 @@
     return null;
   }
 
+  // بصمة أول صف — لمعرفة أن الشبكة تبدّلت فعلًا بعد الضغط على «التالي».
+  // بدونها كان `waitForTable` يعيد الجدول القديم فورًا (لم يُستبدل بعد)
+  // فيُقرأ نفس المحتوى ويُتخطّى صفحة كاملة.
+  function firstRowSignature() {
+    try {
+      const td = findTable();
+      if (!td || !td.rows.length) return '';
+      const r = td.rows[0];
+      return r.getAttribute('data-id') || (r.textContent || '').trim().slice(0, 80);
+    } catch (_) { return ''; }
+  }
+
+  async function waitForTableChange(prevSig, maxWaitMs = 12000) {
+    const start = Date.now();
+    while (Date.now() - start < maxWaitMs) {
+      const td = findTable();
+      if (td && td.rows.length) {
+        const r = td.rows[0];
+        const sig = r.getAttribute('data-id') || (r.textContent || '').trim().slice(0, 80);
+        if (sig && sig !== prevSig) return td;
+      }
+      await SLEEP(300);
+    }
+    // لم يتغيّر شيء: نكمل بالجدول الحالي بدل التوقف الكامل
+    return findTable();
+  }
+
   async function scrapeAllPages() {
     state.isScraping = true;
     state.allReports = [];
@@ -900,10 +942,10 @@
 
       addLog(`جاري الانتقال للصفحة ${pageNum}...`, 'info');
       console.log(`[RP] Clicking next → page ${pageNum}`);
+      const prevSig = firstRowSignature();
       clickNextPage();
 
-      await SLEEP(800);
-      const tableData = await waitForTable(12000);
+      const tableData = await waitForTableChange(prevSig, 12000);
       if (!tableData) {
         addLog(`الصفحة ${pageNum}: فشل تحميل الجدول`, 'error');
         console.log(`[RP] Page ${pageNum}: table load failed`);
@@ -928,6 +970,21 @@
   //  Show Settings Modal
   // ══════════════════════════════════════════════════════════════════
   async function showSettings() {
+    // حارس إعادة الدخول: الفتح من اللوحة والحدث يصلان معًا أحيانًا،
+    // والحصاد الكامل مكلف (كل الصفحات) فلا يجوز تشغيله مرتين.
+    if (state._settingsBusy) return;
+    state._settingsBusy = true;
+    try {
+      await showSettingsInner();
+    } catch (e) {
+      console.error('[RP] showSettings failed:', e);
+      addLog('خطأ أثناء تحميل البلاغات: ' + (e && e.message ? e.message : e), 'error');
+    } finally {
+      state._settingsBusy = false;
+    }
+  }
+
+  async function showSettingsInner() {
     overlay.classList.add('visible');
     settingsModal.classList.add('visible');
     reportsList.innerHTML = '<div class="rp-loading"><div class="rp-spinner"></div><div>جاري تحميل البلاغات من كل الصفحات...</div></div>';
@@ -939,6 +996,7 @@
     state.currentIndex = 0;
     state.isPaused = false;
     state.pausePromise = null;
+    state._listRendered = false;
 
     // Reset UI elements
     document.getElementById('rp-order-id-filter').value = '';
@@ -1123,6 +1181,9 @@
 
   function renderReportsList() {
     reportsList.innerHTML = '';
+    // حافظ على ما حدّده المستخدم عبر إعادة الرسم (تغيير الترتيب/الفلتر)
+    const prevSelected = new Set(state.selectedReports.map(r => r.casNo));
+    const hadSelection = state._listRendered === true;
     state.selectedReports = [];
 
     const filtered = getFilteredAndSortedReports();
@@ -1160,7 +1221,9 @@
 
     for (const report of filtered) {
       const checkbox = el('input', { type: 'checkbox' });
-      checkbox.checked = true;
+      // أول عرض: الكل محدد. بعدها: نحترم اختيار المستخدم.
+      checkbox.checked = hadSelection ? prevSelected.has(report.casNo) : true;
+      if (checkbox.checked) state.selectedReports.push(report);
       checkbox.addEventListener('change', () => {
         if (checkbox.checked) {
           state.selectedReports.push(report);
@@ -1182,26 +1245,20 @@
       reportsList.appendChild(item);
     }
 
-    // Auto-select all filtered reports
-    state.selectedReports = [...filtered];
-
-    const selectAll = document.getElementById('rp-select-all');
-    if (selectAll) {
-      selectAll.checked = true;
-      selectAll.indeterminate = false;
-    }
+    state._listRendered = true;
+    updateSelectAll();
     updateSelectedCount();
   }
 
   function updateSelectAll() {
     const selectAll = document.getElementById('rp-select-all');
     if (!selectAll) return;
-    const selectedDate = state._selectedDate || '';
-    const filtered = selectedDate
-      ? state.allReports.filter(r => r.date === selectedDate)
-      : state.allReports;
-    selectAll.checked = state.selectedReports.length === filtered.length && filtered.length > 0;
-    selectAll.indeterminate = state.selectedReports.length > 0 && state.selectedReports.length < filtered.length;
+    // المقارنة بالقائمة المعروضة فعليًا (تشمل فلتر أرقام الطلبات والتاريخ وليس التاريخ وحده)
+    const visible = getFilteredAndSortedReports();
+    const selected = new Set(state.selectedReports.map(r => r.casNo));
+    const selectedVisible = visible.filter(r => selected.has(r.casNo)).length;
+    selectAll.checked = selectedVisible === visible.length && visible.length > 0;
+    selectAll.indeterminate = selectedVisible > 0 && selectedVisible < visible.length;
     updateSelectedCount();
   }
 
@@ -1389,7 +1446,7 @@
 
     hideSettings();
     miniMenu.classList.add('visible');
-    fab.classList.add('hidden');
+    setFabHidden(true);
 
     addLog(`بدء معالجة ${state.selectedReports.length} بلاغ (Concurrency: ${state.concurrencyLimit})...`, 'info');
     setStatus(`معالجة ${state.selectedReports.length} بلاغ...`, 'warn');
@@ -1429,7 +1486,13 @@
     await Promise.all(workers);
 
     state.isRunning = false;
-    clearResumeState(); // Clear resume on successful completion
+    // لا تمسح الجلسة عند الإيقاف اليدوي — وإلا فُقد الاستئناف في الحالة
+    // الوحيدة التي يُحتاج فيها فعلًا (كان يُمسح دائمًا).
+    if (!state.stopRequested) {
+      clearResumeState();
+    } else {
+      addLog('تم الإيقاف — يمكنك استئناف الجلسة لاحقًا', 'skip');
+    }
     miniStopBtn.textContent = '🔄 معالجة جديدة';
     miniStopBtn.style.background = '#27ae60';
 
@@ -1441,14 +1504,22 @@
   // ══════════════════════════════════════════════════════════════════
   //  Event Listeners
   // ══════════════════════════════════════════════════════════════════
-  fab.addEventListener('click', () => {
+  function openFromFab() {
     const isOnOrders = window.location.href.includes('/Orders/');
     if (!isOnOrders) {
       window.open(ORDERS_URL, '_blank');
       return;
     }
     showSettings();
-  });
+  }
+
+  // الفاب قد ينشئه fabs-controller لاحقًا — نربطه فقط لو موجود الآن
+  const fabEl = getFab();
+  if (fabEl) fabEl.addEventListener('click', openFromFab);
+
+  // جسر اللوحة الموحّدة: fabs-controller في world معزول ولا يصل لدوالنا،
+  // فيرسل حدث DOM. بدونه كان فتح الأداة من اللوحة لا يفتح شيئًا إطلاقًا.
+  document.addEventListener('ea-report-processor-open', openFromFab);
 
   settingsClose.addEventListener('click', hideSettings);
   overlay.addEventListener('click', (e) => { if (e.target === overlay) hideSettings(); });
@@ -1518,17 +1589,15 @@
   document.getElementById('rp-export-csv').addEventListener('click', () => {
     const reports = getFilteredAndSortedReports();
     if (reports.length === 0) { addLog('لا توجد بلاغات للتصدير', 'error'); return; }
-    // Add status to each report for export
-    const exportData = reports.map(r => ({ ...r, _hasData: false, _status: '—' }));
-    exportToCSV(exportData, `report-processor-${Date.now()}.csv`);
+    // نصدّر الحالة الحقيقية لكل بلاغ — كان الكود يفرض '—' فيمحو نتيجة المعالجة
+    exportToCSV(reports, `report-processor-${Date.now()}.csv`);
     addLog(`📊 تم تصدير ${reports.length} بلاغ إلى CSV`, 'ok');
   });
   
   document.getElementById('rp-export-xlsx').addEventListener('click', () => {
     const reports = getFilteredAndSortedReports();
     if (reports.length === 0) { addLog('لا توجد بلاغات للتصدير', 'error'); return; }
-    const exportData = reports.map(r => ({ ...r, _hasData: false, _status: '—' }));
-    exportToExcel(exportData, `report-processor-${Date.now()}.xlsx`);
+    exportToExcel(reports, `report-processor-${Date.now()}.xlsx`);
   });
 
   miniStopBtn.addEventListener('click', () => {
@@ -1538,7 +1607,7 @@
       setStatus('جاري الإيقاف...', 'warn');
     } else {
       miniMenu.classList.remove('visible');
-      fab.classList.remove('hidden');
+      setFabHidden(false);
       showSettings();
     }
   });
@@ -1548,7 +1617,7 @@
       state.stopRequested = true;
     }
     miniMenu.classList.remove('visible');
-    fab.classList.remove('hidden');
+    setFabHidden(false);
   });
 
 })();

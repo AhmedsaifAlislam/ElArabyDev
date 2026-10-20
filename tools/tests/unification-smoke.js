@@ -558,6 +558,35 @@ function load(sandbox, file) {
       'orchestrator: click_row يخرج بعد تأكيدين متتاليين (حماية من الوميض)');
   }
 
+  console.log('-- 21) معالج البلاغات (report-processor) — كان معطّلًا بالكامل --');
+  // العلّة: مراجع `fab` بقيت بعد نقل الفاب إلى fabs-controller ⇒ ReferenceError
+  // عند التحميل يقتل الـ IIFE. ولا جسر يفتح الإعدادات من اللوحة الموحّدة.
+  {
+    const rsrc = read('Tempermonky/report-processor.js');
+    const fabsrc2 = read('fabs-controller.js');
+
+    ok(!/\bfab\.(classList|addEventListener)/.test(rsrc),
+      'report-processor: لا مراجع مباشرة لـfab (كانت ReferenceError)');
+    ok(/function getFab\s*\(/.test(rsrc) && /function setFabHidden\s*\(/.test(rsrc),
+      'report-processor: getFab/setFabHidden بدل المرجع المباشر');
+    ok(/__eaReportProcessorInited/.test(rsrc),
+      'report-processor: حارس تكرار الحقن');
+    ok(/ea-report-processor-open/.test(rsrc),
+      'report-processor: يستمع لحدث الفتح من اللوحة');
+    ok(/ea-report-processor-open/.test(fabsrc2) && /tool\.id === 'rp-fab'/.test(fabsrc2),
+      'fabs-controller: يطلق حدث فتح معالج البلاغات');
+    ok(/async function showSettingsInner\s*\(/.test(rsrc) && /_settingsBusy/.test(rsrc),
+      'report-processor: حارس إعادة دخول للحصاد الكامل');
+    ok(!/_status:\s*'—'/.test(rsrc),
+      'report-processor: التصدير لم يعد يمحو حالة المعالجة');
+    ok(/if \(!state\.stopRequested\) \{\s*clearResumeState\(\)/.test(rsrc),
+      'report-processor: الإيقاف اليدوي لا يمحو جلسة الاستئناف');
+    ok(/_listRendered/.test(rsrc),
+      'report-processor: إعادة الرسم لا تلغي تحديد المستخدم');
+    ok(/function waitForTableChange\s*\(/.test(rsrc) && /firstRowSignature\(\)/.test(rsrc),
+      'report-processor: ينتظر تبدّل الشبكة فعليًا قبل قراءة الصفحة التالية');
+  }
+
   console.log('\n=== RESULT: ' + pass + ' passed, ' + fail + ' failed ===');
   if (fail > 0) {
     console.log('Failures:');
