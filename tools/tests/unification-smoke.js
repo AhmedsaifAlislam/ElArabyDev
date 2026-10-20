@@ -970,6 +970,32 @@ function load(sandbox, file) {
       'AI: لا يوجد مفتاح API مكتوب في أي ملف من ملفات الإضافة (السرية)');
   }
 
+  console.log('-- 30) اللوحة تبقى موجودة بعد إعادة بناء صفحة البوابة (SPA) --');
+  {
+    const cp = read('control-panel.js');
+    ok(/function injectPanel\(\) \{\r?\n\s*if \(document\.getElementById\(PANEL_ID\)\) return;/.test(cp),
+      'injectPanel: لا حقن مزدوج');
+    ok(/if \(window\.__cpHeartbeat\) return;/.test(cp),
+      'نبضة واحدة فقط مهما تكرّر init (لا مؤقّتات مكرّرة)');
+    ok(/if \(!host \|\| !host\.shadowRoot\) \{[\s\S]{0,200}injectPanel\(\)/.test(cp),
+      'النبضة تعيد حقن اللوحة لو حذفتها البوابة (SPA)');
+    ok(/catch \(e\) \{\r?\n\s*\/\/ نبضة واحدة فاشلة/.test(cp),
+      'خطأ في نبضة واحدة لا يوقف بقية الفحوص');
+    ok(/function showBootErrorChip/.test(cp) && /catch \(e\) \{[\s\S]{0,320}showBootErrorChip\(msg\)/.test(cp),
+      'فشل تحميل اللوحة يظهر كشريحة خطأ مرئية بدل الاختفاء الصامت');
+    ok(/elaraby_cp_boot/.test(cp),
+      'أثر بدء التشغيل (build + time) في localStorage للتشخيص');
+
+    // كل ملف مذكور في web_accessible_resources يجب أن يكون موجودًا فعليًا
+    const mf = JSON.parse(read('manifest.json').replace(/^\uFEFF/, ''));
+    const missing = [];
+    (mf.web_accessible_resources || []).forEach(w => (w.resources || []).forEach(r => {
+      if (!fs.existsSync(path.join(EXT, r))) missing.push(r);
+    }));
+    ok(missing.length === 0,
+      'manifest: كل ملفات web_accessible_resources موجودة' + (missing.length ? ' — ناقص: ' + missing.join(', ') : ''));
+  }
+
   console.log('\n=== RESULT: ' + pass + ' passed, ' + fail + ' failed ===');
   if (fail > 0) {
     console.log('Failures:');

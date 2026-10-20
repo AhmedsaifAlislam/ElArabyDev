@@ -2,7 +2,7 @@
 // control-panel.js — لوحة التحكم الذكية v1.0
 // بصمة الإصدار: تُطبع في الـ log وتظهر بجانب عنوان اللوحة، للتأكد أن المتصفح
 // حمّل أحدث نسخة من الإضافة (Reload من edge://extensions مطلوب بعد أي نشر).
-const PANEL_BUILD = '2026-10-20.22';
+const PANEL_BUILD = '2026-10-20.23';
 // Floating panel with auto-detecting page tabs
 // =========================================================
 (function () {
@@ -169,19 +169,46 @@ const escapeHtml = s => String(s ?? "").replace(/&/g, "&amp;").replace(/</g, "&l
   }
 
   async function init() {
-    if (!isWorkOrderPage()) return;
-    if (!await ensureReady()) return;
-    if (document.getElementById(PANEL_ID)) return;
-    logEvent('INIT', 'بدء تحميل لوحة التحكم — build ' + PANEL_BUILD);
-    await loadProductsDb();
-    injectPanel();
-    observePageChanges();
-    logEvent('INIT', 'تم تحميل لوحة التحكم — build ' + PANEL_BUILD);
+    try {
+      if (!isWorkOrderPage()) return;
+      if (!await ensureReady()) return;
+      if (document.getElementById(PANEL_ID)) return;
+      logEvent('INIT', 'بدء تحميل لوحة التحكم — build ' + PANEL_BUILD);
+      await loadProductsDb();
+      injectPanel();
+      observePageChanges();
+      logEvent('INIT', 'تم تحميل لوحة التحكم — build ' + PANEL_BUILD);
+    } catch (e) {
+      const msg = (e && (e.message || e)) || 'خطأ غير معروف';
+      try { logEvent('INIT', '❌ فشل تحميل اللوحة: ' + msg); } catch (_) {}
+      showBootErrorChip(msg);
+    }
+  }
+
+  // شريحة خطأ مرئية بدل الاختفاء الصامت (لو فشل تحميل اللوحة لأي سبب)
+  function showBootErrorChip(msg) {
+    try {
+      if (document.getElementById(PANEL_ID + '-boot-error')) return;
+      const el = document.createElement('div');
+      el.id = PANEL_ID + '-boot-error';
+      el.textContent = '⚠️ اللوحة لم تبدأ: ' + msg + ' — اضغط F5';
+      Object.assign(el.style, {
+        position: 'fixed', bottom: '20px', right: '20px', maxWidth: '320px',
+        background: '#7f1d1d', color: '#fff', padding: '10px 12px', borderRadius: '8px',
+        fontFamily: 'Segoe UI,Tahoma,sans-serif', fontSize: '12px', lineHeight: '1.5',
+        zIndex: '2147483647', direction: 'rtl', boxShadow: '0 8px 24px rgba(0,0,0,.5)', cursor: 'pointer'
+      });
+      el.onclick = () => { try { el.remove(); } catch (_) {} };
+      document.body.appendChild(el);
+    } catch (_) {}
   }
 
   function loadState() {
-    const raw = localStorage.getItem(STATE_KEY);
-    const s = safeParseJSON(raw, { minimized: true, docked: false });
+    let s = { minimized: true, docked: false };
+    try {
+      const raw = localStorage.getItem(STATE_KEY);
+      s = safeParseJSON(raw, { minimized: true, docked: false });
+    } catch (_) {}
     isMinimized = s.minimized !== false;
     isDocked = s.docked === true;
     return s;
@@ -259,6 +286,7 @@ const escapeHtml = s => String(s ?? "").replace(/&/g, "&amp;").replace(/</g, "&l
   }
 
   function injectPanel() {
+    if (document.getElementById(PANEL_ID)) return; // لا حقن مزدوج
     const host = document.createElement('div');
     host.id = PANEL_ID;
     const shadow = host.attachShadow({ mode: 'open' });
@@ -4369,19 +4397,34 @@ function getCSS() {
   }
 
   function observePageChanges() {
+    if (window.__cpHeartbeat) return; // مؤقّت واحد فقط مهما تكرّر init
+    window.__cpHeartbeat = true;
     let lastPage = detectPage();
     let heartbeatCounter = 0; // increments every 1200ms
     const HEARTBEAT_MS = 1200;
     const heartbeatId = setInterval(() => {
+     try {
       heartbeatCounter++;
       const page = detectPage();
-      const host = document.getElementById(PANEL_ID);
+      let host = document.getElementById(PANEL_ID);
+      // البوابة SPA: إعادة بناء الصفحة تحذف عناصرنا ⇒ نعيد الحقن تلقائيًا
+      if (!host || !host.shadowRoot) {
+        try {
+          injectPanel();
+          host = document.getElementById(PANEL_ID);
+          logEvent('INIT', 'إعادة حقن اللوحة بعد إعادة بناء صفحة البوابة');
+        } catch (e) {
+          logEvent('INIT', 'فشل إعادة حقن اللوحة: ' + (e.message || e));
+        }
+        return;
+      }
       if (page !== lastPage) {
         lastPage = page;
         if (host && host.shadowRoot) updateTab(host.shadowRoot);
       } else if (page === 'PAGE_1' && host && host.shadowRoot) {
         // Check for model change and re-render note
-        const mEl = findFirst(CFG.modelInput) || findFieldByLabel(['الموديل الفعلي 1', 'Model']);
+        const mEl = findFirst(CFG.modelInput)
+          || (typeof findFieldByLabel === 'function' ? findFieldByLabel(['الموديل الفعلي 1', 'Model']) : null);
         const cur = ((mEl?.value || mEl?.getAttribute?.('value') || '').trim().split(' _ ')[0].trim());
         if (cur !== _lastModelNoteValue) {
           renderModelNote(host.shadowRoot);
@@ -4421,6 +4464,10 @@ function getCSS() {
         const title = document.title;
         logPage('PAGE_STATE', `url=${url.slice(0,80)} title=${title.slice(0,40)}`);
       }
+     } catch (e) {
+       // نبضة واحدة فاشلة لا تُسقط المتابعة (كان خطأ واحد يوقف كل الفحوص)
+       try { logEvent('HEARTBEAT', 'خطأ: ' + (e && (e.message || e))); } catch (_) {}
+     }
     }, HEARTBEAT_MS);
 
     // Store for cleanup if needed
@@ -4573,6 +4620,11 @@ function getCSS() {
   }
 
   function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+  // أثر بدء التشغيل: يسمح بالتحقق من الإصدار الذي عمل فعلًا على الصفحة
+  try {
+    localStorage.setItem('elaraby_cp_boot', PANEL_BUILD + ' | ' + new Date().toISOString() + ' | ' + location.pathname);
+  } catch (_) {}
 
   loadPersistedLogs();
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);

@@ -170,7 +170,6 @@
           "Tempermonky/report-processor.js",
           "Tempermonky/future-orders-reveal.js",
         "dashboard/dashboard.js",
-        "dashboard/assets/index-CuF8gZts.css",
         "content/defect-scanner/defect-scanner.css"
       ],
       "matches": ["<all_urls>"]
