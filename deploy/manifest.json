@@ -7,6 +7,7 @@
   "host_permissions": [
     "https://elarabyportalpfs.powerappsportals.com/*",
     "https://elarabyiscrm2.azurewebsites.net/*",
+    "https://opencode.ai/*",
     "http://localhost:11434/*",
     "*://*.fbcdn.net/*",
     "*://*.fna.fbcdn.net/*",
@@ -90,6 +91,7 @@
         "shared/excel-exporter.js",
         "shared/portal-config.js",
         "shared/ai-client.js",
+        "ai/smart-ai-tools.js",
         "shared/n8n-client.js",
         "modules/autofill/engine-lookups.js",
         "modules/autofill/engine-page1.js",

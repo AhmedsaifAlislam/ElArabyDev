@@ -56,7 +56,12 @@
       openByClick: true,
       files: ['ai/chat-panel.js'],
       panel: '#elaraby-ai-panel',
-      defaultVisible: true
+      // الأداة تدير فتح/إغلاق لوحتها بنفسها (class .open) — لا نفرض display مضمّن
+      openEvent: 'ea-ai-open',
+      defaultVisible: true,
+      // مقيّد ببورتال العربي — من أي موقع آخر يُفتح البورتال
+      homeMatch: /elarabyportalpfs\.powerappsportals\.com/i,
+      homeUrl: 'https://elarabyportalpfs.powerappsportals.com/en-US/'
     },
     {
       id: 'rp-fab',

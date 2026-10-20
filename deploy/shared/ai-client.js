@@ -19,18 +19,19 @@
 
   /**
    * خريطة النماذج — توجيه تلقائي حسب نوع المهمة
-   * النماذج المعتمدة (ZEN Free): nemotron-3-ultra-free، deepseek-v4-flash-free، mimo-v2.5-free، longcat-2.0-free، north-mini-code-free، ling-3.0-tiny-free
+   * معرّفات Zen الحالية (تأكد منها عبر GET https://opencode.ai/zen/v1/models).
+   * ملاحظة: نماذج "-free" تعمل من داخل تطبيق OpenCode فقط — لذلك الافتراضي مدفوع ورخيص.
    */
   const MODEL_MAP = {
-    'ui-design': 'nemotron-3-ultra-free',
-    'architecture': 'nemotron-3-ultra-free',
-    'core-coding': 'deepseek-v4-flash-free',
-    'security': 'deepseek-v4-flash-free',
-    'tampermonkey': 'mimo-v2.5-free',
-    'sync-jobs': 'longcat-2.0-free',
-    'extraction': 'north-mini-code-free',
-    'qa': 'ling-3.0-tiny-free',
-    'general': 'deepseek-v4-flash-free'
+    'ui-design': 'gemini-3.8-flash',
+    'architecture': 'deepseek-v4.1-flash',
+    'core-coding': 'deepseek-v4.1-flash',
+    'security': 'deepseek-v4.1-flash',
+    'tampermonkey': 'deepseek-v4.1-flash',
+    'sync-jobs': 'qwen3.8-flash',
+    'extraction': 'gemini-3.5-flash-lite',
+    'qa': 'gpt-5.4-nano',
+    'general': 'deepseek-v4.1-flash'
   };
 
   /**

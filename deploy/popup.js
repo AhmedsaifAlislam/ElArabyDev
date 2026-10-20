@@ -176,6 +176,15 @@ document.querySelectorAll('.sub-tab-btn').forEach(btn => {
 });
 
 // ── Tab Initialization Functions ──────────────────────────
+function initAI() {
+  // تبويب المساعد الذكي في الـ popup (ai-panel-tab.js)
+  if (typeof window.initAIAssistantTab === 'function') {
+    window.initAIAssistantTab();
+  } else {
+    console.warn('[AI] ai-panel-tab.js غير محمّل — تحقق من ترتيب السكربتات في popup.html');
+  }
+}
+
 function initDashboard() {
   // Initialize dashboard - load stats and default to sync tab
   initDashboardSync();

@@ -16,8 +16,37 @@
     });
     document.getElementById('btn-ai-open-on-page').addEventListener('click', openChatOnPage);
     document.getElementById('ai-model-select')?.addEventListener('change', onModelChange);
+    document.getElementById('btn-ai-key-save')?.addEventListener('click', saveAIKey);
+    document.getElementById('ai-key-input')?.addEventListener('keydown', e => {
+      if (e.key === 'Enter') saveAIKey();
+    });
 
     checkAIConfig();
+  }
+
+  // حفظ مفتاح OpenCode محليًا (chrome.storage فقط — لا يُكتب في ملفات الإضافة)
+  async function saveAIKey() {
+    const inp = document.getElementById('ai-key-input');
+    const msg = document.getElementById('ai-key-msg');
+    if (!inp) return;
+    const key = String(inp.value || '').trim();
+    if (!key) {
+      if (msg) { msg.textContent = '⚠️ أدخل المفتاح أولاً'; msg.style.color = '#e67e22'; }
+      return;
+    }
+    if (!/^oc_sk_/.test(key)) {
+      if (msg) { msg.textContent = '⚠️ المفتاح يبدأ بـ oc_sk_ — تأكد أنك نسخته كاملًا'; msg.style.color = '#e67e22'; }
+      return;
+    }
+    try {
+      const { aiConfig = {} } = await chrome.storage.local.get({ aiConfig: {} });
+      aiConfig.apiKey = key;
+      await chrome.storage.local.set({ aiConfig });
+      if (msg) { msg.textContent = '✅ تم حفظ المفتاح في المتصفح — جاهز للاستخدام'; msg.style.color = '#2ecc71'; }
+      checkAIConfig();
+    } catch (e) {
+      if (msg) { msg.textContent = '❌ تعذر الحفظ: ' + (e?.message || e); msg.style.color = '#e74c3c'; }
+    }
   }
 
   async function checkAIConfig() {
@@ -27,11 +56,21 @@
       const { aiConfig = {} } = await chrome.storage.local.get({ aiConfig: {} });
       const hasKey = !!(aiConfig.apiKey && String(aiConfig.apiKey).trim());
       const hasModel = !!(aiConfig.model && String(aiConfig.model).trim());
+      const keyInput = document.getElementById('ai-key-input');
+      if (keyInput && aiConfig.apiKey) keyInput.value = aiConfig.apiKey;
       if (hasKey) {
         dot.style.background = '#2ecc71';
         text.textContent = '✅ مفعّل — المفتاح مضبوط' + (hasModel ? ' (' + aiConfig.model + ')' : '');
         const sel = document.getElementById('ai-model-select');
-        if (sel && hasModel) sel.value = aiConfig.model;
+        if (sel && hasModel) {
+          // ترقية تلقائية: أسماء النماذج القديمة لم تعد موجودة في Zen
+          const known = [...sel.options].some(o => o.value === aiConfig.model);
+          sel.value = known ? aiConfig.model : sel.options[0].value;
+          if (!known) {
+            aiConfig.model = sel.value;
+            chrome.storage.local.set({ aiConfig });
+          }
+        }
         try {
           const { aiUsageStats } = await chrome.storage.local.get({ aiUsageStats: null });
           if (aiUsageStats && aiUsageStats.calls) {
@@ -43,7 +82,7 @@
         } catch (_) {}
       } else {
         dot.style.background = '#f5a623';
-        text.textContent = '⚠️ لا يوجد مفتاح API — اذهب إلى الإعدادات وأدخل OpenCode API Key';
+        text.textContent = '⚠️ لا يوجد مفتاح API — أدخل مفتاح OpenCode في الحقل أعلاه ثم اضغط حفظ';
       }
     } catch (e) {
       dot.style.background = '#e74c3c';
@@ -169,8 +208,16 @@
   async function openChatOnPage() {
     const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
     if (!tab || !tab.id) return;
+    const ping = () => chrome.tabs.sendMessage(tab.id, { action: 'SHOW_AI_CHAT' });
     try {
-      const res = await chrome.tabs.sendMessage(tab.id, { action: 'SHOW_AI_CHAT' });
+      let res = await ping().catch(() => null);
+      if (!(res && res.ok)) {
+        // السكربت غير محمّل في هذه الصفحة بعد (لم تُفتح الأداة من 🧰) → احقنه ثم أعد المحاولة
+        try {
+          await chrome.scripting.executeScript({ target: { tabId: tab.id }, files: ['ai/chat-panel.js'] });
+          res = await ping().catch(() => null);
+        } catch (_) { res = null; }
+      }
       if (res && res.ok) {
         window.close();
       } else {

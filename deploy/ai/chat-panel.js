@@ -10,8 +10,8 @@
 
   const CSS = `
     #elaraby-ai-panel {
-      position: fixed; bottom: 80px; right: 76px; z-index: 999999;
-      width: 350px; max-width: calc(100vw - 90px); height: 470px;
+      position: fixed; bottom: 80px; right: 76px; z-index: 2147483000;
+      width: 350px; max-width: calc(100vw - 90px); height: 470px; max-height: calc(100vh - 120px);
       background: #fff; border-radius: 14px; overflow: hidden;
       box-shadow: 0 12px 40px rgba(0,0,0,0.4);
       display: none; flex-direction: column;
@@ -64,6 +64,47 @@
 
   let root = null;
   let sessionHistory = [];
+  let panelVisible = false;
+  let busy = false;   // يمنع الإرسال المزدوج (Enter + زر)
+
+  function getPanel() {
+    try { return document.getElementById('elaraby-ai-panel'); } catch (_) { return null; }
+  }
+
+  // إظهار/إخفاء عبر class .open فقط — بلا display مضمّن يتعارض مع الإغلاق
+  function setPanelVisible(show) {
+    inject();
+    const panel = getPanel();
+    if (!panel) return;
+    panelVisible = !!show;
+    panel.classList.toggle('open', panelVisible);
+    if (panelVisible) {
+      const input = document.getElementById('elaraby-ai-input');
+      if (input) setTimeout(() => input.focus(), 30);
+    }
+  }
+
+  // الأيقونة: الربط المركزي يرصّها ويظهرها/يخفيها، لكنه لا ينشئها — ننشئها هنا
+  function ensureFab() {
+    let fab = null;
+    try { fab = document.getElementById('elaraby-ai-fab'); } catch (_) {}
+    if (fab) return fab;
+    fab = document.createElement('button');
+    fab.id = 'elaraby-ai-fab';
+    fab.type = 'button';
+    fab.title = 'المساعد الذكي';
+    fab.textContent = '💬';
+    Object.assign(fab.style, {
+      position: 'fixed', bottom: '150px', right: '16px', zIndex: '2147483640',
+      width: '32px', height: '32px', borderRadius: '50%',
+      border: '1px solid #4c1d95', background: 'linear-gradient(135deg,#2e1065,#4c1d95)',
+      color: '#ddd6fe', fontSize: '16px', cursor: 'pointer',
+      display: 'flex', alignItems: 'center', justifyContent: 'center', lineHeight: '1'
+    });
+    fab.addEventListener('click', () => setPanelVisible(!panelVisible));
+    document.documentElement.appendChild(fab);
+    return fab;
+  }
 
   function inject() {
     if (document.getElementById('elaraby-ai-panel')) return;
@@ -79,7 +120,7 @@
     style.textContent = CSS;
     document.head.appendChild(style);
 
-    // ── اللوحة فقط (بدون فاب — الفاب يدار مركزيًا من fabs-controller) ──
+    // اللوحة (الأيقونة تُنشأ في ensureFab — الربط المركزي يرصّها فقط)
     const panel = document.createElement('div');
     panel.id = 'elaraby-ai-panel';
     panel.innerHTML = `
@@ -108,12 +149,9 @@
       badge: panel.querySelector('#elaraby-ai-tools-badge')
     };
 
-    // تصغير: النافذة تصغر والجلسة مستمرة (يمكن استئنافها)
-    root.min.onclick = () => panel.classList.remove('open');
-    // خروج: إغلاق النافذة (الفاب يدار من fabs-controller)
-    root.close.onclick = () => {
-      panel.classList.remove('open');
-    };
+    // تصغير/خروج: إخفاء اللوحة (الجلسة محفوظة، وتُفتح من الأيقونة أو 🧰)
+    root.min.onclick = () => setPanelVisible(false);
+    root.close.onclick = () => setPanelVisible(false);
     root.input.addEventListener('keydown', e => {
       if (e.key === 'Enter') send();
     });
@@ -153,6 +191,7 @@
   }
 
   async function send() {
+    if (busy) return;   // حارس: يمنع الإرسال المزدوج من Enter + الزر
     const text = root.input.value.trim();
     if (!text || typeof global.aiChatWithTools !== 'function') {
       if (typeof global.aiChatWithTools !== 'function') {
@@ -160,6 +199,7 @@
       }
       return;
     }
+    busy = true;
     root.input.value = '';
     root.send.disabled = true;
     addMsg('user', text);
@@ -170,7 +210,7 @@
       system += '\nأنت تتصفح بورتال العربي حالياً — البيانات تُجلب من الصفحة تلقائياً.';
     }
 
-    const busy = addBusy();
+    const busyEl = addBusy();
     let streamEl = null;
 
     try {
@@ -178,10 +218,11 @@
         system,
         model: 'general',
         maxTokens: 700,
-        history: sessionHistory.slice(-10),
+        // آخر 10 رسائل سابقة فقط — الرسالة الحالية تُمرَّر في prompt (منع التكرار)
+        history: sessionHistory.slice(-10, -1),
         onChunk: (fullText) => {
           if (!streamEl) {
-            busy.remove();
+            busyEl.remove();
             streamEl = addMsg('ai', fullText);
             streamEl.classList.add('streaming');
           } else {
@@ -191,8 +232,8 @@
         }
       });
 
-      if (res.tool && !streamEl) {
-        addMsg('tool', '⚙️ تم تنفيذ أداة: ' + res.tool);
+      if (Array.isArray(res.toolCalls) && res.toolCalls.length) {
+        addMsg('tool', '⚙️ تم تنفيذ: ' + res.toolCalls.map(t => t.name).filter(Boolean).join('، '));
       }
 
       if (res.ok) {
@@ -202,7 +243,7 @@
           if (!finalText.trim()) streamEl.textContent = '⚠️ رد فارغ — حاول مرة أخرى أو غيّر النموذج';
           else streamEl.textContent = finalText;
         } else {
-          busy.remove();
+          busyEl.remove();
           addMsg('ai', finalText || '⚠️ رد فارغ — حاول مرة أخرى أو غيّر النموذج');
         }
         if (finalText.trim()) sessionHistory.push({ role: 'assistant', content: finalText });
@@ -212,21 +253,23 @@
           streamEl.className = 'elaraby-ai-msg err';
           streamEl.textContent = '❌ ' + (res.message || res.error || 'فشل الاستجابة');
         } else {
-          busy.remove();
+          busyEl.remove();
           addMsg('err', '❌ ' + (res.message || res.error || 'فشل الاستجابة'));
         }
       }
     } catch (e) {
       if (streamEl) { streamEl.remove(); streamEl = null; }
-      busy.remove();
+      busyEl.remove();
       addMsg('err', 'خطأ: ' + (e?.message || e));
     } finally {
+      busy = false;
       root.send.disabled = false;
       refreshToolsBadge();
     }
   }
 
   function boot() {
+    ensureFab();
     inject();
     if (global.SmartAI && typeof global.aiListTools === 'function') {
       refreshToolsBadge();
@@ -239,12 +282,17 @@
     boot();
   }
 
-  // تحديث شارة الأدوات عند تسجيل أدوات لاحقاً
-  if (typeof global.MutationObserver !== 'undefined') {
+  // فتح المحادثة من اللوحة 🧰 (جسر اختياري — الأداة تعمل بأيقونتها أيضًا)
+  document.addEventListener('ea-ai-open', () => setPanelVisible(true));
+
+  // تحديث شارة الأدوات عند تسجيل أدوات لاحقاً (استقصاء محدود — لا يبقى للأبد)
+  {
+    let tries = 0;
     const t = setInterval(() => {
-      if (typeof global.aiListTools === 'function') {
-        refreshToolsBadge();
+      tries += 1;
+      if (typeof global.aiListTools === 'function' || tries > 10) {
         clearInterval(t);
+        refreshToolsBadge();
       }
     }, 800);
   }
@@ -253,15 +301,12 @@
   if (global.chrome && chrome.runtime && chrome.runtime.onMessage) {
     chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
       if (msg && msg.action === 'SHOW_AI_CHAT') {
-        const panel = document.getElementById('elaraby-ai-panel');
-        const fab = document.getElementById('elaraby-ai-fab');
-        if (panel) {
-          panel.classList.add('open');
-          const input = document.getElementById('elaraby-ai-input');
-          if (input) input.focus();
-          sendResponse({ ok: true });
-        } else {
-          sendResponse({ ok: false });
+        try {
+          ensureFab();
+          setPanelVisible(true);
+          sendResponse({ ok: !!getPanel() });
+        } catch (e) {
+          sendResponse({ ok: false, error: String(e && e.message || e) });
         }
         return true;
       }

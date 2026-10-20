@@ -325,6 +325,11 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
 
   switch (msg.type) {
 
+    // ── OpenCode Zen AI proxy ──────────────────────────────────────
+    case 'AI_CHAT':
+      handleAIChat(msg.payload).then(sendResponse);
+      return true;
+
     case 'SAVE_REPORT':
       handleSaveReport(msg.payload).then(sendResponse);
       return true;
@@ -688,3 +693,323 @@ chrome.commands.onCommand.addListener((command) => {
 });
 
 console.log('[BG] Background service worker initialized with chrome.alarms keep-alive');
+
+// ══════════════════════════════════════════════════════════════════════
+//  OpenCode Zen AI proxy — OpenCode Zen (opencode.ai)
+//  الـ API key مخزّن في chrome.storage.local فقط ولا يُكتب في الكود.
+//  - Native Tool Calling (tools + tool_choice) + toolCalls في الرد
+//  - history حتى 20 رسالة، throttle 500ms، timeout 90s، retry 3 مرات
+//  - بث SSE عبر منفذ elaraby-ai-stream
+//  - إحصاءات استخدام: aiUsageStats
+// ══════════════════════════════════════════════════════════════════════
+const OPENCODE_ZEN_URL = 'https://opencode.ai/zen/v1/chat/completions';
+const AI_MIN_INTERVAL_MS = 500;
+const AI_TIMEOUT_MS = 90000;
+const AI_USAGE_KEY = 'aiUsageStats';
+let lastAICallTs = 0;
+
+function aiThrottle() {
+  const now = Date.now();
+  const delay = Math.max(0, lastAICallTs + AI_MIN_INTERVAL_MS - now);
+  lastAICallTs = now + delay;
+  return new Promise(resolve => setTimeout(resolve, delay));
+}
+
+function aiSafeParse(text) {
+  try { return JSON.parse(text); } catch (_) { return {}; }
+}
+
+async function recordAIUsage(entry) {
+  try {
+    const data = await chrome.storage.local.get({ [AI_USAGE_KEY]: null });
+    const cur = data[AI_USAGE_KEY] || { calls: 0, tokens: 0, ok: 0, fail: 0, byModel: {}, last: null, history: [] };
+    cur.calls += 1;
+    if (entry.ok) cur.ok += 1; else cur.fail += 1;
+    if (entry.tokens) cur.tokens += entry.tokens;
+    if (entry.model) {
+      const m = cur.byModel[entry.model] || { calls: 0, tokens: 0 };
+      m.calls += 1;
+      m.tokens += entry.tokens || 0;
+      cur.byModel[entry.model] = m;
+    }
+    cur.last = { ts: Date.now(), model: entry.model || null, ok: !!entry.ok, error: entry.error || null, profile: entry.profile || null };
+    cur.history = (cur.history || []).concat([cur.last]).slice(-100);
+    await chrome.storage.local.set({ [AI_USAGE_KEY]: cur });
+  } catch (_) {}
+}
+
+// المفتاح والنموذج من الإعدادات
+async function aiResolveConfig(payloadModel) {
+  const { aiConfig = {} } = await chrome.storage.local.get({ aiConfig: {} });
+  const apiKey = String(aiConfig.apiKey || '').trim();
+  let model = String(payloadModel || aiConfig.model || 'deepseek-v4.1-flash').trim();
+  if (!model) model = 'deepseek-v4.1-flash';
+  // Zen الحالي يرفض بادئة المزود ("opencode/xxx" ⇒ Model is unavailable) — نزيلها لو وُجدت
+  model = model.replace(/^opencode\//i, '');
+  return { apiKey, model, profile: null };
+}
+
+// رسائل أخطاء واضحة بالعربية بدل HTTP 402/403 الغامضة
+function aiHttpError(status, json) {
+  const type = json && json.error && json.error.type;
+  if (status === 401) return { error: 'AI_AUTH', message: 'مفتاح OpenCode غير صحيح أو منتهي — أعد إدخاله من الإعدادات' };
+  if (status === 402) return { error: 'AI_PAYMENT', message: 'رصيد حساب OpenCode غير كافٍ — اشحن الحساب أو استخدم مفتاحاً آخر' };
+  if (status === 403) {
+    if (type === 'FreeTierError') {
+      return { error: 'AI_FREE_TIER', message: 'النماذج المجانية تعمل من داخل تطبيق OpenCode فقط — اختر نموذجاً مدفوعاً بعد شحن الرصيد' };
+    }
+    return { error: 'AI_FORBIDDEN', message: aiErrorDetail(json) || 'الوصول مرفوض — تحقق من صلاحيات المفتاح' };
+  }
+  if (status === 404) return { error: 'AI_MODEL_NOT_FOUND', message: 'النموذج غير موجود — اختر نموذجاً آخر من الإعدادات' };
+  if (status === 429) return { error: 'AI_RATE_LIMIT', message: 'طلبات كثيرة على المفتاح — انتظر قليلاً ثم أعد المحاولة' };
+  return { error: 'HTTP ' + status, message: aiErrorDetail(json) || 'فشل الطلب — حاول مرة أخرى' };
+}
+
+function aiBuildMessages(payload) {
+  const messages = [];
+  const system = String(payload.system || '').trim();
+  if (system) messages.push({ role: 'system', content: system });
+  if (Array.isArray(payload.history)) {
+    for (const m of payload.history.slice(-20)) {
+      if (!m || !m.role) continue;
+      const clean = { role: String(m.role) };
+      if (m.content) clean.content = String(m.content);
+      if (m.tool_call_id) clean.tool_call_id = String(m.tool_call_id);
+      if (Array.isArray(m.tool_calls)) clean.tool_calls = m.tool_calls;
+      messages.push(clean);
+    }
+  }
+  messages.push({ role: 'user', content: String(payload.prompt || '') });
+  return messages;
+}
+
+function aiBuildBody(payload, model, stream) {
+  const body = {
+    model,
+    messages: aiBuildMessages(payload),
+    max_tokens: Math.min(payload.maxTokens || 512, 4000),
+    stream: !!stream
+  };
+  if (typeof payload.temperature === 'number') body.temperature = payload.temperature;
+  if (Array.isArray(payload.tools) && payload.tools.length) {
+    body.tools = payload.tools.map(t => ({
+      type: 'function',
+      function: {
+        name: String(t.name || ''),
+        description: String(t.description || ''),
+        parameters: (t.parameters && typeof t.parameters === 'object') ? t.parameters : { type: 'object', properties: {} }
+      }
+    }));
+    body.tool_choice = payload.tool_choice || 'auto';
+  }
+  return body;
+}
+
+function aiErrorDetail(json) {
+  return (json && json.error && (json.error.message || JSON.stringify(json.error))) || '';
+}
+
+async function aiFetchWithRetry(apiKey, body, maxAttempts = 3) {
+  let lastErr = null;
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), AI_TIMEOUT_MS);
+    try {
+      const resp = await fetch(OPENCODE_ZEN_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + apiKey },
+        body: JSON.stringify(body),
+        signal: controller.signal
+      });
+      clearTimeout(timer);
+      if (resp.ok) {
+        const data = await resp.json();
+        return { ok: true, data };
+      }
+      let errJson = {};
+      try { errJson = await resp.json(); } catch (_) {}
+      if ((resp.status === 429 || resp.status >= 500) && attempt < maxAttempts) {
+        const retryAfter = resp.headers.get('Retry-After');
+        const waitMs = retryAfter ? parseInt(retryAfter) * 1000 : attempt * 2000;
+        lastErr = aiHttpError(resp.status, errJson);
+        await new Promise(r => setTimeout(r, waitMs));
+        continue;
+      }
+      return { ok: false, ...aiHttpError(resp.status, errJson) };
+    } catch (e) {
+      clearTimeout(timer);
+      lastErr = { error: (e && e.name === 'AbortError') ? 'AI_TIMEOUT' : 'AI_NETWORK', message: String(e && e.message || e) };
+      if (attempt < maxAttempts) await new Promise(r => setTimeout(r, attempt * 1000));
+    }
+  }
+  return { ok: false, error: (lastErr && lastErr.error) || 'AI_FAILED', message: (lastErr && lastErr.message) || ('فشل الاتصال بعد ' + maxAttempts + ' محاولات') };
+}
+
+async function handleAIChat(payload = {}) {
+  try {
+    const { apiKey, model } = await aiResolveConfig(payload.model);
+    if (!apiKey) {
+      return { ok: false, error: 'AI_NOT_CONFIGURED', message: 'ضع مفتاح OpenCode API في إعدادات المساعد الذكي أولاً' };
+    }
+    await aiThrottle();
+    const body = aiBuildBody(payload, model, false);
+    const res = await aiFetchWithRetry(apiKey, body);
+    if (!res.ok) {
+      recordAIUsage({ model, ok: false, error: res.error, profile: payload.profile });
+      return { ok: false, error: res.error, message: res.message };
+    }
+
+    const choice = res.data.choices && res.data.choices[0];
+    const message = (choice && choice.message) || {};
+    const usage = res.data.usage || {};
+    const tokens = usage.total_tokens || ((usage.prompt_tokens || 0) + (usage.completion_tokens || 0)) || 0;
+    const toolCalls = Array.isArray(message.tool_calls) && message.tool_calls.length
+      ? message.tool_calls.map(tc => ({
+          id: tc.id || null,
+          name: (tc.function && tc.function.name) || null,
+          args: tc.function && tc.function.arguments ? aiSafeParse(tc.function.arguments) : {}
+        }))
+      : null;
+
+    const contentText = message.content || '';
+    if (!String(contentText).trim() && !toolCalls) {
+      recordAIUsage({ model, ok: false, error: 'AI_EMPTY_RESPONSE', profile: payload.profile });
+      return { ok: false, error: 'AI_EMPTY_RESPONSE', message: 'النموذج أرسل رداً فارغاً — حاول مرة أخرى أو غيّر النموذج' };
+    }
+    recordAIUsage({ model, ok: true, tokens, profile: payload.profile });
+    return { ok: true, text: contentText, toolCalls, model };
+  } catch (e) {
+    recordAIUsage({ ok: false, error: String(e && e.message || e) });
+    return { ok: false, error: String(e && e.message || e) };
+  }
+}
+
+async function handleAIStream(port, payload = {}) {
+  let recordDone = false;
+  const tryRecord = (entry) => { if (!recordDone) { recordDone = true; recordAIUsage(entry); } };
+
+  try {
+    const { apiKey, model } = await aiResolveConfig(payload.model);
+    if (!apiKey) {
+      port.postMessage({ type: 'error', error: 'AI_NOT_CONFIGURED', message: 'ضع مفتاح OpenCode API في إعدادات المساعد الذكي أولاً' });
+      return;
+    }
+    await aiThrottle();
+    const body = aiBuildBody(payload, model, true);
+
+    const controller = new AbortController();
+    let timer = setTimeout(() => controller.abort(), AI_TIMEOUT_MS);
+    port.onDisconnect.addListener(() => { clearTimeout(timer); try { controller.abort(); } catch (_) {} });
+
+    const MAX_STREAM_ATTEMPTS = 2;
+    for (let attempt = 1; attempt <= MAX_STREAM_ATTEMPTS; attempt++) {
+      try {
+        const resp = await fetch(OPENCODE_ZEN_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + apiKey },
+          body: JSON.stringify(body),
+          signal: controller.signal
+        });
+
+        if (!resp.ok) {
+          let errJson = {};
+          try { errJson = await resp.json(); } catch (_) {}
+          if ((resp.status === 429 || resp.status >= 500) && attempt < MAX_STREAM_ATTEMPTS) {
+            await new Promise(r => setTimeout(r, attempt * 2000));
+            continue;
+          }
+          const mapped = aiHttpError(resp.status, errJson);
+          tryRecord({ model, ok: false, error: mapped.error, profile: payload.profile });
+          port.postMessage({ type: 'error', error: mapped.error, message: mapped.message });
+          return;
+        }
+        if (!resp.body) {
+          tryRecord({ model, ok: false, error: 'AI_STREAM_UNAVAILABLE', profile: payload.profile });
+          port.postMessage({ type: 'error', error: 'AI_STREAM_UNAVAILABLE', message: 'الخادم لا يدعم البث حالياً — أعد المحاولة' });
+          return;
+        }
+
+        const reader = resp.body.getReader();
+        const decoder = new TextDecoder();
+        let buffer = '';
+        let fullText = '';
+        const toolAcc = new Map();
+
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          buffer += decoder.decode(value, { stream: true });
+          const lines = buffer.split('\n');
+          buffer = lines.pop();
+          for (const line of lines) {
+            const t = line.trim();
+            if (!t.startsWith('data:')) continue;
+            const data = t.slice(5).trim();
+            if (!data || data === '[DONE]') continue;
+            try {
+              const json = JSON.parse(data);
+              const choice = json.choices && json.choices[0];
+              if (!choice) continue;
+              const delta = choice.delta || {};
+              if (typeof delta.content === 'string' && delta.content) {
+                fullText += delta.content;
+                port.postMessage({ type: 'chunk', text: delta.content });
+              }
+              if (Array.isArray(delta.tool_calls)) {
+                for (const tc of delta.tool_calls) {
+                  const idx = (typeof tc.index === 'number') ? tc.index : toolAcc.size;
+                  const item = toolAcc.get(idx) || { id: null, name: '', arguments: '' };
+                  if (tc.id) item.id = tc.id;
+                  if (tc.function) {
+                    if (tc.function.name) item.name += tc.function.name;
+                    if (tc.function.arguments) item.arguments += tc.function.arguments;
+                  }
+                  toolAcc.set(idx, item);
+                }
+              }
+            } catch (_) {}
+          }
+        }
+
+        const toolCalls = toolAcc.size
+          ? [...toolAcc.values()].filter(t => t.name).map(t => ({ id: t.id || null, name: t.name, args: aiSafeParse(t.arguments || '{}') }))
+          : null;
+
+        if (!fullText.trim() && !toolCalls) {
+          tryRecord({ model, ok: false, error: 'AI_EMPTY_RESPONSE', profile: payload.profile });
+          port.postMessage({ type: 'error', error: 'AI_EMPTY_RESPONSE', message: 'النموذج أرسل رداً فارغاً — حاول مرة أخرى أو غيّر النموذج' });
+          return;
+        }
+        tryRecord({ model, ok: true, tokens: Math.round(fullText.length / 4) || 0, profile: payload.profile });
+        port.postMessage({ type: 'done', text: fullText, toolCalls, model });
+        return;
+      } catch (e) {
+        clearTimeout(timer);
+        if (e && e.name === 'AbortError') {
+          tryRecord({ model, ok: false, error: 'AI_TIMEOUT', profile: payload.profile });
+          port.postMessage({ type: 'error', error: 'AI_TIMEOUT', message: 'انتهت مهلة الاستجابة — حاول مرة أخرى' });
+          return;
+        }
+        if (attempt < MAX_STREAM_ATTEMPTS) {
+          await new Promise(r => setTimeout(r, attempt * 1000));
+          continue;
+        }
+        tryRecord({ model, ok: false, error: String(e && e.message || e), profile: payload.profile });
+        port.postMessage({ type: 'error', error: 'AI_NETWORK', message: String(e && e.message || e) });
+        return;
+      }
+    }
+  } catch (e) {
+    tryRecord({ ok: false, error: String(e && e.message || e) });
+    try { port.postMessage({ type: 'error', error: 'AI_FAILED', message: String(e && e.message || e) }); } catch (_) {}
+  }
+}
+
+// منفذ البث: يبقي الـ service worker حياً أثناء توليد الرد
+chrome.runtime.onConnect.addListener((port) => {
+  if (!port || port.name !== 'elaraby-ai-stream') return;
+  port.onMessage.addListener((msg) => {
+    if (!msg || msg.type !== 'START') return;
+    handleAIStream(port, msg.payload || {});
+  });
+});

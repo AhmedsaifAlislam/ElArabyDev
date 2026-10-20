@@ -903,6 +903,73 @@ function load(sandbox, file) {
       'فتح المحرر فوري بلا انتظار (لا تجمّد بصري)');
   }
 
+  console.log('-- 30) المساعد الذكي: الخلفية + المفتاح + اللوحة + الأدوات --');
+  {
+    const bg = read('background.js');
+    ok(/case 'AI_CHAT':/.test(bg) && /async function handleAIChat/.test(bg),
+      'AI: الخلفية تستجيب لرسالة AI_CHAT (بدل "Unknown message type")');
+    ok(/port\.name !== 'elaraby-ai-stream'/.test(bg) || /name === 'elaraby-ai-stream'/.test(bg),
+      'AI: منفذ البث elaraby-ai-stream مفتوح (لا انتظار 95 ثانية)');
+    ok(/type: 'chunk'/.test(bg) && /type: 'done'/.test(bg) && /type: 'error'/.test(bg),
+      'AI: البث يرسل chunk/done/error بالعقد المتفق عليه');
+    ok(/role: 'system'/.test(bg),
+      'AI: تعليمات النظام (system) تُرسل فعلياً إلى النموذج');
+    ok(/replace\(\/\^opencode\\\//.test(bg),
+      'AI: بادئة المزود opencode/ تُزال (Zen الحالي يرفضها)');
+
+    const mf = read('manifest.json');
+    ok(/"https:\/\/opencode\.ai\/\*"/.test(mf),
+      'AI: صلاحية المضيف opencode.ai موجودة (وإلا فشل الطلب)');
+    ok(/shared\/ai-client\.js",\s*"ai\/smart-ai-tools\.js"/.test(mf),
+      'AI: smart-ai-tools محمّل بعد ai-client (تسجيل الأدوات)');
+
+    const chat = read('ai/chat-panel.js');
+    ok(/function ensureFab\(\)/.test(chat) && /fab\.id = 'elaraby-ai-fab'/.test(chat),
+      'AI: الأيقونة تُنشأ داخل السكربت نفسه (ensureFab)');
+    ok(/addEventListener\('ea-ai-open'/.test(chat),
+      'AI: جسر الفتح من لوحة 🧰 (ea-ai-open) موجود');
+    ok(/if \(busy\) return;/.test(chat) && /busy = false;/.test(chat),
+      'AI: حارس الإرسال المزدوج (Enter + الزر)');
+    ok(/history: sessionHistory\.slice\(-10, -1\)/.test(chat),
+      'AI: الرسالة الحالية لا تُكرَّر في history (prompt فقط)');
+    ok(/res\.toolCalls/.test(chat) && !/res\.tool\b/.test(chat),
+      'AI: عرض نتائج الأدوات يقرأ toolCalls (لا الحقل القديم tool)');
+    ok(/const t = setInterval\(/.test(chat) && /tries > 10/.test(chat),
+      'AI: استقصاء الأدوات محدود (لا حلقة لا نهائية)');
+
+    const fc = read('fabs-controller.js');
+    ok(/id: 'elaraby-ai-fab'[\s\S]{0,420}openEvent: 'ea-ai-open'/.test(fc),
+      'AI: الأداة تفتح لوحتها بنفسها (openEvent — لا display مضمّن)');
+    ok(/id: 'elaraby-ai-fab'[\s\S]{0,500}homeMatch: \/elarabyportalpfs/.test(fc),
+      'AI: الأداة مقيّدة ببورتال العربي');
+
+    const popup = read('popup.html');
+    ok(/id="ai-key-input"/.test(popup) && /id="btn-ai-key-save"/.test(popup),
+      'AI: حقل إدخال مفتاح API وزر حفظ في الإعدادات');
+    ok(/<script src="shared\/ai-client\.js"><\/script>\s*<script src="ai-panel-tab\.js"><\/script>\s*<script src="popup\.js"><\/script>/.test(popup),
+      'AI: الـ popup يحمّل ai-client + ai-panel-tab قبل popup.js');
+    ok(/function initAI\(\)/.test(read('popup.js')),
+      'AI: initAI معرّفة (كانت تُستدعى بلا تعريف ⇒ تعطُّل تبويب المساعد)');
+
+    const tab = read('ai-panel-tab.js');
+    ok(/async function saveAIKey/.test(tab) && /aiConfig\.apiKey = key/.test(tab),
+      'AI: حفظ المفتاح في chrome.storage.local (لا في الملفات)');
+    ok(!/اذهب إلى الإعدادات وأدخل/.test(tab),
+      'AI: رسالة "لا يوجد مفتاح" تشير للحقل الموجود فعلاً');
+
+    function allFiles(dir, out) {
+      for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
+        const p = path.join(dir, e.name);
+        if (e.isDirectory()) allFiles(p, out);
+        else if (/\.(js|json|html|css)$/.test(e.name)) out.push(p);
+      }
+      return out;
+    }
+    const leaked = allFiles(EXT, []).filter(p => /oc_sk_[A-Za-z0-9]{6,}/.test(fs.readFileSync(p, 'utf8')));
+    ok(leaked.length === 0,
+      'AI: لا يوجد مفتاح API مكتوب في أي ملف من ملفات الإضافة (السرية)');
+  }
+
   console.log('\n=== RESULT: ' + pass + ' passed, ' + fail + ' failed ===');
   if (fail > 0) {
     console.log('Failures:');
