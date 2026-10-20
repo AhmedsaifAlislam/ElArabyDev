@@ -629,6 +629,16 @@ function load(sandbox, file) {
       'voice-control: حارس تكرار الحقن (لا مستمعات مكررة)');
     ok(/setPanelVisible\(false\)/.test(vcsrc) && /setProperty\('display'/.test(vcsrc),
       'voice-control: الإغلاق يغلب أي display مضمّن (كان لا يعمل بعد الفتح من اللوحة)');
+    ok(/rec\.continuous = true/.test(vcsrc) && !/rec\.continuous = false/.test(vcsrc),
+      'voice-control: استماع مستمر (كان يقطع بعد أول سكتة فيحتاج إعادة الكلام)');
+    ok(/rec\.onend[\s\S]{0,900}setTimeout\(startSession/.test(vcsrc),
+      'voice-control: إعادة تشغيل تلقائية بعد السكوت بدل مطالبة المستخدم بالضغط');
+    ok(/maxAlternatives = 1/.test(vcsrc) && /sessionFinal/.test(vcsrc) && /commitSession/.test(vcsrc),
+      'voice-control: يجمّع النص النهائي بين الجلسات (لا يضيع الكلام السابق)');
+    ok(/getUserMedia\(\{[\s\S]{0,200}autoGainControl: true/.test(vcsrc) && /analyser|createAnalyser/i.test(vcsrc),
+      'voice-control: يضبط AGC/عزل الضوضاء + مؤشر مستوى الميكروفون');
+    ok(/ea-voice-level/.test(vcsrc) && /90\d{3}|90000/.test(vcsrc),
+      'voice-control: مؤشر مستوى + إيقاف تلقائي بعد فترة صمت (خصوصية)');
   }
 
   console.log('-- 21.5) كل عنصر بنطاقنا نقرأه بـgetElementById يجب أن يُنشأ فعلاً --');

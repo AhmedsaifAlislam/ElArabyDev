@@ -13,6 +13,7 @@
   window.__eaVoiceControlLoaded = true;
 
   let panelVisible = false;
+  let onPanelHide = null;   // يُسند من buildUI لإيقاف المايك عند إخفاء اللوحة
 
   function getPanel() {
     try { return document.getElementById(PANEL_ID); } catch (_) { return null; }
@@ -25,6 +26,9 @@
     if (!panel) return;
     panelVisible = !!show;
     panel.style.setProperty('display', panelVisible ? 'block' : 'none', 'important');
+    if (!panelVisible && typeof onPanelHide === 'function') {
+      try { onPanelHide(); } catch (_) {}
+    }
   }
 
   // الأيقونة: fabs-controller يرصّها ويظهرها/يخفيها حسب التفعيل
@@ -73,6 +77,13 @@
           <option value="en-US">English (US)</option>
         </select>
         <button id="ea-voice-mic" style="padding:10px;border:none;border-radius:10px;background:linear-gradient(135deg,#4f46e5,#7c3aed);color:#fff;font-weight:700;font-size:13px;cursor:pointer;">🎙️ اضغط للتحدث</button>
+        <div style="display:flex;align-items:center;gap:6px;">
+          <div style="flex:1;height:7px;background:#0d1326;border:1px solid #2a2d4e;border-radius:6px;overflow:hidden;">
+            <div id="ea-voice-level" style="height:100%;width:0%;background:linear-gradient(90deg,#4ade80,#fbbf24,#ef4444);transition:width .08s linear;"></div>
+          </div>
+          <span style="font-size:9px;color:#64748b;">🎚️</span>
+        </div>
+        <div style="font-size:9px;color:#64748b;line-height:1.5;">المؤشر يتحرك مع صوتك. لو واقف: الميكروفون مقفول أو جهاز الإدخال غلط في ويندوز.</div>
         <div style="display:flex;gap:6px;">
           <button id="ea-voice-fill" style="flex:1;padding:8px;border:none;border-radius:8px;background:linear-gradient(135deg,#059669,#047857);color:#fff;font-weight:700;font-size:12px;cursor:pointer;">📝 تعبئة في الحقل</button>
           <button id="ea-voice-copy" style="flex:1;padding:8px;border:none;border-radius:8px;background:linear-gradient(135deg,#1e3c72,#2a5298);color:#fff;font-weight:700;font-size:12px;cursor:pointer;">📋 نسخ</button>
@@ -84,7 +95,7 @@
 
     panel.querySelector('#ea-voice-close').addEventListener('click', () => { setPanelVisible(false); });
 
-    // ── التعرف الصوتي ──
+    // ── عناصر اللوحة ──
     const langSel = document.getElementById('ea-voice-lang');
     const micBtn = document.getElementById('ea-voice-mic');
     const statusEl = document.getElementById('ea-voice-status');
@@ -97,42 +108,179 @@
       return;
     }
 
+    // ════════════════════════════════════════════════════════════════
+    //  التعرف الصوتي — استماع مستمر + إعادة تشغيل تلقائية
+    //  (continuous=false كان يقطع بعد أول سكتة → «لازم أعيد الكلام»)
+    // ════════════════════════════════════════════════════════════════
     let rec = null;
-    let listening = false;
+    let wantListening = false;
+    let committed = '';        // نص مؤكد من الجلسات السابقة
+    let sessionFinal = '';     // نص نهائي داخل الجلسة الحالية
+    let restartTimer = null;
+    let lastResultAt = 0;
 
-    function stopRec() {
-      try { if (rec) rec.stop(); } catch (e) {}
-      listening = false;
-      micBtn.textContent = '🎙️ اضغط للتحدث';
-      micBtn.style.background = 'linear-gradient(135deg,#4f46e5,#7c3aed)';
-      statusEl.textContent = 'جاهز';
+    function paint(text) {
+      const t = String(text || '').replace(/\s+/g, ' ').trim();
+      resultEl.textContent = t;
+      resultEl.scrollTop = resultEl.scrollHeight;
     }
 
-    micBtn.addEventListener('click', () => {
-      if (listening) { stopRec(); return; }
+    function uiListening(on) {
+      micBtn.textContent = on ? '⏹️ إيقاف الاستماع' : '🎙️ اضغط للتحدث';
+      micBtn.style.background = on
+        ? 'linear-gradient(135deg,#b91c1c,#dc2626)'
+        : 'linear-gradient(135deg,#4f46e5,#7c3aed)';
+      if (on) statusEl.textContent = '🎤 استمع الآن… (استماع مستمر — مش محتاج تضغط بعد كل جملة)';
+    }
+
+    function commitSession() {
+      committed = (committed + ' ' + sessionFinal).replace(/\s+/g, ' ').trim();
+      sessionFinal = '';
+      paint(committed);
+    }
+
+    function startSession() {
+      if (!wantListening) return;
+      try { if (rec) { rec.onend = null; rec.onerror = null; try { rec.abort(); } catch (_) {} } } catch (_) {}
+
       rec = new SR();
       rec.lang = langSel.value;
-      rec.interimResults = true;
-      rec.continuous = false;
-      rec.onstart = () => {
-        listening = true;
-        micBtn.textContent = '⏹️ جاري الاستماع...';
-        micBtn.style.background = 'linear-gradient(135deg,#b91c1c,#dc2626)';
-        statusEl.textContent = '🎤 استمع الآن...';
-      };
+      rec.continuous = true;      // لا يقطع بعد أول جملة
+      rec.interimResults = true;  // نعرض النص أثناء الكلام
+      rec.maxAlternatives = 1;
+
+      rec.onstart = () => uiListening(true);
+
       rec.onresult = (ev) => {
-        let text = '';
-        for (let i = ev.resultIndex; i < ev.results.length; i++) {
-          text += ev.results[i][0].transcript;
+        lastResultAt = Date.now();
+        let finals = '';
+        let interim = '';
+        for (let i = 0; i < ev.results.length; i++) {
+          const r = ev.results[i];
+          const txt = (r[0] && r[0].transcript) ? r[0].transcript : '';
+          if (r.isFinal) finals += txt + ' ';
+          else interim += txt;
         }
-        resultEl.textContent = text.trim();
+        sessionFinal = finals;
+        paint((committed + ' ' + finals + interim).trim());
       };
+
       rec.onerror = (ev) => {
-        statusEl.textContent = '⚠️ خطأ: ' + (ev.error || 'غير معروف');
-        stopRec();
+        const err = (ev && ev.error) || '';
+        // السكوت/الإجهاض ليس خطأً — onend سيعيد التشغيل تلقائيًا
+        if (err === 'no-speech' || err === 'aborted') return;
+        if (err === 'not-allowed' || err === 'service-not-allowed') {
+          wantListening = false;
+          uiListening(false);
+          statusEl.textContent = '⚠️ المتصفح رفض الميكروفون — اسمح بالوصول من أيقونة القفل في شريط العنوان';
+          stopMeter();
+          return;
+        }
+        if (err === 'network') {
+          statusEl.textContent = '⚠️ خدمة التعرف تحتاج إنترنت — تحقق من الاتصال';
+          return;
+        }
+        statusEl.textContent = '⚠️ ' + err;
       };
-      rec.onend = () => { if (listening) stopRec(); };
-      try { rec.start(); } catch (e) { statusEl.textContent = '⚠️ لا يمكن البدء الآن'; }
+
+      rec.onend = () => {
+        commitSession();
+        if (!wantListening) { uiListening(false); statusEl.textContent = 'جاهز'; return; }
+        // توقف تلقائي بعد 90 ثانية بلا أي كلام → نقفل المايك (خصوصية)
+        if (Date.now() - lastResultAt > 90000) {
+          wantListening = false;
+          uiListening(false);
+          statusEl.textContent = '⏹️ توقف تلقائيًا لعدم وجود كلام — اضغط للتحدث من جديد';
+          stopMeter();
+          return;
+        }
+        clearTimeout(restartTimer);
+        restartTimer = setTimeout(startSession, 300);
+      };
+
+      try { rec.start(); } catch (e) { /* Already started */ }
+    }
+
+    function stopRec() {
+      wantListening = false;
+      clearTimeout(restartTimer);
+      try { if (rec) rec.stop(); } catch (_) {}
+      commitSession();
+      uiListening(false);
+      statusEl.textContent = 'جاهز';
+      stopMeter();
+    }
+
+    function startListening() {
+      wantListening = true;
+      committed = resultEl.textContent.trim();
+      sessionFinal = '';
+      lastResultAt = Date.now();
+      uiListening(true);
+      startMeter();
+      startSession();
+    }
+
+    // ── مؤشر مستوى الميكروفون + طلب أعلى جودة التقاط ممكنة ──
+    let meterStream = null, meterCtx = null, meterRAF = 0;
+
+    async function startMeter() {
+      if (meterStream) return;
+      try {
+        meterStream = await navigator.mediaDevices.getUserMedia({
+          audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true, channelCount: 1 }
+        });
+      } catch (e) {
+        meterStream = null;
+        statusEl.textContent = '⚠️ لم يُسمح بالميكروفون — اسمح بالوصول من أيقونة القفل ثم أعد المحاولة';
+        return;
+      }
+      try {
+        meterCtx = new (window.AudioContext || window.webkitAudioContext)();
+        const src = meterCtx.createMediaStreamSource(meterStream);
+        const an = meterCtx.createAnalyser();
+        an.fftSize = 512;
+        an.smoothingTimeConstant = 0.7;
+        src.connect(an);
+        const buf = new Uint8Array(an.fftSize);
+        const tick = () => {
+          if (!meterStream) return;
+          const levelEl = document.getElementById('ea-voice-level');
+          an.getByteTimeDomainData(buf);
+          let sum = 0;
+          for (let i = 0; i < buf.length; i++) { const v = (buf[i] - 128) / 128; sum += v * v; }
+          const rms = Math.sqrt(sum / buf.length);
+          // تضخيم بصري: الصوت الهادي يبان؛ لو المؤشر واقف عند 0 فالمايك لا يلتقط
+          const pct = Math.min(100, Math.round(rms * 340));
+          if (levelEl) levelEl.style.width = pct + '%';
+          meterRAF = requestAnimationFrame(tick);
+        };
+        tick();
+      } catch (_) { /* المتصفح لا يدعم Web Audio — نتجاهل المؤشر */ }
+    }
+
+    function stopMeter() {
+      try { cancelAnimationFrame(meterRAF); } catch (_) {}
+      meterRAF = 0;
+      try { if (meterStream) meterStream.getTracks().forEach(t => t.stop()); } catch (_) {}
+      meterStream = null;
+      try { if (meterCtx) meterCtx.close(); } catch (_) {}
+      meterCtx = null;
+      const levelEl = document.getElementById('ea-voice-level');
+      if (levelEl) levelEl.style.width = '0%';
+    }
+
+    // إخفاء اللوحة أثناء الاستماع = إيقاف المايك (مافيش تسجيل في الخلفية)
+    onPanelHide = () => { if (wantListening) stopRec(); };
+
+    micBtn.addEventListener('click', () => {
+      if (wantListening) stopRec();
+      else startListening();
+    });
+
+    // تغيير اللغة أثناء الاستماع → نعيد الجلسة باللغة الجديدة
+    langSel.addEventListener('change', () => {
+      if (wantListening) { try { rec.stop(); } catch (_) {} }
     });
 
     // تعبئة في الحقل النشط (آخر input/textarea/select حصل focus على الصفحة)
@@ -157,7 +305,9 @@
       try {
         setNativeValue(lastFocused, text);
         statusEl.textContent = '✅ تمت التعبئة في الحقل النشط';
-        resultEl.textContent = '';
+        committed = '';
+        sessionFinal = '';
+        paint('');
       } catch (e) {
         statusEl.textContent = '⚠️ فشلت التعبئة: ' + e.message;
       }
