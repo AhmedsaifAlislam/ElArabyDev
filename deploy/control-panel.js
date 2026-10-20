@@ -2,7 +2,7 @@
 // control-panel.js — لوحة التحكم الذكية v1.0
 // بصمة الإصدار: تُطبع في الـ log وتظهر بجانب عنوان اللوحة، للتأكد أن المتصفح
 // حمّل أحدث نسخة من الإضافة (Reload من edge://extensions مطلوب بعد أي نشر).
-const PANEL_BUILD = '2026-10-20.16';
+const PANEL_BUILD = '2026-10-20.17';
 // Floating panel with auto-detecting page tabs
 // =========================================================
 (function () {
@@ -1291,6 +1291,64 @@ function getCSS() {
     injectInstallWarnIntoPage();
   }
 
+  // ── كتالوج أكواد الأعطال (صفحة 3) — منفصل عن مشاكل الصفحة 2 ──────────
+  const DEFECT_CATALOG_FILE = 'defect-catalog.json';
+  let _defectCatalog = null;
+  let _defectCatalogPromise = null;
+
+  async function loadDefectCatalog(force) {
+    if (_defectCatalog && !_defectCatalog.error && !force) return _defectCatalog;
+    if (_defectCatalogPromise && !force) return _defectCatalogPromise;
+    _defectCatalogPromise = (async () => {
+      try {
+        const res = await fetch(chrome.runtime.getURL(DEFECT_CATALOG_FILE), { cache: 'no-store' });
+        if (!res || res.ok === false) throw new Error('http ' + ((res && res.status) || '?'));
+        _defectCatalog = await res.json();
+      } catch (e) {
+        _defectCatalog = { families: {}, error: String((e && e.message) || e) };
+        logEvent('CODES', '⚠️ تعذّر تحميل defect-catalog.json: ' + _defectCatalog.error);
+      }
+      _defectCatalogPromise = null;
+      return _defectCatalog;
+    })();
+    return _defectCatalogPromise;
+  }
+
+  function defectFamilyOf(device) {
+    const PC = window.ProblemCodes;
+    const fromCatalog = (PC && typeof PC.familyOf === 'function') ? PC.familyOf(device) : '';
+    if (fromCatalog) return fromCatalog;
+    return getDeviceAC() ? 'AC' : '';
+  }
+
+  function defectCodesFor(device, family) {
+    if (!_defectCatalog || !_defectCatalog.families) return [];
+    const fam = family || defectFamilyOf(device);
+    if (!fam) return [];
+    const entry = _defectCatalog.families[fam];
+    const codes = (entry && Array.isArray(entry.codes)) ? entry.codes : [];
+    return codes.filter(c => c && c.major);
+  }
+
+  function renderDefectCodes(shadow, codes, device, family) {
+    const list = shadow.getElementById('cp-codes-list');
+    if (!list) return;
+    if (!codes.length) {
+      list.innerHTML = `<div class="cp-empty">لا توجد أكواد أعطال مسجّلة لـ <b>${escapeHtml(device || 'هذا الجهاز')}</b> بعد</div>`;
+      logEvent('CODES', `لا توجد أكواد أعطال في الكتالوج للعائلة "${family || '؟'}"`);
+      return;
+    }
+    list.innerHTML = codes.map(c => {
+      const major = escapeHtml(c.major);
+      const sub = escapeHtml(c.sub || '');
+      const full = escapeHtml(c.full || c.sub || c.major);
+      const desc = escapeHtml(c.desc || '');
+      return `<label class="cp-check"><input type="checkbox" class="fault-cb" value="${major},${sub},${full}"> `
+        + `<span>${major} — ${desc} <span class="cp-badge">${sub}</span></span></label>`;
+    }).join('');
+    logEvent('CODES', `تم إنشاء ${list.querySelectorAll('.fault-cb').length} checkboxes من كتالوج الأعطال (${family})`);
+  }
+
   function updateDeviceCodes(shadow) {
     const span = shadow.getElementById('cp-device-type');
     const list = shadow.getElementById('cp-codes-list');
@@ -1299,20 +1357,16 @@ function getCSS() {
     span.textContent = device || 'غير معروف';
     const isInstall = resolveIsInstall();
     logEvent('CODES', `device="${device}" isInstall=${isInstall}`);
-    const isAC = getDeviceAC();
-    logEvent('CODES', `device="${device}" isAC=${isAC}`);
-    if (isAC) {
-      list.innerHTML = `
-<label class="cp-check"><input type="checkbox" class="fault-cb" value="AC001,0005,AC00000005"> <span>AC001 — صيانة دورية <span class="cp-badge">0005</span></span></label>
-<label class="cp-check"><input type="checkbox" class="fault-cb" value="AC004,308A,AC0300308A"> <span>AC004 — ضبط حوض الصرف <span class="cp-badge">308A</span></span></label>
-<label class="cp-check"><input type="checkbox" class="fault-cb" value="AC003,L02B,AC9000L02B"> <span>AC003 — فاكيوم و شحن <span class="cp-badge">L02B</span></span></label>
-<label class="cp-check"><input type="checkbox" class="fault-cb" value="AC006,F01,AC7000F01"> <span>AC006 — سحب الجهاز <span class="cp-badge">F01</span></span></label>
-<label class="cp-check"><input type="checkbox" class="fault-cb" value="AC006,F02,AC7000F02"> <span>AC006 — إرجاع الجهاز <span class="cp-badge">F02</span></span></label>
-<label class="cp-check"><input type="checkbox" class="fault-cb" value="AC005,N02,AC0000N02"> <span>AC005 — لا يوجد عطل <span class="cp-badge">N02</span></span></label>`;
-      logEvent('CODES', `تم إنشاء ${list.querySelectorAll('.fault-cb').length} checkboxes`);
+    const family = defectFamilyOf(device);
+    logEvent('CODES', `device="${device}" defectFamily=${family || '؟'}`);
+
+    if (!_defectCatalog) {
+      list.innerHTML = '<div class="cp-empty">⏳ جاري تحميل كتالوج الأعطال…</div>';
+      loadDefectCatalog().then(() => {
+        try { updateDeviceCodes(shadow); } catch (_) {}
+      });
     } else {
-      list.innerHTML = '<div class="cp-empty">لا توجد أكواد افتراضية لهذا الجهاز</div>';
-      logEvent('CODES', 'لم يتم إنشاء checkboxes (ليس AC)');
+      renderDefectCodes(shadow, defectCodesFor(device, family), device, family);
     }
     refreshCopiedCodesPreview(shadow);
     updateDeviceNotes(shadow);

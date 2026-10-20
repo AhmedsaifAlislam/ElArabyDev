@@ -161,6 +161,7 @@
         "travel-costs.json",
         "model-notes.json",
         "problem-catalog.json",
+        "defect-catalog.json",
         "lib/xlsx.full.min.js",
           "Tempermonky/elaraby-phone-reveal.js",
           "Tempermonky/messenger-sender.js",

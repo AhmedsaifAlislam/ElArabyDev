@@ -5,6 +5,26 @@
 > **الإصدار:** يتبع [Semantic Versioning](https://semver.org/)
 ---
 
+## [2026-10-20] — الموجة 23: فصل كتالوج الأعطال عن كتالوج المشاكل (الخطوة 3)
+
+### العلّة
+- أكواد الأعطال (AC001/AC004/…) كانت مكتوبة HTML داخل `control-panel.js` للـ AC فقط،
+  وأي جهاز آخر يحصل على «لا توجد أكواد افتراضية» — وكانت تُخلط ذهنيًا مع مشاكل الصفحة ٢.
+
+### الإضافة
+- `defect-catalog.json` (جديد): `families → codes[{major, sub, full, desc}]` + `valueFormat`.
+  - AC: 6 أكواد معروفة (AC001/0005، AC004/308A، AC003/L02B، AC006/F01، AC006/F02، AC005/N02).
+  - بقية العائلات (GS/GR/WM/HT/DW) جاهزة في الهيكل لكن بلا أكواد بعد.
+- `control-panel.js`:
+  - `loadDefectCatalog()` — تحميل مرة واحدة + إعادة رسم بعد التحميل.
+  - `defectFamilyOf()` — العائلة من `ProblemCodes.familyOf` أو `getDeviceAC()`.
+  - `defectCodesFor()` + `renderDefectCodes()` — القائمة تُبنى من الكتالوج لا من HTML.
+- `manifest.json`: `defect-catalog.json` في `web_accessible_resources`.
+
+### التحقق
+- `unification-smoke.js` ⇒ **215 ناجح / 0 فاشل** (9 فحوص جديدة) |
+  `deploy.ps1` ✅ + تطابق SHA256 | build `2026-10-20.17`.
+
 ## [2026-10-20] — الموجة 22: حل كود المشكلة من الكتالوج (الخطوة 2)
 
 ### العلّة

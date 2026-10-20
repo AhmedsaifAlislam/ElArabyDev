@@ -731,6 +731,31 @@ function load(sandbox, file) {
       'engine-page2: resolveActualProblem يحمّل القواعد ويحذّر من كود خارج الكتالوج');
   }
 
+  console.log('-- 24) فصل كتالوج الأعطال (صفحة 3) عن كتالوج المشاكل (صفحة 2) --');
+  {
+    const def = JSON.parse(read('defect-catalog.json'));
+    ok(!!(def.families && def.families.AC && Array.isArray(def.families.AC.codes)),
+      'defect-catalog: عائلة AC موجودة');
+    ok(def.families.AC.codes.length === 6,
+      'defect-catalog: 6 أكواد أعطال AC معروفة');
+    ok(def.families.AC.codes.every(c => /^AC\d{3}$/.test(c.major) && /^[A-Z0-9]{3,4}$/.test(c.sub) && c.full),
+      'defect-catalog: كل كود بصيغة major/sub/full');
+    ok(!/"WM05"|"GS01"|"HT01"/.test(JSON.stringify(def)),
+      'defect-catalog: لا يحتوي أي كود مشكلة (WM05/GS01/HT01)');
+    ok(!JSON.stringify(JSON.parse(read('problem-catalog.json'))).includes('AC001'),
+      'problem-catalog: لا يحتوي أي كود عطل (AC001)');
+
+    const cp = read('control-panel.js');
+    ok(!/value="AC001,0005/.test(cp),
+      'control-panel: أُزيلت أكواد الأعطال المكتوبة HTML');
+    ok(/loadDefectCatalog/.test(cp) && /defectCodesFor\(/.test(cp) && /renderDefectCodes/.test(cp),
+      'control-panel: يعرض أكواد الأعطال من الكتالوج');
+    ok(/defectFamilyOf/.test(cp) && /PC\.familyOf/.test(cp),
+      'control-panel: يستنتج عائلة الجهاز من كتالوج المشاكل');
+    ok(/"defect-catalog\.json"/.test(read('manifest.json')),
+      'manifest: defect-catalog.json في web_accessible_resources');
+  }
+
   console.log('\n=== RESULT: ' + pass + ' passed, ' + fail + ' failed ===');
   if (fail > 0) {
     console.log('Failures:');

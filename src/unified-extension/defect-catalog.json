@@ -1,0 +1,25 @@
+{
+  "version": 1,
+  "source": "live: subgrid «أكواد الأعطال» — صفحة 3",
+  "updatedAt": "2026-10-20",
+  "note": "أكواد الأعطال (صفحة 3) فقط — منفصلة تمامًا عن المشاكل الفعلية (problem-catalog.json). لا تُخلط أبدًا.",
+  "valueFormat": "major,sub,full — مثال: AC001,0005,AC00000005",
+  "families": {
+    "AC": {
+      "label": "تكييف",
+      "codes": [
+        { "major": "AC001", "sub": "0005", "full": "AC00000005", "desc": "صيانة دورية" },
+        { "major": "AC004", "sub": "308A", "full": "AC0300308A", "desc": "ضبط حوض الصرف" },
+        { "major": "AC003", "sub": "L02B", "full": "AC9000L02B", "desc": "فاكيوم و شحن" },
+        { "major": "AC006", "sub": "F01", "full": "AC7000F01", "desc": "سحب الجهاز" },
+        { "major": "AC006", "sub": "F02", "full": "AC7000F02", "desc": "إرجاع الجهاز" },
+        { "major": "AC005", "sub": "N02", "full": "AC0000N02", "desc": "لا يوجد عطل" }
+      ]
+    },
+    "GS": { "label": "بوتجاز ومسطح وفرن", "codes": [] },
+    "GR": { "label": "ثلاجات", "codes": [] },
+    "WM": { "label": "غسالات", "codes": [] },
+    "HT": { "label": "سخانات مياه", "codes": [] },
+    "DW": { "label": "غسالات أطباق", "codes": [] }
+  }
+}
