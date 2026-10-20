@@ -277,6 +277,44 @@ window.AutoFillEngine = window.AutoFillEngine || {};
     document.body.appendChild(el);
   }
 
+  // ── «لا توجد سجلات» detection ────────────────────────────────────────────────
+  // العلّة: عند البحث عن أمر غير موجود، شبكة الأوامر تعرض «لا توجد سجلات»
+  // بينما الكود كان يستمر في الانتظار حتى نهاية المهلة (12s في خطوة wait
+  // + 12s في click_row + 8s في المسار القديم) فيضيع ~25 ثانية لكل أمر مفقود.
+  const NO_RECORDS_RE = /there are no records to display|no records to display|no records found|لا توجد سجلات|لا يوجد سجلات|لا توجد نتائج|لا توجد بيانات/i;
+
+  function ordersGridShowsNoRecords() {
+    try {
+      const emptyEl = document.querySelector(
+        '.empty-message, [class*="empty-message"], .entity-grid .empty-message, .view-grid .empty-message'
+      );
+      if (emptyEl && NO_RECORDS_RE.test(emptyEl.innerText || '')) {
+        const rows = document.querySelectorAll('tbody tr[data-id], tbody tr[data-row-id], tr[data-entity]');
+        if (rows.length === 0) return true;
+      }
+      const grid = document.querySelector('.entity-grid, #grid_openorders, .view-grid, .entitylist');
+      if (grid && NO_RECORDS_RE.test(grid.innerText || '')) {
+        const dataRows = grid.querySelectorAll('tbody tr[data-id], tbody tr[data-row-id], tr[data-entity]');
+        if (dataRows.length === 0) return true;
+      }
+    } catch (_) {}
+    return false;
+  }
+
+  // ينتظر جاهزية حقل البحث بدل انتظار ثابت (كان 2000ms دائمًا).
+  async function waitForOrdersSearchReady(cfg, maxWaitMs = 2500) {
+    const start = Date.now();
+    while (Date.now() - start < maxWaitMs) {
+      let inputOk = true;
+      try { inputOk = cfg.ordersSearchInput ? !!findFirst(cfg.ordersSearchInput) : true; } catch (_) { inputOk = true; }
+      let btnOk = true;
+      try { btnOk = cfg.ordersSearchBtn ? !!findFirst(cfg.ordersSearchBtn) : true; } catch (_) { btnOk = true; }
+      if (inputOk && btnOk) return true;
+      await sleep(120);
+    }
+    return false;
+  }
+
   // ── WORKFLOW ENGINE ──────────────────────────────────────────────────────────
   async function executeWorkflow(workflowName, context, cfg) {
     const steps = cfg.workflows?.[workflowName];
@@ -289,10 +327,16 @@ window.AutoFillEngine = window.AutoFillEngine || {};
 
       if (step.action === 'wait') {
         let found = null;
-        for (let i = 0; i < (step.timeout || 10000)/500; i++) {
+        const deadline = Date.now() + (step.timeout || 10000);
+        while (Date.now() < deadline) {
           found = findFirst(selectors);
           if (found) break;
-          await sleep(500);
+          // الشبكة قالت «لا توجد سجلات» → لا فائدة من انتظار بقية المهلة
+          if (ordersGridShowsNoRecords()) {
+            warn(`[Engine] Grid reports no records while waiting for ${step.target}`);
+            return false;
+          }
+          await sleep(250);
         }
         if (!found) { warn(`[Engine] Wait timeout for ${step.target}`); return false; }
       }
@@ -301,15 +345,19 @@ window.AutoFillEngine = window.AutoFillEngine || {};
         if (!el) return false;
         await emulateUserInput(el, value);
         try { el.dispatchEvent(new KeyboardEvent('keydown', { key:'Enter', keyCode:13, bubbles:true })); } catch(_) {}
+        context._typed = (context._typed || 0) + 1;
       }
       else if (step.action === 'click') {
         const el = findFirst(selectors);
         if (!el) return false;
         safeClick(el, step.target);
+        if (/search/i.test(step.target || '')) context._searched = true;
       }
       else if (step.action === 'click_row') {
         let rowFound = false;
-        for (let i = 0; i < (step.timeout || 12000)/500; i++) {
+        let noRecordsHits = 0;
+        const deadline = Date.now() + (step.timeout || 4000);
+        while (Date.now() < deadline) {
           const rows = Array.from(document.querySelectorAll('tr, .entitylist-items > li, [role="row"]'));
           const targetRow = rows.find(r => (r.innerText||'').includes(matchText));
           if (targetRow) {
@@ -326,7 +374,15 @@ window.AutoFillEngine = window.AutoFillEngine || {};
             }
             break;
           }
-          await sleep(500);
+          // «لا توجد سجلات»: نأكد مرتين (250ms) قبل الخروج — يحمي من وميض
+          // الشبكة أثناء إعادة الرسم.
+          if (ordersGridShowsNoRecords()) {
+            noRecordsHits++;
+            if (noRecordsHits >= 2) { warn(`[Engine] No records for ${matchText} — stopping early`); break; }
+          } else {
+            noRecordsHits = 0;
+          }
+          await sleep(250);
         }
         if (!rowFound) {
           const a = Array.from(document.querySelectorAll('a[href]')).find(l => (l.innerText||'').includes(matchText) || (l.href||'').toLowerCase().includes(matchText.toLowerCase()));
@@ -359,15 +415,20 @@ window.AutoFillEngine = window.AutoFillEngine || {};
       if (currentTask) notifyStatus(currentTask.taskId, 'searching', `جاري البحث عن رقم الأمر...`);
     } catch (_) {}
 
-    await sleep(cfg._ordersSearchWait || 2000);
+    await waitForOrdersSearchReady(cfg);
 
+    let workflowSearched = false;
     if (cfg.workflows?.page1_search) {
-      const success = await executeWorkflow('page1_search', { orderId }, cfg);
+      const wfContext = { orderId };
+      const success = await executeWorkflow('page1_search', wfContext, cfg);
       if (success) { await verifyOrderNavigation(); return true; }
+      workflowSearched = !!wfContext._searched;
       warn('[Engine] Workflow failed or timed out. Falling back to legacy search logic.');
     }
 
-    const searchEl = findFirst(cfg.ordersSearchInput);
+    // لو الـ workflow كتب رقم الأمر وضغط البحث فعلًا، فالشبكة تحدّثت بالفعل —
+    // إعادة الكتابة + البحث تكلّف ~4 ثوانٍ إضافية بلا أي فائدة.
+    const searchEl = workflowSearched ? null : findFirst(cfg.ordersSearchInput);
     if (searchEl) {
       searchEl.focus();
       searchEl.value = orderId;
@@ -377,12 +438,15 @@ window.AutoFillEngine = window.AutoFillEngine || {};
       });
       const searchBtn = findFirst(cfg.ordersSearchBtn);
       if (searchBtn) searchBtn.click();
-      await sleep(2000);
+      // لا انتظار ثابت: الحلقة أدناه تلتقط الصف بمجرد ظهوره وتخرج فورًا
+      // عند «لا توجد سجلات».
+      await sleep(300);
     }
 
     const rs = cfg.ordersTableRow || ['table tbody tr','[role="row"]','.entitylist-items > li'];
     const start = Date.now();
-    while (Date.now() - start < 8000) {
+    let noRecordsHits = 0;
+    while (Date.now() - start < 3000) {
       let rows = [];
       for (const c of rs) try { rows.push(...Array.from(document.querySelectorAll(c))); } catch(_) {}
       for (const row of [...new Set(rows)]) {
@@ -408,7 +472,17 @@ window.AutoFillEngine = window.AutoFillEngine || {};
           return true;
         }
       }
-      await sleep(500);
+      // «لا توجد سجلات» مؤكدة مرتين → اخرج فورًا بدل إكمال 3 ثوانٍ كاملة
+      if (ordersGridShowsNoRecords()) {
+        noRecordsHits++;
+        if (noRecordsHits >= 2) {
+          warn(`[Engine] Grid reports no records for ${orderId} — aborting search early`);
+          break;
+        }
+      } else {
+        noRecordsHits = 0;
+      }
+      await sleep(250);
     }
 
     const a = Array.from(document.querySelectorAll('a[href]')).find(l => l.innerText?.includes(orderId) || l.href?.toLowerCase().includes(orderId.toLowerCase()));
@@ -647,7 +721,8 @@ window.AutoFillEngine = window.AutoFillEngine || {};
         await finalizeOrderInSession(currentTask, { error: 'not-found' }, 'not-found');
         await clearCurrentTask();
         const { taskQueue, taskDelay: td1 = 800 } = await storageGet({ taskQueue: [], taskDelay: 800 });
-        await sleep(td1);
+        // أمر مفقود: لا شيء ينتظر — لا نحمّل المستخدم تأخير المهمة العادي
+        await sleep(Math.min(td1, 250));
         if (taskQueue.length > 0) {
           await startNextTask(taskQueue);
         } else {

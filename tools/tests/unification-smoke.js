@@ -526,6 +526,38 @@ function load(sandbox, file) {
       'order-extractor: nextLink + Prefer في جالب المستقبلي');
   }
 
+  console.log('-- 20) البطء بعد بحث «لا توجد سجلات» (أمر غير موجود) --');
+  // العلّة: كل أمر مفقود كان يكلّف ~25–28 ثانية: 2000ms انتظار ثابت + 12s في
+  // خطوة wait + 12s في click_row + بحث ثانٍ في المسار القديم + 2000ms + 8s.
+  {
+    const esrc = read('modules/autofill/engine-orchestrator.js');
+
+    ok(/function ordersGridShowsNoRecords\s*\(/.test(esrc),
+      'orchestrator: ordersGridShowsNoRecords موجودة');
+    ok(/no records to display/.test(esrc) && /لا توجد سجلات/.test(esrc),
+      'orchestrator: يتعرّف على رسالة «لا توجد سجلات» (EN/AR)');
+    ok(/async function waitForOrdersSearchReady\s*\(/.test(esrc),
+      'orchestrator: انتظار جاهزية حقل البحث بدل تأخير ثابت');
+    ok(!/_ordersSearchWait/.test(esrc),
+      'orchestrator: أُزيل التأخير الثابت _ordersSearchWait (2000ms)');
+    ok(/step\.timeout \|\| 4000/.test(esrc),
+      'orchestrator: مهلة click_row الافتراضية 4s بدل 12s');
+    ok(!/step\.timeout \|\| 12000/.test(esrc),
+      'orchestrator: لا توجد مهلة 12s في محرّك الـ workflow');
+    ok(/Date\.now\(\) - start < 3000/.test(esrc),
+      'orchestrator: حلقة المسار القديم 3s بدل 8s');
+    ok(/let workflowSearched = false/.test(esrc) && /workflowSearched \? null : findFirst/.test(esrc),
+      'orchestrator: لا يعيد البحث لو الـ workflow بحث فعلًا');
+    ok(/Math\.min\(td1, 250\)/.test(esrc),
+      'orchestrator: مسار not-found لا ينتظر تأخير المهمة الكامل');
+    const waitAction = esrc.match(/if \(step\.action === 'wait'\)[\s\S]*?if \(!found\)/);
+    ok(!!waitAction && /ordersGridShowsNoRecords\(\)/.test(waitAction[0]),
+      'orchestrator: خطوة wait تخرج فورًا عند «لا توجد سجلات»');
+    const clickRow = esrc.match(/else if \(step\.action === 'click_row'\)[\s\S]*?if \(!rowFound\)/);
+    ok(!!clickRow && /noRecordsHits/.test(clickRow[0]) && />= 2/.test(clickRow[0]),
+      'orchestrator: click_row يخرج بعد تأكيدين متتاليين (حماية من الوميض)');
+  }
+
   console.log('\n=== RESULT: ' + pass + ' passed, ' + fail + ' failed ===');
   if (fail > 0) {
     console.log('Failures:');
