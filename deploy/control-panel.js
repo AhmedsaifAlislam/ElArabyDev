@@ -2,7 +2,7 @@
 // control-panel.js — لوحة التحكم الذكية v1.0
 // بصمة الإصدار: تُطبع في الـ log وتظهر بجانب عنوان اللوحة، للتأكد أن المتصفح
 // حمّل أحدث نسخة من الإضافة (Reload من edge://extensions مطلوب بعد أي نشر).
-const PANEL_BUILD = '2026-10-20.21';
+const PANEL_BUILD = '2026-10-20.22';
 // Floating panel with auto-detecting page tabs
 // =========================================================
 (function () {
@@ -781,6 +781,36 @@ function getCSS() {
     setStatus(shadow, `✅ ${parts.length} قطعة — الإجمالي المعتمد: ${officialTotal} ج.م`, 'success');
   }
 
+  // ربط آمن: أي خطأ في ميزة واحدة لا يوقف بقية أزرار اللوحة (كان bindEvents
+  // يخرج كاملًا عند أول استثناء ⇒ «اللوحة كلها وقفت»).
+  function safeBind(shadow, name, fn) {
+    try { fn(); }
+    catch (e) {
+      const msg = (e && (e.message || e)) || 'خطأ غير معروف';
+      try { logEvent('BIND', `⚠️ فشل ربط «${name}»: ${msg}`); } catch (_) {}
+      try { setStatus(shadow, `⚠️ خطأ في «${name}»: ${msg}`, 'warn'); } catch (_) {}
+    }
+  }
+
+  // التقاط أي خطأ غير معالج وإظهاره في شريط الحالة + السجل (بدل تجمّد صامت).
+  let _panelErrorsHooked = false;
+  function hookPanelErrors(shadow) {
+    if (_panelErrorsHooked) return;
+    _panelErrorsHooked = true;
+    try {
+      window.addEventListener('error', (e) => {
+        const msg = (e && e.message) || '';
+        if (!msg) return;
+        try { logEvent('ERROR', `${msg} @ ${(e.filename || '').split('/').pop()}:${e.lineno || 0}`); } catch (_) {}
+      });
+      window.addEventListener('unhandledrejection', (e) => {
+        const r = e && e.reason;
+        const msg = (r && (r.message || r)) || 'promise';
+        try { logEvent('ERROR', 'unhandled: ' + String(msg)); } catch (_) {}
+      });
+    } catch (_) {}
+  }
+
   function bindEvents(shadow) {
     PANEL_SHADOW = shadow;
     renderFavParts(shadow);
@@ -790,9 +820,10 @@ function getCSS() {
     if (defaultBtn) defaultBtn.onclick = () => { logEvent('CLICK', 'نقر على تعبئة بيانات افتراضية'); runExclusive(shadow, 'تعبئة افتراضية', () => fillDefaultDeviceData(shadow)); };
     shadow.getElementById('btn-exec1').onclick = () => { logEvent('CLICK', 'نقر على تنفيذ الصفحة 1'); runExclusive(shadow, 'تنفيذ الصفحة 1', () => executePage1(shadow)); };
     shadow.getElementById('btn-exec2').onclick = () => { logEvent('CLICK', 'نقر على تنفيذ الصفحة 2'); runExclusive(shadow, 'تنفيذ الصفحة 2', () => executePage2(shadow)); };
-    bindAutoNext2(shadow);
-    bindModelNoteEditor(shadow);
-    bindDefectEditor(shadow);
+    safeBind(shadow, 'التالي التلقائي (ص2)', () => bindAutoNext2(shadow));
+    safeBind(shadow, 'ملاحظات الموديل', () => bindModelNoteEditor(shadow));
+    safeBind(shadow, 'محرر أكواد الأعطال', () => bindDefectEditor(shadow));
+    hookPanelErrors(shadow);
     const stopBtn = shadow.getElementById('cp-stop');
     if (stopBtn) stopBtn.onclick = () => { logEvent('CLICK', 'نقر على إيقاف'); cancelExecution(shadow, 'user').catch(() => {}); };
     shadow.querySelectorAll('.p2-sc').forEach(btn => {
@@ -1444,6 +1475,7 @@ function getCSS() {
   // ويمكن تصديرها JSON للنشر الدائم.
   const LS_DEFECT_USER = 'defect_catalog_user';
   let _defectUser = null;
+  let _defectUserPromise = null;   // يمنع قراءات storage المتكررة/المتوازية
   let _defectEditingKey = '';
   let _defectDeleteArmed = null;
   let _defectResetArmed = 0;
@@ -1460,16 +1492,21 @@ function getCSS() {
 
   async function loadDefectUser(force) {
     if (_defectUser && !force) return _defectUser;
-    try {
-      const got = await chrome.storage.local.get({ [LS_DEFECT_USER]: { version: 1, codes: [] } });
-      const v = got && got[LS_DEFECT_USER];
-      _defectUser = (v && typeof v === 'object') ? v : { version: 1, codes: [] };
-      if (!Array.isArray(_defectUser.codes)) _defectUser.codes = [];
-    } catch (e) {
-      _defectUser = { version: 1, codes: [] };
-      logEvent('CODES', 'تعذّر قراءة تعديلات الأعطال: ' + (e.message || e));
-    }
-    return _defectUser;
+    if (_defectUserPromise && !force) return _defectUserPromise;
+    _defectUserPromise = (async () => {
+      try {
+        const got = await chrome.storage.local.get({ [LS_DEFECT_USER]: { version: 1, codes: [] } });
+        const v = got && got[LS_DEFECT_USER];
+        _defectUser = (v && typeof v === 'object') ? v : { version: 1, codes: [] };
+        if (!Array.isArray(_defectUser.codes)) _defectUser.codes = [];
+      } catch (e) {
+        _defectUser = { version: 1, codes: [] };
+        logEvent('CODES', 'تعذّر قراءة تعديلات الأعطال: ' + (e.message || e));
+      }
+      return _defectUser;
+    })();
+    try { return await _defectUserPromise; }
+    finally { _defectUserPromise = null; }
   }
 
   async function saveDefectUser(data) {
@@ -1478,9 +1515,13 @@ function getCSS() {
     if (!Array.isArray(_defectUser.codes)) _defectUser.codes = [];
     try { await chrome.storage.local.set({ [LS_DEFECT_USER]: _defectUser }); }
     catch (e) { logEvent('CODES', 'تعذّر حفظ تعديلات الأعطال: ' + (e.message || e)); }
+    // إعادة الرسم مؤجّلة (خارج دورة حدث الحفظ) حتى لا تتعارض مع الكتابة في الحقول
     if (PANEL_SHADOW) {
-      try { renderDefectEditor(PANEL_SHADOW); } catch (_) {}
-      try { updateDeviceCodes(PANEL_SHADOW); } catch (_) {}
+      const sh = PANEL_SHADOW;
+      setTimeout(() => {
+        try { renderDefectEditor(sh); } catch (e) { logEvent('CODES', 'renderDefectEditor: ' + (e.message || e)); }
+        try { updateDeviceCodes(sh); } catch (e) { logEvent('CODES', 'updateDeviceCodes: ' + (e.message || e)); }
+      }, 0);
     }
   }
 
@@ -1570,6 +1611,12 @@ function getCSS() {
     if (btn.dataset.bound === '1') return;
     btn.dataset.bound = '1';
 
+    // عزل أحداث المحرر عن البوابة: الصفحة المضيفة عندها مستمعات عامة على
+    // keydown/click، فمنع التمرير يمنعها من التدخّل أثناء الكتابة/التعديل.
+    ['keydown', 'keypress', 'keyup', 'input', 'click', 'mousedown', 'mouseup'].forEach(type => {
+      box.addEventListener(type, ev => { try { ev.stopPropagation(); } catch (_) {} });
+    });
+
     const clearForm = () => {
       _defectEditingKey = '';
       majorIn.value = ''; subIn.value = ''; fullIn.value = ''; descIn.value = '';
@@ -1577,14 +1624,17 @@ function getCSS() {
       cancelBtn.style.display = 'none';
     };
 
-    btn.onclick = async () => {
+    btn.onclick = () => {
       if (box.style.display === 'block') { box.style.display = 'none'; return; }
-      await Promise.all([loadDefectCatalog(), loadDefectUser()]);
-      famSel.value = defectFamilyOf(readDeviceHint()) || 'AC';
-      clearForm();
-      renderDefectEditor(shadow);
+      // افتح فورًا بما هو متاح، ثم حدّث القائمة بعد اكتمال التحميل (بدون تعليق الواجهة)
+      try { famSel.value = defectFamilyOf(readDeviceHint()) || 'AC'; } catch (_) { famSel.value = 'AC'; }
+      try { clearForm(); } catch (_) {}
+      try { renderDefectEditor(shadow); } catch (e) { logEvent('CODES', 'renderDefectEditor: ' + (e.message || e)); }
       box.style.display = 'block';
       logEvent('CODES', 'فتح محرر أكواد الأعطال');
+      Promise.all([loadDefectCatalog(), loadDefectUser()])
+        .then(() => { try { renderDefectEditor(shadow); } catch (_) {} })
+        .catch(e => logEvent('CODES', 'تحميل كتالوج الأعطال: ' + (e.message || e)));
     };
 
     famSel.onchange = () => { clearForm(); renderDefectEditor(shadow); };
@@ -1656,7 +1706,8 @@ function getCSS() {
       logEvent('CODES', `حفظ كود عطل: ${family} ${major}/${sub} — ${desc || 'بلا وصف'}`);
     };
 
-    shadow.getElementById('cp-defect-export').onclick = async () => {
+    const exportBtn = shadow.getElementById('cp-defect-export');
+    if (exportBtn) exportBtn.onclick = async () => {
       await loadDefectUser();
       const fams = ['AC', 'GS', 'GR', 'WM', 'HT', 'DW'];
       const out = { version: 1, updatedAt: new Date().toISOString(), families: {} };
@@ -1678,7 +1729,8 @@ function getCSS() {
       logEvent('CODES', 'تصدير كتالوج الأعطال');
     };
 
-    shadow.getElementById('cp-defect-reset').onclick = async () => {
+    const resetBtn = shadow.getElementById('cp-defect-reset');
+    if (resetBtn) resetBtn.onclick = async () => {
       if (!_defectResetArmed || (Date.now() - _defectResetArmed > 4000)) {
         _defectResetArmed = Date.now();
         setStatus(shadow, '⚠️ اضغط «استعادة» مرة أخرى لإلغاء كل تعديلاتك على الكتالوج', 'warn');
@@ -1711,27 +1763,34 @@ function getCSS() {
     logEvent('CODES', `تم إنشاء ${list.querySelectorAll('.fault-cb').length} checkboxes من كتالوج الأعطال (${family})`);
   }
 
+  let _updatingCodes = false;   // حارس إعادة الدخول (يمنع أي حلقة رسم لا نهائية)
   function updateDeviceCodes(shadow) {
+    if (_updatingCodes) return;
     const span = shadow.getElementById('cp-device-type');
     const list = shadow.getElementById('cp-codes-list');
     if (!span || !list) { logEvent('CODES', 'span أو list غير موجود'); return; }
-    const device = readDeviceHint();
-    span.textContent = device || 'غير معروف';
-    const isInstall = resolveIsInstall();
-    logEvent('CODES', `device="${device}" isInstall=${isInstall}`);
-    const family = defectFamilyOf(device);
-    logEvent('CODES', `device="${device}" defectFamily=${family || '؟'}`);
+    _updatingCodes = true;
+    try {
+      const device = readDeviceHint();
+      span.textContent = device || 'غير معروف';
+      const isInstall = resolveIsInstall();
+      logEvent('CODES', `device="${device}" isInstall=${isInstall}`);
+      const family = defectFamilyOf(device);
+      logEvent('CODES', `device="${device}" defectFamily=${family || '؟'}`);
 
-    if (!_defectCatalog || !_defectUser) {
-      list.innerHTML = '<div class="cp-empty">⏳ جاري تحميل كتالوج الأعطال…</div>';
-      Promise.all([loadDefectCatalog(), loadDefectUser()]).then(() => {
-        try { updateDeviceCodes(shadow); } catch (_) {}
-      });
-    } else {
-      renderDefectCodes(shadow, defectCodesFor(device, family), device, family);
+      if (!_defectCatalog || !_defectUser) {
+        list.innerHTML = '<div class="cp-empty">⏳ جاري تحميل كتالوج الأعطال…</div>';
+        Promise.all([loadDefectCatalog(), loadDefectUser()]).then(() => {
+          setTimeout(() => { try { updateDeviceCodes(shadow); } catch (e) { logEvent('CODES', 'retry: ' + (e.message || e)); } }, 0);
+        });
+      } else {
+        renderDefectCodes(shadow, defectCodesFor(device, family), device, family);
+      }
+      refreshCopiedCodesPreview(shadow);
+      updateDeviceNotes(shadow);
+    } finally {
+      _updatingCodes = false;
     }
-    refreshCopiedCodesPreview(shadow);
-    updateDeviceNotes(shadow);
   }
 
   const NOTES_LIST = [

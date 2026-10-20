@@ -884,6 +884,25 @@ function load(sandbox, file) {
       'محرر الأعطال مربوط في bindEvents');
   }
 
+  console.log('-- 29) تحصين اللوحة ضد تجمّد الصفحة عند التحرير --');
+  {
+    const cp = read('control-panel.js');
+    ok(/function safeBind\(shadow, name, fn\)/.test(cp) && /safeBind\(shadow, 'محرر أكواد الأعطال'/.test(cp),
+      'ربط آمن: خطأ في ميزة لا يوقف بقية أزرار اللوحة (bindEvents)');
+    ok(/function hookPanelErrors\(shadow\)/.test(cp) && /unhandledrejection/.test(cp),
+      'التقاط أخطاء JS غير المعالجة وتسجيلها (بدل تجمّد صامت)');
+    ok(/let _updatingCodes = false/.test(cp) && /if \(_updatingCodes\) return;/.test(cp),
+      'حارس إعادة دخول في updateDeviceCodes (يمنع حلقات الرسم)');
+    ok(/let _defectUserPromise = null/.test(cp) && /if \(_defectUserPromise && !force\) return _defectUserPromise;/.test(cp),
+      'قراءة تعديلات الأعطال مرة واحدة (cache للوعد)');
+    ok(/stopPropagation\(\)/.test(cp) && /'keydown', 'keypress', 'keyup', 'input', 'click'/.test(cp),
+      'عزل أحداث المحرر عن مستمعات البوابة العامة (keydown/click)');
+    ok(/إعادة الرسم مؤجّلة/.test(cp) && /setTimeout\(\(\) => \{[\s\S]{0,120}renderDefectEditor\(sh\)/.test(cp),
+      'إعادة الرسم بعد الحفظ مؤجّلة خارج دورة الحدث');
+    ok(/btn\.onclick = \(\) => \{[\s\S]{0,400}renderDefectEditor\(shadow\);[\s\S]{0,400}Promise\.all/.test(cp),
+      'فتح المحرر فوري بلا انتظار (لا تجمّد بصري)');
+  }
+
   console.log('\n=== RESULT: ' + pass + ' passed, ' + fail + ' failed ===');
   if (fail > 0) {
     console.log('Failures:');
