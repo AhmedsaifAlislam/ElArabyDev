@@ -15,6 +15,13 @@
   const SLEEP = ms => new Promise(r => setTimeout(r, ms));
   const ORDERS_URL = 'https://elarabyportalpfs.powerappsportals.com/en-US/Orders/';
 
+  // النطاق: صفحة أوامر الشغل فقط (/Orders/) — لا أيقونة ولا واجهة في أي صفحة أخرى.
+  // الـ runner يستطيع الحقن في أي تبويب، فالحماية لازم تكون داخل السكربت نفسه.
+  if (!/\/Orders(\/|$|[?#])/i.test(location.pathname)) {
+    console.info('[rp] خارج صفحة أوامر الشغل — لا تشغيل');
+    return;
+  }
+
   // حارس التكرار: الـ runner قد يحقن الملف أكثر من مرة عند كل ضغطة.
   // بدونه تتكرر المستمعات وتُبنى عناصر منفصلة عن الـ DOM الظاهر.
   if (window.__eaReportProcessorInited) return;

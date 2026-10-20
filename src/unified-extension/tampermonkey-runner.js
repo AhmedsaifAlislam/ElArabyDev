@@ -33,7 +33,8 @@
       name: 'معالج البلاغات',
       desc: 'يفتح البلاغات ويفحص البيانات ويقفل اللي مفيهوش داتا + اختيار يوم + بلاغات محددة',
       source: 'Tempermonky/report-processor.js',
-      match: '*://elarabyportalpfs.powerappsportals.com/*',
+      // صفحة أوامر الشغل فقط — لا يعمل في أي صفحة أخرى بالبورتال
+      match: '*://elarabyportalpfs.powerappsportals.com/en-US/Orders/*, *://elarabyportalpfs.powerappsportals.com/Orders/*',
       enabled: false,
       injectAt: 'document-end',
       builtin: true,
@@ -278,6 +279,22 @@
         state[cid] = { running: getLocalRunning(cid) };
       });
       sendResponse({ state });
+      return;
+    }
+
+    // تفعيل بدون حقن — يُستخدم عندما تُفتح الأداة في موقعها الصحيح من صفحة أخرى
+    if (msg.action === 'ENABLE_SCRIPT') {
+      const id = msg.scriptId;
+      if (scriptsRegistry[id]) {
+        scriptsRegistry[id].enabled = true;
+        saveRegistry();
+        setLocalRunning(id, true);
+        updateRunningState(id, true);
+        emitScriptState(id, true);
+        sendResponse({ ok: true });
+      } else {
+        sendResponse({ ok: false, error: 'Script not found: ' + id });
+      }
       return;
     }
 

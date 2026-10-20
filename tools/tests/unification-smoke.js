@@ -591,6 +591,28 @@ function load(sandbox, file) {
     const msqsrc = read('Tempermonky/messenger-sender.js');
     ok(/id: 'msq-fab'/.test(msqsrc) && /let fab = document\.getElementById\('msq-fab'\)/.test(msqsrc),
       'messenger-sender: ينشئ أيقونة #msq-fab بنفسه');
+
+    // ── النطاق (scope): كل أداة تعمل في موقعها فقط ──
+    ok(/\/\\\/Orders\(\\\/\|\$\|\[\?#\]\)\/i\.test\(location\.pathname\)/.test(rsrc),
+      'report-processor: حارس نطاق — صفحة \/Orders\/ فقط');
+    ok(/if \(!isMessagingSite\) \{/.test(msqsrc),
+      'messenger-sender: حارس نطاق — مواقع المحادثة فقط');
+    const runnerSrc = read('tampermonkey-runner.js');
+    const rpMatch = (runnerSrc.match(/'report-processor':\s*\{[\s\S]*?match:\s*'([^']+)'/) || [])[1] || '';
+    ok(/\/en-US\/Orders\/\*/.test(rpMatch) && !/powerappsportals\.com\/\*'/.test(rpMatch),
+      'runner: معالج البلاغات لا يُحقن تلقائيًا خارج صفحة أوامر الشغل');
+    const manifest = JSON.parse(read('manifest.json'));
+    const runnerCs = (manifest.content_scripts || []).find(c => (c.js || []).includes('tampermonkey-runner.js'));
+    const rm = (runnerCs && runnerCs.matches) || [];
+    ok(rm.some(u => /facebook\.com/.test(u)) && rm.some(u => /whatsapp\.com/.test(u)) && rm.some(u => /instagram\.com/.test(u)),
+      'manifest: الـ runner موجود على فيسبوك/واتساب/إنستجرام (وإلا تعذّر حقن مرسل الماسنجر)');
+    ok(/tool\.homeMatch && !tool\.homeMatch\.test\(window\.location\.href\)/.test(fabsrc2)
+      && /homeMatch: \/\\\/Orders/.test(fabsrc2)
+      && /homeMatch: \/\(\^\|\\\.\)\(facebook/.test(fabsrc2),
+      'fabs-controller: لا يحقن أداة في موقع خارج نطاقها (يفتح موقعها بدلًا من ذلك)');
+    ok(/ENABLE_SCRIPT/.test(fabsrc2) && /msg\.action === 'ENABLE_SCRIPT'/.test(runnerSrc)
+      && /'ENABLE_SCRIPT'/.test(read('background.js')),
+      'ENABLE_SCRIPT: تفعيل بدون حقن عند فتح الأداة في موقعها الصحيح');
   }
 
   console.log('\n=== RESULT: ' + pass + ' passed, ' + fail + ' failed ===');

@@ -125,7 +125,9 @@
       "matches": [
         "https://elarabyportalpfs.powerappsportals.com/*",
         "https://*.facebook.com/*",
-        "https://*.messenger.com/*"
+        "https://*.messenger.com/*",
+        "https://*.instagram.com/*",
+        "https://*.whatsapp.com/*"
       ],
       "js": [
         "tampermonkey-runner.js"

@@ -276,7 +276,7 @@ function isCdnUrl(url) {
 // Content scripts cannot receive chrome.runtime.sendMessage (only background/pages do),
 // so fabs-controller sends them here and we relay them to the sender's tab.
 const RUNNER_RELAY_ACTIONS = new Set([
-  'RUN_SCRIPT_NOW', 'STOP_SCRIPT_NOW', 'TOGGLE_SCRIPT', 'GET_SCRIPTS', 'GET_RUNNING_STATE'
+  'RUN_SCRIPT_NOW', 'STOP_SCRIPT_NOW', 'TOGGLE_SCRIPT', 'ENABLE_SCRIPT', 'GET_SCRIPTS', 'GET_RUNNING_STATE'
 ]);
 
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {

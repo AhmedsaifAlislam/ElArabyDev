@@ -40,7 +40,10 @@
       group: 'إرسال',
       openByClick: true,
       panel: '#msq-panel.visible',
-      defaultVisible: true
+      defaultVisible: true,
+      // مقيّد بمواقع المحادثة — لا يُحقن في البورتال
+      homeMatch: /(^|\.)(facebook\.com|messenger\.com|instagram\.com|whatsapp\.com)/i,
+      homeUrl: 'https://www.messenger.com/'
     },
     {
       id: 'elaraby-ai-fab',
@@ -61,7 +64,10 @@
       group: 'أدوات',
       openByClick: true,
       panel: '#rp-mini-menu.visible, #rp-overlay.visible, #rp-settings.visible',
-      defaultVisible: true
+      defaultVisible: true,
+      // يعمل في صفحة أوامر الشغل فقط — من أي صفحة أخرى يُفتح الرابط
+      homeMatch: /\/Orders(\/|$|[?#])/i,
+      homeUrl: 'https://elarabyportalpfs.powerappsportals.com/en-US/Orders/'
     },
     {
       id: 'elaraby-mini-btn',
@@ -929,6 +935,17 @@
 
   // ── فتح أداة من اللوحة (Stack item click) ──
   async function openTool(tool) {
+    // أدوات مقيّدة بموقع معيّن: لا تُحقن في صفحة غريبة — افتح موقعها بدلًا من ذلك
+    if (tool.homeMatch && !tool.homeMatch.test(window.location.href)) {
+      console.info('[fabs] out of scope:', tool.id, '→', tool.homeUrl);
+      // فعّل السكربت (بدون حقن هنا) حتى يشتغل تلقائيًا في موقعـه الصحيح
+      const sid = TOOL_TO_SCRIPT[tool.id];
+      if (sid) {
+        try { chrome.runtime.sendMessage({ action: 'ENABLE_SCRIPT', scriptId: sid }, () => void 0); } catch (_) {}
+      }
+      try { window.open(tool.homeUrl, '_blank', 'noopener'); } catch (_) {}
+      return;
+    }
     // تشغيل السكربت المرتبط إن وُجد — السكريبت ينشئ واجهته تلقائياً عند الحقن
     const scriptId = TOOL_TO_SCRIPT[tool.id];
 

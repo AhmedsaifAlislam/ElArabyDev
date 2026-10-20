@@ -22,6 +22,12 @@
 
   const isMessagingSite = /facebook\.com|messenger\.com|instagram\.com|whatsapp\.com/i.test(location.hostname);
 
+  // النطاق: مواقع المحادثة فقط — لا أيقونة ولا لوحة في أي موقع آخر.
+  if (!isMessagingSite) {
+    console.info('[msq] خارج مواقع المحادثة — لا تشغيل');
+    return;
+  }
+
   let SERVICES = [];
   let TIPS = [];
 
