@@ -279,6 +279,15 @@
     { "pattern": "سخان|heater",                             "codes": ["*HT01"] }
   ],
 
+  "_PROBLEM_CODE_RULES_NOTE": "تصنيف أكواد المشاكل المشترك (الاوتو فيلينج + الكنترول بانل). forbiddenKeywords: الأكواد/الكلمات التي لا تُختار أبدًا.",
+
+  "problemCodeRules": {
+    "forbiddenKeywords": ["GI00", "GS08", "GR05", "SR00", "SR01", "WM04", "ترصيد", "تجار", "ارضي", "أرضي", "بلاغ"]
+  },
+
+  "_problemPickTimeoutMs_NOTE": "مهلة انتظار اختيار المستخدم لكود المشكلة قبل الاختيار العشوائي من المسموح (مللي ثانية).",
+  "problemPickTimeoutMs": 30000,
+
   "_WORKFLOWS_NOTE": "خط سير الإضافة — المحرك سيقرأ هذه الخطوات تباعاً. action: نوع الإجراء, target: مفتاح من المحددات أو CSS مباشر",
 
   "workflows": {

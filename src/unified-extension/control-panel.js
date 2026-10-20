@@ -407,6 +407,7 @@ function getCSS() {
     <div id="cp-problem-picker" style="display:none;margin:6px 0 2px;padding:6px;border:1px dashed #f59e0b;border-radius:6px;background:#1a1408">
       <div class="cp-label" style="margin:0 0 3px;color:#fbbf24">⚠️ الكود المطلوب غير متاح — اختر من المتاح:</div>
       <select class="cp-select" id="cp-problem-select"></select>
+      <div id="cp-problem-countdown" style="font-size:11px;color:#fbbf24;margin:3px 0 0"></div>
       <button class="cp-btn cp-btn-exec" id="btn-add-problem" type="button" style="margin-top:4px">➕ إضافة المشكلة المختارة</button>
     </div>
     <button class="cp-btn cp-btn-exec" id="btn-exec2">▶ تنفيذ يدوي</button>
@@ -719,6 +720,12 @@ function getCSS() {
     if (addProbBtn) {
       addProbBtn.onclick = () => {
         logEvent('CLICK', 'نقر على إضافة المشكلة المختارة');
+        const PC = window.ProblemCodes;
+        // أثناء انتظار المحرّك لاختيارك: سلّمه الاختيار مباشرة (بدون قفل التنفيذ)
+        if (PC && typeof PC.hasPendingPick === 'function' && PC.hasPendingPick()) {
+          addSelectedProblem(shadow);
+          return;
+        }
         runExclusive(shadow, 'إضافة مشكلة مختارة', () => addSelectedProblem(shadow));
       };
     }
@@ -769,7 +776,48 @@ function getCSS() {
       clearLog();
       setStatus(shadow, '🗑️ تم مسح اللوج', 'success');
     };
+    bindProblemPickGate(shadow);
     makeDraggable(shadow);
+  }
+
+  // ── بوابة اختيار كود المشكلة (مشتركة: الاوتو فيلينج + الكنترول بانل) ──
+  let _problemGateBound = false;
+  let _problemCountdownTimer = null;
+
+  function focusPage2Tab(shadow) {
+    try {
+      if (isMinimized) toggle(shadow, true);
+      shadow.querySelectorAll('.cp-tab').forEach(t => t.classList.remove('active'));
+      const tab = shadow.querySelector('.cp-tab[data-page="PAGE_2"]');
+      if (tab) tab.classList.add('active');
+    } catch (_) {}
+  }
+
+  function bindProblemPickGate(shadow) {
+    if (_problemGateBound) return;
+    const PC = window.ProblemCodes;
+    if (!PC || !PC.PICK_EVENT) return;
+    _problemGateBound = true;
+    document.addEventListener(PC.PICK_EVENT, (e) => {
+      const detail = (e && e.detail) || {};
+      const list = Array.isArray(detail.list) ? detail.list : [];
+      focusPage2Tab(shadow);
+      renderProblemOptions(shadow, list);
+      const cd = shadow.getElementById('cp-problem-countdown');
+      const total = Number(detail.timeoutMs) || 0;
+      const started = Date.now();
+      const tick = () => {
+        const left = Math.max(0, Math.ceil((total - (Date.now() - started)) / 1000));
+        if (cd) cd.textContent = left > 0
+          ? `⏳ اختيار تلقائي من المسموح خلال ${left} ثانية`
+          : '⌛ انتهت المهلة — يتم الاختيار التلقائي...';
+        if (left <= 0) { clearInterval(_problemCountdownTimer); _problemCountdownTimer = null; }
+      };
+      if (_problemCountdownTimer) clearInterval(_problemCountdownTimer);
+      tick();
+      _problemCountdownTimer = setInterval(tick, 500);
+      logEvent('PROB_PICK', `طلب اختيار مشكلة — ${list.length} كود مسموح (مهلة ${total}ms)`);
+    });
   }
 
   function toggle(shadow, forceShow, forceHide) {
@@ -1815,9 +1863,17 @@ function getCSS() {
     const box = shadow.getElementById('cp-problem-picker');
     const sel = shadow.getElementById('cp-problem-select');
     if (!box || !sel) return;
-    const list = (options || []).filter(Boolean);
+    // المسموح فقط — الممنوع لا يُعرض ولا يُختار إطلاقًا (السجل المشترك)
+    let list = (options || []).filter(Boolean);
+    const PC = window.ProblemCodes;
+    if (PC && typeof PC.filterAllowed === 'function') list = PC.filterAllowed(list);
     saveProblemOptions(list);
-    if (!list.length) { box.style.display = 'none'; return; }
+    if (!list.length) {
+      box.style.display = 'none';
+      const cd = shadow.getElementById('cp-problem-countdown');
+      if (cd) cd.textContent = '';
+      return;
+    }
     sel.innerHTML = list
       .map(o => `<option value="${String(o).replace(/"/g, '&quot;')}">${String(o).replace(/</g, '&lt;')}</option>`)
       .join('');
@@ -1828,8 +1884,17 @@ function getCSS() {
     const sel = shadow.getElementById('cp-problem-select');
     const label = sel ? sel.value : '';
     if (!label) { setStatus(shadow, '⚠️ اختر مشكلة من القائمة أولًا', 'warn'); return; }
-    const code = extractProblemCode(label);
+    const PC = window.ProblemCodes;
+    const code = (PC && typeof PC.codeOf === 'function') ? PC.codeOf(label) : extractProblemCode(label);
     logEvent('PROB_PICK', `إضافة مشكلة مختارة: ${label}`);
+
+    // مسار واحد موحّد: لو المحرّك ينتظر اختيارًا، سلّمه الاختيار (هو الذي يضيف).
+    if (PC && typeof PC.resolveUserPick === 'function' && typeof PC.hasPendingPick === 'function' && PC.hasPendingPick()) {
+      PC.resolveUserPick(label);
+      setStatus(shadow, `⏳ تم إرسال اختيارك: ${code}...`);
+      return;
+    }
+
     setStatus(shadow, `⏳ جاري إضافة المشكلة: ${code}...`);
     if (typeof handleSubgridIframeModal !== 'function') {
       setStatus(shadow, '❌ محرّك الاختيار غير متاح', 'error');
@@ -1840,9 +1905,10 @@ function getCSS() {
         /اضاف[ةه]\s*المشاكل\s*الفعلي[ةه]|Add.*Problem/i,
         code,
         false,
-        /ترصيد|ارضي|أرضي|بلاغ/i,
+        /ترصيد|تجار|ارضي|أرضي|بلاغ|GI00|GS08|GR05|SR00|SR01|WM04/i,
         null
       );
+      if (PC && typeof PC.recordOutcome === 'function') PC.recordOutcome(code, '', !!(res && res.ok));
       if (res && res.ok) {
         logEvent('PROB_PICK', `✅ أُضيفت: ${res.name || label}`);
         setStatus(shadow, `✅ أُضيفت المشكلة: ${res.name || label}`, 'success');
@@ -1893,25 +1959,21 @@ function getCSS() {
           ? await getSmartProblemCode(device, isInstall)
           : (typeof getProblemCode === 'function' ? getProblemCode(device, isInstall) : null);
         logEvent('EXEC_PAGE2', `كود المشكلة: ${probCode || 'غير موجود'}`);
-        if (probCode && typeof handleSubgridIframeModal === 'function') {
+        if (probCode && typeof P2.resolveActualProblem === 'function') {
           setStatus(shadow, `⏳ جاري إضافة المشكلة: ${probCode}...`);
           try {
-            const probRes = await handleSubgridIframeModal(
-              /اضاف[ةه]\s*المشاكل\s*الفعلي[ةه]|Add.*Problem/i,
-              probCode,
-              false,
-              /ترصيد|ارضي|أرضي|بلاغ/i,
-              isInstall ? /تركيب وتشغيل/i : null
-            );
+            const probRes = await P2.resolveActualProblem(probCode, {
+              device,
+              priority: isInstall ? /تركيب وتشغيل/i : null
+            });
             probOk = !!(probRes && probRes.ok);
             probLabel = (probRes && probRes.name) || probCode;
             probReason = (probRes && probRes.reason) || '';
             probAvailable = (probRes && Array.isArray(probRes.available)) ? probRes.available : [];
-            logEvent('EXEC_PAGE2', `نتيجة المشكلة: ok=${probOk} name=${probLabel} reason=${probReason || '—'}`);
+            logEvent('EXEC_PAGE2', `نتيجة المشكلة: ok=${probOk} name=${probLabel} reason=${probReason || '—'} source=${probRes && probRes.source}`);
             if (!probOk && probAvailable.length) {
-              logEvent('EXEC_PAGE2', 'الأكواد المتاحة في هذه القائمة: ' + probAvailable.join(' | '));
+              logEvent('EXEC_PAGE2', 'الأكواد المسموحة في هذه القائمة: ' + probAvailable.join(' | '));
               renderProblemOptions(shadow, probAvailable);
-              logEvent('EXEC_PAGE2', 'تم عرض قائمة الاختيار السريع — اختر مشكلة واضغط «إضافة المشكلة المختارة»');
             }
           } catch (e) {
             logEvent('EXEC_PAGE2', 'فشل إضافة المشكلة: ' + (e.message || e));
@@ -1919,7 +1981,12 @@ function getCSS() {
         } else {
           logEvent('EXEC_PAGE2', 'لا يوجد كود مشكلة — تم التخطي');
         }
-        await sleep(2000);
+        // توقيت ديناميكي: ابدأ الفنيين فور حفظ المشكلة وظهور زرهم (أقصر زمن ممكن)
+        if (addTech && typeof P2.waitForProblemToTechReady === 'function') {
+          await P2.waitForProblemToTechReady(8000);
+        } else if (typeof P2.waitForModalsToClose === 'function') {
+          await P2.waitForModalsToClose(4000);
+        }
       }
 
       if (addTech) {
@@ -1937,7 +2004,8 @@ function getCSS() {
           const normTech = (r) => (r && r.ok) ? { ok: true, name: r.name || r.selected || '', source: r.source || '' } : null;
           let techRes = normTech(await selectRandomTechnician(null, region || null));
           if (!techRes) {
-            await sleep(3000);
+            if (typeof P2.waitForModalsToClose === 'function') await P2.waitForModalsToClose(3000);
+            else await sleep(3000);
             techRes = normTech(await selectRandomTechnician(null, region || null));
           }
           // احتياطي أخير: افتح مودال الفني واختر أول متاح (wildcard '*')

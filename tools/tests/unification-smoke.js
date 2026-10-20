@@ -381,6 +381,80 @@ function load(sandbox, file) {
   ok(/dupOk === false/.test(cpsrc), 'control-panel.js: لا يضغط Next بعد فشل ربط الموديل 2');
   ok(/CFG\.modelBtn2/.test(cpsrc), 'control-panel.js: يستخدم زر البحث الخاص بالموديل 2');
 
+  console.log('-- 17) shared problem-code registry + dynamic problem→tech timing --');
+  // العلّة: محرّك الاوتو فيلينج كان يقرأ window.CFG (غير مُعرَّف) → فرع problemCodes
+  // ميت → لا تدوير بين المسموح، ولا استبعاد للممنوع، وانتظار ثابت 2s قبل الفنيين.
+  {
+    const pbsrc = read('shared/problem-codes.js');
+    ok(/DEFAULT_FORBIDDEN/.test(pbsrc) && /'GI00'/.test(pbsrc) && /'WM04'/.test(pbsrc),
+      'problem-codes: قائمة الممنوع الاحتياطية معرّفة (GI00…WM04)');
+    ok(/function isForbidden/.test(pbsrc) && /function filterAllowed/.test(pbsrc) && /function pickAllowed/.test(pbsrc),
+      'problem-codes: isForbidden/filterAllowed/pickAllowed موجودة');
+    ok(/function requestUserPick/.test(pbsrc) && /function resolveUserPick/.test(pbsrc),
+      'problem-codes: بوابة اختيار المستخدم موجودة');
+
+    const envP = makeEnv();
+    envP.sandbox._CFG = JSON.parse(read('selectors.json'));
+    envP.sandbox.loadSelectors = async () => envP.sandbox._CFG;
+    load(envP.sandbox, 'shared/problem-codes.js');
+    const PC = envP.sandbox.ProblemCodes;
+    ok(!!PC, 'problem-codes: window.ProblemCodes متاح');
+    await PC.loadRules();
+    ok(PC.isForbidden('GI00 - (ترصيد بلاغ أرضى)'), 'problem-codes: GI00 ممنوع');
+    ok(PC.isForbidden('SR00 - (مبيعات الحالة الفنية للجهاز)'), 'problem-codes: SR00 ممنوع');
+    ok(PC.isForbidden('GR05 - (التبريد ضعيف بدرج الخضار)'), 'problem-codes: GR05 ممنوع');
+    ok(!PC.isForbidden('AC02 - (التبريد ضعيف)'), 'problem-codes: AC02 مسموح');
+    ok(!PC.isForbidden('GS01 - (تسريب غاز)'), 'problem-codes: GS01 مسموح');
+    const allowed = PC.filterAllowed([
+      'GI00 - (ترصيد بلاغ أرضى)',
+      'GS04 - (الاشعال الذاتى لا يعمل باحد العيون)',
+      'WM04 - (الاكره مكسوره)'
+    ]);
+    ok(allowed.length === 1 && /GS04/.test(allowed[0]),
+      'problem-codes: filterAllowed يستبعد الممنوع ويُبقي المسموح فقط');
+    ok(PC.codeOf('WM05 - (التجفيف لا يعمل)') === 'WM05',
+      'problem-codes: codeOf يستخرج الكود من نص الصف');
+    const picks = new Set();
+    for (let i = 0; i < 40; i++) {
+      const p = PC.pickAllowed(['AC02 - (التبريد ضعيف)', 'AC03 - (التبريد منعدم)']);
+      if (p) picks.add(PC.codeOf(p));
+    }
+    ok(picks.has('AC02') && picks.has('AC03'),
+      'problem-codes: pickAllowed يدوّر بين المسموح (AC02/AC03)');
+  }
+
+  {
+    const selJson = JSON.parse(read('selectors.json'));
+    ok(!!(selJson.problemCodeRules && Array.isArray(selJson.problemCodeRules.forbiddenKeywords))
+      && selJson.problemCodeRules.forbiddenKeywords.includes('GI00')
+      && selJson.problemCodeRules.forbiddenKeywords.includes('WM04'),
+      'selectors.json: problemCodeRules.forbiddenKeywords معرّفة');
+    ok(selJson.problemPickTimeoutMs === 30000,
+      'selectors.json: problemPickTimeoutMs = 30000');
+
+    const p2src = read('modules/autofill/engine-page2.js');
+    ok(/window\._CFG \|\| window\.CFG/.test(p2src),
+      'engine-page2: يقرأ window._CFG (إصلاح فرع problemCodes الميت)');
+    ok(/async function resolveActualProblem/.test(p2src),
+      'engine-page2: resolveActualProblem موجودة');
+    ok(/async function waitForProblemToTechReady/.test(p2src),
+      'engine-page2: waitForProblemToTechReady موجودة (توقيت ديناميكي)');
+    ok(!/Waiting 2s for problem modal cleanup/.test(p2src),
+      'engine-page2: أُزيل الانتظار الثابت 2s قبل الفنيين');
+    ok(/const readyForTech = await waitForProblemToTechReady/.test(p2src),
+      'engine-page2: يستخدم الانتظار الديناميكي قبل الفنيين');
+
+    ok(/P2\.resolveActualProblem\(probCode/.test(cpsrc),
+      'control-panel: يستخدم نفس دالة حل المشكلة الموحّدة');
+    ok(/P2\.waitForProblemToTechReady/.test(cpsrc),
+      'control-panel: يستخدم نفس التوقيت الديناميكي');
+    ok(/ProblemCodes/.test(cpsrc) && /PICK_EVENT/.test(cpsrc),
+      'control-panel: يربط بوابة اختيار المشكلة المشتركة');
+
+    ok(/"shared\/problem-codes\.js"/.test(read('manifest.json')),
+      'manifest: shared/problem-codes.js مُسجَّل كـ content script');
+  }
+
   console.log('\n=== RESULT: ' + pass + ' passed, ' + fail + ' failed ===');
   if (fail > 0) {
     console.log('Failures:');

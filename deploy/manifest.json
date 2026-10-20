@@ -85,6 +85,7 @@
         "shared/arabic-utils.js",
         "shared/data-mapper.js",
         "shared/portal-selectors.js",
+        "shared/problem-codes.js",
         "shared/frame-walker.js",
         "shared/excel-exporter.js",
         "shared/portal-config.js",
@@ -105,6 +106,7 @@
       "matches": ["https://elarabyportalpfs.powerappsportals.com/*"],
       "js": [
         "shared/frame-walker.js",
+        "shared/problem-codes.js",
         "control-panel.js",
         "features/attachments/multi-uploader.js",
         "fabs-controller.js"

@@ -45,26 +45,39 @@ window.AutoFillEngine = window.AutoFillEngine || {};
     }
 
     const text = (deviceName || '').toLowerCase();
-    const CFG = window.CFG || {};
+    const CFG = window._CFG || window.CFG || {};
     const map = CFG.problemCodes;
     if (map && Array.isArray(map)) {
       for (const entry of map) {
         try {
           if (new RegExp(entry.pattern, 'i').test(text) && entry.codes?.length) {
-            const codes = entry.codes;
-            return codes[Math.floor(Math.random() * codes.length)];
+            const picked = _pickAllowedCode(entry.codes);
+            if (picked) return picked;
           }
         } catch(_) {}
       }
     }
 
-    if (/تكييف|ac|air.?cond|split|شباك|inverter/i.test(text)) { const arr = ['*AC02','*AC03']; return arr[Math.floor(Math.random()*arr.length)]; }
-    if (/بوتوجاز|طباخ|cooker/.test(text)) return '*GS04';
-    if (/غسال/i.test(text) && !/اطباق|أطباق/.test(text)) return '*WM05';
-    if (/ثلاج|مبرد|fridge/.test(text)) { const arr = ['*GR01','*GR02','*GR03']; return arr[Math.floor(Math.random()*arr.length)]; }
-    if (/اطباق|أطباق|dish/.test(text)) return '*DW06';
-    if (/سخان|heater/.test(text)) return '*HT01';
+    if (/تكييف|ac|air.?cond|split|شباك|inverter/i.test(text)) { const p = _pickAllowedCode(['*AC02','*AC03']); if (p) return p; }
+    if (/بوتوجاز|طباخ|cooker/.test(text)) { const p = _pickAllowedCode(['*GS04']); if (p) return p; }
+    if (/غسال/i.test(text) && !/اطباق|أطباق/.test(text)) { const p = _pickAllowedCode(['*WM05']); if (p) return p; }
+    if (/ثلاج|مبرد|fridge/.test(text)) { const p = _pickAllowedCode(['*GR01','*GR02','*GR03']); if (p) return p; }
+    if (/اطباق|أطباق|dish/.test(text)) { const p = _pickAllowedCode(['*DW06']); if (p) return p; }
+    if (/سخان|heater/.test(text)) { const p = _pickAllowedCode(['*HT01']); if (p) return p; }
     return null;
+  }
+
+  // اختيار عشوائي («تدوير») بين المسموح فقط — يستخدم السجل المشترك ProblemCodes
+  function _pickAllowedCode(arr) {
+    let list = Array.isArray(arr) ? arr.slice().filter(Boolean) : [];
+    const PC = window.ProblemCodes;
+    if (PC && typeof PC.filterAllowed === 'function') {
+      list = PC.filterAllowed(list);
+    } else {
+      list = list.filter(c => !/(GI00|GS08|GR05|SR00|SR01|WM04|ترصيد|تجار|ارضي|أرضي|بلاغ)/i.test(c));
+    }
+    if (!list.length) return null;
+    return list[Math.floor(Math.random() * list.length)];
   }
 
   // الأكواد المسموح بها من الـ AI — أي كود خارجها يُرفض (الـ AI كان يخترع أكوادًا
@@ -82,7 +95,14 @@ window.AutoFillEngine = window.AutoFillEngine || {};
         if (aiResult) {
           const found = (aiResult.trim().match(/\*[A-Z]{2}\d{2}|\*تركيب|^[A-Z]{2}\d{2}/) || [])[0];
           const candidate = found ? (found.startsWith('*') ? found : '*' + found) : '';
-          if (candidate && ALLOWED_PROBLEM_CODES.includes(candidate)) return candidate;
+          if (candidate && ALLOWED_PROBLEM_CODES.includes(candidate)) {
+            const PC = window.ProblemCodes;
+            if (PC && typeof PC.isForbidden === 'function' && PC.isForbidden(candidate)) {
+              log('AI returned a forbidden code: ' + candidate + ' — falling back to the device map');
+            } else {
+              return candidate;
+            }
+          }
           if (candidate) log('AI returned a code outside the allowed list: ' + candidate + ' — falling back to the device map');
         }
       } catch (_) {}
@@ -374,6 +394,115 @@ window.AutoFillEngine = window.AutoFillEngine || {};
     return { ok: false };
   }
 
+  // ════════════════════════════════════════════════════════════════════
+  //  توقيت ديناميكي بين المشاكل والفنيين (بدل الانتظار الثابت)
+  // ════════════════════════════════════════════════════════════════════
+  function anyPageModalOpen() {
+    try {
+      return Array.from(document.querySelectorAll('.modal.in, section.modal.in, .modal.show'))
+        .some(m => m.offsetParent !== null);
+    } catch (_) { return false; }
+  }
+
+  function techAddButtonExists() {
+    try {
+      return Array.from(document.querySelectorAll('a, button, input[type="button"]'))
+        .some(b => b.offsetParent !== null && /[اإأ]ضاف[ةه]\s*فن|Add.*Tech/i.test((b.innerText || b.title || b.value || '').trim()));
+    } catch (_) { return false; }
+  }
+
+  // ترجع فورًا بمجرد أن تصبح إضافة الفنيين جاهزة:
+  // (مودال المشكلة مغلق فعليًا + زر إضافة الفنيين ظاهر) — أقصر زمن ممكن.
+  // لو الزر لم يظهر خلال 600ms من إغلاق المودال، نتابع دون تعطيل التدفق.
+  async function waitForProblemToTechReady(timeoutMs = 8000) {
+    const deadline = Date.now() + timeoutMs;
+    let closedAt = 0;
+    while (Date.now() < deadline) {
+      if (!anyPageModalOpen()) {
+        if (techAddButtonExists()) return true;
+        if (!closedAt) closedAt = Date.now();
+        if (Date.now() - closedAt >= 600) return true;
+      }
+      await sleep(120);
+    }
+    return false;
+  }
+
+  async function waitForModalsToClose(timeoutMs = 8000) {
+    const deadline = Date.now() + timeoutMs;
+    while (Date.now() < deadline) {
+      if (!anyPageModalOpen()) return true;
+      await sleep(120);
+    }
+    return !anyPageModalOpen();
+  }
+
+  // ════════════════════════════════════════════════════════════════════
+  //  حل كود المشكلة الموحّد (الاوتو فيلينج + الكنترول بانل)
+  //  ① كود البيانات المخزنة  ② قائمة البوابة (مسموح فقط)
+  //  ③ انتظار اختيار المستخدم  ④ عشوائي من المسموح عند انتهاء المهلة
+  // ════════════════════════════════════════════════════════════════════
+  const PROBLEM_BTN_REGEX = /اضاف[ةه]\s*المشاكل\s*الفعلي[ةه]|Add.*Problem/i;
+  const PROBLEM_EXCLUDE = /ترصيد|تجار|ارضي|أرضي|بلاغ|GI00|GS08|GR05|SR00|SR01|WM04/i;
+
+  async function resolveActualProblem(requestedCode, opts = {}) {
+    const PC = window.ProblemCodes;
+    const lookups = window.AutoFillEngine && window.AutoFillEngine.Lookups;
+    if (!lookups || typeof lookups.handleSubgridIframeModal !== 'function') {
+      return { ok: false, reason: 'lookups-unavailable' };
+    }
+    const device = opts.device || '';
+    const priority = opts.priority || null;
+    const exclude = opts.exclude || PROBLEM_EXCLUDE;
+
+    // ① المحاولة بكود البيانات المخزنة
+    let res = await lookups.handleSubgridIframeModal(PROBLEM_BTN_REGEX, requestedCode, false, exclude, priority);
+    if (res && res.ok) {
+      if (PC) PC.recordOutcome(requestedCode, device, true);
+      return { ok: true, name: res.name, code: requestedCode, source: 'stored' };
+    }
+
+    // فشل لسبب غير «عدم وجود الكود»؟ لا معنى لقائمة الاختيار.
+    const reason = (res && res.reason) || 'failed';
+    if (reason !== 'no-match') {
+      return { ok: false, reason, available: [] };
+    }
+
+    // ② قائمة ما تعرضه البوابة فعلًا — استبعاد الممنوع
+    const available = (res && Array.isArray(res.available)) ? res.available : [];
+    const allowed = PC ? PC.filterAllowed(available) : available.filter(x => !PROBLEM_EXCLUDE.test(x));
+    if (!allowed.length) {
+      return { ok: false, reason: 'no-allowed-or-available', available };
+    }
+    log(`[Problem] requested="${requestedCode}" not offered — ${allowed.length} allowed option(s)`);
+
+    // ③ عرض القائمة وانتظار اختيار المستخدم (أو انتهاء المهلة)
+    let chosen = null;
+    if (PC && typeof PC.requestUserPick === 'function') {
+      chosen = await PC.requestUserPick(allowed, { device, requestedCode });
+    }
+    let source = 'user-pick';
+    if (!chosen) {
+      chosen = (PC && PC.pickAllowed) ? PC.pickAllowed(allowed) : allowed[Math.floor(Math.random() * allowed.length)];
+      source = 'auto-random';
+    }
+    if (!chosen) return { ok: false, reason: 'no-allowed-or-available', available };
+
+    // ④ إضافة الكود المختار (تدوير بين المسموح)
+    const chosenCode = PC ? PC.codeOf(chosen) : String(chosen).split(/\s+[-–]\s+/)[0].trim();
+    log(`[Problem] adding picked code: "${chosenCode}" (${source})`);
+    res = await lookups.handleSubgridIframeModal(PROBLEM_BTN_REGEX, chosenCode, false, exclude, priority);
+    if (PC) PC.recordOutcome(chosenCode, device, !!(res && res.ok));
+    return {
+      ok: !!(res && res.ok),
+      name: (res && res.name) || chosenCode,
+      code: chosenCode,
+      source,
+      reason: (res && res.reason) || '',
+      available: allowed
+    };
+  }
+
   async function executePage2_FollowUp(data, cfg) {
     const FR = {};
     log('【 PAGE 2 】 Preparing Actual Problems and Technicians...');
@@ -405,28 +534,30 @@ window.AutoFillEngine = window.AutoFillEngine || {};
     const probCode = isProfileMode && data.problemCode ? data.problemCode : (data.problemCode || getProblemCode(deviceName, isInstall));
     if (probCode) {
       log('Adding Actual Problem: ' + probCode);
-      const excludeActualProblems = /ترصيد|ارضي|أرضي|بلاغ/i;
       const priorityActualProblem = /Premium\s*care|بريميم.?كير|تركيب وتشغيل/i;
-      let probRes = await window.AutoFillEngine.Lookups.handleSubgridIframeModal(
-        /اضاف[ةه]\s*المشاكل\s*الفعلي[ةه]|Add.*Problem/i,
-        probCode,
-        false,
-        excludeActualProblems,
-        priorityActualProblem
-      );
-      if (probRes && probRes.ok) {
-        FR.problem = { ok: true, selected: probRes.name };
-        log('Problem added: ' + probRes.name);
-      } else {
-        warn('Problem modal failed or no match. probRes:', JSON.stringify(probRes));
-        FR.problem = { ok: false };
+      try {
+        const probRes = await resolveActualProblem(probCode, {
+          device: deviceName,
+          priority: priorityActualProblem
+        });
+        if (probRes && probRes.ok) {
+          FR.problem = { ok: true, selected: probRes.name, code: probRes.code, source: probRes.source };
+          log('Problem added: ' + probRes.name + ' [' + probRes.source + ']');
+        } else {
+          warn('Problem modal failed or no match. probRes:', JSON.stringify(probRes));
+          FR.problem = { ok: false, reason: (probRes && probRes.reason) || '' };
+        }
+      } catch (e) {
+        warn('resolveActualProblem error:', e && e.message);
+        FR.problem = { ok: false, reason: (e && e.message) || 'error' };
       }
     } else {
       warn('Could not determine Problem Code for device:', deviceName);
     }
 
-    log('Waiting 2s for problem modal cleanup before technician...');
-    await sleep(2000);
+    // توقيت ديناميكي: ننتظر فقط حتى تُحفظ المشكلة فعليًا ويظهر زر الفنيين.
+    const readyForTech = await waitForProblemToTechReady(8000);
+    log('Problem→Technician ready (dynamic): ' + readyForTech);
 
     const targetTech = data.technicianName || data.technician || null;
     const targetRegion = data.region || data.منطقة || data.area || (await readRegionFromPage()) || null;
@@ -436,8 +567,8 @@ window.AutoFillEngine = window.AutoFillEngine || {};
     log('Adding Technician: ' + (targetTech || 'NOT SPECIFIED') + ' | Region: ' + (targetRegion || 'NOT SPECIFIED'));
     let techRes = await selectRandomTechnician(targetTech, targetRegion);
     if (!techRes || !techRes.ok) {
-      log('Technician failed, retrying in 3s...');
-      await sleep(3000);
+      log('Technician failed, retrying after modals settle...');
+      await waitForModalsToClose(3000);
       techRes = await selectRandomTechnician(targetTech, targetRegion);
     }
     if (techRes && techRes.ok && techRes.name) {
@@ -467,6 +598,9 @@ window.AutoFillEngine = window.AutoFillEngine || {};
     registerRegion,
     resolveTechnician,
     selectRandomTechnician,
+    resolveActualProblem,
+    waitForProblemToTechReady,
+    waitForModalsToClose,
     executePage2_FollowUp
   };
 
