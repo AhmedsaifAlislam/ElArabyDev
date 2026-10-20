@@ -613,6 +613,101 @@ function load(sandbox, file) {
     ok(/ENABLE_SCRIPT/.test(fabsrc2) && /msg\.action === 'ENABLE_SCRIPT'/.test(runnerSrc)
       && /'ENABLE_SCRIPT'/.test(read('background.js')),
       'ENABLE_SCRIPT: تفعيل بدون حقن عند فتح الأداة في موقعها الصحيح');
+
+    // ── التحكم الصوتي: مراجعة كاملة ──
+    const vcsrc = read('ai/voice-control.js');
+    ok(/getElementById\('ea-voice-transcript'\)/.test(vcsrc) && !/getElementById\('ea-voice-result'\)/.test(vcsrc),
+      'voice-control: يقرأ عنصر النص الموجود فعلاً (ea-voice-transcript) — كان null فيرمي TypeError');
+    ok(/document\.createElement\('button'\)/.test(vcsrc) && /fab\.id = FAB_ID/.test(vcsrc),
+      'voice-control: ينشئ أيقونته #elaraby-ai-voice-fab بنفسه (الربط المركزي لا ينشئ)');
+    ok(/OPEN_EVENT/.test(vcsrc) && /addEventListener\(OPEN_EVENT/.test(vcsrc),
+      'voice-control: يستمع لحدث الفتح ea-voice-open من اللوحة');
+    ok(/openEvent: 'ea-voice-open'/.test(fabsrc2) && /tool\.panel && !tool\.openEvent/.test(fabsrc2)
+      && /new CustomEvent\(tool\.openEvent\)/.test(fabsrc2),
+      'fabs-controller: openEvent عام — يفتح اللوحة بالسكربت ولا يفرض display يعطّل الإغلاق');
+    ok(/__eaVoiceControlLoaded/.test(vcsrc),
+      'voice-control: حارس تكرار الحقن (لا مستمعات مكررة)');
+    ok(/setPanelVisible\(false\)/.test(vcsrc) && /setProperty\('display'/.test(vcsrc),
+      'voice-control: الإغلاق يغلب أي display مضمّن (كان لا يعمل بعد الفتح من اللوحة)');
+  }
+
+  console.log('-- 21.5) كل عنصر بنطاقنا نقرأه بـgetElementById يجب أن يُنشأ فعلاً --');
+  // العلّة: عناصر وُعدت بها الواجهة (ea-voice-result) لم تُنشأ إطلاقًا،
+  // فالمتغيرات تساوي null وأول استخدام يرمي TypeError أو يقتل السكربت.
+  {
+    // تُضاف كل أداة هنا بعد مراجعتها وإصلاحها (المراجعة تجري أداة أداة).
+    // المتبقي بالمراجعة: elaraby-phone-reveal.js (سيُصلح لاحقًا: elaraby-mini-btn/badge).
+    const scopeFiles = [
+      'ai/chat-panel.js', 'ai/voice-control.js', 'core/booking/shadow-panel.js',
+      'features/attachments/multi-uploader.js',
+      'Tempermonky/report-processor.js', 'Tempermonky/messenger-sender.js',
+      'Tempermonky/future-orders-reveal.js',
+      'control-panel.js', 'fabs-controller.js', 'content/defect-scanner/defect-scanner.js'
+    ];
+    const OWN = /^(ea-|elaraby-|rp-|msq-|mu-|ds-|cp-|__bs-)/;
+    const missing = [];
+    for (const rel of scopeFiles) {
+      const src = read(rel);
+      const re = /getElementById\(\s*'([^']+)'\s*\)/g;
+      let m;
+      while ((m = re.exec(src))) {
+        const id = m[1];
+        if (!OWN.test(id)) continue;
+        // مسموح: العنصر يُنشأ في ملف آخر بنفس النطاق (لوحة تحكم/مستضيف ظل)
+        const declaredHere = (src.match(new RegExp("['\"]" + id.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + "['\"]", 'g')) || []).length >= 2;
+        const declaredElsewhere = scopeFiles.some(f => f !== rel && new RegExp("['\"]" + id.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + "['\"]").test(read(f)));
+        if (!declaredHere && !declaredElsewhere) missing.push(rel + ' → #' + id);
+      }
+    }
+    ok(missing.length === 0, 'كل عناصرنا المطلوبة موجودة فعلًا' + (missing.length ? ' — ناقص: ' + missing.join(' | ') : ''));
+  }
+
+  console.log('-- 22) كتالوج المشاكل الفعلية (problem-catalog.json) --');
+  // العلّة: قائمة «الممنوع» كانت مكتوبة يدويًا داخل الكود، والأكواد المسموحة
+  // (GS01، AC01، HT01…) لم تكن معروفة للنظام أصلًا. الكتالوج صار المصدر.
+  {
+    const cat = JSON.parse(read('problem-catalog.json'));
+    ok(Array.isArray(cat.codes) && cat.codes.length >= 50,
+      'problem-catalog: الكتالوج موجود وفيه 50+ كودًا');
+    const byCode = new Map(cat.codes.map(c => [String(c.code).toUpperCase(), c]));
+    ok(['GI00', 'GS08', 'GR05', 'SR00', 'SR01', 'WM04'].every(c => byCode.get(c) && byCode.get(c).forbidden === true),
+      'problem-catalog: الأكواد الستة الممنوعة معلّمة forbidden=true');
+    ok(['GS01', 'GS04', 'AC02', 'GR01', 'WM05', 'HT01'].every(c => byCode.get(c) && byCode.get(c).forbidden !== true),
+      'problem-catalog: الأكواد المسموحة غير معلّمة');
+    ok(!!(cat.families && cat.families.GS && cat.families.GR && cat.families.AC
+      && cat.families.WM && cat.families.HT),
+      'problem-catalog: عائلات المنتجات معرّفة');
+    ok(JSON.stringify(cat).indexOf('AC001') === -1,
+      'problem-catalog: لا يحتوي أي كود عطل (AC001…) — الكتالوجان منفصلان');
+
+    const manifest = JSON.parse(read('manifest.json'));
+    const war = (manifest.web_accessible_resources || []).flatMap(r => r.resources || []);
+    ok(war.includes('problem-catalog.json'),
+      'manifest: problem-catalog.json في web_accessible_resources');
+
+    const envC = makeEnv();
+    envC.sandbox._CFG = JSON.parse(read('selectors.json'));
+    envC.sandbox.loadSelectors = async () => envC.sandbox._CFG;
+    envC.sandbox.fetch = async () => ({ ok: true, status: 200, json: async () => cat });
+    load(envC.sandbox, 'shared/problem-codes.js');
+    const PC2 = envC.sandbox.ProblemCodes;
+    const loaded = await PC2.loadCatalog();
+    ok(loaded.codes.length === cat.codes.length,
+      'problem-codes: loadCatalog يقرأ الكتالوج كاملًا');
+    await PC2.loadRules();
+    ok(PC2.isForbidden('GI00 - (ترصيد بلاغ أرضى)') && PC2.isForbidden('WM04 - (الاكره مكسوره)'),
+      'problem-codes: الممنوع يُقرأ من الكتالوج لا من الكود');
+    ok(!PC2.isForbidden('AC01 - (البلازما لا تعمل)') && !PC2.isForbidden('HT01 - (لا يسخن)'),
+      'problem-codes: الأكواد الجديدة (AC01/HT01) مسموحة');
+    const wm = PC2.codesForDevice('غساله');
+    ok(wm.includes('WM05') && wm.includes('WM15') && !wm.includes('WM04') && !wm.includes('SR00'),
+      'problem-codes: codesForDevice(غساله) يستبعد الممنوع ويُبقي المسموح');
+    ok(PC2.codesForDevice('تكييف').includes('AC02')
+      && PC2.codesForDevice('ثلاجات').includes('GR01')
+      && PC2.codesForDevice('سخانات مياه').includes('HT08'),
+      'problem-codes: تعرف عائلة الجهاز (تكييف/ثلاجات/سخانات)');
+    ok(PC2.familyOf('A/C Outdoor Unit') === 'AC',
+      'problem-codes: عائلة AC تُستنتج من نص البوابة A/C');
   }
 
   console.log('\n=== RESULT: ' + pass + ' passed, ' + fail + ' failed ===');

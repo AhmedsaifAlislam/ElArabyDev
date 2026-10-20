@@ -99,6 +99,7 @@
       openByClick: true,
       files: ['ai/voice-control.js'],
       panel: '#ea-voice-panel',
+      openEvent: 'ea-voice-open',
       defaultVisible: true
     },
     {
@@ -971,7 +972,9 @@
     saveState();
 
     // ── فتح اللوحة مباشرة عبر الـ panel selector (بدون فاب فردي) ──
-    if (tool.panel) {
+    // الأدوات صاحبة openEvent تفتح لوحتها بنفسها (تُغلق بنفسها أيضًا)،
+    // فلا نفرض display مضمّنًا عليها وإلا تعطّل زر الإغلاق.
+    if (tool.panel && !tool.openEvent) {
       try {
         const panel = document.querySelector(tool.panel);
         if (panel) {
@@ -986,6 +989,13 @@
       } catch (e) {
         console.error('[fabs] error showing panel:', tool.id, e);
       }
+    }
+
+    // ── جسر الفتح بالسكربت: الأدوات التي لا تستطيع فتح لوحتها بنفسها ──
+    if (tool.openEvent) {
+      const ping = () => { try { document.dispatchEvent(new CustomEvent(tool.openEvent)); } catch (_) {} };
+      ping();
+      setTimeout(ping, 700);
     }
 
     // ── كشف البلاغات المستقبلية: السكربت في MAIN world → حدث DOM ──

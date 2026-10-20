@@ -1,16 +1,58 @@
 // ai/voice-control.js — التحكم الصوتي "مساعد العربي الصوتي"
 // إملاء صوتي (webkitSpeechRecognition) بتعبئة الحقل النشط في البوابة.
-// الفاب يدار مركزيًا من fabs-controller (Stack) — هذا الملف ينشئ اللوحة فقط.
+// الأيقونة (الفاب) تُنسَّق مركزياً من fabs-controller، لكنه لا ينشئها — ننشئها هنا.
 (function () {
   'use strict';
 
-  const FAB_ID = 'elaraby-ai-voice-fab'; // للتوافق مع fabs-controller (لا ينشأ هنا)
+  const FAB_ID = 'elaraby-ai-voice-fab';
   const PANEL_ID = 'ea-voice-panel';
+  const OPEN_EVENT = 'ea-voice-open';
+
+  // حارس تكرار الحقن: لا نضيف مستمعات document مرتين على نفس الصفحة
+  if (window.__eaVoiceControlLoaded) return;
+  window.__eaVoiceControlLoaded = true;
+
+  let panelVisible = false;
+
+  function getPanel() {
+    try { return document.getElementById(PANEL_ID); } catch (_) { return null; }
+  }
+
+  // إظهار/إخفاء موحّد — يغلب أي display مضمّن آخر (مهم: زر الإغلاق)
+  function setPanelVisible(show) {
+    buildUI();
+    const panel = getPanel();
+    if (!panel) return;
+    panelVisible = !!show;
+    panel.style.setProperty('display', panelVisible ? 'block' : 'none', 'important');
+  }
+
+  // الأيقونة: fabs-controller يرصّها ويظهرها/يخفيها حسب التفعيل
+  function ensureFab() {
+    let fab = null;
+    try { fab = document.getElementById(FAB_ID); } catch (_) {}
+    if (fab) return fab;
+    fab = document.createElement('button');
+    fab.id = FAB_ID;
+    fab.type = 'button';
+    fab.title = 'التحكم الصوتي — إملاء وتعبئة بالصوت';
+    fab.textContent = '🎙️';
+    // شكل مؤقت حتى يلتقطه fabs-controller (scanAndApply كل 1.5s) ويطبّق شكله
+    Object.assign(fab.style, {
+      position: 'fixed', bottom: '70px', right: '16px', zIndex: '2147483640',
+      width: '32px', height: '32px', borderRadius: '50%',
+      border: '1px solid #4c1d95', background: 'linear-gradient(135deg,#1e1b4b,#312e81)',
+      color: '#c4b5fd', fontSize: '16px', cursor: 'pointer',
+      display: 'flex', alignItems: 'center', justifyContent: 'center', lineHeight: '1'
+    });
+    fab.addEventListener('click', () => setPanelVisible(!panelVisible));
+    document.documentElement.appendChild(fab);
+    return fab;
+  }
 
   function buildUI() {
     if (document.getElementById(PANEL_ID)) return;
 
-    // ── اللوحة فقط (بدون فاب) ──
     const panel = document.createElement('div');
     panel.id = PANEL_ID;
     panel.style.cssText =
@@ -40,13 +82,13 @@
       </div>`;
     document.body.appendChild(panel);
 
-    panel.querySelector('#ea-voice-close').addEventListener('click', () => { panel.style.display = 'none'; });
+    panel.querySelector('#ea-voice-close').addEventListener('click', () => { setPanelVisible(false); });
 
     // ── التعرف الصوتي ──
     const langSel = document.getElementById('ea-voice-lang');
     const micBtn = document.getElementById('ea-voice-mic');
     const statusEl = document.getElementById('ea-voice-status');
-    const resultEl = document.getElementById('ea-voice-result');
+    const resultEl = document.getElementById('ea-voice-transcript');
 
     const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (!SR) {
@@ -127,6 +169,10 @@
       navigator.clipboard?.writeText(text).then(() => { statusEl.textContent = '✅ تم النسخ'; });
     });
   }
+
+  // الأيقونة + جسر الفتح من لوحة 🧰 (الربط المركزي لا ينشئ العناصر)
+  ensureFab();
+  document.addEventListener(OPEN_EVENT, () => setPanelVisible(true));
 
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', buildUI);
