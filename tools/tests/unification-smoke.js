@@ -585,6 +585,12 @@ function load(sandbox, file) {
       'report-processor: إعادة الرسم لا تلغي تحديد المستخدم');
     ok(/function waitForTableChange\s*\(/.test(rsrc) && /firstRowSignature\(\)/.test(rsrc),
       'report-processor: ينتظر تبدّل الشبكة فعليًا قبل قراءة الصفحة التالية');
+    // الأيقونة: الربط المركزي لا ينشئ العنصر — كان يُحذف مع بقاء المراجع
+    ok(/function ensureFab\s*\(/.test(rsrc) && /f\.id = 'rp-fab'/.test(rsrc) && /ensureFab\(\);/.test(rsrc),
+      'report-processor: ينشئ أيقونة #rp-fab بنفسه (الربط المركزي لا ينشئها)');
+    const msqsrc = read('Tempermonky/messenger-sender.js');
+    ok(/id: 'msq-fab'/.test(msqsrc) && /let fab = document\.getElementById\('msq-fab'\)/.test(msqsrc),
+      'messenger-sender: ينشئ أيقونة #msq-fab بنفسه');
   }
 
   console.log('\n=== RESULT: ' + pass + ' passed, ' + fail + ' failed ===');

@@ -20,14 +20,38 @@
   if (window.__eaReportProcessorInited) return;
   window.__eaReportProcessorInited = true;
 
-  // الفاب يُدار مركزياً من fabs-controller وقد لا يكون موجودًا —
-  // المراجع المباشرة لـ fab كانت ترمي ReferenceError وتقتل السكربت كله.
+  // الأيقونة (الفاب): fabs-controller يتولى الحجم/اللون/الموضع والرص،
+  // لكنه لا ينشئ العنصر — لذلك ننشئه هنا.
   function getFab() {
     try { return document.getElementById('rp-fab'); } catch (_) { return null; }
   }
+
+  function ensureFab() {
+    let f = getFab();
+    if (f) return f;
+    f = document.createElement('button');
+    f.id = 'rp-fab';
+    f.type = 'button';
+    f.title = 'معالج البلاغات';
+    f.textContent = '📋';
+    // شكل مؤقت حتى يلتقطه fabs-controller (scanAndApply كل 1.5s) ويطبّق شكله
+    Object.assign(f.style, {
+      position: 'fixed', bottom: '70px', right: '16px', zIndex: '2147483640',
+      width: '32px', height: '32px', borderRadius: '50%',
+      border: '1px solid #2a4a7a', background: 'linear-gradient(135deg,#1a1d27,#2a2d3e)',
+      color: '#e67e22', fontSize: '16px', cursor: 'pointer',
+      display: 'flex', alignItems: 'center', justifyContent: 'center', lineHeight: '1'
+    });
+    document.documentElement.appendChild(f);
+    return f;
+  }
+
   function setFabHidden(hidden) {
     const f = getFab();
-    if (f) f.classList.toggle('hidden', !!hidden);
+    if (!f) return;
+    f.classList.toggle('hidden', !!hidden);
+    if (hidden) f.style.setProperty('display', 'none', 'important');
+    else f.style.removeProperty('display');
   }
 
   // ══════════════════════════════════════════════════════════════════
@@ -360,6 +384,7 @@
   // ══════════════════════════════════════════════════════════════════
   const CSS = `
     /* ── فاب rp-fab يُدار مركزياً من fabs-controller (حجم/موضوع/ثبات) ── */
+    #rp-fab.hidden { display: none !important; }
 
     #rp-overlay {
       position: fixed !important; inset: 0 !important; background: rgba(0,0,0,.7) !important;
@@ -652,10 +677,12 @@
   const miniBody = el('div', { id: 'rp-mini-body' }, [miniStatus, miniStats, miniStopBtn, miniLog]);
   const miniMenu = el('div', { id: 'rp-mini-menu' }, [miniHeader, miniBody]);
 
-  // اللوحات فقط — الفاب يُدار من fabs-controller
+  // اللوحات فقط — الأيقونة (الفاب) تُنسَّق مركزياً من fabs-controller،
+  // **لكنه لا ينشئها**؛ لذلك ننشئها هنا وإلا لم تظهر أي أيقونة على الصفحة.
   if (!document.getElementById('rp-overlay')) document.documentElement.appendChild(overlay);
   if (!document.getElementById('rp-settings')) document.documentElement.appendChild(settingsModal);
   if (!document.getElementById('rp-mini-menu')) document.documentElement.appendChild(miniMenu);
+  ensureFab();
 
   // Setup keyboard shortcuts
   setupKeyboardShortcuts();
@@ -1505,6 +1532,11 @@
   //  Event Listeners
   // ══════════════════════════════════════════════════════════════════
   function openFromFab() {
+    // أثناء التشغيل: أظهر لوحة المتابعة فقط — لا تعِد الحصاد الكامل
+    if (state.isRunning) {
+      miniMenu.classList.add('visible');
+      return;
+    }
     const isOnOrders = window.location.href.includes('/Orders/');
     if (!isOnOrders) {
       window.open(ORDERS_URL, '_blank');

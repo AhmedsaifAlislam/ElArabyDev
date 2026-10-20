@@ -130,6 +130,7 @@
   function initUI() {
     const CSS = `
       /* ── فاب msq-fab يُدار مركزياً من fabs-controller (حجم/موضوع/ثبات) ── */
+      #msq-fab.hidden { display: none !important; }
       #msq-panel { position: fixed !important; bottom: 70px !important; left: 76px !important; width: 320px !important; max-height: 80vh !important; background: #1a1d27 !important; border: 1px solid #2a2d3e !important; border-radius: 14px !important; box-shadow: 0 20px 60px rgba(0,0,0,.9), 0 0 0 1px rgba(255,255,255,.04) !important; font-family: 'Segoe UI', Tahoma, Arial, sans-serif !important; font-size: 13px !important; color: #c8d0e0 !important; z-index: 2147483647 !important; direction: rtl !important; user-select: none !important; overflow: hidden !important; display: none !important; transition: opacity .15s ease; }
       #msq-panel.visible { display: block !important; }
       #msq-panel.dragging { box-shadow: 0 30px 80px rgba(0,0,0,.9) !important; opacity: .95 !important; }
@@ -263,8 +264,21 @@
     const body = el('div', { id: 'msq-body' }, [svcGrid, sep1, dropZone, pasteArea, delayRow, btns, instrRow, statusEl, progressW, counterEl, sentSection, errSection]);
     const panel = el('div', { id: 'msq-panel' }, [h, body]);
 
-    // اللوحة فقط — الفاب يُدار من fabs-controller
+    // اللوحة فقط — الأيقونة تُنسَّق مركزياً من fabs-controller لكنه لا ينشئها
     if (!document.getElementById('msq-panel')) document.documentElement.appendChild(panel);
+
+    let fab = document.getElementById('msq-fab');
+    if (!fab) {
+      fab = el('button', { id: 'msq-fab', type: 'button', title: 'مرسل الماسنجر', textContent: '📨' });
+      Object.assign(fab.style, {
+        position: 'fixed', bottom: '70px', left: '16px', zIndex: '2147483640',
+        width: '32px', height: '32px', borderRadius: '50%',
+        border: '1px solid #1e4a3a', background: 'linear-gradient(135deg,#0b2018,#14352a)',
+        color: '#10b981', fontSize: '16px', cursor: 'pointer',
+        display: 'flex', alignItems: 'center', justifyContent: 'center', lineHeight: '1'
+      });
+      document.documentElement.appendChild(fab);
+    }
 
     let msgLines = [], isRunning = false, stopReq = false;
     const sleep = ms => new Promise(r => setTimeout(r, ms));
