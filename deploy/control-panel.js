@@ -2,7 +2,7 @@
 // control-panel.js — لوحة التحكم الذكية v1.0
 // بصمة الإصدار: تُطبع في الـ log وتظهر بجانب عنوان اللوحة، للتأكد أن المتصفح
 // حمّل أحدث نسخة من الإضافة (Reload من edge://extensions مطلوب بعد أي نشر).
-const PANEL_BUILD = '2026-10-20.19';
+const PANEL_BUILD = '2026-10-20.20';
 // Floating panel with auto-detecting page tabs
 // =========================================================
 (function () {
@@ -322,6 +322,8 @@ function getCSS() {
 .cp-btn-inject{background:linear-gradient(135deg,#059669,#047857);color:#fff}
 .cp-btn:disabled{opacity:.4;cursor:not-allowed}
 .cp-status{padding:4px 10px;font-size:10px;color:#667799;border-top:1px solid #1a2340;min-height:20px;transition:color .3s}
+.cp-btn-stop{background:#7f1d1d;color:#fecaca;border:1px solid #dc2626;width:100%;margin:0 0 4px;padding:3px;font-size:10px;font-weight:900;border-radius:5px;cursor:pointer}
+.cp-btn-stop:hover{background:#991b1b}
 .cp-badge{display:inline-block;background:#1e3a5f;color:#a8c7fa;font-size:9px;padding:1px 5px;border-radius:8px;margin-right:3px}
 .cp-install{color:#fbbf24;font-size:12px;font-weight:900}
 .cp-maintenance{color:#a8c7fa;font-size:11px}
@@ -505,6 +507,7 @@ function getCSS() {
     <button class="cp-btn cp-btn-gold" id="btn-exec3">▶ تنفيذ الكل</button>
   </div>
 </div>
+<button class="cp-btn cp-btn-stop" id="cp-stop" type="button" style="display:none">⏹ إيقاف التنفيذ الجاري</button>
 <div class="cp-status" id="cp-status">✅ جاهز</div>
 <div style="padding:3px 10px;border-top:1px solid #1a2340;display:flex;gap:4px">
   <button id="cp-copy-log" style="flex:1;padding:3px;border:1px solid #232840;border-radius:4px;background:#0d1528;color:#667799;font-size:9px;cursor:pointer">📋 نسخ اللوج</button>
@@ -753,6 +756,8 @@ function getCSS() {
     shadow.getElementById('btn-exec2').onclick = () => { logEvent('CLICK', 'نقر على تنفيذ الصفحة 2'); runExclusive(shadow, 'تنفيذ الصفحة 2', () => executePage2(shadow)); };
     bindAutoNext2(shadow);
     bindModelNoteEditor(shadow);
+    const stopBtn = shadow.getElementById('cp-stop');
+    if (stopBtn) stopBtn.onclick = () => { logEvent('CLICK', 'نقر على إيقاف'); cancelExecution(shadow, 'user').catch(() => {}); };
     shadow.querySelectorAll('.p2-sc').forEach(btn => {
       btn.onclick = () => {
         const sc = btn.dataset.sc;
@@ -793,7 +798,8 @@ function getCSS() {
       btn.onclick = () => {
         logEvent('SHORTCUT_PANEL', `${btn.dataset.sc} → تنفيذ`);
         runExclusive(shadow, `شورت كت ${btn.dataset.sc}`, async () => {
-          runShortcut(shadow, btn.dataset.sc);
+          const ok = await runShortcut(shadow, btn.dataset.sc);
+          if (!ok) return;
           await executePage3(shadow);
         });
       };
@@ -948,7 +954,8 @@ function getCSS() {
             mini.style.transform = 'scale(1)';
             try {
               runExclusive(shadow, `شورت كت بوب-اب ${sc}`, async () => {
-                runShortcut(shadow, sc);
+                const ok = await runShortcut(shadow, sc);
+                if (!ok) return;
                 await executePage3(shadow);
               });
             } catch(err) {
@@ -1029,7 +1036,7 @@ function getCSS() {
     saveState(shadow);
   }
 
-  function runShortcut(shadow, type) {
+  async function runShortcut(shadow, type) {
     logEvent('SHORTCUT', `بدء: ${type}`);
     logPageSnapshot(`شورت كت: ${type}`);
     console.log(`%c[PortalHelper] runShortcut: ${type}`, 'color:#fbbf24;font-weight:bold');
@@ -1042,6 +1049,13 @@ function getCSS() {
 
     logEvent('SHORTCUT', `DOM: جميع الـ checkboxes=${allCbs.length}, fault-cb=${codes.length}, note-cb=${notes.length}`);
     console.log(`%c[PortalHelper] DOM: total=${allCbs.length}, fault-cb=${codes.length}, note-cb=${notes.length}`, 'color:#60a5fa');
+
+    // لا أكواد أعطال في اللوحة ⇒ لا «✅ (0 كود)» كاذبة
+    if (codes.length === 0) {
+      setStatus(shadow, '⚠️ لا توجد أكواد أعطال في اللوحة — افتح تبويب الصفحة 3 لتحميل الكتالوج', 'warn');
+      logEvent('SHORTCUT', '⛔ إيقاف: لا توجد checkboxes أكواد أعطال');
+      return false;
+    }
 
     // عرض قيم الـ checkboxes
     codes.forEach((cb, i) => {
@@ -1119,8 +1133,8 @@ function getCSS() {
       if (typeof fillLookupModal === 'function') {
         const actionBtn = document.querySelector('button.launchentitylookup[aria-label*="الفعل"], button.launchentitylookup[aria-label*="حالة"], button.launchentitylookup[aria-label*="الحالة"]');
         if (actionBtn) {
-          fillLookupModal(actionBtn, 'العميل يرفض الدفع');
-          logEvent('SHORTCUT', 'فتح نافذة يرفض الدفع');
+          await fillLookupModal(actionBtn, 'العميل يرفض الدفع');
+          logEvent('SHORTCUT', 'فتح نافذة يرفض الدفع (بانتظار الاختيار)');
         }
       }
       setStatus(shadow, `✅ رفض الدفع (${checked} كود) + 0 جنيه`, 'success');
@@ -1152,6 +1166,12 @@ function getCSS() {
     const finalChecked = shadow.querySelectorAll('.fault-cb:checked');
     logEvent('SHORTCUT', `=== النهاية: ${finalChecked.length} كود محدد ===`);
     console.log(`%c[PortalHelper] SHORTCUT DONE: ${finalChecked.length} codes checked`, 'color:#4ade80;font-weight:bold');
+    if (finalChecked.length === 0) {
+      setStatus(shadow, `⚠️ الشورت كت «${type}» لم يطابق أي كود — لم يُحدَّد شيء`, 'warn');
+      logEvent('SHORTCUT', `⛔ ${type}: 0 كود — لا يوجد ما يُنفَّذ`);
+      return false;
+    }
+    return true;
   }
 
   function makeDraggable(shadow) {
@@ -1183,24 +1203,63 @@ function getCSS() {
     el.style.color = type === 'success' ? '#4ade80' : type === 'error' ? '#ef4444' : type === 'warn' ? '#fbbf24' : '#94a3b8';
   }
 
-  // منع التشغيل المتوازي لأي تنفيذ (نقر مزدوج / اختصارات متعددة / بوب-اب + لوحة)
+  // منع التشغيل المتوازي + مهلة قصوى 5 دقائق + إيقاف يدوي آمن (يفرّغ القفل ويغلق المودالات)
   let execLock = false;
+  let execCancelRequested = false;
+  let execWatchdog = null;
+  const EXEC_TIMEOUT_MS = 5 * 60 * 1000;
+
+  function setStopVisible(shadow, visible) {
+    const btn = shadow && shadow.getElementById('cp-stop');
+    if (btn) btn.style.display = visible ? 'block' : 'none';
+  }
+
+  // تُستدعى بين خطوات التنفيذ الطويل: ترفع استثناءً هادئًا عند طلب الإيقاف.
+  function assertNotCancelled() {
+    if (execCancelRequested) throw new Error('cancelled-by-user');
+  }
+
+  async function cancelExecution(shadow, reason) {
+    if (!execLock && !execCancelRequested) return;
+    execCancelRequested = true;
+    logEvent('EXEC', 'طلب إيقاف: ' + reason);
+    setStatus(shadow, '⏹ جارٍ الإيقاف وإغلاق المودالات…', 'warn');
+    try { await resetModalsBeforeStep('إيقاف يدوي'); } catch (_) {}
+    if (execWatchdog) { clearTimeout(execWatchdog); execWatchdog = null; }
+    execLock = false;
+    setStopVisible(shadow, false);
+    setStatus(shadow, '⏹ أُوقف التنفيذ — يمكنك البدء من جديد', 'warn');
+  }
+
   async function runExclusive(shadow, label, fn) {
     if (execLock) {
       logEvent('EXEC', `مرفوض (${label}): يوجد تنفيذ جارٍ`);
-      setStatus(shadow, '⏳ يوجد تنفيذ جارٍ — انتظر انتهائه', 'warn');
+      setStatus(shadow, '⏳ يوجد تنفيذ جارٍ — انتظر انتهائه أو اضغط «إيقاف»', 'warn');
       return;
     }
     execLock = true;
+    execCancelRequested = false;
     setStatus(shadow, `⏳ جارٍ: ${label}…`, 'warn');
+    setStopVisible(shadow, true);
+    execWatchdog = setTimeout(() => {
+      logEvent('EXEC', `انتهت المهلة القصوى (5 دقائق): ${label}`);
+      cancelExecution(shadow, 'timeout').catch(() => {});
+    }, EXEC_TIMEOUT_MS);
     try {
       await fn();
     } catch (e) {
-      console.error('[PortalHelper] EXEC ERROR:', label, e);
-      logEvent('EXEC', `خطأ (${label}): ${e && e.message}`);
-      setStatus(shadow, `❌ خطأ: ${e && e.message}`, 'error');
+      if (e && e.message === 'cancelled-by-user') {
+        logEvent('EXEC', `أُلغي التنفيذ (${label})`);
+      } else {
+        console.error('[PortalHelper] EXEC ERROR:', label, e);
+        logEvent('EXEC', `خطأ (${label}): ${e && e.message}`);
+        setStatus(shadow, `❌ خطأ: ${e && e.message}`, 'error');
+      }
     } finally {
+      if (execWatchdog) { clearTimeout(execWatchdog); execWatchdog = null; }
       execLock = false;
+      execCancelRequested = false;
+      setStopVisible(shadow, false);
     }
   }
 
@@ -1464,6 +1523,7 @@ function getCSS() {
     logEvent('EXEC_PAGE1', 'بدء التنفيذ');
     setStatus(shadow, '⏳ جاري التنفيذ...');
     try {
+      assertNotCancelled();
       let dupOk = true;
       if (shadow.getElementById('chk-duplicate').checked) dupOk = await doDuplicate(shadow);
       if (dupOk === false) {
@@ -2185,6 +2245,7 @@ function getCSS() {
     setStatus(shadow, '⏳ جاري التنفيذ...');
     const timing = { at: Date.now(), problemMs: 0, waitMs: 0, techMs: 0, totalMs: 0, shortcut: shortcutType || 'manual' };
     try {
+      assertNotCancelled();
       await sleep(1000);
 
       // 1. حالة قطع الغيار
@@ -2531,7 +2592,10 @@ function getCSS() {
         const codesCount = bundle.faultCodes?.length || 0;
         const codesSummary = (bundle.faultCodes || []).map(c => escapeHtml(c.fullCode || c.defectCode || c.majorCode)).join('، ');
         const partsText = partsCount > 0 ? ` + <b>${partsCount} قطعة غيار</b>` : '';
-        preview.innerHTML = `<span>📋 <b>${codesCount} كود منسوخ</b>${partsText} جاهز للصق: ${codesSummary}</span>`;
+        const copiedAt = bundle.copiedAt || bundle.createdAt;
+        const ageMin = copiedAt ? Math.max(0, Math.round((Date.now() - new Date(copiedAt).getTime()) / 60000)) : null;
+        const ageText = ageMin == null ? '' : (ageMin < 1 ? ' • نُسخت الآن' : ` • عمرها ${ageMin} دقيقة`);
+        preview.innerHTML = `<span>📋 <b>${codesCount} كود منسوخ</b>${partsText} جاهز للصق${ageText}: ${codesSummary}</span>`;
         preview.style.display = 'block';
       } else {
         preview.style.display = 'none';
@@ -3566,6 +3630,7 @@ function getCSS() {
     await resetModalsBeforeStep('لصق الأكواد');
     try {
       let bundle = null;
+      let bundleSource = '';
       try {
         const clipText = await navigator.clipboard.readText();
         if (clipText) {
@@ -3574,9 +3639,11 @@ function getCSS() {
             const parsed = JSON.parse(trimmed);
             if (Array.isArray(parsed) && parsed.length > 0) {
               bundle = { faultCodes: parsed };
+              bundleSource = 'clipboard';
               logEvent('PASTE_CODES', 'تم قراءة مصفوفة أكواد من الحافظة');
             } else if (parsed && (Array.isArray(parsed.faultCodes) || Array.isArray(parsed.spareParts))) {
               bundle = parsed;
+              bundleSource = 'clipboard';
               logEvent('PASTE_CODES', 'تم قراءة حزمة أكواد من الحافظة');
             }
           }
@@ -3592,6 +3659,7 @@ function getCSS() {
             const parsed = safeParseJSON(localRaw, null);
             if (parsed && Array.isArray(parsed)) bundle = { faultCodes: parsed };
             else if (parsed && (Array.isArray(parsed.faultCodes) || Array.isArray(parsed.spareParts))) bundle = parsed;
+            if (bundle) bundleSource = 'localStorage';
             logEvent('PASTE_CODES', 'تم قراءة الأكواد من localStorage');
           } catch(_) {}
         }
@@ -3617,8 +3685,8 @@ function getCSS() {
               if (txt) {
                 try {
                   const parsed = safeParseJSON(txt, null);
-                  if (parsed && Array.isArray(parsed)) bundle = { faultCodes: parsed };
-                  else if (parsed && (Array.isArray(parsed.faultCodes) || Array.isArray(parsed.spareParts))) bundle = parsed;
+                  if (parsed && Array.isArray(parsed)) { bundle = { faultCodes: parsed }; bundleSource = 'manual'; }
+                  else if (parsed && (Array.isArray(parsed.faultCodes) || Array.isArray(parsed.spareParts))) { bundle = parsed; bundleSource = 'manual'; }
                 } catch(_) {}
               }
               resolve();
@@ -3638,12 +3706,29 @@ function getCSS() {
       const rawSpareParts = Array.isArray(bundle?.spareParts) ? bundle.spareParts : [];
       const rawFaultCodes = Array.isArray(bundle?.faultCodes) ? bundle.faultCodes : [];
 
-      // حزمة v1 القديمة لا تحمل معرّفات القطع/الضمان ⇒ نرفضها بدل التخمين
-      if (bundle && Number(bundle.version || 0) < 2) {
-        logEvent('PASTE_CODES', `رفض حزمة v${bundle.version || '?'} — تحتاج إعادة نسخ`);
-        setStatus(shadow, '❌ حزمة قديمة (v1) — اضغط «نسخ الأكواد» من البلاغ الأصلي مرة أخرى', 'error');
+      // حزمة قديمة تُرفض فقط إذا حملت قطع غيار بلا معرّفات (v2).
+      // حزمة أكواد أعطال فقط (بلا قطع) صالحة حتى لو لم تحمل version.
+      const bundleVersion = Number((bundle && bundle.version) || 0);
+      const hasParts = rawSpareParts.length > 0;
+      const partsLackIds = hasParts && rawSpareParts.some(p => !p || (!p.productId && !p.rowId));
+      if (bundle && hasParts && (bundleVersion < 2 || partsLackIds)) {
+        logEvent('PASTE_CODES', `رفض قطع غيار بلا معرّفات (v${bundleVersion || '?'}) — تحتاج إعادة نسخ`);
+        setStatus(shadow, '❌ حزمة قطع قديمة (v1) — اضغط «نسخ الأكواد» من البلاغ الأصلي مرة أخرى', 'error');
         return;
       }
+
+      // إظهار مصدر الحزمة وعمرها قبل اللصق (الحافظة ≠ localStorage)
+      const srcLabel = bundleSource === 'clipboard' ? 'الحافظة'
+        : bundleSource === 'localStorage' ? 'localStorage'
+        : bundleSource === 'manual' ? 'إدخال يدوي' : 'غير معروف';
+      const madeAtRaw = bundle && (bundle.copiedAt || bundle.createdAt);
+      const madeAt = madeAtRaw ? new Date(madeAtRaw) : null;
+      const ageMin = (madeAt && !isNaN(madeAt.getTime()))
+        ? Math.max(0, Math.round((Date.now() - madeAt.getTime()) / 60000))
+        : null;
+      const ageText = ageMin == null ? 'عمر غير معروف' : (ageMin < 1 ? 'نُسخت الآن' : `عمرها ${ageMin} دقيقة`);
+      logEvent('PASTE_CODES', `الحزمة: source=${srcLabel} | ${ageText} | أكواد=${rawFaultCodes.length} قطع=${rawSpareParts.length} | v${bundleVersion || '?'}`);
+      setStatus(shadow, `📋 ${srcLabel} — ${ageText} — ${rawFaultCodes.length} كود${hasParts ? ' + ' + rawSpareParts.length + ' قطعة' : ''}`, (ageMin != null && ageMin > 120) ? 'warn' : 'info');
 
       if (rawSpareParts.length === 0 && rawFaultCodes.length === 0) {
         setStatus(shadow, '⚠️ لا توجد أكواد أو قطع غيار منسوخة! اضغط على "نسخ الأكواد" أولاً أو الصق JSON في الحافظة', 'warn');
@@ -3782,6 +3867,7 @@ function getCSS() {
     logPageSnapshot('قبل executePage3');
     setStatus(shadow, '⏳ جاري التنفيذ...');
     try {
+      assertNotCancelled();
       // 0. تمت الصيانة — يفتح النافذة ويترك المستخدم يختار
       if (shadow.getElementById('chk-done').checked) {
         setStatus(shadow, '⏳ جاري فتح نافذة تمت الصيانة...');
@@ -3835,6 +3921,7 @@ function getCSS() {
       const checkedCodes = shadow.querySelectorAll('.fault-cb:checked');
       logEvent('EXEC_PAGE3', `عدد أكواد الأعطال: ${checkedCodes.length}`);
       for (const cb of checkedCodes) {
+        assertNotCancelled();
         const parts = cb.value.split(',');
         const mainCode = parts[0], subCode = parts[1] || null;
         logEvent('EXEC_PAGE3', `حقن كود: ${mainCode} / ${subCode || ''}`);

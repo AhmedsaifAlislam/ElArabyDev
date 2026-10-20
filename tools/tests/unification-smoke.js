@@ -798,6 +798,44 @@ function load(sandbox, file) {
       'control-panel: ألوان الملاحظة حسب النوع (info/warning/danger)');
   }
 
+  console.log('-- 27) إصلاحات P0 المتبقية في اللوحة (حزمة/مهلة/إيقاف/شورت كت) --');
+  {
+    const cp = read('control-panel.js');
+
+    // P0-2: حزمة أكواد فقط بلا version لم تعد تُرفض
+    ok(/const partsLackIds/.test(cp) && /bundleVersion < 2 \|\| partsLackIds/.test(cp),
+      'P0-2: رفض الحزمة القديمة مشروط بقطع غيار بلا معرّفات (لا أكواد فقط)');
+    ok(!/if \(bundle && Number\(bundle\.version \|\| 0\) < 2\)/.test(cp),
+      'P0-2: أُزيل الرفض الأعمى لكل حزمة بلا version');
+
+    // P0-6: مصدر/عمر الحزمة قبل اللصق
+    ok(/bundleSource = 'clipboard'/.test(cp) && /bundleSource = 'localStorage'/.test(cp) && /bundleSource = 'manual'/.test(cp),
+      'P0-6: مصدر الحزمة يُحدَّد (حافظة/localStorage/يدوي)');
+    ok(/ageText/.test(cp) && /bundle\.copiedAt \|\| bundle\.createdAt/.test(cp),
+      'P0-6: عمر الحزمة يُحسب من copiedAt ويُعرض');
+
+    // P0-3: مهلة 5 دقائق + زر إيقاف
+    ok(/const EXEC_TIMEOUT_MS = 5 \* 60 \* 1000/.test(cp),
+      'P0-3: مهلة التنفيذ 5 دقائق');
+    ok(/function cancelExecution/.test(cp) && /resetModalsBeforeStep\('إيقاف يدوي'\)/.test(cp),
+      'P0-3: الإيقاف يغلق المودالات بأمان');
+    ok(/id="cp-stop"/.test(cp) && /cancelExecution\(shadow, 'user'\)/.test(cp),
+      'P0-3: زر «إيقاف» مربوط');
+    ok(/function assertNotCancelled/.test(cp) && /cancelled-by-user/.test(cp),
+      'P0-3: إلغاء تعاوني بين خطوات التنفيذ');
+    ok((cp.match(/assertNotCancelled\(\);/g) || []).length >= 4,
+      'P0-3: assertNotCancelled في الصفحات 1/2/3 وحلقة الأعطال');
+
+    // P0-4 + P0-5
+    ok(/async function runShortcut/.test(cp) && /await fillLookupModal\(actionBtn/.test(cp),
+      'P0-4: شورت كت «يرفض الدفع» ينتظر fillLookupModal');
+    ok(/if \(codes\.length === 0\) \{/.test(cp) && /لم يطابق أي كود/.test(cp),
+      'P0-5: لا «✅ (0 كود)» — توقف برسالة عند عدم المطابقة');
+    ok(/const ok = await runShortcut\(shadow, btn\.dataset\.sc\)/.test(cp)
+      && /const ok = await runShortcut\(shadow, sc\)/.test(cp),
+      'P0-5: تنفيذ الصفحة 3 لا يبدأ إذا لم يُحدَّد أي كود');
+  }
+
   console.log('\n=== RESULT: ' + pass + ' passed, ' + fail + ' failed ===');
   if (fail > 0) {
     console.log('Failures:');
