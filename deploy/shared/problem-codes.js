@@ -2,8 +2,11 @@
 // problem-codes.js — Shared Problem-Code Registry & User-Pick Gate
 // السجل المشترك لأكواد المشاكل (مسموح / ممنوع) + بوابة اختيار المستخدم
 // مصدر الحقيقة الواحد الذي يستخدمه: الاوتو فيلينج + الكنترول بانل (نفس السلوك).
-// المصدر: selectors.json (problemCodeRules / problemPickTimeoutMs)
-//         + تجاوز محلي (localStorage) لتسجيل ما يتعلّمه النظام وقت التشغيل.
+// المصادر (بالترتيب):
+//   ① problem-catalog.json — كتالوج المشاكل الفعلية (الكود + الوصف + العائلة + ممنوع)
+//   ② selectors.json (problemCodeRules / problemPickTimeoutMs) — احتياطي للكلمات المفتاحية
+//   ③ تجاوز محلي (localStorage) لتسجيل ما يتعلّمه النظام وقت التشغيل.
+// ملاحظة: أكواد المشاكل (صفحة 2) ≠ أكواد الأعطال (صفحة 3) — لكلٍّ كتالوجه.
 // =========================================================
 'use strict';
 
@@ -12,8 +15,10 @@
 
   const LS_RULES_KEY = 'autofiller_problem_rules';
   const PICK_EVENT = 'ea-problem-pick-request';
+  const CATALOG_FILE = 'problem-catalog.json';
 
-  // التصنيف الاحتياطي من تصنيف المشغّل (الأكواد المكتوب جانبها «ممنوع»).
+  // احتياطي فقط — المصدر الرسمي أصبح problem-catalog.json.
+  // يبقى للطوارئ لو تعذّر تحميل الكتالوج (حتى لا يُختار كود ممنوع أبدًا).
   const DEFAULT_FORBIDDEN = [
     'GI00', 'GS08', 'GR05', 'SR00', 'SR01', 'WM04',   // أكواد ممنوعة
     'ترصيد', 'تجار', 'ارضي', 'أرضي', 'بلاغ'            // كلمات مفتاحية ممنوعة
@@ -22,6 +27,103 @@
 
   let _rules = null;
   let _pending = null; // { resolve, list, timeoutMs }
+  let _catalog = null;
+  let _catalogPromise = null;
+
+  // ── كتالوج المشاكل الفعلية (problem-catalog.json) ────────────────────
+  function _normCatalog(raw) {
+    const codes = (raw && Array.isArray(raw.codes)) ? raw.codes : [];
+    const families = (raw && raw.families && typeof raw.families === 'object') ? raw.families : {};
+    return {
+      version: Number(raw && raw.version) || 0,
+      source: (raw && raw.source) || '',
+      updatedAt: (raw && raw.updatedAt) || '',
+      note: (raw && raw.note) || '',
+      recordCounts: (raw && raw.recordCounts) || {},
+      forbiddenKeywords: (raw && Array.isArray(raw.forbiddenKeywords)) ? raw.forbiddenKeywords.slice() : [],
+      families,
+      codes: codes
+        .filter(c => c && c.code)
+        .map(c => ({
+          code: String(c.code).trim().toUpperCase(),
+          desc: String(c.desc || '').trim(),
+          family: String(c.family || '*').trim().toUpperCase() || '*',
+          forbidden: c.forbidden === true,
+          note: c.note || ''
+        })),
+      error: ''
+    };
+  }
+
+  async function loadCatalog(force) {
+    if (_catalog && !_catalog.error && !force) return _catalog;
+    if (_catalogPromise && !force) return _catalogPromise;
+
+    _catalogPromise = (async () => {
+      try {
+        const base = (window.chrome && chrome.runtime && typeof chrome.runtime.getURL === 'function')
+          ? chrome.runtime.getURL(CATALOG_FILE)
+          : CATALOG_FILE;
+        const res = await fetch(base, { cache: 'no-store' });
+        if (!res || res.ok === false) throw new Error('http ' + ((res && res.status) || '?'));
+        _catalog = _normCatalog(await res.json());
+      } catch (e) {
+        _catalog = _normCatalog({ codes: [], families: {} });
+        _catalog.error = String((e && e.message) || e || 'catalog-unavailable');
+      }
+      _catalogPromise = null; // اسمح بإعادة المحاولة لاحقًا (نجاح أو فشل)
+      return _catalog;
+    })();
+    return _catalogPromise;
+  }
+
+  function catalogSync() { return _catalog; }
+
+  // عائلة الجهاز من نص نوع المنتج/الموديل (GS / GR / AC / WM / HT)
+  const FAMILY_PATTERNS = {
+    GS: /بوتجاز|بوتاجاز|مسطح|فرن|cooker|oven|stove/i,
+    GR: /ثلاج|مبرد|فريزر|fridge|refrigerat/i,
+    AC: /تكييف|شباك|سبليت|\ba\/?c\b|air.?cond|split|inverter/i,
+    WM: /غسال|washer|washing/i,
+    HT: /سخان|heater/i
+  };
+
+  function familyOf(deviceName) {
+    const s = String(deviceName || '').trim();
+    if (!s) return '';
+    const fams = (_catalog && _catalog.families) || {};
+    for (const key of Object.keys(fams)) {
+      const entry = fams[key];
+      const labels = Array.isArray(entry) ? entry : ((entry && entry.labels) || []);
+      for (const lb of labels) {
+        if (lb && s.indexOf(String(lb)) !== -1) return String(key).toUpperCase();
+      }
+    }
+    for (const key of Object.keys(FAMILY_PATTERNS)) {
+      if (FAMILY_PATTERNS[key].test(s)) return key;
+    }
+    return '';
+  }
+
+  // أكواد الكتالوج للجهاز (بلا الممنوع افتراضيًا)
+  function codesForDevice(deviceName, opts = {}) {
+    if (!_catalog || !_catalog.codes.length) return [];
+    const fam = familyOf(deviceName);
+    const includeForbidden = !!opts.includeForbidden;
+    return _catalog.codes
+      .filter(c => c.family === '*' || (fam && c.family === fam))
+      .filter(c => includeForbidden || !c.forbidden)
+      .map(c => c.code);
+  }
+
+  function codeInfo(code) {
+    if (!_catalog) return null;
+    const want = String(code || '').trim().toUpperCase();
+    return _catalog.codes.find(c => c.code === want) || null;
+  }
+
+  function isKnownCode(code) { return !!codeInfo(code); }
+
 
   // ── تخزين التعلّم المحلي ─────────────────────────────────────────────
   function _readLS() {
@@ -47,9 +149,21 @@
     } catch (_) { cfg = window._CFG || window.CFG || {}; }
 
     const srcRules = (cfg && cfg.problemCodeRules) || {};
-    let forbidden = (Array.isArray(srcRules.forbiddenKeywords) && srcRules.forbiddenKeywords.length)
+    const cat = await loadCatalog();
+    const catCodes = (cat && cat.codes) || [];
+    const catForbiddenCodes = catCodes.filter(c => c.forbidden).map(c => c.code);
+    const catKeywords = (cat && cat.forbiddenKeywords) || [];
+    const srcKeywords = (Array.isArray(srcRules.forbiddenKeywords) && srcRules.forbiddenKeywords.length)
       ? srcRules.forbiddenKeywords.slice()
-      : DEFAULT_FORBIDDEN.slice();
+      : [];
+
+    // ① الممنوع من الكتالوج (أكواد + كلمات)، ثم كلمات selectors، ثم الاحتياطي.
+    let forbidden;
+    if (catForbiddenCodes.length || catKeywords.length) {
+      forbidden = Array.from(new Set([...catForbiddenCodes, ...catKeywords, ...srcKeywords]));
+    } else {
+      forbidden = srcKeywords.length ? srcKeywords : DEFAULT_FORBIDDEN.slice();
+    }
     let timeoutMs = Number(cfg && cfg.problemPickTimeoutMs) || DEFAULT_TIMEOUT_MS;
 
     // تجاوز التعلم المحلي (ما تم تسجيله وقت التشغيل)
@@ -95,9 +209,18 @@
     return allowed[Math.floor(Math.random() * allowed.length)];
   }
 
-  // الأكواد المسموحة لجهاز معيّن: من selectors.json + المسجَّل تعلّمًا، بلا الممنوع.
+  // الأكواد المسموحة لجهاز معيّن: الكتالوج أولًا ثم selectors.json + المسجَّل تعلّمًا، بلا الممنوع.
   function allowedCodesForDevice(deviceName, rules) {
     const r = rules || _rulesSync();
+    const learned = r.learnedAllowed && r.learnedAllowed[String(deviceName || '').trim()];
+    const learnedList = Array.isArray(learned) ? learned : [];
+
+    const fromCatalog = codesForDevice(deviceName);
+    if (fromCatalog.length) {
+      return Array.from(new Set([...fromCatalog, ...learnedList]))
+        .filter(c => !isForbidden(c, r));
+    }
+
     const out = [];
     const text = String(deviceName || '').toLowerCase();
     const cfg = window._CFG || window.CFG || {};
@@ -111,8 +234,7 @@
         } catch (_) {}
       }
     }
-    const learned = r.learnedAllowed && r.learnedAllowed[String(deviceName || '').trim()];
-    if (Array.isArray(learned)) out.push(...learned);
+    if (learnedList.length) out.push(...learnedList);
 
     const clean = out.map(c => String(c).trim()).filter(Boolean);
     const uniq = Array.from(new Set(clean));
@@ -184,6 +306,12 @@
 
   window.ProblemCodes = {
     loadRules,
+    loadCatalog,
+    catalogSync,
+    familyOf,
+    codesForDevice,
+    codeInfo,
+    isKnownCode,
     isForbidden,
     filterAllowed,
     codeOf,
@@ -197,6 +325,7 @@
     pendingPickList,
     PICK_EVENT,
     LS_RULES_KEY,
+    CATALOG_FILE,
     DEFAULT_FORBIDDEN
   };
 

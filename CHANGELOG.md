@@ -5,6 +5,30 @@
 > **الإصدار:** يتبع [Semantic Versioning](https://semver.org/)
 ---
 
+## [2026-10-20] — الموجة 21: كتالوج المشاكل الفعلية الموحّد (الخطوة 1 من خطة الصفحة 2)
+
+### العلّة
+- قائمة «الممنوع» كانت مكتوبة يدويًا داخل `shared/problem-codes.js` (`DEFAULT_FORBIDDEN`)،
+  والأكواد المسموحة لم تكن معروفة للنظام أصلًا: `selectors.json → problemCodes`
+  فيه 9 أكواد فقط (AC02/AC03/GS04/WM05/GR01–03/DW06/HT01) — أي كود آخر مجهول.
+- النتيجة: «المشاكل الفعلية» تُختار من قائمة قصيرة، والممنوع يُستبعد بكلمات مكتوبة في الكود
+  لا من مصدر بيانات قابل للتحديث.
+
+### الإضافة
+- `problem-catalog.json` (جديد) — كتالوج المشاكل الفعلية، 50 كودًا من القائمة التي أرسلها المشغّل:
+  - `family` (GS/GR/AC/WM/HT/`*`) + `desc` + `forbidden` + `families` (تسميات كل عائلة).
+  - 6 ممنوعة: `GI00, GS08, GR05, SR00, SR01, WM04`.
+  - `recordCounts` توثّق أعداد البوابة (56/54/43/95/54) — الكتالوج الحالي أول صفحة من كل قائمة.
+- `shared/problem-codes.js`:
+  - `loadCatalog()` / `codesForDevice()` / `familyOf()` / `codeInfo()` / `isKnownCode()`.
+  - `loadRules()`: الممنوع = أكواد الكتالوج + كلماته ← ثم `selectors.json` ← ثم الاحتياطي.
+  - `allowedCodesForDevice()`: الكتالوج أولًا، وخريطة `selectors.json` احتياطي.
+- `manifest.json`: `problem-catalog.json` في `web_accessible_resources`.
+
+### التحقق
+- `unification-smoke.js` ⇒ **199 ناجح / 0 فاشل** (12 فحصًا جديدًا للكتالوج).
+- `deploy.ps1` ✅ + تطابق SHA256 (4 ملفات) | build `2026-10-20.15`.
+
 ## [2026-10-20] — الموجة 20: مراجعة أداة التحكم الصوتي (بند 1 من خطة الإصلاح)
 
 ### العيوب المكتشفة (4)
