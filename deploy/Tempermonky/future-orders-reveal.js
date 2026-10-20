@@ -20,6 +20,9 @@
   let isRunning = false;
   let futureOrders = [];
   let isFetching = false;
+  // آخر نتيجة تشخيصية — تُعرض في اللوحة بدل الصمت
+  let lastProbeError = '';
+  let lastProbeShape = '';
 
   // Helpers
   function log(msg, type = 'info') {
@@ -61,57 +64,141 @@
   }
 
   // ── Fetch Future Orders from Dataverse Web API ──
-  async function fetchFutureOrdersApi() {
-    const threeDaysIso = getThreeDaysLaterIso();
-    const thresholdMs = new Date(threeDaysIso).getTime();
-    log(`جاري جلب البلاغات المحجوزة بعد تاريخ: ${threeDaysIso}`);
+  // ملاحظة مهمة (سبب العطل السابق): كان الاستعلام يطلب حقولًا غير مؤكدة
+  // (ldv_appointmentdate / _ats_territories_value). حقل واحد خاطئ في $select
+  // يجعل Dataverse يرفض الاستعلام كله بـ 400 — والاستعلام الاحتياطي كان يستخدم
+  // نفس الـ $select فيفشل أيضًا => قائمة فاضية دائمًا.
+  // الحل: سلّم استعلامات من الأضيق للأوسع + عرض رسالة الخطأ الحقيقية + حفظ الشكل الناجح.
+  const PROBE_KEY = 'ea_future_orders_shape';
+  const PROBE_ORDER = ['full', 'safe', 'scheduled', 'active', 'raw'];
 
-    // Filter: appointment date or scheduled service start date > 3 days from now
-    // And statecode eq 0 (Active cases)
-    const selectFields = [
-      'incidentid',
-      'ticketnumber',
-      'title',
-      'ldv_scheduledservicestartdate',
-      'ldv_appointmentdate',
-      'ldv_address',
-      'ldv_mobilenumber',
-      'ldv_sapordernumber',
-      '_ldv_producttype_value',
-      '_ldv_problem_value',
-      '_ats_territories_value',
-      '_customerid_value',
-      'statuscode'
-    ].join(',');
+  function readProbeShape() {
+    try { return localStorage.getItem(PROBE_KEY) || ''; } catch (_) { return ''; }
+  }
 
-    const filter = `statecode eq 0 and (ldv_scheduledservicestartdate gt ${threeDaysIso} or ldv_appointmentdate gt ${threeDaysIso})`;
-    const url = `/_api/incidents?$filter=${encodeURIComponent(filter)}&$select=${selectFields}&$orderby=ldv_scheduledservicestartdate asc`;
+  function saveProbeShape(shape) {
+    try { localStorage.setItem(PROBE_KEY, shape); } catch (_) {}
+  }
 
-    try {
-      const resp = await fetch(url);
-      if (!resp.ok) {
-        throw new Error(`API returned HTTP ${resp.status}`);
-      }
-      const data = await resp.json();
-      const list = (data.value || []).filter(x => isFutureBeyond(x, thresholdMs));
-      log(`تم جلب ${list.length} بلاغ مستقبلي بنجاح`, 'success');
-      return list;
-    } catch (e) {
-      log(`فشل استعلام البلاغات المستقبلية: ${e.message}`, 'error');
-      // Fallback query without appointment date in filter in case of schema difference
-      try {
-        const fallbackFilter = `statecode eq 0 and ldv_scheduledservicestartdate gt ${threeDaysIso}`;
-        const fallbackUrl = `/_api/incidents?$filter=${encodeURIComponent(fallbackFilter)}&$select=${selectFields}&$orderby=ldv_scheduledservicestartdate asc`;
-        const resp2 = await fetch(fallbackUrl);
-        if (resp2.ok) {
-          const data2 = await resp2.json();
-          return (data2.value || []).filter(x => isFutureBeyond(x, thresholdMs));
-        }
-      } catch (err2) {
-        log(`فشل الاستعلام الاحتياطي: ${err2.message}`, 'error');
-      }
-      return [];
+  function buildQuery(shape, iso) {
+    const base = [
+      'incidentid', 'ticketnumber', 'title', 'statuscode',
+      'ldv_scheduledservicestartdate', 'ldv_address', 'ldv_mobilenumber', 'ldv_referencecontact',
+      'ldv_sapordernumber', '_customerid_value'
+    ];
+    let select = base.slice();
+    let filter = '';
+    let orderby = 'ldv_scheduledservicestartdate asc';
+    let top = 100;
+
+    if (shape === 'full') {
+      select.push('ldv_appointmentdate', '_ldv_producttype_value', '_ldv_problem_value', '_ats_territories_value');
+      filter = `statecode eq 0 and (ldv_scheduledservicestartdate gt ${iso} or ldv_appointmentdate gt ${iso})`;
+    } else if (shape === 'safe') {
+      select.push('_ldv_producttype_value', '_ldv_problem_value');
+      filter = `statecode eq 0 and ldv_scheduledservicestartdate gt ${iso}`;
+    } else if (shape === 'scheduled') {
+      select = ['incidentid', 'ticketnumber', 'ldv_scheduledservicestartdate'];
+      filter = `statecode eq 0 and ldv_scheduledservicestartdate gt ${iso}`;
+    } else if (shape === 'active') {
+      select = ['incidentid', 'ticketnumber', 'ldv_scheduledservicestartdate', 'createdon', 'statuscode'];
+      filter = 'statecode eq 0';
+      orderby = 'createdon desc';
+      top = 200;
+    } else { // raw — بدون أي فلتر، ثم فلترة محلية
+      select = ['incidentid', 'ticketnumber', 'ldv_scheduledservicestartdate', 'createdon', 'statuscode'];
+      orderby = 'createdon desc';
+      top = 100;
     }
+
+    let url = `/_api/incidents?$top=${top}&$select=${select.join(',')}&$orderby=${encodeURIComponent(orderby)}`;
+    if (filter) url += `&$filter=${encodeURIComponent(filter)}`;
+    return url;
+  }
+
+  async function fetchJson(url) {
+    const resp = await fetch(url, {
+      headers: {
+        'Accept': 'application/json',
+        // بدونه لا ترجع Dataverse الحقول المنسّقة (اسم العميل/المنتج/الشكوى)
+        'Prefer': 'odata.include-annotations="*"'
+      },
+      credentials: 'same-origin'
+    });
+    const text = await resp.text();
+    let data = null;
+    try { data = text ? JSON.parse(text) : null; } catch (_) { data = null; }
+    return { ok: resp.ok, status: resp.status, data, text };
+  }
+
+  function apiErrorMessage(r) {
+    const d = r && r.data;
+    const msg = (d && d.error && (d.error.message || d.error.code)) ||
+      (r && r.text ? String(r.text).replace(/\s+/g, ' ').slice(0, 180) : '');
+    return `HTTP ${r ? r.status : '?'}${msg ? ' — ' + msg : ''}`;
+  }
+
+  // يجمع الصفحات عبر @odata.nextLink (البوابة تحدّ حجم الصفحة)
+  async function fetchShape(shape, iso, maxPages = 4) {
+    let url = buildQuery(shape, iso);
+    const items = [];
+    let pages = 0;
+    let last = null;
+    while (url && pages < maxPages) {
+      const r = await fetchJson(url);
+      last = r;
+      if (!r.ok) return { ok: false, error: apiErrorMessage(r), items: [] };
+      const rows = (r.data && r.data.value) || [];
+      for (const row of rows) items.push(row);
+      url = (r.data && r.data['@odata.nextLink']) || '';
+      pages++;
+      if (!rows.length) break;
+    }
+    return { ok: true, items, status: last ? last.status : 0 };
+  }
+
+  async function fetchFutureOrdersApi() {
+    const iso = getThreeDaysLaterIso();
+    const thresholdMs = new Date(iso).getTime();
+    const cached = readProbeShape();
+    const order = cached && PROBE_ORDER.indexOf(cached) !== -1
+      ? [cached].concat(PROBE_ORDER.filter(s => s !== cached))
+      : PROBE_ORDER.slice();
+    lastProbeError = '';
+    lastProbeShape = '';
+    let firstError = '';
+
+    log(`جاري جلب البلاغات المستقبلية بعد: ${iso}`);
+
+    for (const shape of order) {
+      let res;
+      try {
+        res = await fetchShape(shape, iso);
+      } catch (e) {
+        res = { ok: false, error: 'شبكة: ' + (e && e.message ? e.message : e), items: [] };
+      }
+
+      if (!res.ok) {
+        log(`الشكل «${shape}» فشل: ${res.error}`, 'error');
+        if (!firstError) firstError = `${shape} → ${res.error}`;
+        continue;
+      }
+
+      const list = (res.items || []).filter(x => isFutureBeyond(x, thresholdMs));
+      log(`«${shape}» نجح: ${list.length} مستقبلي من ${res.items.length} صف`, 'success');
+
+      if (shape !== cached) saveProbeShape(shape);
+      lastProbeShape = shape;
+
+      // لو في نتائج خلاص — رجّعها. لو مفيش، جرّب الشكل الأوسع اللي بعده
+      // لنتأكد إن «صفر» ده حقيقي مش بسبب فلتر ضيّق.
+      if (list.length) return list;
+      if (shape === 'raw') return [];
+    }
+
+    lastProbeError = firstError || 'لم ينجح أي استعلام';
+    log('فشلت كل أشكال الاستعلام: ' + lastProbeError, 'error');
+    return [];
   }
 
   // ── Inject Styles ──
@@ -252,77 +339,167 @@
   }
 
   // ── Render Orders into Page Table ──
-  function injectOrdersIntoTable(orders) {
-    const table = document.querySelector('.entity-grid table, table.table');
-    if (!table) return;
+  // الجدول ممكن يكون في الصفحة نفسها أو جوّه iframe — الـ extractor نفسه بيدوّر
+  // جوّه iframes، ولذلك المحدد القديم ('.entity-grid table') كان يفشل بصمت.
+  const GRID_SELECTORS = [
+    '#grid_openorders',
+    '.entity-grid table',
+    'table.entity-grid',
+    '.entitylist table',
+    'table[class*="entitylist"]',
+    '.grid-content table',
+    'table[role="grid"]',
+    'table.table'
+  ];
 
-    const tbody = table.querySelector('tbody');
+  function candidateDocs() {
+    const docs = [document];
+    try {
+      document.querySelectorAll('iframe').forEach(f => {
+        try {
+          const d = f.contentDocument || (f.contentWindow && f.contentWindow.document);
+          if (d) docs.push(d);
+        } catch (_) {}
+      });
+    } catch (_) {}
+    return docs;
+  }
+
+  function findOrdersTable() {
+    const docs = candidateDocs();
+    for (const d of docs) {
+      for (const sel of GRID_SELECTORS) {
+        try {
+          const t = d.querySelector(sel);
+          if (t && t.querySelector('th')) return { table: t, doc: d };
+        } catch (_) {}
+      }
+    }
+    // احتياطي: أول جدول ظاهر فيه صف رؤوس
+    for (const d of docs) {
+      let tables = [];
+      try { tables = Array.from(d.querySelectorAll('table')); } catch (_) {}
+      for (const t of tables) {
+        try {
+          if (t.offsetParent !== null && t.querySelector('th')) return { table: t, doc: d };
+        } catch (_) {}
+      }
+    }
+    return null;
+  }
+
+  function headerTexts(table) {
+    try {
+      return Array.from(table.querySelectorAll('thead th')).map(th => (th.innerText || '').trim());
+    } catch (_) { return []; }
+  }
+
+  // null = خلية «رقم الطلب» الخاصة (رابط + شارة)
+  function cellValueForHeader(h, v) {
+    const t = String(h || '').replace(/\s+/g, ' ').trim();
+    const has = (...k) => k.some(x => t.indexOf(x) !== -1);
+    if (has('يوجد')) return 'لا';
+    if (has('شكوى', 'Complaint')) return v.complaint;
+    if (has('طلب', 'Order', 'CAS')) return null;
+    if (has('عميل', 'Customer')) return v.customer;
+    if (has('عقار', 'Building')) return '0';
+    if (has('عنوان', 'Address')) return v.address;
+    if (has('منتج', 'Product')) return v.product;
+    if (has('تاريخ', 'Date')) return v.dateStr;
+    if (has('خدمة', 'Service')) return 'صيانة';
+    if (has('SAP', 'sap')) return v.sap;
+    if (has('جهة', 'منطقة', 'Area')) return v.area;
+    if (has('فن', 'Tech')) return 'متنقلة';
+    return '';
+  }
+
+  function buildFutureRow(doc, o, headers) {
+    const row = doc.createElement('tr');
+    row.className = ROW_CLASS;
+    row.setAttribute('data-id', o.incidentid || '');
+    row.setAttribute('data-name', o.ticketnumber || '');
+    row.setAttribute('data-future-order', 'true');
+
+    const v = {
+      dateStr: formatDateDisplay(o.ldv_scheduledservicestartdate || o.ldv_appointmentdate),
+      product: o['_ldv_producttype_value@OData.Community.Display.V1.FormattedValue'] || 'غير محدد',
+      complaint: o['_ldv_problem_value@OData.Community.Display.V1.FormattedValue'] || 'صيانة',
+      customer: o['_customerid_value@OData.Community.Display.V1.FormattedValue'] || o.title || '',
+      address: o.ldv_address || '',
+      sap: o.ldv_sapordernumber || '',
+      area: o['_ats_territories_value@OData.Community.Display.V1.FormattedValue'] || ''
+    };
+
+    const reviewUrl = `https://elarabyportalpfs.powerappsportals.com/workorderreview/?id=${o.incidentid}`;
+    const orderCell = `<a href="${reviewUrl}" target="_blank" style="font-weight:bold;color:#0284c7;text-decoration:none;">${o.ticketnumber || ''}</a>` +
+      `<span class="ea-future-badge" title="بلاغ مستقبلي محجوز بعد أكثر من 3 أيام">📅 مستقبلي</span>`;
+
+    // لو الجدول فيه رؤوس: نبني خلية لكل عمود فعلي (يرفع مشكلة اختلاف ترتيب الأعمدة)
+    if (headers && headers.length) {
+      headers.forEach(h => {
+        const td = doc.createElement('td');
+        const val = cellValueForHeader(h, v);
+        if (val === null) td.innerHTML = orderCell;
+        else td.textContent = val;
+        row.appendChild(td);
+      });
+      return row;
+    }
+
+    // لا رؤوس؟ الشكل الثابت القديم (12 عمود)
+    row.innerHTML = `
+      <td data-th="رقم الطلب">${orderCell}</td>
+      <td data-th="اسم العميل">${v.customer}</td>
+      <td data-th="رقم العقار">0</td>
+      <td data-th="العنوان" title="${v.address}">${v.address}</td>
+      <td data-th="نوع المنتج">${v.product}</td>
+      <td data-th="شكوى العميل">${v.complaint}</td>
+      <td data-th="تاريخ الحجز" style="font-weight:bold;color:#b45309;">${v.dateStr} ⏳</td>
+      <td data-th="نوع الخدمة">صيانة</td>
+      <td data-th="يوجد شكوى">لا</td>
+      <td data-th="SAPرقم ال">${v.sap}</td>
+      <td data-th="جهة البلاغ">${v.area}</td>
+      <td data-th="الفنى المسؤول">متنقلة</td>
+    `;
+    return row;
+  }
+
+  function injectOrdersIntoTable(orders) {
+    const found = findOrdersTable();
+    if (!found) {
+      log('لم يتم العثور على جدول البلاغات — البيانات ظاهرة في اللوحة فقط', 'error');
+      return;
+    }
+
+    const table = found.table;
+    const doc = found.doc;
+    const tbody = (table.tBodies && table.tBodies[0]) || table.querySelector('tbody');
     if (!tbody) return;
 
-    // Remove any previously injected future rows
-    document.querySelectorAll(`.${ROW_CLASS}`).forEach(r => r.remove());
+    // إزالة أي صفوف مستقبلية قديمة
+    try { doc.querySelectorAll('.' + ROW_CLASS).forEach(r => r.remove()); } catch (_) {}
+    try { document.querySelectorAll('.' + ROW_CLASS).forEach(r => r.remove()); } catch (_) {}
 
     if (!orders || !orders.length) return;
 
-    // Check existing CAS to avoid duplicates
+    const headers = headerTexts(table);
+
+    // منع التكرار مع الصفوف الموجودة أصلًا
     const existingCas = new Set();
     tbody.querySelectorAll('tr').forEach(r => {
-      const txt = r.textContent || '';
-      const m = txt.match(/CAS\d+/);
+      const m = (r.textContent || '').match(/CAS\d+/);
       if (m) existingCas.add(m[0]);
     });
 
     let injectedCount = 0;
-
     orders.forEach(o => {
-      if (existingCas.has(o.ticketnumber)) return;
-
-      const row = document.createElement('tr');
-      row.className = ROW_CLASS;
-      row.setAttribute('data-id', o.incidentid);
-      row.setAttribute('data-name', o.ticketnumber);
-      row.setAttribute('data-future-order', 'true');
-
-      const dateStr = formatDateDisplay(o.ldv_scheduledservicestartdate || o.ldv_appointmentdate);
-      const product = o['_ldv_producttype_value@OData.Community.Display.V1.FormattedValue'] || 'غير محدد';
-      const complaint = o['_ldv_problem_value@OData.Community.Display.V1.FormattedValue'] || 'صيانة';
-      const customer = o['_customerid_value@OData.Community.Display.V1.FormattedValue'] || o.title || '';
-      const address = o.ldv_address || '';
-      const sap = o.ldv_sapordernumber || '';
-      const area = o['_ats_territories_value@OData.Community.Display.V1.FormattedValue'] || '';
-
-      const reviewUrl = `https://elarabyportalpfs.powerappsportals.com/workorderreview/?id=${o.incidentid}`;
-
-      // Build row cells mimicking portal structure
-      row.innerHTML = `
-        <td data-th="رقم الطلب">
-          <a href="${reviewUrl}" target="_blank" style="font-weight:bold;color:#0284c7;text-decoration:none;">
-            ${o.ticketnumber}
-          </a>
-          <span class="ea-future-badge" title="بلاغ مستقبلي محجوز بعد أكثر من 3 أيام">
-            📅 مستقبلي
-          </span>
-        </td>
-        <td data-th="اسم العميل">${customer}</td>
-        <td data-th="رقم العقار">0</td>
-        <td data-th="العنوان" title="${address}">${address}</td>
-        <td data-th="نوع المنتج">${product}</td>
-        <td data-th="شكوى العميل">${complaint}</td>
-        <td data-th="تاريخ الحجز" style="font-weight:bold;color:#b45309;">
-          ${dateStr} ⏳
-        </td>
-        <td data-th="نوع الخدمة">صيانة</td>
-        <td data-th="يوجد شكوى">لا</td>
-        <td data-th="SAPرقم ال">${sap}</td>
-        <td data-th="جهة البلاغ">${area}</td>
-        <td data-th="الفنى المسؤول">متنقلة</td>
-      `;
-
-      tbody.appendChild(row);
+      if (!o || !o.ticketnumber || existingCas.has(o.ticketnumber)) return;
+      existingCas.add(o.ticketnumber);
+      tbody.appendChild(buildFutureRow(doc, o, headers));
       injectedCount++;
     });
 
-    log(`تم دمج ${injectedCount} بلاغ مستقبلي في جدول الصفحة بنجاح`, 'success');
+    log(`تم دمج ${injectedCount} بلاغ مستقبلي في جدول الصفحة`, 'success');
   }
 
   // ── Build Floating Panel UI ──
@@ -358,18 +535,36 @@
   }
 
   // ── Render list inside Panel ──
+  function escHtml(s) {
+    return String(s == null ? '' : s)
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  }
+
+  function diagnosticHtml() {
+    if (lastProbeError) {
+      return `<div style="background:#7f1d1d;color:#fecaca;border-radius:6px;padding:6px 8px;margin-bottom:8px;font-size:11px;line-height:1.5;">
+        ⚠️ فشل الاستعلام: ${escHtml(lastProbeError)}
+      </div>`;
+    }
+    if (lastProbeShape) {
+      return `<div style="color:#64748b;font-size:10px;margin-bottom:6px;">الشكل المستخدم: ${escHtml(lastProbeShape)}</div>`;
+    }
+    return '';
+  }
+
   function renderPanelList(orders) {
     const listEl = document.getElementById('ea-fo-list');
     const countEl = document.getElementById('ea-fo-count');
     if (countEl) countEl.textContent = orders.length;
 
     if (!listEl) return;
+    const diag = diagnosticHtml();
     if (!orders.length) {
-      listEl.innerHTML = '<div style="text-align:center;padding:20px;color:#9ca3af;">لا توجد بلاغات محجوزة بعد أكثر من 3 أيام حالياً.</div>';
+      listEl.innerHTML = diag + '<div style="text-align:center;padding:20px;color:#9ca3af;">لا توجد بلاغات محجوزة بعد أكثر من 3 أيام حالياً.</div>';
       return;
     }
 
-    listEl.innerHTML = orders.map(o => {
+    listEl.innerHTML = diag + orders.map(o => {
       const dateStr = formatDateDisplay(o.ldv_scheduledservicestartdate || o.ldv_appointmentdate);
       const product = o['_ldv_producttype_value@OData.Community.Display.V1.FormattedValue'] || 'منتج غير محدد';
       const cust = o['_customerid_value@OData.Community.Display.V1.FormattedValue'] || o.title || '';
@@ -405,7 +600,9 @@
       renderPanelList(futureOrders);
       injectOrdersIntoTable(futureOrders);
     } catch (e) {
-      log(e.message, 'error');
+      lastProbeError = (e && e.message) ? e.message : String(e);
+      log(lastProbeError, 'error');
+      renderPanelList(futureOrders || []);
     } finally {
       isFetching = false;
     }
@@ -422,9 +619,22 @@
   }
 
   // ── Init ──
+  let _inited = false;
+
   function init() {
+    if (_inited) return;
+    _inited = true;
+
     injectStyles();
     buildPanel();
+
+    // فتح الأداة من الفاب (الكنترولر في world منفصل) يرسل حدث DOM — لأن
+    // window.__eaFutureOrders غير مرئي من الـ world المعزول.
+    document.addEventListener('ea-future-orders-refresh', () => {
+      const panel = document.getElementById(PANEL_ID);
+      if (panel) panel.classList.add('visible');
+      runDiscovery();
+    });
 
     // Auto-discover once on page load if on orders page
     if (location.href.includes('/Orders/')) {

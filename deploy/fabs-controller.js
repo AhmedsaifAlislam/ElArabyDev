@@ -971,6 +971,14 @@
       }
     }
 
+    // ── كشف البلاغات المستقبلية: السكربت في MAIN world → حدث DOM ──
+    // بدونه تفتح اللوحة على «اضغط فحص» ولا يتم أي استعلام.
+    if (tool.id === 'future-orders-fab') {
+      const ping = () => { try { document.dispatchEvent(new CustomEvent('ea-future-orders-refresh')); } catch (_) {} };
+      ping();
+      setTimeout(ping, 700);
+    }
+
     // ── لوحة التحكم (shadow root) ──
     if (tool.id === 'elaraby-control-panel-mini') {
       try {

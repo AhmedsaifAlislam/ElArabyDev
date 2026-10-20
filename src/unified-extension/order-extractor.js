@@ -877,53 +877,142 @@
   }
 
   // ── Future Orders Web API Fetcher (+3 Days) ──
+  // نفس منطق future-orders-reveal.js: سلّم أشكال استعلام من الأضيق للأوسع.
+  // السبب: الاستعلام القديم كان يطلب حقولًا غير مؤكدة (ldv_appointmentdate /
+  // _ats_territories_value) في $select و$filter؛ حقل واحد خاطئ => HTTP 400
+  // على الاستعلام الأساسي والاحتياطي معًا => قائمة فاضية دائمًا.
+  const FUTURE_PROBE_KEY = 'ea_future_orders_shape';
+  const FUTURE_PROBE_ORDER = ['full', 'safe', 'scheduled', 'active', 'raw'];
+
+  // أعمدة احتياطية تُستخدم لو الجدول فاضي (مفيش رؤوس تتقرأ من الصفحة)
+  const FUTURE_FALLBACK_HEADERS = [
+    'رقم الطلب', 'اسم العميل', 'رقم العقار', 'العنوان', 'نوع المنتج',
+    'شكوى العميل', 'تاريخ الحجز', 'نوع الخدمة', 'يوجد شكوى',
+    'رقم الـ SAP', 'المنطقة', 'الفنى المسؤول'
+  ];
+
+  function futureProbeShape() {
+    try { return localStorage.getItem(FUTURE_PROBE_KEY) || ''; } catch (_) { return ''; }
+  }
+
+  function buildFutureQuery(shape, iso) {
+    const base = [
+      'incidentid', 'ticketnumber', 'title', 'statuscode',
+      'ldv_scheduledservicestartdate', 'ldv_address', 'ldv_mobilenumber', 'ldv_referencecontact',
+      'ldv_sapordernumber', '_customerid_value'
+    ];
+    let select = base.slice();
+    let filter = '';
+    let orderby = 'ldv_scheduledservicestartdate asc';
+    let top = 100;
+
+    if (shape === 'full') {
+      select.push('ldv_appointmentdate', '_ldv_producttype_value', '_ldv_problem_value', '_ats_territories_value');
+      filter = `statecode eq 0 and (ldv_scheduledservicestartdate gt ${iso} or ldv_appointmentdate gt ${iso})`;
+    } else if (shape === 'safe') {
+      select.push('_ldv_producttype_value', '_ldv_problem_value');
+      filter = `statecode eq 0 and ldv_scheduledservicestartdate gt ${iso}`;
+    } else if (shape === 'scheduled') {
+      select = ['incidentid', 'ticketnumber', 'ldv_scheduledservicestartdate'];
+      filter = `statecode eq 0 and ldv_scheduledservicestartdate gt ${iso}`;
+    } else if (shape === 'active') {
+      select = ['incidentid', 'ticketnumber', 'ldv_scheduledservicestartdate', 'createdon', 'statuscode'];
+      filter = 'statecode eq 0';
+      orderby = 'createdon desc';
+      top = 200;
+    } else { // raw
+      select = ['incidentid', 'ticketnumber', 'ldv_scheduledservicestartdate', 'createdon', 'statuscode'];
+      orderby = 'createdon desc';
+      top = 100;
+    }
+
+    let url = `/_api/incidents?$top=${top}&$select=${select.join(',')}&$orderby=${encodeURIComponent(orderby)}`;
+    if (filter) url += `&$filter=${encodeURIComponent(filter)}`;
+    return url;
+  }
+
+  async function fetchFutureShape(shape, iso, maxPages = 4) {
+    let url = buildFutureQuery(shape, iso);
+    const items = [];
+    let pages = 0;
+    while (url && pages < maxPages) {
+      const resp = await fetch(url, {
+        headers: {
+          'Accept': 'application/json',
+          'Prefer': 'odata.include-annotations="*"'
+        },
+        credentials: 'same-origin'
+      });
+      if (!resp.ok) {
+        let detail = '';
+        try {
+          const t = await resp.text();
+          const j = JSON.parse(t);
+          detail = (j && j.error && (j.error.message || j.error.code)) || t.slice(0, 160);
+        } catch (_) {}
+        return { ok: false, error: `HTTP ${resp.status}${detail ? ' — ' + detail : ''}`, items: [] };
+      }
+      const data = await resp.json();
+      const rows = (data && data.value) || [];
+      for (const r of rows) items.push(r);
+      url = (data && data['@odata.nextLink']) || '';
+      pages++;
+      if (!rows.length) break;
+    }
+    return { ok: true, items };
+  }
+
   async function fetchFutureOrdersForExtraction(portalHeaders) {
     try {
       const d = new Date();
       d.setDate(d.getDate() + 3);
       d.setHours(23, 59, 59, 999);
       const threeDaysIso = d.toISOString();
+      const thresholdMs = new Date(threeDaysIso).getTime();
 
-      const selectFields = [
-        'incidentid', 'ticketnumber', 'title',
-        'ldv_scheduledservicestartdate', 'ldv_appointmentdate',
-        'ldv_address', 'ldv_mobilenumber', 'ldv_referencecontact', 'ldv_sapordernumber',
-        '_ldv_producttype_value', '_ldv_problem_value',
-        '_ats_territories_value', '_customerid_value', 'statuscode'
-      ].join(',');
-
-      // نداء واسع (OR) لجمع المرشّحين، ثم تصفية دقيقة أدناه
-      const filter = `statecode eq 0 and (ldv_scheduledservicestartdate gt ${threeDaysIso} or ldv_appointmentdate gt ${threeDaysIso})`;
-      const url = `/_api/incidents?$filter=${encodeURIComponent(filter)}&$select=${selectFields}&$orderby=ldv_scheduledservicestartdate asc`;
+      const cached = futureProbeShape();
+      const order = cached && FUTURE_PROBE_ORDER.indexOf(cached) !== -1
+        ? [cached].concat(FUTURE_PROBE_ORDER.filter(s => s !== cached))
+        : FUTURE_PROBE_ORDER.slice();
 
       let list = [];
-      const resp = await fetch(url);
-      if (resp.ok) {
-        const data = await resp.json();
-        list = data.value || [];
-      } else {
-        // احتياطي: بعض مخططات Dataverse لا تقبل OR بين حقلَي تاريخ
-        const fbFilter = `statecode eq 0 and ldv_scheduledservicestartdate gt ${threeDaysIso}`;
-        const fbUrl = `/_api/incidents?$filter=${encodeURIComponent(fbFilter)}&$select=${selectFields}&$orderby=ldv_scheduledservicestartdate asc`;
-        const fbResp = await fetch(fbUrl);
-        if (fbResp.ok) {
-          const fbData = await fbResp.json();
-          list = fbData.value || [];
+      let lastErr = '';
+
+      for (const shape of order) {
+        let res;
+        try {
+          res = await fetchFutureShape(shape, threeDaysIso);
+        } catch (e) {
+          res = { ok: false, error: 'network: ' + (e && e.message ? e.message : e), items: [] };
         }
+        if (!res.ok) {
+          lastErr = `${shape} → ${res.error}`;
+          console.warn('[OrderExtractor] future query failed:', lastErr);
+          continue;
+        }
+
+        // تصفية دقيقة (S5): «مستقبلي» = التاريخ الفعلي (المجدول وإلا الموعد) بعد الحد.
+        const filtered = (res.items || []).filter(item => {
+          const eff = item.ldv_scheduledservicestartdate || item.ldv_appointmentdate;
+          if (!eff) return false;
+          const ms = new Date(eff).getTime();
+          return !isNaN(ms) && ms > thresholdMs;
+        });
+        console.log(`[OrderExtractor] future shape «${shape}»: ${filtered.length}/${(res.items || []).length}`);
+
+        if (filtered.length) {
+          list = filtered;
+          try { localStorage.setItem(FUTURE_PROBE_KEY, shape); } catch (_) {}
+          break;
+        }
+        if (shape === 'raw') break;
       }
 
-      // تصفية دقيقة (S5): «مستقبلي» = التاريخ الفعلي (المجدول وإلا الموعد) بعد الحد.
-      // يمنع الحالة الخاطئة: بلاغ مجدول اليوم لكن حقل «موعد» آخر بعيد — الذي
-      // كان يُدرج بالخطأ بسبب OR بين الحقلين في الاستعلام.
-      const thresholdMs = new Date(threeDaysIso).getTime();
-      list = list.filter(item => {
-        const eff = item.ldv_scheduledservicestartdate || item.ldv_appointmentdate;
-        if (!eff) return false;
-        const ms = new Date(eff).getTime();
-        return !isNaN(ms) && ms > thresholdMs;
-      });
+      if (lastErr) console.warn('[OrderExtractor] future probe errors:', lastErr);
+      if (!list.length) return [];
 
-      const headerMap = mapPortalHeaders(portalHeaders);
+      const hdrs = (portalHeaders && portalHeaders.length) ? portalHeaders : FUTURE_FALLBACK_HEADERS;
+      const headerMap = mapPortalHeaders(hdrs);
       const mappedOrders = list.map(item => {
         const dateVal = item.ldv_scheduledservicestartdate || item.ldv_appointmentdate || '';
         let dateFormatted = '';
@@ -1487,12 +1576,16 @@
       console.log(`[OrderExtractor] Done. Total: ${allOrders.length}, stopped: ${stopRequested}`);
 
       // Check if user requested including future orders (+3 days)
+      // ملاحظة: لا نشترط نجاح قراءة الجدول — البلاغات المستقبلية هي أصلًا
+      // غير الموجودة في الجدول، فلو الجدول فاضي كنا نتخطى الفتش تمامًا.
       const includeFuture = document.getElementById('oe-include-future')?.checked || false;
-      if (includeFuture && !stopRequested && firstHeaders) {
+      if (includeFuture && !stopRequested) {
         setStatus('📅 جاري فحص وسحب البلاغات المستقبلية (+3 أيام)...', 'warn');
         try {
-          const futureList = await fetchFutureOrdersForExtraction(firstHeaders);
+          const hdrs = (firstHeaders && firstHeaders.length) ? firstHeaders : FUTURE_FALLBACK_HEADERS;
+          const futureList = await fetchFutureOrdersForExtraction(hdrs);
           if (futureList && futureList.length > 0) {
+            if (!firstHeaders || !firstHeaders.length) firstHeaders = FUTURE_FALLBACK_HEADERS;
             // Avoid duplicate CAS
             const existingOrderNos = new Set();
             const orderNoHdr = mapPortalHeaders(firstHeaders)['orderNo'];
@@ -1506,6 +1599,7 @@
             futureList.forEach(fo => {
               const num = orderNoHdr ? (fo[orderNoHdr] || '').toString().trim() : '';
               if (!existingOrderNos.has(num)) {
+                existingOrderNos.add(num);
                 allOrders.push(fo);
                 addedCount++;
               }
@@ -1548,7 +1642,34 @@
   }
 
   // ── Extract Current Page ──
+  // مسار احتياطي: لو الجدول فاضي تمامًا (وهو الوضع الطبيعي للبلاغات المستقبلية)
+  // نجيب البلاغات المستقبلية وحدها بدل الخروج بقائمة فاضية.
+  async function extractFutureOnly() {
+    setStatus('📅 الجدول فاضي — جاري سحب البلاغات المستقبلية (+3 أيام)...', 'warn');
+    try {
+      const list = await fetchFutureOrdersForExtraction(FUTURE_FALLBACK_HEADERS);
+      if (!list || !list.length) {
+        setStatus('لا توجد بلاغات مستقبلية حاليًا', 'warn');
+        return false;
+      }
+      const fetchReports = document.getElementById('oe-fetch-reports')?.checked || false;
+      if (fetchReports) {
+        await startReportFetching(list, FUTURE_FALLBACK_HEADERS);
+      } else {
+        await enrichOrdersWithArea(list);
+        await saveAreasToRegionMap(list);
+        exportXLSX(list, FUTURE_FALLBACK_HEADERS);
+      }
+      setStatus(`✅ تم تحميل ${list.length} بلاغ مستقبلي كملف Excel`, 'ok');
+      return true;
+    } catch (e) {
+      setStatus('❌ فشل سحب البلاغات المستقبلية: ' + e.message, 'error');
+      return false;
+    }
+  }
+
   async function extractCurrentPage() {
+    const includeFuture = document.getElementById('oe-include-future')?.checked || false;
     let table = await waitForTable(8000);
     if (!table) {
       console.log('[OrderExtractor] Table not found for current page, trying search');
@@ -1559,6 +1680,7 @@
       }
     }
     if (!table) {
+      if (includeFuture) return await extractFutureOnly();
       setStatus('❌ لم يتم العثور على جدول البلاغات', 'error');
       return;
     }
@@ -1573,17 +1695,20 @@
       }
     }
     if (!result.ok) {
+      if (includeFuture) return await extractFutureOnly();
       setStatus(result.error, 'error');
       return;
     }
 
     // Check if user requested including future orders (+3 days)
-    const includeFuture = document.getElementById('oe-include-future')?.checked || false;
-    if (includeFuture && result.headers) {
+    if (includeFuture) {
       setStatus('📅 جاري فحص وسحب البلاغات المستقبلية (+3 أيام)...', 'warn');
       try {
-        const futureList = await fetchFutureOrdersForExtraction(result.headers);
+        const futureList = await fetchFutureOrdersForExtraction(
+          (result.headers && result.headers.length) ? result.headers : FUTURE_FALLBACK_HEADERS
+        );
         if (futureList && futureList.length > 0) {
+          if (!result.headers || !result.headers.length) result.headers = FUTURE_FALLBACK_HEADERS;
           const existingOrderNos = new Set();
           const orderNoHdr = mapPortalHeaders(result.headers)['orderNo'];
           if (orderNoHdr) {
@@ -1595,6 +1720,7 @@
           futureList.forEach(fo => {
             const num = orderNoHdr ? (fo[orderNoHdr] || '').toString().trim() : '';
             if (!existingOrderNos.has(num)) {
+              existingOrderNos.add(num);
               result.orders.push(fo);
             }
           });
@@ -1637,36 +1763,10 @@
     if (!msg) return;
 
     if (msg.action === 'EXTRACT_CURRENT_PAGE') {
-      (async () => {
-        let table = await waitForTable(8000);
-        if (!table) {
-          setStatus('🔍 جاري الضغط على زر البحث...', 'warn');
-          if (clickSearchButton()) {
-            await new Promise(r => setTimeout(r, 2000));
-            table = await waitForTable(12000);
-          }
-        }
-        if (!table) {
-          sendResponse({ ok: false, error: 'لم يتم العثور على جدول البلاغات' });
-          return;
-        }
-        let result = scrapeCurrentPage();
-        if (!result.ok) {
-          if (clickSearchButton()) {
-            await new Promise(r => setTimeout(r, 2000));
-            table = await waitForTable(12000);
-            if (table) result = scrapeCurrentPage();
-          }
-        }
-        if (!result.ok) {
-          sendResponse({ ok: false, error: result.error });
-          return;
-        }
-        await enrichOrdersWithArea(result.orders);
-        await saveAreasToRegionMap(result.orders);
-        exportXLSX(result.orders, result.headers);
-        sendResponse({ ok: true, count: result.count });
-      })();
+      // مسار موحّد: نفس منطق extractCurrentPage (يشمل البلاغات المستقبلية)
+      extractCurrentPage()
+        .then(() => sendResponse({ ok: true }))
+        .catch(e => sendResponse({ ok: false, error: e && e.message }));
       return true;
     }
 

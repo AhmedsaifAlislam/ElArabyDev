@@ -358,14 +358,14 @@ function load(sandbox, file) {
         'S5: بلا تاريخ مجدول + موعد بعيد -> مستقبلي');
       ok(f({}, X) === false, 'S5: بلا أي تاريخ -> يُرفض');
     }
-    ok(/thresholdMs/.test(oesrc) && /list = list\.filter\(item =>/.test(oesrc),
-      'order-extractor: تصفية دقيقة للمستقبلي (thresholdMs + list.filter)');
+    ok(/thresholdMs/.test(oesrc) && /\.filter\(item =>/.test(oesrc),
+      'order-extractor: تصفية دقيقة للمستقبلي (thresholdMs + filter)');
     ok(/const eff = item\.ldv_scheduledservicestartdate \|\| item\.ldv_appointmentdate;/.test(oesrc),
       'order-extractor: التاريخ الفعلي = المجدول وإلا الموعد');
-    ok(/fbFilter/.test(oesrc),
-      'order-extractor: استعلام احتياطي (fbFilter) عند رفض OR');
-    ok(/isFutureBeyond/.test(fsrc) && (fsrc.match(/isFutureBeyond\(x, thresholdMs\)/g) || []).length >= 2,
-      'future-orders-reveal: التصفية مطبّقة على المسارين (الأساسي والاحتياطي)');
+    ok(/FUTURE_PROBE_ORDER/.test(oesrc) && /localStorage\.setItem\(FUTURE_PROBE_KEY/.test(oesrc),
+      'order-extractor: سلّم استعلامات بديل عن fbFilter (يُخزَّن الشكل الناجح)');
+    ok(/isFutureBeyond/.test(fsrc) && /isFutureBeyond\(x, thresholdMs\)/.test(fsrc),
+      'future-orders-reveal: التصفية مطبّقة على النتائج');
   }
 
   console.log('-- 16) regression: نسخ الموديل 2 عبر lookup حقيقي (لا حقن نصي) --');
@@ -483,6 +483,48 @@ function load(sandbox, file) {
   ok(/elaraby_fav_parts/.test(cpsrc), 'control-panel.js: القطع الشائعة محفوظة محليًا');
   ok(/lookup-not-committed/.test(cpsrc), 'control-panel.js: تحقق GUID بعد اختيار lookup');
   ok(/id="cp-fav-parts"/.test(cpsrc), 'control-panel.js: واجهة القطع الشائعة في التبويب');
+
+  console.log('-- 19) البلاغات المستقبلية: سلّم استعلامات + تشخيص + استخراج مستقل عن الجدول --');
+  // العلّة: $select كان يطلب ldv_appointmentdate و _ats_territories_value (غير مؤكدين)،
+  // وحقل واحد خاطئ يجعل Dataverse يرفض الاستعلام كله بـ400، والاحتياطي يستخدم نفس
+  // الـ$select فيفشل أيضًا → قائمة فاضية دائمًا وبلا أي رسالة خطأ.
+  {
+    const fsrc2 = read('Tempermonky/future-orders-reveal.js');
+
+    ok(/const PROBE_ORDER = \['full', 'safe', 'scheduled', 'active', 'raw'\]/.test(fsrc2),
+      'reveal: سلّم استعلامات خماسي (من الأضيق للأوسع)');
+    ok(/async function fetchShape\(/.test(fsrc2) && /function buildQuery\(/.test(fsrc2),
+      'reveal: buildQuery + fetchShape مفصولتان');
+    ok(/'Prefer':\s*'odata\.include-annotations="\*"'/.test(fsrc2),
+      'reveal: يرسل Prefer include-annotations (أسماء العميل/المنتج)');
+    ok(/@odata\.nextLink/.test(fsrc2),
+      'reveal: يتبع @odata.nextLink (تعدد الصفحات)');
+    ok(/function apiErrorMessage\(/.test(fsrc2) && /HTTP \$\{/.test(fsrc2),
+      'reveal: يعرض HTTP status + رسالة Dataverse');
+    ok(/function diagnosticHtml\(/.test(fsrc2) && /فشل الاستعلام/.test(fsrc2),
+      'reveal: لوحة التشخيص تعرض سبب الفشل بدل الصمت');
+    ok(/localStorage\.setItem\(PROBE_KEY/.test(fsrc2),
+      'reveal: يحفظ الشكل الناجح في localStorage');
+    ok(/function candidateDocs\(/.test(fsrc2) && /contentDocument/.test(fsrc2),
+      'reveal: البحث عن الجدول داخل iframes أيضًا');
+    ok(/ea-future-orders-refresh/.test(fsrc2),
+      'reveal: يستمع لحدث الفتح من الفاب (MAIN world)');
+
+    const fabsrc = read('fabs-controller.js');
+    ok(/ea-future-orders-refresh/.test(fabsrc) && /future-orders-fab/.test(fabsrc),
+      'fabs-controller: يطلق حدث الفتح عند فتح أداة البلاغات المستقبلية');
+
+    ok(/const FUTURE_FALLBACK_HEADERS/.test(fsrc2) === false && /const FUTURE_FALLBACK_HEADERS/.test(oesrc),
+      'order-extractor: أعمدة احتياطية عند فراغ الجدول');
+    ok(/async function extractFutureOnly\(/.test(oesrc),
+      'order-extractor: مسار مستقل للسحب المستقبلي عند فراغ الجدول');
+    ok(!/includeFuture && !stopRequested && firstHeaders/.test(oesrc),
+      'order-extractor: لم يعد مشروطًا بنجاح قراءة الجدول (firstHeaders)');
+    ok(!/includeFuture && result\.headers/.test(oesrc),
+      'order-extractor: extractCurrentPage لم يعد مشروطًا بـresult.headers');
+    ok(/@odata\.nextLink/.test(oesrc) && /Prefer/.test(oesrc),
+      'order-extractor: nextLink + Prefer في جالب المستقبلي');
+  }
 
   console.log('\n=== RESULT: ' + pass + ' passed, ' + fail + ' failed ===');
   if (fail > 0) {
