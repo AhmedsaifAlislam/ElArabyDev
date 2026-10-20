@@ -23,7 +23,14 @@ window.AutoFillEngine = window.AutoFillEngine || {};
   function findFieldByLabel(labels, tag) { return (typeof window.findFieldByLabel === 'function') ? window.findFieldByLabel(labels, tag) : null; }
   function emulateUserInput(el, val) { return (typeof window.emulateUserInput === 'function') ? window.emulateUserInput(el, val) : Promise.resolve(); }
 
-  function getProblemCode(deviceName, isInstallRow) {
+  // ملاحظة: كود «المشكلة المبدئية» (شكوى العميل) لا يُنسخ كما هو إلا إذا كان
+  // كودًا معروفًا في كتالوج المشاكل الفعلية وغير ممنوع. سبب الإصلاح: WM82 → WM82.
+  async function getProblemCode(deviceName, isInstallRow) {
+    const PC = window.ProblemCodes;
+    if (PC && typeof PC.loadCatalog === 'function') {
+      try { await PC.loadCatalog(); } catch (_) {}
+    }
+
     const complaintCode = window.AutoFillEngine.Page1?.readComplaintCodeFromPage ? window.AutoFillEngine.Page1.readComplaintCodeFromPage() : '';
     log('Complaint code from page: ' + (complaintCode || 'NOT FOUND'));
 
@@ -39,11 +46,28 @@ window.AutoFillEngine = window.AutoFillEngine || {};
       return '*تركيب';
     }
 
+    // ③ كود الشكوى: يُقبل فقط ككود مشكلة معروف (وليس مجرد شكل XX99)
     if (complaintCode && /^\*?\w{2}\d{2}$/i.test(complaintCode)) {
-      log('Using complaint code as problem search: ' + complaintCode);
-      return complaintCode;
+      const bare = String(complaintCode).replace(/^\*+/, '').trim().toUpperCase();
+      const known = PC && typeof PC.isKnownCode === 'function' ? PC.isKnownCode(bare) : false;
+      if (known && !(PC && PC.isForbidden(bare))) {
+        log('Complaint code is a catalog problem code: ' + complaintCode);
+        return complaintCode;
+      }
+      log('Complaint code "' + complaintCode + '" is not a usable catalog code — resolving from device type');
     }
 
+    // ④ الكتالوج حسب عائلة الجهاز (المصدر الأول)
+    if (PC && typeof PC.allowedCodesForDevice === 'function') {
+      const fromCatalog = PC.allowedCodesForDevice(deviceName) || [];
+      if (fromCatalog.length) {
+        const picked = fromCatalog[Math.floor(Math.random() * fromCatalog.length)];
+        log('Picked catalog problem code: ' + picked);
+        return picked;
+      }
+    }
+
+    // ⑤ خريطة selectors.json + الافتراضات القديمة (احتياطي)
     const text = (deviceName || '').toLowerCase();
     const CFG = window._CFG || window.CFG || {};
     const map = CFG.problemCodes;
@@ -80,34 +104,51 @@ window.AutoFillEngine = window.AutoFillEngine || {};
     return list[Math.floor(Math.random() * list.length)];
   }
 
-  // الأكواد المسموح بها من الـ AI — أي كود خارجها يُرفض (الـ AI كان يخترع أكوادًا
-  // مثل WM30 غير موجودة في البوابة إطلاقًا، فيفشل الاختيار بـ no-match).
+  // الأكواد المسموح بها من الـ AI — تُبنى من كتالوج المشاكل حسب عائلة الجهاز.
+  // (الـ AI كان يخترع أكوادًا مثل WM30 غير موجودة في البوابة إطلاقًا، فيفشل الاختيار بـ no-match).
   const ALLOWED_PROBLEM_CODES = ['*AC02', '*AC03', '*GS04', '*WM05', '*GR01', '*GR02', '*GR03', '*DW06', '*HT01', '*تركيب'];
+
+  function allowedCodesForAI(deviceName) {
+    const PC = window.ProblemCodes;
+    if (PC && typeof PC.codesForDevice === 'function') {
+      const list = PC.codesForDevice(deviceName) || [];
+      if (list.length) return list.map(c => '*' + String(c).replace(/^\*+/, ''));
+    }
+    return ALLOWED_PROBLEM_CODES.slice();
+  }
 
   async function getSmartProblemCode(deviceName, isInstallRow) {
     if (isInstallRow) return '*تركيب';
+    const PC = window.ProblemCodes;
+    if (PC && typeof PC.loadCatalog === 'function') {
+      try { await PC.loadCatalog(); } catch (_) {}
+    }
     const complaintCode = window.AutoFillEngine.Page1?.readComplaintCodeFromPage ? window.AutoFillEngine.Page1.readComplaintCodeFromPage() : '';
+    const allowedCodes = allowedCodesForAI(deviceName);
     if (typeof window.aiService !== 'undefined' && await window.aiService.isAvailable()) {
       try {
         const aiResult = await window.aiService.prompt(
-          `شكوى العميل: "${complaintCode || 'غير محدد'}"\nنوع الجهاز: "${deviceName}"\nاختر كود العطل المناسب من: *AC02, *AC03, *GS04, *WM05, *GR01, *GR02, *GR03, *DW06, *HT01, *تركيب\nأرجع الكود فقط بدون شرح.`
+          `شكوى العميل: "${complaintCode || 'غير محدد'}"\nنوع الجهاز: "${deviceName}"\nاختر كود العطل المناسب من: ${allowedCodes.join(', ')}\nأرجع الكود فقط بدون شرح.`
         );
         if (aiResult) {
           const found = (aiResult.trim().match(/\*[A-Z]{2}\d{2}|\*تركيب|^[A-Z]{2}\d{2}/) || [])[0];
           const candidate = found ? (found.startsWith('*') ? found : '*' + found) : '';
-          if (candidate && ALLOWED_PROBLEM_CODES.includes(candidate)) {
-            const PC = window.ProblemCodes;
-            if (PC && typeof PC.isForbidden === 'function' && PC.isForbidden(candidate)) {
+          const bare = candidate.replace(/^\*+/, '');
+          const known = (PC && typeof PC.isKnownCode === 'function')
+            ? PC.isKnownCode(bare)
+            : allowedCodes.includes(candidate);
+          if (candidate && known) {
+            if (PC && typeof PC.isForbidden === 'function' && PC.isForbidden(bare)) {
               log('AI returned a forbidden code: ' + candidate + ' — falling back to the device map');
             } else {
               return candidate;
             }
           }
-          if (candidate) log('AI returned a code outside the allowed list: ' + candidate + ' — falling back to the device map');
+          if (candidate) log('AI returned a code outside the catalog: ' + candidate + ' — falling back');
         }
       } catch (_) {}
     }
-    return getProblemCode(deviceName, isInstallRow);
+    return await getProblemCode(deviceName, isInstallRow);
   }
 
   async function hasExistingSubgridRow(labelRegex) {
@@ -451,9 +492,18 @@ window.AutoFillEngine = window.AutoFillEngine || {};
     if (!lookups || typeof lookups.handleSubgridIframeModal !== 'function') {
       return { ok: false, reason: 'lookups-unavailable' };
     }
+    if (PC && typeof PC.loadRules === 'function') {
+      try { await PC.loadRules(); } catch (_) {}
+    }
     const device = opts.device || '';
     const priority = opts.priority || null;
     const exclude = opts.exclude || PROBLEM_EXCLUDE;
+
+    // تحذير تشخيصي فقط: الكود المطلوب غير موجود في الكتالوج (قد يكون كودًا قديمًا).
+    if (PC && typeof PC.isKnownCode === 'function' && requestedCode
+      && !PC.isKnownCode(String(requestedCode).replace(/^\*+/, ''))) {
+      log('[Problem] ⚠️ requested code is not in problem-catalog: ' + requestedCode);
+    }
 
     // ① المحاولة بكود البيانات المخزنة
     let res = await lookups.handleSubgridIframeModal(PROBLEM_BTN_REGEX, requestedCode, false, exclude, priority);
@@ -531,7 +581,7 @@ window.AutoFillEngine = window.AutoFillEngine || {};
     
     // For Second Visit & Masaha: use problemCode from profile directly
     const isProfileMode = data.secondVisitMode || data.masahaMode;
-    const probCode = isProfileMode && data.problemCode ? data.problemCode : (data.problemCode || getProblemCode(deviceName, isInstall));
+    const probCode = isProfileMode && data.problemCode ? data.problemCode : (data.problemCode || await getProblemCode(deviceName, isInstall));
     if (probCode) {
       log('Adding Actual Problem: ' + probCode);
       const priorityActualProblem = /Premium\s*care|بريميم.?كير|تركيب وتشغيل/i;

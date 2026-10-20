@@ -2,7 +2,7 @@
 // control-panel.js — لوحة التحكم الذكية v1.0
 // بصمة الإصدار: تُطبع في الـ log وتظهر بجانب عنوان اللوحة، للتأكد أن المتصفح
 // حمّل أحدث نسخة من الإضافة (Reload من edge://extensions مطلوب بعد أي نشر).
-const PANEL_BUILD = '2026-10-20.15';
+const PANEL_BUILD = '2026-10-20.16';
 // Floating panel with auto-detecting page tabs
 // =========================================================
 (function () {
@@ -1980,7 +1980,7 @@ function getCSS() {
         logEvent('EXEC_PAGE2', `إضافة مشاكل: الجهاز=${device}, النوع=${isInstall ? 'تركيب' : 'صيانة'}`);
         const probCode = typeof getSmartProblemCode === 'function'
           ? await getSmartProblemCode(device, isInstall)
-          : (typeof getProblemCode === 'function' ? getProblemCode(device, isInstall) : null);
+          : (typeof getProblemCode === 'function' ? await getProblemCode(device, isInstall) : null);
         logEvent('EXEC_PAGE2', `كود المشكلة: ${probCode || 'غير موجود'}`);
         if (probCode && typeof P2.resolveActualProblem === 'function') {
           setStatus(shadow, `⏳ جاري إضافة المشكلة: ${probCode}...`);

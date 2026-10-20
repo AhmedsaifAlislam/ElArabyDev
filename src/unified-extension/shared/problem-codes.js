@@ -180,7 +180,17 @@
   }
 
   function _rulesSync() {
-    return _rules || { forbidden: DEFAULT_FORBIDDEN.slice(), timeoutMs: DEFAULT_TIMEOUT_MS, learnedAllowed: {} };
+    if (_rules) return _rules;
+    // لو الكتالوج محمَّل، استخدم ممنوعاته فورًا حتى قبل loadRules()
+    if (_catalog && _catalog.codes.length) {
+      const forbidden = Array.from(new Set([
+        ..._catalog.codes.filter(c => c.forbidden).map(c => c.code),
+        ...(_catalog.forbiddenKeywords || []),
+        ...DEFAULT_FORBIDDEN
+      ]));
+      return { forbidden, timeoutMs: DEFAULT_TIMEOUT_MS, learnedAllowed: {} };
+    }
+    return { forbidden: DEFAULT_FORBIDDEN.slice(), timeoutMs: DEFAULT_TIMEOUT_MS, learnedAllowed: {} };
   }
 
   // ── تصنيف الأكواد ────────────────────────────────────────────────────

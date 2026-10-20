@@ -710,6 +710,27 @@ function load(sandbox, file) {
       'problem-codes: عائلة AC تُستنتج من نص البوابة A/C');
   }
 
+  console.log('-- 23) كود المشكلة المبدئية لا يُنسخ — الكتالوج هو الحكم --');
+  // العلّة: أي شكوى بشكل XX99 كانت تُنسخ كما هي (WM82 → WM82) ثم يفشل البحث.
+  // والـ AI كانت تُقيَّد بقائمة ثابتة من 9 أكواد بدل الكتالوج.
+  {
+    const p2 = read('modules/autofill/engine-page2.js');
+    ok(!/Using complaint code as problem search/.test(p2),
+      'engine-page2: أُزيل نسخ كود الشكوى كما هو (WM82 → WM82)');
+    ok(/async function getProblemCode/.test(p2) && /PC\.isKnownCode\(bare\)/.test(p2),
+      'engine-page2: getProblemCode يتحقق من الكتالوج قبل استخدام كود الشكوى');
+    ok(/PC\.allowedCodesForDevice\(deviceName\)/.test(p2),
+      'engine-page2: يختار من أكواد الكتالوج حسب العائلة');
+    ok(/function allowedCodesForAI/.test(p2) && /PC\.codesForDevice\(deviceName\)/.test(p2),
+      'engine-page2: قائمة الـ AI تُبنى من الكتالوج لا من ثابت');
+    ok(/await getProblemCode\(deviceName, isInstall\)/.test(p2),
+      'engine-page2: executePage2_FollowUp ينتظر getProblemCode');
+    ok(/await getProblemCode\(device, isInstall\)/.test(read('control-panel.js')),
+      'control-panel: ينتظر getProblemCode بعد جعله async');
+    ok(/PC\.loadRules\(\)/.test(p2) && /is not in problem-catalog/.test(p2),
+      'engine-page2: resolveActualProblem يحمّل القواعد ويحذّر من كود خارج الكتالوج');
+  }
+
   console.log('\n=== RESULT: ' + pass + ' passed, ' + fail + ' failed ===');
   if (fail > 0) {
     console.log('Failures:');
