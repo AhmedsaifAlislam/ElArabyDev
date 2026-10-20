@@ -777,6 +777,27 @@ function load(sandbox, file) {
       'control-panel: توقف صريح لو زر الفنيين لم يظهر بعد حفظ المشكلة');
   }
 
+  console.log('-- 26) ملاحظات الموديل: إضافة/حذف/تصدير بدون تعديل ملفات الإضافة --');
+  {
+    const cp = read('control-panel.js');
+    ok(/id="btn-note-edit"/.test(cp) && /id="cp-note-editor"/.test(cp) && /id="cp-note-text"/.test(cp),
+      'control-panel: محرر ملاحظة الموديل موجود في تبويب الصفحة 1');
+    ok(/id="btn-note-save"/.test(cp) && /id="btn-note-delete"/.test(cp) && /id="btn-note-export"/.test(cp),
+      'control-panel: حفظ/حذف/تصدير متاحة');
+    ok(/LS_MODEL_NOTES_USER = 'model_notes_user'/.test(cp) && /chrome\.storage\.local\.set/.test(cp),
+      'control-panel: الملاحظات الشخصية تُحفظ في chrome.storage.local');
+    ok(/function matchesModelNote/.test(cp) && /=== 'prefix'/.test(cp) && /=== 'regex'/.test(cp),
+      'control-panel: مطابقة exact/prefix/regex مدعومة');
+    ok(/\.\.\.user\.filter\(e => matchesModelNote/.test(cp),
+      'control-panel: ملاحظات المستخدم تظهر قبل ملف الإضافة');
+    ok(/renderModelNote\(PANEL_SHADOW, true\)/.test(cp),
+      'control-panel: تحديث فوري بعد الحفظ (تجاوز الكاش)');
+    ok(/bindModelNoteEditor\(shadow\)/.test(cp),
+      'control-panel: المحرر مربوط في bindEvents');
+    ok(/note-info/.test(cp) && /note-danger/.test(cp),
+      'control-panel: ألوان الملاحظة حسب النوع (info/warning/danger)');
+  }
+
   console.log('\n=== RESULT: ' + pass + ' passed, ' + fail + ' failed ===');
   if (fail > 0) {
     console.log('Failures:');

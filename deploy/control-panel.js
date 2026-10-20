@@ -2,7 +2,7 @@
 // control-panel.js — لوحة التحكم الذكية v1.0
 // بصمة الإصدار: تُطبع في الـ log وتظهر بجانب عنوان اللوحة، للتأكد أن المتصفح
 // حمّل أحدث نسخة من الإضافة (Reload من edge://extensions مطلوب بعد أي نشر).
-const PANEL_BUILD = '2026-10-20.18';
+const PANEL_BUILD = '2026-10-20.19';
 // Floating panel with auto-detecting page tabs
 // =========================================================
 (function () {
@@ -328,6 +328,10 @@ function getCSS() {
 .cp-empty{color:#445577;padding:5px;text-align:center;font-size:10px}
 .cp-notes-title{font-weight:700;color:#fbbf24;margin:6px 0 3px;padding-top:5px;border-top:1px solid #232840;font-size:11px}
 .cp-model-note{display:none;background:#7c4d00;border:1px solid #f59e0b;border-radius:6px;padding:6px 8px;margin-bottom:8px;font-size:11px;color:#fef3c7;line-height:1.5;text-align:center}
+.cp-model-note.note-info{background:#0c4a6e;border-color:#0ea5e9;color:#e0f2fe}
+.cp-model-note.note-warning{background:#7c4d00;border-color:#f59e0b;color:#fef3c7}
+.cp-model-note.note-danger{background:#7f1d1d;border-color:#dc2626;color:#fecaca}
+.cp-note-badge{display:inline-block;background:#1d4ed8;color:#dbeafe;border-radius:4px;padding:0 4px;margin-inline-end:4px;font-size:9px;font-weight:900;vertical-align:middle}
 .cp-note-item{background:#0f1a2e;padding:3px 6px;border-radius:5px;margin-bottom:1px;cursor:grab;font-size:10px;line-height:1.4;border:1px solid transparent;transition:all .12s;display:flex;align-items:flex-start;gap:4px;user-select:none}
 .cp-note-item:hover{background:#162a45;border-color:#2a4a6a}
 .cp-note-item:active{cursor:grabbing}
@@ -392,6 +396,20 @@ function getCSS() {
   <div class="cp-tab" data-page="PAGE_1" id="tab-p1">
     <div class="cp-tab-title">📋 الصفحة الأولى — بيانات الجهاز</div>
     <div id="cp-model-note" class="cp-model-note" role="note"></div>
+    <button class="cp-btn cp-btn-inject" id="btn-note-edit" type="button" style="margin-bottom:6px">📝 ملاحظة الموديل</button>
+    <div id="cp-note-editor" style="display:none;background:#0f172a;border:1px solid #334155;border-radius:6px;padding:6px;margin-bottom:8px">
+      <textarea id="cp-note-text" rows="3" placeholder="ملاحظة تظهر عند فتح هذا الموديل..." style="width:100%;box-sizing:border-box;background:#0b1220;color:#e2e8f0;border:1px solid #334155;border-radius:4px;padding:4px;font-size:11px;resize:vertical;font-family:inherit"></textarea>
+      <div style="display:flex;gap:4px;margin-top:4px;align-items:center">
+        <select id="cp-note-type" class="cp-select" style="flex:0 0 92px;margin:0">
+          <option value="info">ℹ️ معلومة</option>
+          <option value="warning" selected>⚠️ تحذير</option>
+          <option value="danger">⛔ خطر</option>
+        </select>
+        <button class="cp-btn cp-btn-exec" id="btn-note-save" type="button" style="flex:1;margin:0">💾 حفظ</button>
+        <button class="cp-btn cp-btn-inject" id="btn-note-delete" type="button" style="flex:1;margin:0">🗑️ حذف</button>
+      </div>
+      <button class="cp-btn cp-btn-inject" id="btn-note-export" type="button" style="width:100%;margin-top:4px">📤 نسخ JSON (للنشر الدائم)</button>
+    </div>
     <button class="cp-btn cp-btn-inject" id="btn-default-p1" type="button" style="margin-bottom:6px">📦 تعبئة بيانات افتراضية (زيارة ثانية)</button>
     <label class="cp-check"><input type="checkbox" id="chk-duplicate" checked> <span>تكرار بيانات الجهاز (model→model2, serial→serial2)</span></label>
     <label class="cp-check"><input type="checkbox" id="chk-next1" checked> <span>الانتقال للصفحة التالية</span></label>
@@ -734,6 +752,7 @@ function getCSS() {
     shadow.getElementById('btn-exec1').onclick = () => { logEvent('CLICK', 'نقر على تنفيذ الصفحة 1'); runExclusive(shadow, 'تنفيذ الصفحة 1', () => executePage1(shadow)); };
     shadow.getElementById('btn-exec2').onclick = () => { logEvent('CLICK', 'نقر على تنفيذ الصفحة 2'); runExclusive(shadow, 'تنفيذ الصفحة 2', () => executePage2(shadow)); };
     bindAutoNext2(shadow);
+    bindModelNoteEditor(shadow);
     shadow.querySelectorAll('.p2-sc').forEach(btn => {
       btn.onclick = () => {
         const sc = btn.dataset.sc;
@@ -1633,35 +1652,159 @@ function getCSS() {
     return null;
   }
 
+  // ── ملاحظات الموديل: رسمية (model-notes.json) + شخصية (chrome.storage.local) ──
+  // ملفات الإضافة للقراءة فقط وقت التشغيل؛ لذلك الملاحظات الشخصية تُحفظ في
+  // chrome.storage.local تحت model_notes_user، ويمكن تصديرها JSON لإضافتها للملف.
+  const LS_MODEL_NOTES_USER = 'model_notes_user';
+  let _userModelNotes = null;
+
+  function currentModelCode() {
+    const mEl = findFirst(CFG.modelInput) || findFieldByLabel(['الموديل الفعلي 1', 'Model']);
+    return String(mEl?.value || mEl?.getAttribute?.('value') || '').trim().split(' _ ')[0].trim();
+  }
+
+  async function loadUserModelNotes(force) {
+    if (_userModelNotes && !force) return _userModelNotes;
+    try {
+      const got = await chrome.storage.local.get({ [LS_MODEL_NOTES_USER]: [] });
+      const arr = got && got[LS_MODEL_NOTES_USER];
+      _userModelNotes = Array.isArray(arr) ? arr : [];
+    } catch (e) {
+      _userModelNotes = [];
+      logEvent('MODEL_NOTE', 'تعذّر قراءة الملاحظات الشخصية: ' + (e.message || e));
+    }
+    return _userModelNotes;
+  }
+
+  async function saveUserModelNotes(arr) {
+    _userModelNotes = Array.isArray(arr) ? arr : [];
+    try { await chrome.storage.local.set({ [LS_MODEL_NOTES_USER]: _userModelNotes }); }
+    catch (e) { logEvent('MODEL_NOTE', 'تعذّر حفظ الملاحظات الشخصية: ' + (e.message || e)); }
+    try { renderModelNote(PANEL_SHADOW, true); } catch (_) {}
+  }
+
+  // مطابقة: exact (افتراضي) | prefix | regex — ويمكن ربط الملاحظة بعائلة منتج كاملة عبر family.
+  function matchesModelNote(entry, model, device) {
+    if (!entry) return false;
+    if (entry.family && device) {
+      const fam = (window.ProblemCodes && typeof window.ProblemCodes.familyOf === 'function')
+        ? window.ProblemCodes.familyOf(device) : '';
+      if (fam && String(entry.family).toUpperCase() === fam) return true;
+    }
+    const pattern = String(entry.model || '').trim();
+    if (!pattern) return false;
+    const mode = String(entry.match || 'exact').toLowerCase();
+    if (mode === 'prefix') return model.startsWith(pattern);
+    if (mode === 'regex') { try { return new RegExp(pattern, 'i').test(model); } catch (_) { return false; } }
+    return model === pattern;
+  }
+
   let _lastModelNoteValue = '';
-  async function renderModelNote(shadow) {
+  async function renderModelNote(shadow, force) {
     const el = shadow.getElementById('cp-model-note');
     if (!el) return;
-    const mEl = findFirst(CFG.modelInput) || findFieldByLabel(['الموديل الفعلي 1', 'Model']);
-    const raw = ((mEl?.value || mEl?.getAttribute?.('value') || '').trim().split(' _ ')[0].trim());
-    if (!raw) {
+    const model = currentModelCode();
+    if (!model) {
       el.style.display = 'none';
-      el.textContent = '';
+      el.innerHTML = '';
       _lastModelNoteValue = '';
       return;
     }
-    if (raw === _lastModelNoteValue) return;
-    const data = await loadModelNotes();
-    if (!data) {
+    if (!force && model === _lastModelNoteValue) return;
+    const bundled = (await loadModelNotes()) || [];
+    const user = await loadUserModelNotes();
+    const device = readDeviceHint();
+    const hits = [
+      ...user.filter(e => matchesModelNote(e, model, device)).map(e => ({ ...e, _user: true })),
+      ...bundled.filter(e => matchesModelNote(e, model, device)).map(e => ({ ...e, _user: false }))
+    ];
+    _lastModelNoteValue = model;
+    if (!hits.length) {
       el.style.display = 'none';
-      el.textContent = '';
+      el.innerHTML = '';
       return;
     }
-    const hit = data.find(e => (e.model || '').trim() === raw);
-    if (!hit) {
-      el.style.display = 'none';
-      el.textContent = '';
-      _lastModelNoteValue = raw;
-      return;
-    }
-    el.textContent = hit.message;
+    const firstType = String(hits[0].type || 'warning').toLowerCase();
+    el.className = 'cp-model-note note-' + (['info', 'warning', 'danger'].includes(firstType) ? firstType : 'warning');
+    el.innerHTML = hits.map(h => {
+      const badge = h._user ? '<span class="cp-note-badge">مخصصة</span>' : '';
+      return badge + escapeHtml(h.message || '');
+    }).join('<br>');
     el.style.display = 'block';
-    _lastModelNoteValue = raw;
+  }
+
+  function bindModelNoteEditor(shadow) {
+    const btn = shadow.getElementById('btn-note-edit');
+    const box = shadow.getElementById('cp-note-editor');
+    const ta = shadow.getElementById('cp-note-text');
+    const typeSel = shadow.getElementById('cp-note-type');
+    if (!btn || !box || !ta || !typeSel) return;
+    if (btn.dataset.bound === '1') return;
+    btn.dataset.bound = '1';
+
+    btn.onclick = async () => {
+      if (box.style.display === 'block') { box.style.display = 'none'; return; }
+      const model = currentModelCode();
+      if (!model) { setStatus(shadow, '⚠️ لا يوجد موديل في صفحة البلاغ', 'warn'); return; }
+      const user = await loadUserModelNotes();
+      const existing = user.find(e => String(e.model || '').trim() === model);
+      ta.value = existing ? (existing.message || '') : '';
+      typeSel.value = existing ? (existing.type || 'warning') : 'warning';
+      box.style.display = 'block';
+      ta.focus();
+      logEvent('MODEL_NOTE', 'فتح محرر ملاحظة الموديل: ' + model);
+    };
+
+    shadow.getElementById('btn-note-save').onclick = async () => {
+      const model = currentModelCode();
+      const message = ta.value.trim();
+      if (!model) { setStatus(shadow, '⚠️ لا يوجد موديل', 'warn'); return; }
+      if (!message) { setStatus(shadow, '⚠️ اكتب الملاحظة أولًا', 'warn'); return; }
+      const user = (await loadUserModelNotes()).filter(e => String(e.model || '').trim() !== model);
+      user.unshift({
+        model, message,
+        type: typeSel.value || 'warning',
+        match: 'exact',
+        updatedAt: new Date().toISOString()
+      });
+      await saveUserModelNotes(user);
+      box.style.display = 'none';
+      setStatus(shadow, '✅ حُفظت ملاحظة الموديل', 'success');
+      logEvent('MODEL_NOTE', `حفظ ملاحظة (${typeSel.value}) للموديل ${model}`);
+    };
+
+    shadow.getElementById('btn-note-delete').onclick = async () => {
+      const model = currentModelCode();
+      if (!model) return;
+      const before = await loadUserModelNotes();
+      const after = before.filter(e => String(e.model || '').trim() !== model);
+      if (after.length === before.length) {
+        setStatus(shadow, 'لا توجد ملاحظة شخصية لهذا الموديل', 'warn');
+        return;
+      }
+      await saveUserModelNotes(after);
+      ta.value = '';
+      box.style.display = 'none';
+      setStatus(shadow, '🗑️ حُذفت ملاحظة الموديل', 'success');
+      logEvent('MODEL_NOTE', 'حذف ملاحظة الموديل: ' + model);
+    };
+
+    shadow.getElementById('btn-note-export').onclick = async () => {
+      const all = await loadUserModelNotes();
+      if (!all.length) { setStatus(shadow, 'لا توجد ملاحظات شخصية للتصدير', 'warn'); return; }
+      const clean = all.map(({ updatedAt, ...rest }) => rest);
+      const json = JSON.stringify(clean, null, 2);
+      try {
+        await navigator.clipboard.writeText(json);
+        setStatus(shadow, '📤 نُسخ JSON — ألصقه في model-notes.json', 'success');
+      } catch (_) {
+        ta.value = json;
+        box.style.display = 'block';
+        ta.select();
+        setStatus(shadow, '📋 انسخ النص من المحرر', 'warn');
+      }
+      logEvent('MODEL_NOTE', `تصدير ${clean.length} ملاحظة`);
+    };
   }
 
   async function doDuplicate(shadow) {

@@ -256,6 +256,24 @@ ProblemCodes.isKnownCode('HT01');          // true
 - `valueFormat` = `major,sub,full` — وهو نفس قيمة `checkbox.fault-cb` التي تُقرأ في `executePage3`.
 - القائمة تُبنى من الكتالوج عبر `defectCodesFor()` — ممنوع كتابة الأكواد HTML داخل اللوحة.
 
+### ملاحظات الموديل — طبقتان (رسمية + شخصية) — 2026-10-20
+
+| الطبقة | المكان | من يعدّلها | تظهر عند |
+|--------|--------|------------|----------|
+| رسمية | `model-notes.json` | المطوّر (deploy) | كل المستخدمين |
+| شخصية | `chrome.storage.local → model_notes_user` | المستخدم من اللوحة | نفس المتصفح |
+
+```json
+{ "model": "GR-E23-W", "message": "…", "type": "warning", "match": "exact" }
+{ "family": "WM", "message": "…", "type": "info" }
+```
+
+- المطابقة على الجزء قبل `' _ '` من `#ldv_actualmodel_name`.
+- `match`: `exact` (افتراضي) | `prefix` | `regex`؛ و`family` تربط بعائلة كاملة.
+- `type`: `info` / `warning` / `danger` — يحدد لون الشريط.
+- المستخدم يضيف/يحذف من تبويب الصفحة 1، ويصدّر JSON لإضافته للملف الرسمي.
+- بعد أي تعديل في الملف الرسمي: `deploy.ps1` + Refresh الإضافة + F5.
+
 ### بنية "إضافة المشاكل الفعلية المستخدمة" (نموذج Create)
 
 - الزر في subgrid الصفحة: `a[title="اضافة المشاكل الفعلية للصيانة"]` (أو نص `اضافة المشاكل الفعلية المستخدمة`).
