@@ -877,12 +877,15 @@ function load(sandbox, file) {
       'P0-3: assertNotCancelled في الصفحات 1/2/3 وحلقة الأعطال');
 
     // P0-4 + P0-5
-    ok(/async function runShortcut/.test(cp) && /await fillLookupModal\(actionBtn/.test(cp),
-      'P0-4: شورت كت «يرفض الدفع» ينتظر fillLookupModal');
+    ok(/async function runShortcut/.test(cp) && /visibleShortcuts\(family\)/.test(cp)
+      && /shortcutCodes\(def, services\)/.test(cp) && !/type === 'refuse'/.test(cp),
+      'P0-4: الشورت كت من الكتالوج فقط — «يرفض الدفع» مؤجّل (يُضاف لاحقًا بـ ⭐ لكل عائلة)');
+    ok(!/cb\.value\.startsWith\('AC00/.test(cp) && /appendShortcutNote\(def\.noteText\)/.test(cp),
+      'P0-4: لا أكواد مثبّتة داخل الشورت كت + التعليق الحر يُكتب في الملاحظات');
     ok(/if \(codes\.length === 0\) \{/.test(cp) && /لم يطابق أي كود/.test(cp),
       'P0-5: لا «✅ (0 كود)» — توقف برسالة عند عدم المطابقة');
-    ok(/const ok = await runShortcut\(shadow, btn\.dataset\.sc\)/.test(cp)
-      && /const ok = await runShortcut\(shadow, sc\)/.test(cp),
+    ok(/const ok = await runShortcut\(shadow, id\)/.test(cp)
+      || /const ok = await runShortcut\(shadow, btn\.dataset\.sc\)/.test(cp),
       'P0-5: تنفيذ الصفحة 3 لا يبدأ إذا لم يُحدَّد أي كود');
   }
 
@@ -1170,6 +1173,25 @@ function load(sandbox, file) {
     const gs = api.familyServices('GS');
     ok(gs.shortcuts.length === 0 && gs.noFaultCode === '' && api.visibleShortcuts('GS').list.length === 1,
       'خدمات/GS: لا أزرار عائلة ويظهر المشترك فقط');
+  }
+
+  console.log('\n-- 34) الشورت كت والملاحظات مرسومة من الكتالوج --');
+  {
+    const cp = read('control-panel.js');
+    ok(/id="cp-shortcut-buttons"/.test(cp) && !/data-sc="pm"/.test(cp) && !/data-sc="refuse"/.test(cp),
+      'الواجهة: حاوية شورت كت ديناميكية (لا أزرار مثبّتة في HTML)');
+    ok(/function renderShortcuts\(shadow\)/.test(cp) && /renderShortcuts\(shadow\);/.test(cp),
+      'الرسم: renderShortcuts تُستدعى مع تحديث أكواد الجهاز');
+    ok(/_scope === 'shared'/.test(cp) && /cp-badge">مشترك/.test(cp),
+      'الرسم: الزر المشترك يظهر بشارة «مشترك»');
+    ok(/shortcutBox\.addEventListener\('click'/.test(cp) && /e\.target\.closest\('\.cp-shortcut-btn'\)/.test(cp),
+      'الربط: تفويض على الحاوية (يعمل مع الأزرار المتغيّرة)');
+    ok(/data-note-text="\$\{escapeHtml\(n\.text\)\}"/.test(cp) && /data-note-id="\$\{escapeHtml\(n\.id\)\}"/.test(cp),
+      'الملاحظات: كل ملاحظة تحمل معرّفها ونصها (لا فهرس ثابت)');
+    ok(/cb\.dataset\.noteText/.test(cp) && /if \(cb\.dataset\.noteText\) return cb\.dataset\.noteText;/.test(cp),
+      'التنفيذ: نص الملاحظة يُقرأ من العنصر لا من قائمة ثابتة');
+    ok(/const \{ notes \} = familyServices\(family\)/.test(cp),
+      'الملاحظات: تُعرض ملاحظات عائلة الجهاز');
   }
 
   console.log('\n=== RESULT: ' + pass + ' passed, ' + fail + ' failed ===');

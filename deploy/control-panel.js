@@ -2,7 +2,7 @@
 // control-panel.js — لوحة التحكم الذكية v1.0
 // بصمة الإصدار: تُطبع في الـ log وتظهر بجانب عنوان اللوحة، للتأكد أن المتصفح
 // حمّل أحدث نسخة من الإضافة (Reload من edge://extensions مطلوب بعد أي نشر).
-const PANEL_BUILD = '2026-10-20.26';
+const PANEL_BUILD = '2026-10-21.27';
 // Floating panel with auto-detecting page tabs
 // =========================================================
 (function () {
@@ -424,6 +424,8 @@ function getCSS() {
 .cp-dock:hover{background:rgba(255,255,255,.2);color:#e2eaf5}
 .cp-dock.active{background:rgba(23,51,76,.35);color:#ffffff; border:1px solid rgba(255,255,255,0.2)}
 .cp-shortcuts{display:flex;flex-direction:column;gap:2px;margin:4px 0}
+#cp-shortcut-buttons{display:grid;grid-template-columns:repeat(3,1fr);gap:3px}
+.cp-shortcut-btn.shared{border-color:#3a5a8a;background:#132033}
 .cp-shortcut-row{display:flex;gap:4px}
 .p2-sc, .cp-shortcut-btn{flex:1;padding:5px 4px;border:1px solid #2a3050;border-radius:5px;background:#0d1528;color:#a8c7fa;font-size:10px;font-weight:600;cursor:pointer;transition:all .12s;text-align:center}
 .p2-sc:hover, .cp-shortcut-btn:hover{background:#1a2744;border-color:#3a5a8a;color:#e2eaf5}
@@ -571,15 +573,7 @@ function getCSS() {
     </div>
     <div class="cp-shortcuts" id="cp-shortcuts">
       <div class="cp-notes-title" style="margin:4px 0 2px;padding-top:3px">⚡ شورت كت</div>
-      <div class="cp-shortcut-row">
-        <button class="cp-shortcut-btn" data-sc="pm"><span class="sc-icon">🔧</span>صيانة دورية</button>
-        <button class="cp-shortcut-btn" data-sc="charge"><span class="sc-icon">❄️</span>شحن فريون</button>
-        <button class="cp-shortcut-btn" data-sc="drain"><span class="sc-icon">💧</span>ضبط الصرف</button>
-      </div>
-      <div class="cp-shortcut-row" style="margin-top:2px">
-        <button class="cp-shortcut-btn" data-sc="pull"><span class="sc-icon">📦</span>سحب و ارجاع</button>
-        <button class="cp-shortcut-btn" data-sc="refuse"><span class="sc-icon">🚫</span>يرفض الدفع</button>
-      </div>
+      <div id="cp-shortcut-buttons"></div>
       <div class="cp-shortcut-row" style="margin-top:2px">
         <button class="p2-sc" id="cp-parts-btn" style="flex:1;background:#1a2744;border-color:#f59e0b"><span class="sc-icon">🔧</span>قطع الغيار</button>
       </div>
@@ -871,6 +865,9 @@ function getCSS() {
     safeBind(shadow, 'التالي التلقائي (ص2)', () => bindAutoNext2(shadow));
     safeBind(shadow, 'ملاحظات الموديل', () => bindModelNoteEditor(shadow));
     safeBind(shadow, 'محرر أكواد الأعطال', () => bindDefectEditor(shadow));
+    safeBind(shadow, 'أزرار الشورت كت', () => {
+      loadDefectCatalog().then(() => { try { renderShortcuts(shadow); } catch (e) { logEvent('SHORTCUT', 'render: ' + (e.message || e)); } });
+    });
     hookPanelErrors(shadow);
     const stopBtn = shadow.getElementById('cp-stop');
     if (stopBtn) stopBtn.onclick = () => { logEvent('CLICK', 'نقر على إيقاف'); cancelExecution(shadow, 'user').catch(() => {}); };
@@ -910,16 +907,21 @@ function getCSS() {
         runExclusive(shadow, 'لصق الأكواد', () => pasteCodesAction(shadow));
       };
     }
-    shadow.querySelectorAll('.cp-shortcut-btn').forEach(btn => {
-      btn.onclick = () => {
-        logEvent('SHORTCUT_PANEL', `${btn.dataset.sc} → تنفيذ`);
-        runExclusive(shadow, `شورت كت ${btn.dataset.sc}`, async () => {
-          const ok = await runShortcut(shadow, btn.dataset.sc);
+    const shortcutBox = shadow.getElementById('cp-shortcut-buttons');
+    if (shortcutBox && shortcutBox.dataset.bound !== '1') {
+      shortcutBox.dataset.bound = '1';
+      shortcutBox.addEventListener('click', (e) => {
+        const btn = e.target.closest('.cp-shortcut-btn');
+        if (!btn) return;
+        const id = btn.dataset.sc;
+        logEvent('SHORTCUT_PANEL', `${id} → تنفيذ`);
+        runExclusive(shadow, `شورت كت ${id}`, async () => {
+          const ok = await runShortcut(shadow, id);
           if (!ok) return;
           await executePage3(shadow);
         });
-      };
-    });
+      });
+    }
     shadow.getElementById('cp-parts-btn').onclick = () => {
       logEvent('CLICK', 'نقر على قطع الغيار');
       runExclusive(shadow, 'قطع الغيار', () => executePartsShortcut(shadow));
@@ -1023,15 +1025,7 @@ function getCSS() {
         popup.innerHTML = `
           <div id="${PANEL_ID}-popup-box" style="position:fixed;bottom:84px;right:76px;background:#131821;border:1px solid #232840;border-radius:8px;padding:6px;z-index:2147483646;font-family:'Segoe UI',Tahoma,sans-serif;direction:rtl;display:none;box-shadow:0 8px 24px rgba(0,0,0,.7);transition:opacity .15s ease;">
             <div style="font-size:10px;color:#fbbf24;font-weight:700;margin-bottom:4px;text-align:center">⚡ شورت كت</div>
-            <div style="display:flex;gap:3px">
-              <button class="sc-popup-btn" data-sc="pm" style="flex:1;padding:4px 2px;border:1px solid #2a3050;border-radius:4px;background:#0d1528;color:#a8c7fa;font-size:9px;font-weight:600;cursor:pointer;text-align:center">🔧 صيانة</button>
-              <button class="sc-popup-btn" data-sc="charge" style="flex:1;padding:4px 2px;border:1px solid #2a3050;border-radius:4px;background:#0d1528;color:#a8c7fa;font-size:9px;font-weight:600;cursor:pointer;text-align:center">❄️ شحن</button>
-              <button class="sc-popup-btn" data-sc="drain" style="flex:1;padding:4px 2px;border:1px solid #2a3050;border-radius:4px;background:#0d1528;color:#a8c7fa;font-size:9px;font-weight:600;cursor:pointer;text-align:center">💧 صرف</button>
-            </div>
-            <div style="display:flex;gap:3px;margin-top:3px">
-              <button class="sc-popup-btn" data-sc="pull" style="flex:1;padding:4px 2px;border:1px solid #2a3050;border-radius:4px;background:#0d1528;color:#a8c7fa;font-size:9px;font-weight:600;cursor:pointer;text-align:center">📦 سحب</button>
-              <button class="sc-popup-btn" data-sc="refuse" style="flex:1;padding:4px 2px;border:1px solid #2a3050;border-radius:4px;background:#0d1528;color:#a8c7fa;font-size:9px;font-weight:600;cursor:pointer;text-align:center">🚫 رفض</button>
-            </div>
+            <div id="${PANEL_ID}-popup-btns" style="display:grid;grid-template-columns:repeat(3,1fr);gap:3px"></div>
             <button id="${PANEL_ID}-popup-exec" style="width:100%;margin-top:4px;padding:5px;border:none;border-radius:4px;background:linear-gradient(135deg,#2563eb,#1d4ed8);color:#fff;font-size:10px;font-weight:700;cursor:pointer">▶ تنفيذ الكل</button>
           </div>`;
         document.body.appendChild(popup);
@@ -1059,26 +1053,46 @@ function getCSS() {
         popupBox.onmouseenter = () => { popupVisible = true; };
         popupBox.onmouseleave = hidePopup;
 
-        popup.querySelectorAll('.sc-popup-btn').forEach(btn => {
-          btn.addEventListener('click', (e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            const sc = btn.dataset.sc;
-            console.log(`%c[PortalHelper] POPUP SHORTCUT: ${sc} → select + execute`, 'color:#4ade80;font-weight:bold;font-size:14px');
-            logEvent('SHORTCUT_POPUP', `شورت كت: ${sc} → تنفيذ`);
-            popupBox.style.display = 'none';
-            mini.style.transform = 'scale(1)';
-            try {
-              runExclusive(shadow, `شورت كت بوب-اب ${sc}`, async () => {
-                const ok = await runShortcut(shadow, sc);
-                if (!ok) return;
-                await executePage3(shadow);
-              });
-            } catch(err) {
-              console.error('[PortalHelper] POPUP ERROR:', err);
-              logEvent('SHORTCUT_POPUP', `خطأ: ${err.message}`);
-            }
-          });
+        const popupBtns = popup.querySelector(`#${PANEL_ID}-popup-btns`);
+        const renderPopupShortcuts = () => {
+          if (!popupBtns) return;
+          const family = defectFamilyOf(readDeviceHint());
+          const { list } = visibleShortcuts(family);
+          if (!list.length) {
+            popupBtns.innerHTML = '<div style="font-size:9px;color:#94a3b8;text-align:center;grid-column:1/-1">لا توجد أزرار لهذه العائلة</div>';
+            return;
+          }
+          popupBtns.innerHTML = list.map(s => {
+            const label = escapeHtml(s.icon ? `${s.icon} ${s.name}` : s.name || s.id);
+            const shared = s._scope === 'shared';
+            return `<button class="sc-popup-btn" data-sc="${escapeHtml(s.id)}" title="${escapeHtml(s.name || s.id)}${shared ? ' — مشترك' : ''}" style="padding:4px 2px;border:1px solid ${shared ? '#3a5a8a' : '#2a3050'};border-radius:4px;background:${shared ? '#132033' : '#0d1528'};color:#a8c7fa;font-size:9px;font-weight:600;cursor:pointer;text-align:center">${label}</button>`;
+          }).join('');
+        };
+        renderPopupShortcuts();
+        if (typeof loadDefectCatalog === 'function') {
+          loadDefectCatalog().then(() => { try { renderPopupShortcuts(); } catch (e) { logEvent('SHORTCUTS_POPUP', 'render: ' + (e.message || e)); } });
+        }
+
+        popupBtns && popupBtns.addEventListener('click', (e) => {
+          const btn = e.target.closest('.sc-popup-btn');
+          if (!btn) return;
+          e.preventDefault();
+          e.stopPropagation();
+          const sc = btn.dataset.sc;
+          console.log(`%c[PortalHelper] POPUP SHORTCUT: ${sc} → select + execute`, 'color:#4ade80;font-weight:bold;font-size:14px');
+          logEvent('SHORTCUT_POPUP', `شورت كت: ${sc} → تنفيذ`);
+          popupBox.style.display = 'none';
+          mini.style.transform = 'scale(1)';
+          try {
+            runExclusive(shadow, `شورت كت بوب-اب ${sc}`, async () => {
+              const ok = await runShortcut(shadow, sc);
+              if (!ok) return;
+              await executePage3(shadow);
+            });
+          } catch(err) {
+            console.error('[PortalHelper] POPUP ERROR:', err);
+            logEvent('SHORTCUT_POPUP', `خطأ: ${err.message}`);
+          }
         });
 
         // زر تنفيذ الكل في البوب اب
@@ -1177,141 +1191,103 @@ function getCSS() {
     saveState(shadow);
   }
 
+  // ⚡ الشورت كت — يُقرأ بالكامل من defect-catalog.json (أزرار العائلة + الأزرار المشتركة)
   async function runShortcut(shadow, type) {
     logEvent('SHORTCUT', `بدء: ${type}`);
     logPageSnapshot(`شورت كت: ${type}`);
     console.log(`%c[PortalHelper] runShortcut: ${type}`, 'color:#fbbf24;font-weight:bold');
 
-    // التحقق من وجود العناصر
-    const allCbs = shadow.querySelectorAll('input[type="checkbox"]');
+    const family = defectFamilyOf(readDeviceHint());
+    const { services, list } = visibleShortcuts(family);
+    const def = list.find(s => s.id === type);
+    if (!def) {
+      setStatus(shadow, `⚠️ الشورت كت «${type}» غير معرّف لهذه العائلة — أضفه من المحرر`, 'warn');
+      logEvent('SHORTCUT', `⛔ ${type}: غير موجود في defect-catalog (عائلة ${family || '؟'})`);
+      return false;
+    }
+
     const codes = shadow.querySelectorAll('.fault-cb');
     const notes = shadow.querySelectorAll('.note-cb');
     const amount = shadow.getElementById('cp-amount');
 
-    logEvent('SHORTCUT', `DOM: جميع الـ checkboxes=${allCbs.length}, fault-cb=${codes.length}, note-cb=${notes.length}`);
-    console.log(`%c[PortalHelper] DOM: total=${allCbs.length}, fault-cb=${codes.length}, note-cb=${notes.length}`, 'color:#60a5fa');
-
-    // لا أكواد أعطال في اللوحة ⇒ لا «✅ (0 كود)» كاذبة
+    logEvent('SHORTCUT', `عائلة=${family || '؟'} • أكواد اللوحة=${codes.length} • ملاحظات=${notes.length}`);
     if (codes.length === 0) {
       setStatus(shadow, '⚠️ لا توجد أكواد أعطال في اللوحة — افتح تبويب الصفحة 3 لتحميل الكتالوج', 'warn');
       logEvent('SHORTCUT', '⛔ إيقاف: لا توجد checkboxes أكواد أعطال');
       return false;
     }
 
-    // عرض قيم الـ checkboxes
-    codes.forEach((cb, i) => {
-      logEvent('SHORTCUT', `  [${i}] value="${cb.value}" checked=${cb.checked}`);
-    });
-
-    // مسح كل الـ checkboxes أولاً
+    // مسح التحديد السابق
     codes.forEach(cb => { cb.checked = false; });
     notes.forEach(cb => { cb.checked = false; });
 
-    if (type === 'pm') {
-      let checked = 0;
+    // ① الأكواد — مطابقة الكود الرئيسي (major) القادم من JSON
+    const wanted = shortcutCodes(def, services);
+    const missing = [];
+    wanted.forEach(code => {
+      let hit = false;
       codes.forEach(cb => {
-        if (cb.value.startsWith('AC001,') || cb.value.startsWith('AC004,')) {
-          cb.checked = true;
-          checked++;
-          logEvent('SHORTCUT', `✅ pm: تحديد ${cb.value}`);
-        }
+        const major = String((cb.value || '').split(',')[0] || '').toUpperCase();
+        if (major === code) { cb.checked = true; hit = true; }
       });
-      // تحديد الملاحظة رقم 2 (صيانة دورية)
+      if (!hit) missing.push(code);
+    });
+    if (missing.length) logEvent('SHORTCUT', `⚠️ أكواد غير موجودة في اللوحة: ${missing.join(' | ')}`);
+
+    // ② الملاحظات المعلّمة (بمعرّف الملاحظة لا بترتيبها)
+    const noteIds = Array.isArray(def.noteIds) ? def.noteIds : [];
+    let notesChecked = 0;
+    if (noteIds.length) {
       notes.forEach(cb => {
-        if (parseInt(cb.dataset.idx) === 2) {
-          cb.checked = true;
-          logEvent('SHORTCUT', `✅ pm: تحديد ملاحظة idx=2`);
-        }
+        if (noteIds.includes(cb.dataset.noteId)) { cb.checked = true; notesChecked++; }
       });
-      if (amount) amount.value = '0';
-      setStatus(shadow, `✅ صيانة دورية (${checked} كود) + 0 جنيه`, 'success');
-      logEvent('SHORTCUT', `النتيجة: ${checked} كود, ملاحظة واحدة, 0 جنيه`);
-    } else if (type === 'charge') {
-      let checked = 0;
-      codes.forEach(cb => {
-        if (cb.value.startsWith('AC003,')) {
-          cb.checked = true;
-          checked++;
-          logEvent('SHORTCUT', `✅ charge: تحديد ${cb.value}`);
-        }
-      });
-      if (amount) amount.value = '0';
-      setStatus(shadow, `✅ شحن فريون (${checked} كود) + 0 جنيه`, 'success');
-      logEvent('SHORTCUT', `النتيجة: ${checked} كود, 0 جنيه`);
-    } else if (type === 'drain') {
-      let checked = 0;
-      codes.forEach(cb => {
-        if (cb.value.startsWith('AC004,')) {
-          cb.checked = true;
-          checked++;
-          logEvent('SHORTCUT', `✅ drain: تحديد ${cb.value}`);
-        }
-      });
-      if (amount) amount.value = '0';
-      setStatus(shadow, `✅ ضبط الصرف (${checked} كود) + 0 جنيه`, 'success');
-      logEvent('SHORTCUT', `النتيجة: ${checked} كود, 0 جنيه`);
-    } else if (type === 'refuse') {
-      let checked = 0;
-      codes.forEach(cb => {
-        if (cb.value.startsWith('AC005,')) {
-          cb.checked = true;
-          checked++;
-          logEvent('SHORTCUT', `✅ refuse: تحديد ${cb.value}`);
-        }
-      });
-      if (amount) amount.value = '0';
-      // قطع الغيار
-      const spareEl = typeof findFieldByLabel === 'function' ? findFieldByLabel(['حالة قطع الغيار', 'Spare Parts'], 'select') : null;
-      if (spareEl && spareEl.tagName === 'SELECT') {
-        const noneOpt = Array.from(spareEl.options).find(o => /بدون قطع غيار/i.test(o.text));
-        if (noneOpt) {
-          spareEl.value = noneOpt.value;
-          spareEl.dispatchEvent(new Event('change', { bubbles: true }));
-          logEvent('SHORTCUT', 'قطع غيار: بدون قطع غيار');
-        }
-      }
-      // فتح نافذة يرفض الدفع
-      if (typeof fillLookupModal === 'function') {
-        const actionBtn = document.querySelector('button.launchentitylookup[aria-label*="الفعل"], button.launchentitylookup[aria-label*="حالة"], button.launchentitylookup[aria-label*="الحالة"]');
-        if (actionBtn) {
-          await fillLookupModal(actionBtn, 'العميل يرفض الدفع');
-          logEvent('SHORTCUT', 'فتح نافذة يرفض الدفع (بانتظار الاختيار)');
-        }
-      }
-      setStatus(shadow, `✅ رفض الدفع (${checked} كود) + 0 جنيه`, 'success');
-      logEvent('SHORTCUT', `النتيجة: ${checked} كود, 0 جنيه`);
-    } else if (type === 'pull') {
-      // سحب و ارجاع: الـ 5 أكواد كلهم + ملاحظة + 0 جنيه
-      const pullCodes = ['AC001,', 'AC004,', 'AC006,', 'AC003,'];
-      let checked = 0;
-      codes.forEach(cb => {
-        if (pullCodes.some(prefix => cb.value.startsWith(prefix))) {
-          cb.checked = true;
-          checked++;
-          logEvent('SHORTCUT', `✅ pull: تحديد ${cb.value}`);
-        }
-      });
-      // تحديد ملاحظة السحب (idx=5)
-      notes.forEach(cb => {
-        if (parseInt(cb.dataset.idx) === 5) {
-          cb.checked = true;
-          logEvent('SHORTCUT', `✅ pull: تحديد ملاحظة idx=5`);
-        }
-      });
-      if (amount) amount.value = '0';
-      setStatus(shadow, `✅ سحب و ارجاع (${checked} كود) + 0 جنيه`, 'success');
-      logEvent('SHORTCUT', `النتيجة: ${checked} كود, ملاحظة سحب, 0 جنيه`);
     }
 
-    // التحقق النهائي
-    const finalChecked = shadow.querySelectorAll('.fault-cb:checked');
-    logEvent('SHORTCUT', `=== النهاية: ${finalChecked.length} كود محدد ===`);
-    console.log(`%c[PortalHelper] SHORTCUT DONE: ${finalChecked.length} codes checked`, 'color:#4ade80;font-weight:bold');
-    if (finalChecked.length === 0) {
-      setStatus(shadow, `⚠️ الشورت كت «${type}» لم يطابق أي كود — لم يُحدَّد شيء`, 'warn');
-      logEvent('SHORTCUT', `⛔ ${type}: 0 كود — لا يوجد ما يُنفَّذ`);
+    // ③ تعليق مباشر في خانة الملاحظات (مثل «عدم توافر»)
+    let noteWritten = false;
+    if (def.noteText) noteWritten = appendShortcutNote(def.noteText);
+
+    // ④ المبلغ (0 يعني بدون تحصيل)
+    const amountNum = Number(def.amount);
+    const amountOut = String(Number.isFinite(amountNum) ? amountNum : 0);
+    if (amount) amount.value = amountOut;
+
+    const finalChecked = shadow.querySelectorAll('.fault-cb:checked').length;
+    if (finalChecked === 0) {
+      setStatus(shadow, `⚠️ الشورت كت «${def.name || type}» لم يطابق أي كود — لم يُحدَّد شيء`, 'warn');
+      logEvent('SHORTCUT', `⛔ ${type}: 0 كود — أكواد مطلوبة: ${wanted.join(' | ') || '—'}`);
       return false;
     }
+
+    const extras = `${notesChecked ? ' + ملاحظة' : ''}${noteWritten ? ' + تعليق' : ''}`;
+    setStatus(shadow, `✅ ${def.name || type} (${finalChecked} كود)${extras} + ${amountOut} جنيه`, 'success');
+    logEvent('SHORTCUT', `النتيجة: ${finalChecked} كود, ${notesChecked} ملاحظة${noteWritten ? ', تعليق مباشر' : ''}, مبلغ ${amountOut}`);
+    return true;
+  }
+
+  // خانة الملاحظات الحقيقية في البوابة (نفس سلسلة البحث المستخدمة في التنفيذ)
+  function findNotesField() {
+    let el = typeof findFieldByLabel === 'function'
+      ? (findFieldByLabel(['Notes', 'ملاحظات', 'الملاحظات', 'التعليق', 'notes_support'], 'textarea')
+        || findFieldByLabel(['Notes', 'ملاحظات', 'الملاحظات', 'التعليق', 'notes_support'], 'input'))
+      : null;
+    if (!el) el = document.querySelector('#ldv_resourcelastcomment, textarea[aria-label*="Notes"], textarea[aria-label*="ملاحظات"], textarea[id*="notes"], input[aria-label*="التعليق"], #notes');
+    if (!el) el = findFirstInFrames('#ldv_resourcelastcomment, textarea[aria-label*="Notes"], textarea[aria-label*="ملاحظات"], textarea[id*="notes"], input[aria-label*="التعليق"], #notes');
+    return el || null;
+  }
+
+  // كتابة تعليق الشورت كت في خانة الملاحظات مباشرةً (بدون تكرار)
+  function appendShortcutNote(text) {
+    const msg = String(text || '').trim();
+    if (!msg) return false;
+    const el = findNotesField();
+    if (!el) { logEvent('SHORTCUT', '⚠️ تعذّر إيجاد خانة الملاحظات — لم يُكتب التعليق'); return false; }
+    const cur = String(el.value || '').trim();
+    if (cur.includes(msg)) { logEvent('SHORTCUT', 'التعليق موجود مسبقًا — بدون تكرار'); return true; }
+    el.value = cur ? `${cur}\n${msg}` : msg;
+    el.dispatchEvent(new Event('input', { bubbles: true }));
+    el.dispatchEvent(new Event('change', { bubbles: true }));
+    logEvent('SHORTCUT', `✍️ تعليق في الملاحظات: ${msg}`);
     return true;
   }
 
@@ -1884,6 +1860,28 @@ function getCSS() {
     logEvent('CODES', `تم إنشاء ${list.querySelectorAll('.fault-cb').length} checkboxes من كتالوج الأعطال (${family})`);
   }
 
+  // ⚡ رسم أزرار الشورت كت حسب عائلة الجهاز (من defect-catalog.json)
+  function renderShortcuts(shadow) {
+    const box = shadow.getElementById('cp-shortcut-buttons');
+    if (!box) return;
+    const family = defectFamilyOf(readDeviceHint());
+    const { list } = visibleShortcuts(family);
+    if (!list.length) {
+      box.innerHTML = '<div class="cp-empty">لا توجد أزرار شورت كت لهذه العائلة بعد — أضفها من المحرر</div>';
+      return;
+    }
+    box.innerHTML = list.map(s => {
+      const label = escapeHtml(s.name || s.id);
+      const icon = escapeHtml(s.icon || '⚡');
+      const shared = s._scope === 'shared';
+      const tip = `${label}${shared ? ' — مشترك لكل العائلات' : ` — ${escapeHtml(family || '')}`}`;
+      return `<button type="button" class="cp-shortcut-btn${shared ? ' shared' : ''}" data-sc="${escapeHtml(s.id)}" title="${tip}">`
+        + `<span class="sc-icon">${icon}</span>${label}`
+        + `${shared ? ' <span class="cp-badge">مشترك</span>' : ''}</button>`;
+    }).join('');
+    logEvent('SHORTCUT', `أزرار الشورت كت: ${list.length} (عائلة ${family || '؟'})`);
+  }
+
   let _updatingCodes = false;   // حارس إعادة الدخول (يمنع أي حلقة رسم لا نهائية)
   function updateDeviceCodes(shadow) {
     if (_updatingCodes) return;
@@ -1909,6 +1907,7 @@ function getCSS() {
       }
       refreshCopiedCodesPreview(shadow);
       updateDeviceNotes(shadow);
+      renderShortcuts(shadow);
     } finally {
       _updatingCodes = false;
     }
@@ -1923,11 +1922,38 @@ function getCSS() {
     "تم سحب الجهاز و تم عمل فلير وربط المواسير و تنظيف الدائرة وعمل فاكيوم وشحن غاز فريون و تم عمل صيانة دورية غسيل الفلاتر وتنظيف الوحدة الخارجية بالبلاور وتنظيف الصرف وتم إعادة وتشغيل الجهاز بالكامل بعد الاصلاح بمركز الخدمه"
   ];
 
+  // ترتيب الملاحظات بعد السحب — لكل عائلة داخل الجلسة
+  const _noteOrder = Object.create(null);
+
   function updateDeviceNotes(shadow) {
     const list = shadow.getElementById('cp-notes-list');
     if (!list) return;
-    list.innerHTML = NOTES_LIST.map((n, i) =>
-      `<label class="cp-note-item" draggable="true" data-idx="${i}"><input type="checkbox" class="note-cb" data-idx="${i}" /> <span class="ni-handle">⠿</span> <span class="ni-text">${n}</span></label>`
+    const family = defectFamilyOf(readDeviceHint());
+    list.dataset.family = family || '';
+    const known = !!(_defectCatalog && _defectCatalog.families && _defectCatalog.families[family]);
+    const { notes } = familyServices(family);
+
+    // الكتالوج محمّل وعائلة معروفة ⇒ ملاحظاتها فقط.
+    // غير ذلك (كتالوج لم يُحمّل بعد) ⇒ القائمة الافتراضية كي لا تختفي الخانة.
+    let items = (known || notes.length)
+      ? notes.map(n => ({ id: n.id, text: n.text }))
+      : NOTES_LIST.map((text, i) => ({ id: 'default-' + i, text }));
+
+    const ord = _noteOrder[family];
+    if (ord && ord.length) {
+      const pos = (id) => { const i = ord.indexOf(id); return i < 0 ? 1e9 : i; };
+      items = items.slice().sort((a, b) => pos(a.id) - pos(b.id));
+    }
+
+    if (!items.length) {
+      list.innerHTML = `<div class="cp-empty">لا توجد ملاحظات لهذه العائلة بعد — أضفها من المحرر</div>`;
+      return;
+    }
+
+    list.innerHTML = items.map((n, i) =>
+      `<label class="cp-note-item" draggable="true" data-idx="${i}" data-note-id="${escapeHtml(n.id)}">`
+      + `<input type="checkbox" class="note-cb" data-idx="${i}" data-note-id="${escapeHtml(n.id)}" data-note-text="${escapeHtml(n.text)}" /> `
+      + `<span class="ni-handle">⠿</span> <span class="ni-text">${escapeHtml(n.text)}</span></label>`
     ).join('');
     setupNoteDrag(shadow);
   }
@@ -1962,18 +1988,19 @@ function getCSS() {
       e.preventDefault();
       const target = e.target.closest('.cp-note-item');
       if (!target || !dragSrc) return;
-      const srcIdx = parseInt(dragSrc.dataset.idx);
-      const tgtIdx = parseInt(target.dataset.idx);
-      if (srcIdx === tgtIdx) return;
-      const checkedNotes = new Set();
-      shadow.querySelectorAll('.note-cb:checked').forEach(cb => {
-        checkedNotes.add(NOTES_LIST[parseInt(cb.dataset.idx)]);
-      });
-      const [moved] = NOTES_LIST.splice(srcIdx, 1);
-      NOTES_LIST.splice(tgtIdx, 0, moved);
+      const items = Array.from(list.querySelectorAll('.cp-note-item'));
+      const srcIdx = items.indexOf(dragSrc);
+      const tgtIdx = items.indexOf(target);
+      if (srcIdx < 0 || tgtIdx < 0 || srcIdx === tgtIdx) return;
+      const checked = new Set();
+      shadow.querySelectorAll('.note-cb:checked').forEach(cb => { checked.add(cb.dataset.noteId || ''); });
+      const order = items.map(el => el.dataset.noteId);
+      const [moved] = order.splice(srcIdx, 1);
+      order.splice(tgtIdx, 0, moved);
+      _noteOrder[list.dataset.family || ''] = order;
       updateDeviceNotes(shadow);
       shadow.querySelectorAll('.note-cb').forEach(cb => {
-        cb.checked = checkedNotes.has(NOTES_LIST[parseInt(cb.dataset.idx)]);
+        cb.checked = checked.has(cb.dataset.noteId || '');
       });
     });
   }
@@ -4412,6 +4439,7 @@ function getCSS() {
       logEvent('EXEC_PAGE3', `عدد الملاحظات: ${checkedNotes.length}`);
       if (checkedNotes.length > 0) {
         const combined = Array.from(checkedNotes).map(cb => {
+          if (cb.dataset.noteText) return cb.dataset.noteText;
           const idx = parseInt(cb.dataset.idx);
           return NOTES_LIST[idx] || '';
         }).filter(Boolean).join('\n');
