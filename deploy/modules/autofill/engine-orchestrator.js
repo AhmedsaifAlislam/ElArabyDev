@@ -912,7 +912,25 @@ window.AutoFillEngine = window.AutoFillEngine || {};
   }
 
   // ── TAB LOCK & QUEUE PROCESSOR ──────────────────────────────────────────────
+  // حارس إعادة الدخول: الصفحة تنادي processQueueOnLoad من مسارين عند التحميل
+  // (bootstrap + V2 Core)، فكان البحث يبدأ مرتين متوازيين في نفس التاب ويُلغي أحدهما الآخر.
+  let _queueOnLoadRunning = false;
   async function processQueueOnLoad() {
+    if (window !== window.top) return;
+    if (_queueOnLoadRunning) {
+      traceEvent('PROCESS_QUEUE_SKIP_DUPLICATE', { reason: 'already_running', url: location.href });
+      log('[QUEUE_TRACE] phase=guard result=skip reason=already_running');
+      return;
+    }
+    _queueOnLoadRunning = true;
+    try {
+      return await _processQueueOnLoadInner();
+    } finally {
+      _queueOnLoadRunning = false;
+    }
+  }
+
+  async function _processQueueOnLoadInner() {
     if (window !== window.top) return;
     traceEvent('PROCESS_QUEUE_ON_LOAD_ENTER', { url: location.href });
     log('[QUEUE_TRACE] phase=processQueueOnLoad url="' + location.href + '"');

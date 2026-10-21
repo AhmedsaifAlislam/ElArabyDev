@@ -571,6 +571,8 @@ function load(sandbox, file) {
       'فتح التفاصيل: رابط workorderreview/followup مباشرة بدل أول رابط في الصف');
     ok(/findOrderAndOpen\(orderId, cfg, true\)/.test(esrc),
       'فتح التفاصيل: إعادة محاولة واحدة قبل الحكم بـ«غير موجود»');
+    ok(/let _queueOnLoadRunning = false/.test(esrc) && /PROCESS_QUEUE_SKIP_DUPLICATE/.test(esrc),
+      'orchestrator: حارس يمنع بدء processQueueOnLoad مرتين متوازيين في نفس التاب');
     const csrc = read('content-script.js');
     const sc = csrc.match(/function safeClick\([\s\S]*?\n\}/);
     ok(!!sc && /element\.click\(\)/.test(sc[0]) && /else element\.dispatchEvent\(new Event\('click'/.test(sc[0])
