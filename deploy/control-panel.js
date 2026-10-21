@@ -2,7 +2,7 @@
 // control-panel.js — لوحة التحكم الذكية v1.0
 // بصمة الإصدار: تُطبع في الـ log وتظهر بجانب عنوان اللوحة، للتأكد أن المتصفح
 // حمّل أحدث نسخة من الإضافة (Reload من edge://extensions مطلوب بعد أي نشر).
-const PANEL_BUILD = '2026-10-20.25';
+const PANEL_BUILD = '2026-10-20.26';
 // Floating panel with auto-detecting page tabs
 // =========================================================
 (function () {
@@ -975,8 +975,8 @@ function getCSS() {
       const tick = () => {
         const left = Math.max(0, Math.ceil((total - (Date.now() - started)) / 1000));
         if (cd) cd.textContent = left > 0
-          ? `⏳ اختيار تلقائي من المسموح خلال ${left} ثانية`
-          : '⌛ انتهت المهلة — يتم الاختيار التلقائي...';
+          ? `⏳ اختر من القائمة خلال ${left} ثانية (لن يُختار تلقائيًا)`
+          : '⌛ انتهت المهلة — اختر من القائمة واضغط «إضافة المشكلة»';
         if (left <= 0) { clearInterval(_problemCountdownTimer); _problemCountdownTimer = null; }
       };
       if (_problemCountdownTimer) clearInterval(_problemCountdownTimer);
@@ -2704,6 +2704,10 @@ function getCSS() {
             probReason = (probRes && probRes.reason) || '';
             probAvailable = (probRes && Array.isArray(probRes.available)) ? probRes.available : [];
             logEvent('EXEC_PAGE2', `نتيجة المشكلة: ok=${probOk} name=${probLabel} reason=${probReason || '—'} source=${probRes && probRes.source}`);
+            if (probReason === 'pick-timeout') {
+              logEvent('EXEC_PAGE2', '⏳ انتهت مهلة الاختيار — لا اختيار تلقائي؛ القائمة متاحة للإضافة اليدوية');
+              setStatus(shadow, '⌛ لم يُختَر كود مشكلة — اختر من القائمة ثم «إضافة المشكلة»', 'warn');
+            }
             if (!probOk && probAvailable.length) {
               logEvent('EXEC_PAGE2', 'الأكواد المسموحة في هذه القائمة: ' + probAvailable.join(' | '));
               renderProblemOptions(shadow, probAvailable);

@@ -481,7 +481,7 @@ window.AutoFillEngine = window.AutoFillEngine || {};
   // ════════════════════════════════════════════════════════════════════
   //  حل كود المشكلة الموحّد (الاوتو فيلينج + الكنترول بانل)
   //  ① كود البيانات المخزنة  ② قائمة البوابة (مسموح فقط)
-  //  ③ انتظار اختيار المستخدم  ④ عشوائي من المسموح عند انتهاء المهلة
+  //  ③ انتظار اختيار المستخدم  ④ عند انتهاء المهلة: لا اختيار تلقائي — القائمة تبقى للمستخدم
   // ════════════════════════════════════════════════════════════════════
   const PROBLEM_BTN_REGEX = /اضاف[ةه]\s*المشاكل\s*الفعلي[ةه]|Add.*Problem/i;
   const PROBLEM_EXCLUDE = /ترصيد|تجار|ارضي|أرضي|بلاغ|GI00|GS08|GR05|SR00|SR01|WM04/i;
@@ -533,10 +533,11 @@ window.AutoFillEngine = window.AutoFillEngine || {};
     }
     let source = 'user-pick';
     if (!chosen) {
-      chosen = (PC && PC.pickAllowed) ? PC.pickAllowed(allowed) : allowed[Math.floor(Math.random() * allowed.length)];
-      source = 'auto-random';
+      // لا اختيار تلقائي (طلب المستخدم): انتهاء المهلة يعني «اتركها للمستخدم»،
+      // والقائمة تبقى معروضة في اللوحة لإضافتها يدويًا. لا نضيف كودًا لم يختره أحد.
+      log('[Problem] ⏳ انتهت مهلة الاختيار بدون تدخل — لن يُختار كود تلقائيًا');
+      return { ok: false, reason: 'pick-timeout', needsPick: true, available: allowed };
     }
-    if (!chosen) return { ok: false, reason: 'no-allowed-or-available', available };
 
     // ④ إضافة الكود المختار (تدوير بين المسموح)
     const chosenCode = PC ? PC.codeOf(chosen) : String(chosen).split(/\s+[-–]\s+/)[0].trim();

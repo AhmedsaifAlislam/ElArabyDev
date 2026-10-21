@@ -1035,6 +1035,20 @@ function load(sandbox, file) {
       'كشف الأرقام: اللوحة فوق لوحة 🧰 (كانت 999999)');
   }
 
+  console.log('\n-- 31) لا اختيار تلقائي لكود المشكلة بعد انتهاء المهلة --');
+  {
+    const e2 = read('modules/autofill/engine-page2.js');
+    ok(!/auto-random/.test(e2) && /reason: 'pick-timeout'/.test(e2),
+      'engine-page2: انتهاء مهلة الاختيار ⇒ pick-timeout (بلا اختيار عشوائي)');
+    ok(!/allowed\[Math\.floor\(Math\.random\(\) \* allowed\.length\)\]/.test(e2),
+      'engine-page2: لا يوجد أي مسار عشوائي بديل عند فشل الاختيار');
+    const cp = read('control-panel.js');
+    ok(/لن يُختار تلقائيًا/.test(cp) && /انتهت المهلة — اختر من القائمة/.test(cp),
+      'اللوحة: العدّاد يوضح أن الاختيار يدوي وليس تلقائيًا');
+    ok(/probReason === 'pick-timeout'/.test(cp),
+      'اللوحة: رسالة واضحة عند انتهاء المهلة بدون اختيار');
+  }
+
   console.log('\n=== RESULT: ' + pass + ' passed, ' + fail + ' failed ===');
   if (fail > 0) {
     console.log('Failures:');
