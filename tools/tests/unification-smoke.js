@@ -540,22 +540,47 @@ function load(sandbox, file) {
       'orchestrator: انتظار جاهزية حقل البحث بدل تأخير ثابت');
     ok(!/_ordersSearchWait/.test(esrc),
       'orchestrator: أُزيل التأخير الثابت _ordersSearchWait (2000ms)');
-    ok(/step\.timeout \|\| 4000/.test(esrc),
-      'orchestrator: مهلة click_row الافتراضية 4s بدل 12s');
+    ok(/step\.timeout \|\| 8000/.test(esrc),
+      'orchestrator: مهلة click_row 8s (تنتظر نتيجة البحث قبل الحكم)');
     ok(!/step\.timeout \|\| 12000/.test(esrc),
       'orchestrator: لا توجد مهلة 12s في محرّك الـ workflow');
-    ok(/Date\.now\(\) - start < 3000/.test(esrc),
-      'orchestrator: حلقة المسار القديم 3s بدل 8s');
-    ok(/let workflowSearched = false/.test(esrc) && /workflowSearched \? null : findFirst/.test(esrc),
+    ok(/Date\.now\(\) - start < 8000/.test(esrc),
+      'orchestrator: حلقة المسار القديم 8s لتنتظر نتائج البحث');
+    ok(/if \(!workflowSearched\)/.test(esrc),
       'orchestrator: لا يعيد البحث لو الـ workflow بحث فعلًا');
     ok(/Math\.min\(td1, 250\)/.test(esrc),
       'orchestrator: مسار not-found لا ينتظر تأخير المهمة الكامل');
     const waitAction = esrc.match(/if \(step\.action === 'wait'\)[\s\S]*?if \(!found\)/);
     ok(!!waitAction && /ordersGridShowsNoRecords\(\)/.test(waitAction[0]),
-      'orchestrator: خطوة wait تخرج فورًا عند «لا توجد سجلات»');
+      'orchestrator: خطوة wait تخرج عند «لا توجد سجلات» (بعد تأكيد)');
     const clickRow = esrc.match(/else if \(step\.action === 'click_row'\)[\s\S]*?if \(!rowFound\)/);
-    ok(!!clickRow && /noRecordsHits/.test(clickRow[0]) && />= 2/.test(clickRow[0]),
-      'orchestrator: click_row يخرج بعد تأكيدين متتاليين (حماية من الوميض)');
+    ok(!!clickRow && /noRecordsHits/.test(clickRow[0]) && />= 3/.test(clickRow[0]),
+      'orchestrator: click_row يخرج بعد 3 تأكيدات متتالية (حماية من الوميض)');
+
+    // ── الموجة 31: البحث لا يُلغى + فتح التفاصيل ──
+    ok(!/document\.querySelectorAll\('tr, \.entitylist-items > li/.test(esrc) && /function collectOrderRows/.test(esrc),
+      'بحث الأوامر: يجمع الصفوف من المستند + iframes');
+    ok(/document\.readyState !== 'complete'/.test(esrc) && /stableHits >= 2/.test(esrc),
+      'بحث الأوامر: ينتظر اكتمال الصفحة واستقرار صفوف الشبكة قبل الكتابة');
+    ok(/Search value was reset/.test(esrc) && /attempt <= 3/.test(esrc),
+      'بحث الأوامر: يتحقق أن الرقم ثبت في الحقل ويعيد الكتابة عند مسحه');
+    const typeAction = esrc.match(/else if \(step\.action === 'type'\)[\s\S]*?else if \(step\.action === 'click'\)/);
+    ok(!!typeAction && !/(keydown|keypress|keyup)/.test(typeAction[0]),
+      'بحث الأوامر: خطوة type لا تضغط Enter (منع البحث المزدوج)');
+    ok(/function rowReviewHref/.test(esrc) && /workorderreview\|followup/.test(esrc),
+      'فتح التفاصيل: رابط workorderreview/followup مباشرة بدل أول رابط في الصف');
+    ok(/findOrderAndOpen\(orderId, cfg, true\)/.test(esrc),
+      'فتح التفاصيل: إعادة محاولة واحدة قبل الحكم بـ«غير موجود»');
+    const csrc = read('content-script.js');
+    const sc = csrc.match(/function safeClick\([\s\S]*?\n\}/);
+    ok(!!sc && /element\.click\(\)/.test(sc[0]) && /else element\.dispatchEvent\(new Event\('click'/.test(sc[0])
+      && (sc[0].match(/dispatchEvent\(new Event\('click'/g) || []).length === 1,
+      'safeClick: نقرة واحدة فقط (كانت تُنفّذ الحدث مرتين فيلغي البحث نفسه)');
+    const selJson = JSON.parse(read('selectors.json'));
+    ok(Array.isArray(selJson.ordersViewLink) && selJson.ordersViewLink.some(s => /workorderreview/.test(s)),
+      'selectors.json: ordersViewLink معرّف (كان مفقودًا)');
+    ok(Array.isArray(selJson.ordersSearchBtn) && !selJson.ordersSearchBtn.some(s => /has-text|button\[type='submit'\]/.test(s)),
+      'selectors.json: زر البحث الحقيقي فقط (بلا :has-text وبلا submit عام)');
   }
 
   console.log('-- 21) معالج البلاغات (report-processor) — كان معطّلًا بالكامل --');

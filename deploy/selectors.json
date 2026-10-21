@@ -207,24 +207,23 @@
   "_ORDERS_PAGE_SELECTORS_NOTE": "الـ selectors التالية خاصة بصفحة /Orders — تم التحقق منها",
 
   "ordersSearchInput": [
-    "textbox[aria-label*='Filter: رقم الطلب']",
-    "input[aria-label*='Filter: رقم الطلب']",
+    ".entitylist-search input",
+    ".entitylist-search .form-control",
+    "input[type='search']",
     "input[placeholder*='Search']",
     "input[placeholder*='بحث']",
+    "input[aria-label*='Filter: رقم الطلب']",
     "#searchOrders",
-    "input[type='search']",
     ".search-input input",
     "input[name*='search']"
   ],
 
   "ordersSearchBtn": [
-    "button:has-text('بحث')",
-    "button:has-text('Search')",
-    "button[type='submit']",
+    ".input-group-btn button",
+    ".entitylist-search button",
+    ".entity-grid .btn-default",
     "button[aria-label*='Search']",
-    "button[aria-label*='بحث']",
-    ".search-btn",
-    "button[class*='search']"
+    "button[aria-label*='بحث']"
   ],
 
   "ordersTableRow": [
@@ -235,6 +234,14 @@
     ".order-row",
     ".grid-row",
     ".list-item"
+  ],
+
+  "_ordersViewLink_NOTE": "روابط فتح تفاصيل الأمر من صف الشبكة (كانت غير معرّفة فيقع على أول رابط بالصف)",
+  "ordersViewLink": [
+    "a[href*='workorderreview']",
+    "a[href*='followup']",
+    "a[href*='review']",
+    "button[aria-label*='View']"
   ],
 
   "ordersActionMenu": [
@@ -296,7 +303,7 @@
       { "action": "type", "target": "ordersSearchInput", "value": "{{orderId}}" },
       { "action": "click", "target": "ordersSearchBtn" },
       { "action": "wait", "target": "ordersTableRow", "timeout": 12000 },
-      { "action": "click_row", "target": "ordersViewLink", "matchText": "{{orderId}}" }
+      { "action": "click_row", "target": "ordersViewLink", "matchText": "{{orderId}}", "timeout": 8000 }
     ],
     "page1_fill": [
       { "action": "fill_lookup", "target": "brandInput", "btn": "brandBtn", "value": "{{brand}}" },

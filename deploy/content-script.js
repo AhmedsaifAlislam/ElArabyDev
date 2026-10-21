@@ -148,8 +148,10 @@ function safeClick(element, description = 'element') {
   try {
     document.body.dataset.isAutofilling = 'true';
     element.focus?.();
-    element.click();
-    element.dispatchEvent(new Event('click', { bubbles: true }));
+    // نقرة واحدة فقط: element.click() تُطلق حدث click حقيقيًا ينتشر في الصفحة.
+    // كان هناك dispatchEvent إضافي بعدها → كل نقرة تُنفَّذ مرتين (بحث مزدوج يلغي نفسه).
+    if (typeof element.click === 'function') element.click();
+    else element.dispatchEvent(new Event('click', { bubbles: true, cancelable: true }));
     setTimeout(() => { delete document.body.dataset.isAutofilling; }, 50);
     return true;
   } catch (e) {

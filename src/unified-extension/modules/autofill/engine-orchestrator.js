@@ -301,18 +301,170 @@ window.AutoFillEngine = window.AutoFillEngine || {};
     return false;
   }
 
-  // ينتظر جاهزية حقل البحث بدل انتظار ثابت (كان 2000ms دائمًا).
-  async function waitForOrdersSearchReady(cfg, maxWaitMs = 2500) {
-    const start = Date.now();
-    while (Date.now() - start < maxWaitMs) {
-      let inputOk = true;
-      try { inputOk = cfg.ordersSearchInput ? !!findFirst(cfg.ordersSearchInput) : true; } catch (_) { inputOk = true; }
-      let btnOk = true;
-      try { btnOk = cfg.ordersSearchBtn ? !!findFirst(cfg.ordersSearchBtn) : true; } catch (_) { btnOk = true; }
-      if (inputOk && btnOk) return true;
-      await sleep(120);
-    }
+  // ── أدوات صفحة الأوامر ───────────────────────────────────────────────────────
+  function isExtensionUi(el) {
+    try {
+      let n = el;
+      while (n && n !== document.body) {
+        const id = n.id || '';
+        if (/^(elaraby|ea)-/.test(id)) return true;
+        n = n.parentElement;
+      }
+    } catch (_) {}
     return false;
+  }
+
+  function isVisible(el) {
+    if (!el) return false;
+    try {
+      if (el.offsetParent !== null) return true;
+      const r = el.getBoundingClientRect();
+      return r.width > 0 && r.height > 0;
+    } catch (_) { return false; }
+  }
+
+  // حقل بحث الأوامر: المحددات المعروفة أولًا ثم محددات الإعدادات،
+  // بعيدًا عن أي عنصر مخفي أو يخص واجهات الإضافة نفسها.
+  function findOrdersSearchInput(cfg) {
+    const known = [
+      '.entitylist-search input:not([type="hidden"])',
+      '.entitylist-search .form-control',
+      'input[type="search"]',
+      'input[placeholder*="Search"]',
+      'input[placeholder*="بحث"]',
+      '#searchOrders'
+    ];
+    const list = known.concat((cfg && cfg.ordersSearchInput) || []);
+    for (const sel of list) {
+      if (!sel || /has-text/i.test(sel)) continue;
+      let el = null;
+      try { el = document.querySelector(sel); } catch (_) { continue; }
+      if (!el) {
+        try {
+          for (const f of document.querySelectorAll('iframe')) {
+            try {
+              const c = f.contentDocument && f.contentDocument.querySelector(sel);
+              if (c) { el = c; break; }
+            } catch (_) {}
+          }
+        } catch (_) {}
+      }
+      if (el && isVisible(el) && !isExtensionUi(el)) return el;
+    }
+    return null;
+  }
+
+  // زر البحث الحقيقي في شبكة البوابة (.input-group-btn) — لا أي زر إرسال عام.
+  function findOrdersSearchButton(cfg) {
+    const known = [
+      '.input-group-btn button',
+      '.entitylist-search button',
+      '.entity-grid .btn-default',
+      'button[aria-label*="Search"]',
+      'button[aria-label*="بحث"]'
+    ];
+    const list = known.concat((cfg && cfg.ordersSearchBtn) || []);
+    for (const sel of list) {
+      if (!sel || /has-text/i.test(sel)) continue;
+      let el = null;
+      try { el = document.querySelector(sel); } catch (_) { continue; }
+      if (el && isVisible(el) && !isExtensionUi(el)) return el;
+    }
+    return null;
+  }
+
+  // كل صفوف جدول الأوامر (المستند + iframes) بلا تكرار
+  function collectOrderRows(cfg) {
+    const selectors = (cfg && cfg.ordersTableRow) || ['table tbody tr', '[role="row"]'];
+    const out = [];
+    const seen = new Set();
+    const docs = [document];
+    try {
+      document.querySelectorAll('iframe').forEach(f => {
+        try { if (f.contentDocument) docs.push(f.contentDocument); } catch (_) {}
+      });
+    } catch (_) {}
+    for (const doc of docs) {
+      for (const sel of selectors) {
+        if (!sel || /has-text/i.test(sel)) continue;
+        try {
+          doc.querySelectorAll(sel).forEach(r => {
+            if (seen.has(r)) return;
+            seen.add(r);
+            out.push(r);
+          });
+        } catch (_) {}
+      }
+    }
+    return out;
+  }
+
+  function makeEnterEvent(type) {
+    const ev = new KeyboardEvent(type, { key: 'Enter', code: 'Enter', bubbles: true, cancelable: true });
+    try { Object.defineProperty(ev, 'keyCode', { get: () => 13 }); } catch (_) {}
+    try { Object.defineProperty(ev, 'which', { get: () => 13 }); } catch (_) {}
+    return ev;
+  }
+
+  function pressEnter(el) {
+    if (!el) return;
+    ['keydown', 'keypress', 'keyup'].forEach(k => { try { el.dispatchEvent(makeEnterEvent(k)); } catch (_) {} });
+  }
+
+  // رابط مراجعة/تفاصيل داخل صف — فقط روابط workorderreview/followup
+  function rowReviewHref(row) {
+    try {
+      const anchors = Array.from(row.querySelectorAll('a[href]'));
+      const a = anchors.find(x => /workorderreview|followup/i.test(x.getAttribute('href') || ''));
+      if (!a) return null;
+      const href = a.href || '';
+      return href && !/^javascript:/i.test(href) ? href : null;
+    } catch (_) { return null; }
+  }
+
+  function findReviewHrefInRows(orderId, cfg) {
+    try {
+      const row = collectOrderRows(cfg).find(r => ((r.innerText || '').includes(orderId)));
+      if (row) { const h = rowReviewHref(row); if (h) return h; }
+      const a = Array.from(document.querySelectorAll("a[href*='workorderreview'], a[href*='followup']"))
+        .find(x => (x.innerText || '').includes(orderId));
+      if (a && a.href) return a.href;
+    } catch (_) {}
+    return null;
+  }
+
+  // ينتظر جاهزية صفحة الأوامر *فعليًا*: ظهور صفوف الشبكة واستقرارها،
+  // لا مجرد وجود حقل البحث — الحقل موجود في HTML قبل أن يجهز التطبيق،
+  // فكانت الكتابة تُمسح عند أول إعادة ربط للصفحة (سبب «البحث بيلغيه»).
+  async function waitForOrdersSearchReady(cfg, maxWaitMs = 8000) {
+    const start = Date.now();
+    // لا نبدأ إلا بعد اكتمال تحميل الصفحة (سكربتات البوابة تكون نُفِّذت)
+    while (document.readyState !== 'complete' && Date.now() - start < Math.min(maxWaitMs, 6000)) {
+      await sleep(200);
+    }
+    let lastSig = '';
+    let stableHits = 0;
+    let emptyHits = 0;
+    while (Date.now() - start < maxWaitMs) {
+      const input = findOrdersSearchInput(cfg);
+      const rows = collectOrderRows(cfg);
+      const sig = rows.length + '|' + ((rows[0] && rows[0].innerText) || '').slice(0, 60);
+      if (rows.length > 0 && sig === lastSig) stableHits++; else stableHits = 0;
+      lastSig = sig;
+
+      // الشبكة ظهرت واستقرت (تبويبان متتاليان بنفس المحتوى) → جاهزة للكتابة
+      if (input && rows.length > 0 && stableHits >= 2) {
+        await sleep(300);
+        return true;
+      }
+      // صفحة فارغة فعلًا: لا صفوف ورسالة «لا توجد سجلات» مستقرة
+      if (!rows.length && ordersGridShowsNoRecords()) emptyHits++; else emptyHits = 0;
+      if (input && emptyHits >= 3) return true;
+
+      await sleep(250);
+    }
+    // انتهت المهلة: نكتفي بوجود الحقل بدل التعطيل الكامل
+    return !!findOrdersSearchInput(cfg);
   }
 
   // ── WORKFLOW ENGINE ──────────────────────────────────────────────────────────
@@ -328,43 +480,88 @@ window.AutoFillEngine = window.AutoFillEngine || {};
       if (step.action === 'wait') {
         let found = null;
         const deadline = Date.now() + (step.timeout || 10000);
+        let noRecordsHits = 0;
         while (Date.now() < deadline) {
           found = findFirst(selectors);
           if (found) break;
-          // الشبكة قالت «لا توجد سجلات» → لا فائدة من انتظار بقية المهلة
-          if (ordersGridShowsNoRecords()) {
-            warn(`[Engine] Grid reports no records while waiting for ${step.target}`);
-            return false;
+          // «لا توجد سجلات»: نطلب استقرارًا (3 تبويبات) + مهلة سماح بعد بدء البحث،
+          // لأن الشبكة تكون فارغة للحظات أثناء تحديثها فلا يصح الحكم فورًا.
+          const sinceSearch = Date.now() - (context._searchedAt || 0);
+          if (ordersGridShowsNoRecords() && sinceSearch > 1200) {
+            noRecordsHits++;
+            if (noRecordsHits >= 3) {
+              warn(`[Engine] Grid reports no records while waiting for ${step.target}`);
+              return false;
+            }
+          } else {
+            noRecordsHits = 0;
           }
           await sleep(250);
         }
         if (!found) { warn(`[Engine] Wait timeout for ${step.target}`); return false; }
       }
       else if (step.action === 'type') {
-        const el = findFirst(selectors);
+        let el = findFirst(selectors);
         if (!el) return false;
-        await emulateUserInput(el, value);
-        try { el.dispatchEvent(new KeyboardEvent('keydown', { key:'Enter', keyCode:13, bubbles:true })); } catch(_) {}
+        // نكتب ونتحقق أن القيمة «ثبتت» — البوابة تعيد بناء الصفحة بعد التحميل
+        // فتمسح ما كُتب قبل جهوزيتها (كان هذا سبب اختفاء رقم الأمر).
+        for (let attempt = 1; attempt <= 3; attempt++) {
+          await emulateUserInput(el, value);
+          await sleep(250);
+          if (el.isConnected && el.value === value) break;
+          el = findFirst(selectors) || el;
+          if (attempt < 3) warn(`[Engine] Search value was reset (attempt ${attempt}) — retyping`);
+        }
+        if (!el.isConnected || el.value !== value) {
+          warn(`[Engine] Could not keep value "${value}" in ${step.target}`);
+          return false;
+        }
+        context._lastInput = el;
         context._typed = (context._typed || 0) + 1;
+        // لا نضغط Enter هنا: خطوة click (أو بديلها) تُنفّذ البحث مرة واحدة فقط
+        // حتى لا يلغي البحث الثاني نتيجة البحث الأول.
       }
       else if (step.action === 'click') {
-        const el = findFirst(selectors);
-        if (!el) return false;
-        safeClick(el, step.target);
-        if (/search/i.test(step.target || '')) context._searched = true;
+        const isSearch = /search/i.test(step.target || '');
+        let el = findFirst(selectors);
+        // نتجاهل أي زر مخفي (مثل أزرار إرسال نماذج أخرى في الصفحة)
+        if (el && !isVisible(el)) el = null;
+        if (isSearch) context._searchedAt = Date.now();
+        if (!el) {
+          if (!isSearch) { warn(`[Engine] Click target not found: ${step.target}`); return false; }
+          // لا يوجد زر بحث حقيقي → Enter على حقل البحث (مرة واحدة)
+          const input = context._lastInput || findOrdersSearchInput(cfg);
+          if (!input) { warn('[Engine] Search button/input not found'); return false; }
+          pressEnter(input);
+          context._searched = true;
+          await sleep(250);
+        } else {
+          safeClick(el, step.target);
+          if (isSearch) context._searched = true;
+        }
       }
       else if (step.action === 'click_row') {
         let rowFound = false;
         let noRecordsHits = 0;
-        const deadline = Date.now() + (step.timeout || 4000);
+        const deadline = Date.now() + (step.timeout || 8000);
         while (Date.now() < deadline) {
-          const rows = Array.from(document.querySelectorAll('tr, .entitylist-items > li, [role="row"]'));
-          const targetRow = rows.find(r => (r.innerText||'').includes(matchText));
+          const rows = collectOrderRows(cfg);
+          const targetRow = rows.find(r => ((r.innerText || '').includes(matchText)));
           if (targetRow) {
             rowFound = true;
+            // رابط مراجعة صريح داخل الصف → توجيه مباشر مضمون (بدل كليك قد لا ينفّذ)
+            const href = rowReviewHref(targetRow);
+            if (href) {
+              traceEvent('ORDER_ROW_CLICKED', { branch: 'workflow-href', href });
+              context._pendingHref = href;
+              location.href = href;
+              return true;
+            }
             let clicked = false;
             for (const sel of selectors) {
-              const btn = targetRow.querySelector(sel);
+              if (!sel || /has-text/i.test(sel)) continue;
+              let btn = null;
+              try { btn = targetRow.querySelector(sel); } catch (_) { continue; }
               if (btn) { traceEvent('ORDER_ROW_CLICKED', { branch: 'workflow-click_row', tag: btn?.tagName || null, href: btn?.getAttribute?.('href') || null }); safeClick(btn, step.target); clicked = true; break; }
             }
             if (!clicked) {
@@ -374,11 +571,12 @@ window.AutoFillEngine = window.AutoFillEngine || {};
             }
             break;
           }
-          // «لا توجد سجلات»: نأكد مرتين (250ms) قبل الخروج — يحمي من وميض
-          // الشبكة أثناء إعادة الرسم.
-          if (ordersGridShowsNoRecords()) {
+          // «لا توجد سجلات»: 3 تبويبات + مهلة سماح بعد البحث — يحمي من وميض
+          // الشبكة أثناء إعادة الرسم بعد الكتابة.
+          const sinceSearch = Date.now() - (context._searchedAt || 0);
+          if (ordersGridShowsNoRecords() && sinceSearch > 1200) {
             noRecordsHits++;
-            if (noRecordsHits >= 2) { warn(`[Engine] No records for ${matchText} — stopping early`); break; }
+            if (noRecordsHits >= 3) { warn(`[Engine] No records for ${matchText} — stopping early`); break; }
           } else {
             noRecordsHits = 0;
           }
@@ -395,87 +593,110 @@ window.AutoFillEngine = window.AutoFillEngine || {};
     return true;
   }
 
-  // ── ORDER NAVIGATION VERIFY (diagnostic only — no behavior change) ────────────
-  async function verifyOrderNavigation() {
-    try {
-      await sleep(2500);
+  // ── ORDER NAVIGATION VERIFY ──────────────────────────────────────────────────
+  // ترجع true فقط إذا تغيّر العنوان فعلًا إلى صفحة التفاصيل خلال المهلة.
+  async function verifyOrderNavigation(timeoutMs = 3000) {
+    const start = Date.now();
+    while (Date.now() - start < timeoutMs) {
       const href = location.href || '';
-      traceEvent('ORDER_NAVIGATION_VERIFY', {
-        navigated: /workorderreview|followup/i.test(href),
-        href
-      });
-    } catch (_) {}
+      if (/workorderreview|followup/i.test(href)) {
+        traceEvent('ORDER_NAVIGATION_VERIFY', { navigated: true, href });
+        return true;
+      }
+      await sleep(250);
+    }
+    try { traceEvent('ORDER_NAVIGATION_VERIFY', { navigated: false, href: location.href || '' }); } catch (_) {}
+    return false;
   }
 
   // ── ORDER FIND & OPEN ────────────────────────────────────────────────────────
-  async function findOrderAndOpen(orderId, cfg) {
-    console.log('%c[Orchestrator] findOrderAndOpen start for:', 'color:#3b82f6;font-weight:bold;', orderId);
+  async function findOrderAndOpen(orderId, cfg, isRetry = false) {
+    console.log('%c[Orchestrator] findOrderAndOpen start for:', 'color:#3b82f6;font-weight:bold;', orderId + (isRetry ? ' (retry)' : ''));
     try {
       const { currentTask } = await storageGet({ currentTask: null });
       if (currentTask) notifyStatus(currentTask.taskId, 'searching', `جاري البحث عن رقم الأمر...`);
     } catch (_) {}
 
-    await waitForOrdersSearchReady(cfg);
+    await waitForOrdersSearchReady(cfg, isRetry ? 3000 : 8000);
 
     let workflowSearched = false;
     if (cfg.workflows?.page1_search) {
       const wfContext = { orderId };
-      const success = await executeWorkflow('page1_search', wfContext, cfg);
-      if (success) { await verifyOrderNavigation(); return true; }
+      let success = false;
+      try { success = await executeWorkflow('page1_search', wfContext, cfg); }
+      catch (e) { warn('[Engine] Workflow error: ' + ((e && e.message) || e)); }
+      if (success) {
+        // تنقّل مباشر بدأ بالفعل (location.href) — لا حاجة لتحقق
+        if (wfContext._pendingHref || /workorderreview|followup/i.test(location.href || '')) return true;
+        if (await verifyOrderNavigation(2500)) return true;
+        // الصف موجود لكن لم يحدث انتقال → افتح رابط المراجعة مباشرة
+        const href = findReviewHrefInRows(orderId, cfg);
+        if (href) { traceEvent('ORDER_ROW_HREF_FALLBACK', { orderId, href }); location.href = href; return true; }
+        warn('[Engine] لم يتم التحقق من الانتقال إلى صفحة التفاصيل.');
+        if (isRetry) return false;
+        return await findOrderAndOpen(orderId, cfg, true);
+      }
       workflowSearched = !!wfContext._searched;
+      // لو مُسح رقم الأمر من الحقل بعد تنفيذ البحث فالبحث لم يقع فعلًا → أعد الكتابة
+      const inpCheck = findOrdersSearchInput(cfg);
+      if (workflowSearched && inpCheck && inpCheck.value !== orderId) {
+        warn('[Engine] رقم الأمر اختفى من الحقل بعد البحث — إعادة الكتابة والبحث');
+        workflowSearched = false;
+      }
       warn('[Engine] Workflow failed or timed out. Falling back to legacy search logic.');
     }
 
-    // لو الـ workflow كتب رقم الأمر وضغط البحث فعلًا، فالشبكة تحدّثت بالفعل —
-    // إعادة الكتابة + البحث تكلّف ~4 ثوانٍ إضافية بلا أي فائدة.
-    const searchEl = workflowSearched ? null : findFirst(cfg.ordersSearchInput);
-    if (searchEl) {
-      searchEl.focus();
-      searchEl.value = orderId;
-      try { searchEl.dispatchEvent(new Event('input', { bubbles: true })); } catch(_) {}
-      ['keydown','keypress','keyup'].forEach(k => {
-        try { searchEl.dispatchEvent(new KeyboardEvent(k, { key:'Enter', keyCode:13, bubbles:true })); } catch(_) {}
-      });
-      const searchBtn = findFirst(cfg.ordersSearchBtn);
-      if (searchBtn) searchBtn.click();
-      // لا انتظار ثابت: الحلقة أدناه تلتقط الصف بمجرد ظهوره وتخرج فورًا
-      // عند «لا توجد سجلات».
+    // لو الـ workflow كتب رقم الأمر وضغط البحث فعلًا، فالشبكة تحدّثت بالفعل.
+    if (!workflowSearched) {
+      const searchEl = findOrdersSearchInput(cfg) || findFirst(cfg.ordersSearchInput);
+      if (searchEl) {
+        // كتابة + تحقق أن القيمة ثبتت (البوابة قد تمسحها عند أول ربط للصفحة)
+        for (let attempt = 1; attempt <= 3; attempt++) {
+          await emulateUserInput(searchEl, orderId);
+          await sleep(250);
+          if (searchEl.isConnected && searchEl.value === orderId) break;
+          if (attempt < 3) warn(`[Engine] Search value was reset (attempt ${attempt}) — retyping`);
+        }
+        if (searchEl.value === orderId) {
+          // زر البحث الحقيقي فقط (.input-group-btn) وإلا Enter — مرة واحدة
+          const searchBtn = findOrdersSearchButton(cfg);
+          if (searchBtn) safeClick(searchBtn, 'ordersSearchBtn');
+          else pressEnter(searchEl);
+        } else {
+          warn('[Engine] تعذّر تثبيت رقم الأمر في حقل البحث');
+        }
+        await sleep(400);
+      }
+    } else {
       await sleep(300);
     }
 
     const rs = cfg.ordersTableRow || ['table tbody tr','[role="row"]','.entitylist-items > li'];
     const start = Date.now();
+    const searchAt = Date.now();
     let noRecordsHits = 0;
-    while (Date.now() - start < 3000) {
-      let rows = [];
-      for (const c of rs) try { rows.push(...Array.from(document.querySelectorAll(c))); } catch(_) {}
-      for (const row of [...new Set(rows)]) {
-        if ((row.innerText||'').includes(orderId)) {
-          const v = (cfg.ordersViewLink || []).join(',');
-          const vl = v ? row.querySelector(v) : null;
-          if (vl) {
-            traceEvent('ORDER_ROW_CLICKED', { branch: 'legacy-view-link', tag: vl?.tagName || null, href: vl?.getAttribute?.('href') || null });
-            vl.removeAttribute?.('target');
-            if (vl.tagName === 'A' && vl.getAttribute('href') && !vl.getAttribute('href').startsWith('javascript:')) {
-              location.href = vl.href;
-            } else {
-              safeClick(vl, 'View Link');
-            }
-            await verifyOrderNavigation();
-            return true;
-          }
-          const a = row.querySelector('a[href]');
-          if (a) { traceEvent('ORDER_ROW_CLICKED', { branch: 'legacy-a', tag: a?.tagName || null, href: a?.getAttribute?.('href') || null }); a.removeAttribute('target'); if (a.href && !a.href.startsWith('javascript:')) { location.href = a.href; } else { safeClick(a, 'View Link a'); } await verifyOrderNavigation(); return true; }
-          traceEvent('ORDER_ROW_CLICKED', { branch: 'legacy-row', tag: row?.tagName || null, href: row?.getAttribute?.('href') || null });
-          safeClick(row, 'Row');
-          await verifyOrderNavigation();
-          return true;
-        }
+    while (Date.now() - start < 8000) {
+      const row = collectOrderRows({ ordersTableRow: rs }).find(r => ((r.innerText || '').includes(orderId)));
+      if (row) {
+        // رابط مراجعة صريح → توجيه مباشر (مضمون، لا يعتمد على JS الصفحة)
+        const href = rowReviewHref(row);
+        if (href) { traceEvent('ORDER_ROW_CLICKED', { branch: 'legacy-href', href }); location.href = href; return true; }
+        const v = (cfg.ordersViewLink || []).join(',');
+        let vl = null;
+        try { vl = v ? row.querySelector(v) : null; } catch (_) { vl = null; }
+        const target = vl || row.querySelector('a[href]') || row;
+        traceEvent('ORDER_ROW_CLICKED', { branch: 'legacy-click', tag: target?.tagName || null, href: target?.getAttribute?.('href') || null });
+        target.removeAttribute?.('target');
+        safeClick(target, 'View Link');
+        if (await verifyOrderNavigation(2500)) return true;
+        const href2 = rowReviewHref(row);
+        if (href2) { traceEvent('ORDER_ROW_HREF_FALLBACK', { orderId, href: href2 }); location.href = href2; return true; }
+        return false;
       }
-      // «لا توجد سجلات» مؤكدة مرتين → اخرج فورًا بدل إكمال 3 ثوانٍ كاملة
-      if (ordersGridShowsNoRecords()) {
+      // «لا توجد سجلات» مؤكدة 3 مرات (750ms) بعد مهلة سماح → اخرج بدل إكمال الانتظار
+      if (ordersGridShowsNoRecords() && Date.now() - searchAt > 1500) {
         noRecordsHits++;
-        if (noRecordsHits >= 2) {
+        if (noRecordsHits >= 3) {
           warn(`[Engine] Grid reports no records for ${orderId} — aborting search early`);
           break;
         }
@@ -485,8 +706,25 @@ window.AutoFillEngine = window.AutoFillEngine || {};
       await sleep(250);
     }
 
-    const a = Array.from(document.querySelectorAll('a[href]')).find(l => l.innerText?.includes(orderId) || l.href?.toLowerCase().includes(orderId.toLowerCase()));
-    if (a) { traceEvent('ORDER_ROW_CLICKED', { branch: 'fallback', tag: a?.tagName || null, href: a?.getAttribute?.('href') || null }); a.removeAttribute('target'); if (a.href && !a.href.startsWith('javascript:')) { location.href = a.href; } else { safeClick(a, 'Fallback Link'); } await verifyOrderNavigation(); return true; } return false;
+    // احتياط أخير: أي رابط مراجعة في الصفحة يخص هذا الأمر
+    const href = findReviewHrefInRows(orderId, cfg);
+    if (href) { traceEvent('ORDER_ROW_HREF_FALLBACK', { orderId, href }); location.href = href; return true; }
+
+    // محاولة أخيرة كاملة: تنظيف الحقل ثم بحث جديد (حتى لا يُحكم «غير موجود» خطأً)
+    if (!isRetry) {
+      warn('[Engine] لم يُعثر على الصف — محاولة أخيرة بعد تنظيف حقل البحث');
+      const inp = findOrdersSearchInput(cfg);
+      if (inp) {
+        try {
+          const d = Object.getOwnPropertyDescriptor(Object.getPrototypeOf(inp), 'value');
+          if (d && d.set) d.set.call(inp, ''); else inp.value = '';
+          inp.dispatchEvent(new Event('input', { bubbles: true }));
+          inp.dispatchEvent(new Event('change', { bubbles: true }));
+        } catch (_) {}
+      }
+      return await findOrderAndOpen(orderId, cfg, true);
+    }
+    return false;
   }
 
   // ── ROUTER EXECUTION ────────────────────────────────────────────────────────
