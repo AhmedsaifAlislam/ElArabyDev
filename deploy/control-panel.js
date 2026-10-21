@@ -2,7 +2,7 @@
 // control-panel.js — لوحة التحكم الذكية v1.0
 // بصمة الإصدار: تُطبع في الـ log وتظهر بجانب عنوان اللوحة، للتأكد أن المتصفح
 // حمّل أحدث نسخة من الإضافة (Reload من edge://extensions مطلوب بعد أي نشر).
-const PANEL_BUILD = '2026-10-20.24';
+const PANEL_BUILD = '2026-10-20.25';
 // Floating panel with auto-detecting page tabs
 // =========================================================
 (function () {
@@ -1120,19 +1120,33 @@ function getCSS() {
     isDocked = dock;
     if (isDocked) {
       panel.classList.add('docked');
-      let target = null;
-      for (const sel of ['main', '.main-content', '.container']) {
-        const el = document.querySelector(sel);
-        if (el && el.offsetParent !== null && el.getBoundingClientRect().height > 120) { target = el; break; }
+      let placed = false;
+      // 1) الأفضل: أعلى المحتوى، مباشرة قبل الفورم (في البوابة الفورم ابن مباشر لـ body)
+      const form = document.querySelector('form');
+      if (form && form.parentNode && form.offsetParent !== null) {
+        form.parentNode.insertBefore(host, form);
+        placed = true;
       }
-      if (!target) {
-        const form = document.querySelector('form');
-        if (form && form.offsetParent !== null && form.getBoundingClientRect().height > 120) target = form;
+      // 2) main / .main-content الظاهر
+      if (!placed) {
+        for (const sel of ['main', '.main-content']) {
+          const el = document.querySelector(sel);
+          if (el && el.offsetParent !== null && el.getBoundingClientRect().height > 200) {
+            el.insertBefore(host, el.firstChild);
+            placed = true;
+            break;
+          }
+        }
       }
-      if (target) {
-        target.insertBefore(host, target.firstChild);
-      } else {
-        // لا حاوية إرساء ظاهرة ⇒ لا نحبس اللوحة داخل عنصر مخفي
+      // 3) أكبر .container ظاهر خارج شريط التنقل — أول .container في البوابة داخل النافبار (ارتفاعه ٥٧px) ويحبس اللوحة
+      if (!placed) {
+        const cands = Array.from(document.querySelectorAll('.container'))
+          .filter(el => el.offsetParent !== null && !el.closest('.navbar') && el.getBoundingClientRect().height > 200)
+          .sort((a, b) => b.getBoundingClientRect().height - a.getBoundingClientRect().height);
+        if (cands[0]) { cands[0].insertBefore(host, cands[0].firstChild); placed = true; }
+      }
+      // 4) لا حاوية إرساء ظاهرة ⇒ لا نحبس اللوحة داخل عنصر مخفي
+      if (!placed) {
         isDocked = false;
         panel.classList.remove('docked');
         document.body.appendChild(host);

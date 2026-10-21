@@ -987,6 +987,8 @@ function load(sandbox, file) {
       'شارة تشخيص عند 3 ثوانٍ لو لم تُبنَ اللوحة (بدل صمت تام)');
     ok(/offsetParent !== null/.test(cp) && /لا حاوية إرساء ظاهرة/.test(cp),
       'الإرساء لا يحبس اللوحة داخل حاوية مخفية');
+    ok(/!el\.closest\('\.navbar'\)/.test(cp) && /form\.parentNode\.insertBefore\(host, form\)/.test(cp),
+      'الإرساء يفضّل مكان الفورم ويتجنب حاوية النافبار (أول .container في البوابة)');
     ok(/function showBootErrorChip/.test(cp) && /catch \(e\) \{[\s\S]{0,320}showBootErrorChip\(msg\)/.test(cp),
       'فشل تحميل اللوحة يظهر كشريحة خطأ مرئية بدل الاختفاء الصامت');
     ok(/elaraby_cp_boot/.test(cp),
