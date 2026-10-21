@@ -297,11 +297,11 @@ const escapeHtml = s => String(s ?? "").replace(/&/g, "&amp;").replace(/</g, "&l
     if (panelIsBuilt()) return; // لا حقن مزدوج
     const stale = document.getElementById(PANEL_ID);
     if (stale) { try { stale.remove(); } catch (_) {} } // بقايا حقن قديم بلا محتوى
-    // ترحيل لمرة واحدة (build 24): إلغاء أي إرساء محفوظ وفتح اللوحة عائمة،
+    // ترحيل لكل build: إلغاء أي إرساء محفوظ وفتح اللوحة عائمة مرة واحدة بعد كل تحديث،
     // لأن الإرساء القديم قد يحبس اللوحة داخل حاوية مخفية في صفحة البوابة.
     try {
-      if (localStorage.getItem('elaraby_cp_reset24') !== '1') {
-        localStorage.setItem('elaraby_cp_reset24', '1');
+      if (localStorage.getItem('elaraby_cp_reset_build') !== PANEL_BUILD) {
+        localStorage.setItem('elaraby_cp_reset_build', PANEL_BUILD);
         isDocked = false;
         isMinimized = false;
         localStorage.setItem(STATE_KEY, JSON.stringify({ minimized: false, docked: false }));

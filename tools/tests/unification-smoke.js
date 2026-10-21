@@ -975,8 +975,8 @@ function load(sandbox, file) {
     const cp = read('control-panel.js');
     ok(/function panelIsBuilt\(\)/.test(cp) && /function injectPanel\(\) \{\r?\n\s*if \(panelIsBuilt\(\)\) return;/.test(cp),
       'injectPanel: لا حقن مزدوج + رفض المضيف الفارغ (بقايا سكربت ميت)');
-    ok(/elaraby_cp_reset24/.test(cp) && /isMinimized = false;/.test(cp),
-      'ترحيل لمرة واحدة: إلغاء الإرساء المحفوظ وفتح اللوحة عائمة');
+    ok(/elaraby_cp_reset_build/.test(cp) && /isMinimized = false;/.test(cp),
+      'ترحيل لكل build: إلغاء الإرساء المحفوظ وفتح اللوحة عائمة');
     ok(/if \(window\.__cpHeartbeat\) return;/.test(cp),
       'نبضة واحدة فقط مهما تكرّر init (لا مؤقّتات مكرّرة)');
     ok(/if \(!panelIsBuilt\(\)\) \{[\s\S]{0,260}injectPanel\(\)/.test(cp),
