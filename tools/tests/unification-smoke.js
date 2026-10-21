@@ -1002,6 +1002,37 @@ function load(sandbox, file) {
       'manifest: كل ملفات web_accessible_resources موجودة' + (missing.length ? ' — ناقص: ' + missing.join(', ') : ''));
   }
 
+  console.log('-- 31) كشف أرقام العملاء: أيقونة الحافة + تصغير + عدم لمس اللوحة --');
+  {
+    const fc = read('fabs-controller.js');
+    const findFabIdx = fc.indexOf('function findFab');
+    const findFabBody = fc.slice(findFabIdx, findFabIdx + 300);
+    ok(/getElementById\(tool\.id\)/.test(findFabBody) && !/elaraby-fixed-box/.test(findFabBody),
+      'كشف الأرقام: الأيقونة فقط — اللوحة لم تعد تُعامل كفاب (كانت تصبح 24px)');
+    const phoneIdx = fc.indexOf("id: 'elaraby-mini-btn'");
+    const phoneEntry = fc.slice(phoneIdx, phoneIdx + 420);
+    ok(/openEvent: 'ea-phone-open'/.test(phoneEntry),
+      'كشف الأرقام: openEvent — لا فرض display على اللوحة');
+    ok(!/ea-suppressor-tool/.test(fc) && !/portal-error-suppressor/.test(fc),
+      'حُذفت الأداة الشبح «كتم أخطاء البورتال» من 🧰 (سكربتها غير مسجّل)');
+
+    const ph = read('Tempermonky/elaraby-phone-reveal.js');
+    ok(/createElement\('button'\)/.test(ph) && /fab\.id = 'elaraby-mini-btn'/.test(ph),
+      'كشف الأرقام: الأيقونة 📞 تُنشأ داخل السكربت نفسه');
+    ok(/id="elaraby-badge"/.test(ph) && /function updateFabBadge/.test(ph),
+      'كشف الأرقام: شارة عدد السجلات موجودة وتتحدث');
+    ok(/addEventListener\('ea-phone-open'/.test(ph) && /window\.__ERP_OPEN =/.test(ph),
+      'كشف الأرقام: الفتح من 🧰 يعمل عبر ea-phone-open');
+    const closeIdx = ph.indexOf('window.__ERP_CLOSE_ALL');
+    const closeBody = ph.slice(closeIdx, closeIdx + 450);
+    ok(/state\.isMinimized = true/.test(closeBody) && !/\.remove\(\)/.test(closeBody),
+      'كشف الأرقام: ✕ تصغير فقط — لا يحذف اللوحة ولا يوقف المسح');
+    ok(/__ERP_BOOTED/.test(ph),
+      'كشف الأرقام: حارس إعادة الدخول (لا تكرار مستمعين وفقدان بيانات)');
+    ok(/z-index:2147483000/.test(ph),
+      'كشف الأرقام: اللوحة فوق لوحة 🧰 (كانت 999999)');
+  }
+
   console.log('\n=== RESULT: ' + pass + ' passed, ' + fail + ' failed ===');
   if (fail > 0) {
     console.log('Failures:');

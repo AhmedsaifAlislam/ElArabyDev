@@ -84,6 +84,8 @@
       group: 'أدوات',
       openByClick: true,
       panel: '#elaraby-fixed-box',
+      // السكربت يفتح/يغلق لوحته بنفسه — لا نفرض display مضمّن (يفسد flex ويوقف السحب)
+      openEvent: 'ea-phone-open',
       defaultVisible: true
     },
     {
@@ -110,16 +112,6 @@
       defaultVisible: true
     },
     {
-      id: 'ea-suppressor-tool',
-      title: 'كتم أخطاء البورتال',
-      icon: '🛡️',
-      color: '#ef4444',
-      group: 'أدوات',
-      openByClick: false,
-      scriptId: 'portal-error-suppressor',
-      defaultVisible: true
-    },
-    {
       id: 'future-orders-fab',
       title: 'كشف البلاغات المستقبلية (+3 أيام)',
       icon: '📅',
@@ -138,7 +130,6 @@
     'msq-fab': 'messenger-sender',
     'rp-fab': 'report-processor',
     'elaraby-mini-btn': 'elaraby-phone-reveal',
-    'ea-suppressor-tool': 'portal-error-suppressor',
     'future-orders-fab': 'future-orders-reveal'
   };
   const SCRIPT_TO_TOOL = Object.fromEntries(Object.entries(TOOL_TO_SCRIPT).map(([k, v]) => [v, k]));
@@ -147,7 +138,6 @@
     'messenger-sender': { icon: '📨', title: 'مرسل الماسنجر', group: 'إرسال' },
     'report-processor': { icon: '📄', title: 'معالج البلاغات (Reports)', group: 'أدوات' },
     'elaraby-phone-reveal': { icon: '📱', title: 'كشف أرقام العملاء', group: 'أدوات' },
-    'portal-error-suppressor': { icon: '🛡️', title: 'كتم أخطاء البورتال', group: 'أدوات' },
     'future-orders-reveal': { icon: '📅', title: 'كشف البلاغات المستقبلية', group: 'أدوات' }
   };
 
@@ -262,12 +252,8 @@
   //  التحكم في عناصر الفابز داخل الصفحة
   // ════════════════════════════════════════════════════════
   function findFab(tool) {
-    const ids = tool.id === 'elaraby-mini-btn' ? ['elaraby-mini-btn', 'elaraby-fixed-box'] : [tool.id];
-    for (const id of ids) {
-      const el = document.getElementById(id);
-      if (el) return el;
-    }
-    return null;
+    // الفاب الحقيقي فقط — لا نستخدم لوحة الأداة كبديل (كان يحوّل اللوحة إلى أيقونة 24px)
+    return document.getElementById(tool.id) || null;
   }
 
   // هل لوحة الأداة مفتوحة فعلاً؟ (لمنع النقر الذي يُغلقها بدلاً من فتحها)
@@ -319,28 +305,17 @@
     if (!fab) return;
     if (forceVisible) {
       showFab(fab);
-      // إعادة صندوق كشف الأرقام لوضعه قبل الإخفاء (بدل فرض ظهور/إخفاء دائم)
-      if (tool.id === 'elaraby-mini-btn') {
-        const box = document.getElementById('elaraby-fixed-box');
-        if (box && box.dataset.eaPrevDisplay !== undefined) {
-          box.style.display = box.dataset.eaPrevDisplay;
-          delete box.dataset.eaPrevDisplay;
-        }
-      }
     } else {
       fab.style.setProperty('display', 'none', 'important');
       if (tool.id === 'elaraby-control-panel-mini') {
         const panel = document.getElementById('elaraby-control-panel');
         if (panel) panel.style.setProperty('display', 'none', 'important');
       }
-      if (tool.id === 'elaraby-fixed-box' || tool.id === 'elaraby-mini-btn') {
+      // إيقاف أداة كشف الأرقام يخفي لوحتها أيضًا (السكربت يفتحها من جديد عند التشغيل)
+      // الكتابة العادية بلا !important حتى يستطيع السكربت فتحها لاحقًا
+      if (tool.id === 'elaraby-mini-btn') {
         const box = document.getElementById('elaraby-fixed-box');
-        if (box) {
-          if (box.dataset.eaPrevDisplay === undefined) {
-            box.dataset.eaPrevDisplay = box.style.display || 'flex';
-          }
-          box.style.setProperty('display', 'none', 'important');
-        }
+        if (box) box.style.display = 'none';
       }
     }
     // أي تغيير في الظهور → رص شامل فوراً (يمنع تداخل الأيقونات)

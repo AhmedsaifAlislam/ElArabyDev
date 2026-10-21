@@ -24,11 +24,49 @@
   }
 
   function initSmartAssistant() {
+      // إعادة تشغيل من 🧰 بعد حقن السكربت مرة أخرى: افتح اللوحة
+      // بدل تكرار كل المستمعين وفقدان البيانات المسحوبة
+      if (window.__ERP_BOOTED && typeof window.__ERP_OPEN === 'function'
+          && document.getElementById('elaraby-fixed-box')) {
+        try { window.__ERP_OPEN(); } catch (_) {}
+        return;
+      }
+      window.__ERP_BOOTED = true;
+
       if (window.__ELARABY_INTERVAL) clearInterval(window.__ELARABY_INTERVAL);
       ['elaraby-fixed-box', 'elaraby-mini-btn'].forEach(id => {
         const el = document.getElementById(id);
         if (el) el.remove();
       });
+
+      // ── الأيقونة على الحافة (📞) + شارة عدد السجلات ──
+      // الربط المركزي (fabs-controller) يرصّها ويظهرها/يخفيها، لكنه لا ينشئها — ننشئها هنا
+      function ensureFab() {
+        let fab = document.getElementById('elaraby-mini-btn');
+        if (fab) return fab;
+        fab = document.createElement('button');
+        fab.type = 'button';
+        fab.id = 'elaraby-mini-btn';
+        fab.title = 'كشف الأرقام — البلاغات';
+        fab.innerHTML = '📞<span id="elaraby-badge" style="display:none;position:absolute;top:-4px;right:-4px;min-width:16px;height:16px;padding:0 4px;border-radius:9px;background:#ef4444;color:#fff;font-size:10px;line-height:16px;text-align:center;font-weight:700;box-sizing:border-box;">0</span>';
+        Object.assign(fab.style, {
+          position: 'fixed', right: '8px', bottom: '260px', zIndex: '2147483638',
+          width: '32px', height: '32px', borderRadius: '50%', padding: '0',
+          border: '1px solid #005A9C', background: '#005A9C', color: '#fff',
+          fontSize: '15px', cursor: 'pointer', lineHeight: '1'
+        });
+        fab.addEventListener('click', () => window.__ERP_TOGGLE());
+        document.body.appendChild(fab);
+        return fab;
+      }
+
+      function updateFabBadge() {
+        const badge = document.getElementById('elaraby-badge');
+        if (!badge) return;
+        const total = state.rows ? state.rows.size : 0;
+        badge.textContent = String(total);
+        badge.style.display = (state.isMinimized && total > 0) ? 'block' : 'none';
+      }
 
       // =====================================================================
       // 🟢 Cache Layer - تخزين مؤقت للـ localStorage
@@ -996,28 +1034,27 @@
       window.__ERP_TOGGLE = () => {
         state.isMinimized = !state.isMinimized;
         const box = document.getElementById('elaraby-fixed-box');
-        // الفاب elaraby-mini-btn يُدار من fabs-controller — لا نلمس display
+        // الأيقونة (elaraby-mini-btn) تُدار من fabs-controller — لا نلمس display الخاص بها
         if (box) box.style.display = state.isMinimized ? 'none' : 'flex';
+        updateFabBadge();
       };
-      
-      window.__ERP_CLOSE_ALL = () => {
-        log('إغلاق كامل للإضافة', 'info', '✕');
-        // Clear all intervals
-        if (window.__ELARABY_INTERVAL) clearInterval(window.__ELARABY_INTERVAL);
-        if (state.autoPilotTimer) clearTimeout(state.autoPilotTimer);
-        // Clean up Virtual Scroll
-        if (VIRTUAL_SCROLL?.container) {
-          try { VIRTUAL_SCROLL.container.removeEventListener('scroll', VIRTUAL_SCROLL.updateVisibleRange); } catch(e) {}
-          VIRTUAL_SCROLL.container = null;
-          VIRTUAL_SCROLL.tbody = null;
-        }
-        // Remove DOM elements
+
+      // فتح اللوحة (من الأيقونة أو من 🧰 عبر حدث ea-phone-open)
+      window.__ERP_OPEN = () => {
+        if (!state.isMinimized) return;
+        state.isMinimized = false;
         const box = document.getElementById('elaraby-fixed-box');
-        const btn = document.getElementById('elaraby-mini-btn');
-        if (box) box.remove();
-        if (btn) btn.remove();
-        // Stop auto-pilot
-        state.isAutoPilot = false;
+        if (box) box.style.display = 'flex';
+        updateFabBadge();
+      };
+
+      // الإغلاق (✕) = تصغير فقط: المؤقت والمسح يستمران في الخلفية
+      window.__ERP_CLOSE_ALL = () => {
+        state.isMinimized = true;
+        const box = document.getElementById('elaraby-fixed-box');
+        if (box) box.style.display = 'none';
+        updateFabBadge();
+        log('تصغير الإضافة — المسح مستمر في الخلفية', 'info', '➖');
       };
       window.__ERP_TAB = (tab) => { state.activeTab = tab; updateUI(false); };
 
@@ -1107,25 +1144,21 @@
         const accentColor = '#005A9C';
 
         if (rebuild) {
-          if (box) box.remove(); if (btn) btn.remove();
-          // الفاب elaraby-mini-btn يُدار من fabs-controller — لا ننشئه هنا
-          // btn = document.createElement('div');
-          // btn.id = 'elaraby-mini-btn';
-          // ...
-          // document.body.appendChild(btn);
+          if (box) box.remove();
+          // الأيقونة تُنشأ داخل السكربت (الربط المركزي يرصّها ويظهرها/يخفيها فقط)
+          ensureFab();
           box = document.createElement('div');
           box.id = 'elaraby-fixed-box';
-          box.style.cssText = `position:fixed;bottom:${R.panelBottom};right:${R.panelRight};left:${R.isMobile?'0':'auto'};width:${R.panelWidth};max-height:${R.panelMaxH};background:${bgMain};border:none;border-top:${R.panelBorderTop};border-radius:${R.panelRadius};box-shadow:0 -4px 30px rgba(0,0,0,${D?'0.6':'0.25'});z-index:999999;font-family:'Segoe UI',sans-serif;direction:rtl;display:flex;flex-direction:column;overflow:hidden;color:${textMain};${R.isMobile?'-webkit-overflow-scrolling:touch;':''}`;
+          box.style.cssText = `position:fixed;bottom:${R.panelBottom};right:${R.panelRight};left:${R.isMobile?'0':'auto'};width:${R.panelWidth};max-height:${R.panelMaxH};background:${bgMain};border:none;border-top:${R.panelBorderTop};border-radius:${R.panelRadius};box-shadow:0 -4px 30px rgba(0,0,0,${D?'0.6':'0.25'});z-index:2147483000;font-family:'Segoe UI',sans-serif;direction:rtl;display:flex;flex-direction:column;overflow:hidden;color:${textMain};${R.isMobile?'-webkit-overflow-scrolling:touch;':''}`;
           document.body.appendChild(box);
           box.style.display = state.isMinimized ? 'none' : 'flex';
-          // btn.style.display = state.isMinimized ? 'flex' : 'none'; // الفاب يُدار من fabs-controller
+          updateFabBadge();
         } else {
           box = document.getElementById('elaraby-fixed-box');
           if (!box) return;
           box.style.background = bgMain;
           box.style.color = textMain;
-          const badge = document.getElementById('elaraby-badge');
-          if (badge && state.isMinimized && totalInTable > 0) badge.style.display = 'block';
+          updateFabBadge();
           // If not rebuilding, only update dynamic parts
           if (!rebuild) return;
         }
@@ -1141,7 +1174,7 @@
                 <button onclick="window.__ERP_TOGGLE_DARK()" style="background:${D?'#fbbf24':'#1e293b'};color:${D?'#000':'#fff'};border:none;border-radius:${R.isMobile?'6px':'4px'};padding:${R.isMobile?'4px 8px':'2px 6px'};font-size:${R.fontSize};cursor:pointer;min-width:${R.isMobile?'36px':'auto'};min-height:${R.isMobile?'32px':'auto'};" title="تبديل الوضع">${D?'☀️':'🌙'}</button>
                 <button onclick="window.__ERP_FORCE_REVEAL()" style="background:#ef4444;color:white;border:none;border-radius:${R.isMobile?'6px':'4px'};padding:${R.isMobile?'4px 8px':'2px 6px'};font-size:${R.fontSize};font-weight:bold;cursor:pointer;min-width:${R.isMobile?'36px':'auto'};min-height:${R.isMobile?'32px':'auto'};" title="إجبار كشف الأرقام">🔓 كشف</button>
                 <button onclick="window.__ERP_TOGGLE()" style="background:none;border:none;cursor:pointer;font-size:${R.isMobile?'16px':'12px'};color:${D?'#94a3b8':'#aaa'};min-width:${R.isMobile?'32px':'auto'};min-height:${R.isMobile?'32px':'auto'};" title="تصغير">➖</button>
-                <button onclick="window.__ERP_CLOSE_ALL()" style="background:none;border:none;cursor:pointer;font-size:${R.isMobile?'16px':'12px'};color:${D?'#94a3b8':'#aaa'};min-width:${R.isMobile?'32px':'auto'};min-height:${R.isMobile?'32px':'auto'};" title="إغلاق">✕</button>
+                <button onclick="window.__ERP_CLOSE_ALL()" style="background:none;border:none;cursor:pointer;font-size:${R.isMobile?'16px':'12px'};color:${D?'#94a3b8':'#aaa'};min-width:${R.isMobile?'32px':'auto'};min-height:${R.isMobile?'32px':'auto'};" title="تصغير">✕</button>
               </div>
             </div>
             <div style="display:flex;justify-content:space-between;font-size:${R.fontSize};color:${textMuted};">
@@ -1232,18 +1265,23 @@
         if (e.key === 'Escape') {
           const box = document.getElementById('elaraby-fixed-box');
           if (box && box.style.display !== 'none') {
-            window.__ERP_TOGGLE();
+            window.__ERP_CLOSE_ALL();
           }
         }
         if (e.ctrlKey && e.key === 'k') {
           e.preventDefault();
           const box = document.getElementById('elaraby-fixed-box');
           if (box && box.style.display === 'none') {
-            window.__ERP_TOGGLE();
+            window.__ERP_OPEN();
           }
           const searchInput = document.querySelector('#elaraby-fixed-box input[type="text"]');
           if (searchInput) searchInput.focus();
         }
+      });
+
+      // 🧰: فتح اللوحة من لوحة الأدوات (حدث DOM يعبر بين عالمي العزل والصفحة)
+      document.addEventListener('ea-phone-open', () => {
+        try { if (typeof window.__ERP_OPEN === 'function') window.__ERP_OPEN(); } catch (_) {}
       });
 
       // =====================================================================
