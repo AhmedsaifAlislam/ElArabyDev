@@ -1140,6 +1140,38 @@ function load(sandbox, file) {
     ok(leak.length === 0, 'لا تسريب: أكواد الأعطال ليست أكواد مشاكل [' + leak.join(',') + ']');
   }
 
+  console.log('\n-- 33) محمّل الخدمات: شورت كت + ملاحظات لكل عائلة --');
+  {
+    const cat = JSON.parse(read('defect-catalog.json'));
+    const src = read('control-panel.js');
+    const s0 = src.indexOf('function familyServices(');
+    const s1 = src.indexOf('function renderDefectEditor(');
+    ok(s0 > 0 && s1 > s0, 'خدمات: دوال familyServices/shortcutCodes/visibleShortcuts موجودة');
+
+    const block = src.slice(s0, s1);
+    const api = new Function('_defectCatalog', block + '\nreturn { familyServices, shortcutCodes, visibleShortcuts };')(cat);
+
+    const ac = api.familyServices('AC');
+    ok(ac.shortcuts.length === 4 && ac.notes.length === 6 && ac.noFaultCode === 'AC005',
+      'خدمات/AC: 4 أزرار + 6 ملاحظات + كود عدم العطل AC005');
+
+    const vis = api.visibleShortcuts('AC');
+    const shared = vis.list.find(s => s.id === 'unavailable');
+    ok(vis.list.length === 5 && shared && shared._scope === 'shared',
+      'خدمات/AC: أزرار العائلة + الزر المشترك (5)');
+
+    ok(JSON.stringify(api.shortcutCodes(shared, vis.services)) === '["AC005"]',
+      'خدمات: codeFrom=noFaultCode يُحلّ إلى كود العائلة');
+
+    const pm = vis.list.find(s => s.id === 'pm');
+    ok(JSON.stringify(api.shortcutCodes(pm, vis.services)) === '["AC001","AC004"]',
+      'خدمات: أكواد «صيانة دورية» من JSON');
+
+    const gs = api.familyServices('GS');
+    ok(gs.shortcuts.length === 0 && gs.noFaultCode === '' && api.visibleShortcuts('GS').list.length === 1,
+      'خدمات/GS: لا أزرار عائلة ويظهر المشترك فقط');
+  }
+
   console.log('\n=== RESULT: ' + pass + ' passed, ' + fail + ' failed ===');
   if (fail > 0) {
     console.log('Failures:');

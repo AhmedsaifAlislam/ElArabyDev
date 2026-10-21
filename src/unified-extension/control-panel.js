@@ -1630,6 +1630,54 @@ function getCSS() {
     return mergedDefectCodes(fam);
   }
 
+  // ── الخدمات: شورت كت + ملاحظات + كود «لا يوجد عطل» لكل عائلة ──────────
+  // المصدر: defect-catalog.json (families[FAM].{shortcuts,notes,noFaultCode} + sharedShortcuts)
+  function familyServices(family) {
+    const fam = String(family || '').toUpperCase();
+    const entry = (_defectCatalog && _defectCatalog.families && _defectCatalog.families[fam]) || null;
+    const shared = (_defectCatalog && Array.isArray(_defectCatalog.sharedShortcuts))
+      ? _defectCatalog.sharedShortcuts.filter(s => s && s.id)
+      : [];
+    if (!entry) return { shortcuts: [], notes: [], noFaultCode: '', shared };
+    return {
+      shortcuts: Array.isArray(entry.shortcuts) ? entry.shortcuts.filter(s => s && s.id) : [],
+      notes: Array.isArray(entry.notes) ? entry.notes.filter(n => n && n.id && n.text) : [],
+      noFaultCode: String(entry.noFaultCode || '').toUpperCase(),
+      shared
+    };
+  }
+
+  // أكواد الشورت كت الفعلية — codeFrom:'noFaultCode' يُحلّ إلى كود العائلة
+  function shortcutCodes(shortcut, services) {
+    if (!shortcut) return [];
+    const out = [];
+    const push = (v) => {
+      const s = String(v || '').toUpperCase().trim();
+      if (s && !out.includes(s)) out.push(s);
+    };
+    (shortcut.codes || []).forEach(push);
+    if (shortcut.codeFrom === 'noFaultCode' && services && services.noFaultCode) push(services.noFaultCode);
+    return out;
+  }
+
+  // الأزرار الظاهرة للعائلة: أزرار العائلة ثم المشتركة (بلا تكرار معرّف)
+  function visibleShortcuts(family) {
+    const services = familyServices(family);
+    const seen = new Set();
+    const list = [];
+    services.shortcuts.forEach(s => {
+      if (seen.has(s.id)) return;
+      seen.add(s.id);
+      list.push({ ...s, _scope: 'family' });
+    });
+    services.shared.forEach(s => {
+      if (seen.has(s.id)) return;
+      seen.add(s.id);
+      list.push({ ...s, _scope: 'shared' });
+    });
+    return { services, list };
+  }
+
   function renderDefectEditor(shadow) {
     const box = shadow.getElementById('cp-defect-editor');
     const list = shadow.getElementById('cp-defect-list');
