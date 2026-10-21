@@ -1205,7 +1205,7 @@ function load(sandbox, file) {
     const S = api.PARTS_STATUS;
 
     const usedIn = BP({ parts: [{ code: 'AC001', name: 'صيانة دورية', price: 0, qty: 1, total: 0 }], partsStatus: S.USED, officialTotal: 0, secondaryDescriptions: [] });
-    ok(usedIn.text === 'تم تغيير :[ AC001 (صيانة دورية) ]' && usedIn.eligibleTotal === 0,
+    ok(usedIn.text === 'تم تغيير : [ AC001 (صيانة دورية) ]' && usedIn.eligibleTotal === 0,
       'مستعمل/داخل الضمان: بدون أسعار وبدون «والتكلفة»');
 
     const mix = BP({
@@ -1214,8 +1214,8 @@ function load(sandbox, file) {
         { code: 'AC006', name: 'كباس', price: 350, qty: 1, total: 350 }
       ], partsStatus: S.USED, officialTotal: 350, secondaryDescriptions: []
     });
-    ok(mix.text === 'تم تغيير :[ AC001 (صيانة) ][ AC006 (كباس) 350 ]// والتكلفة [ 350 ]' && mix.eligibleTotal === 350,
-      'مستعمل/خليط: السعر للقطع خارج الضمان فقط');
+    ok(mix.text === 'تم تغيير : [ AC001 (صيانة) ] [ AC006 (كباس) 350 ] // والتكلفة [ 350 ] ج.م' && mix.eligibleTotal === 350,
+      'مستعمل/خليط: السعر للقطع خارج الضمان فقط + إجمالي في الآخر');
 
     const qty = BP({ parts: [{ code: 'X', name: 'Y', price: 100, qty: 2, total: 200 }], partsStatus: S.USED, officialTotal: 200, secondaryDescriptions: [] });
     ok(/\[ X \(Y\) 200 \]/.test(qty.text), 'الكمية > ١: يُستخدم إجمالي القطعة لا سعر الوحدة');
@@ -1224,11 +1224,26 @@ function load(sandbox, file) {
     ok(/\[ X \(Y\) 200 \]/.test(qtyFallback.text), 'إجمالي ناقص: يُحسب price × qty');
 
     const wait = BP({ parts: [{ code: 'AC003', name: 'فريون', price: 250, qty: 1, total: 250 }], partsStatus: S.WAITING, officialTotal: 0, secondaryDescriptions: [] });
-    ok(wait.text === 'يحتاج AC003 (فريون) بالتكلفة 250' && wait.eligibleTotal === 0,
-      'منتظر: «يحتاج ... بالتكلفة» وبدون مساس بالمبلغ');
+    ok(wait.text === 'يحتاج : [ AC003 (فريون) 250 ] // التكلفة المتوقعة [ 250 ] ج.م' && wait.eligibleTotal === 0,
+      'منتظر: «يحتاج» مرة واحدة + التكلفة المتوقعة في الآخر');
+
+    const waitMany = BP({
+      parts: [
+        { code: 'A1', name: 'شمعه', price: 375, qty: 1, total: 375 },
+        { code: 'A2', name: 'حساس', price: 85, qty: 1, total: 85 }
+      ], partsStatus: S.WAITING, officialTotal: 0, secondaryDescriptions: []
+    });
+    ok((waitMany.text.match(/يحتاج/g) || []).length === 1
+      && (waitMany.text.match(/بالتكلفة/g) || []).length === 0
+      && /يحتاج 2 قطعة :/.test(waitMany.text)
+      && /التكلفة المتوقعة \[ 460 \] ج\.م$/.test(waitMany.text),
+      'منتظر: لا تكرار «يحتاج/بالتكلفة» + عدد القطع + إجمالي مجمّع');
 
     const wait0 = BP({ parts: [{ code: 'AC003', name: 'فريون', price: 0, qty: 1, total: 0 }], partsStatus: S.WAITING, officialTotal: 0, secondaryDescriptions: [] });
-    ok(wait0.text === 'يحتاج AC003 (فريون)', 'منتظر بدون سعر: لا «بالتكلفة 0»');
+    ok(wait0.text === 'يحتاج : [ AC003 (فريون) ]', 'منتظر بدون سعر: لا «بالتكلفة 0» ولا إجمالي');
+
+    ok(!wait.text.includes('\n') && !mix.text.includes('\n'),
+      'النص سطر واحد آمن (الحقل <input> يحذف \\n)');
 
     ok(BP({ parts: [{ code: 'A', name: 'B' }], partsStatus: S.WITHDRAW }).action === 'skip'
       && BP({ parts: [{ code: 'A', name: 'B' }], partsStatus: S.EXCHANGE }).action === 'skip',
@@ -1260,6 +1275,14 @@ function load(sandbox, file) {
     ok(/async function appendNotesText/.test(src) && /await appendNotesText\(plan\.text\)/.test(src)
       && /await appendShortcutNote\(def\.noteText\)/.test(src),
       'كاتب ملاحظات موحّد للشورت كت وقطع الغيار');
+    {
+      const q0 = src.indexOf('function notesSeparator(');
+      const q1 = src.indexOf('async function appendNotesText(');
+      ok(q0 > 0 && q1 > q0, 'فاصل الملاحظات: notesSeparator موجودة');
+      const sepFn = new Function(src.slice(q0, q1) + '; return notesSeparator;')();
+      ok(sepFn({ tagName: 'INPUT' }) === ' | ' && sepFn({ tagName: 'TEXTAREA' }) === '\n',
+        'فاصل الملاحظات: « | » للـinput (يحذف \\n) و«سطر جديد» للـtextarea');
+    }
     ok(/NOTES_MAX = 2000/.test(src) && /reason: 'too-long'/.test(src), 'حد ٢٠٠٠ حرف محمي');
     ok(/async function waitForPartsRows/.test(src) && /await waitForPartsRows\(3000\)/.test(src),
       'انتظار تحميل صفوف القطع قبل الحكم «لا توجد قطع»');

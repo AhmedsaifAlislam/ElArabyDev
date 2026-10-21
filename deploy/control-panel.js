@@ -2,7 +2,7 @@
 // control-panel.js — لوحة التحكم الذكية v1.0
 // بصمة الإصدار: تُطبع في الـ log وتظهر بجانب عنوان اللوحة، للتأكد أن المتصفح
 // حمّل أحدث نسخة من الإضافة (Reload من edge://extensions مطلوب بعد أي نشر).
-const PANEL_BUILD = '2026-10-21.28';
+const PANEL_BUILD = '2026-10-21.29';
 // Floating panel with auto-detecting page tabs
 // =========================================================
 (function () {
@@ -807,22 +807,26 @@ function getCSS() {
     }
 
     if (status === PARTS_STATUS.WAITING) {
-      const lines = list.map(p => {
+      // سطر واحد آمن: «يحتاج» مرة واحدة + بلوكات + التكلفة المتوقعة في الآخر
+      const sum = list.reduce((s, p) => s + totalOf(p), 0);
+      const blocks = list.map(p => {
         const t = totalOf(p);
-        return t > 0 ? `يحتاج ${labelOf(p)} بالتكلفة ${money(t)}` : `يحتاج ${labelOf(p)}`;
-      });
-      return { text: lines.join('\n'), action: 'done', reason: 'منتظر — طلب قطع', eligibleTotal: 0 };
+        return t > 0 ? `[ ${labelOf(p)} ${money(t)} ]` : `[ ${labelOf(p)} ]`;
+      }).join(' ');
+      const head = list.length > 1 ? `يحتاج ${list.length} قطعة : ` : 'يحتاج : ';
+      const tail = sum > 0 ? ` // التكلفة المتوقعة [ ${money(sum)} ] ج.م` : '';
+      return { text: head + blocks + tail, action: 'done', reason: 'منتظر — طلب قطع', eligibleTotal: 0 };
     }
 
     // مستعمل (وأي حالة أخرى غير معروفة تُعامل كتنفيذ فعلي)
     const blocks = list.map(p => {
       const t = totalOf(p);
       return t > 0 ? `[ ${labelOf(p)} ${money(t)} ]` : `[ ${labelOf(p)} ]`;
-    }).join('');
+    }).join(' ');
     const eligibleTotal = list.reduce((s, p) => s + totalOf(p), 0);
     const official = Number(o.officialTotal);
     const grand = (Number.isFinite(official) && official > 0) ? official : eligibleTotal;
-    const text = `تم تغيير :${blocks}` + (eligibleTotal > 0 ? `// والتكلفة [ ${money(grand)} ]` : '');
+    const text = `تم تغيير : ${blocks}` + (eligibleTotal > 0 ? ` // والتكلفة [ ${money(grand)} ] ج.م` : '');
     return {
       text,
       action: 'done',
@@ -832,6 +836,13 @@ function getCSS() {
   }
 
   // كتابة نص في «آخر تعليق» — مصدر واحد لكل الأزرار (شورت كت + قطع الغيار)
+  // ملاحظة مهمة: الحقل في البوابة عنصر <input type="text" maxlength="2000">
+  // وأي \n يُحذف تلقائيًا ⇒ نفصل بفاصل ظاهر في الـinput ونحتفظ بالسطر الجديد للـtextarea.
+  function notesSeparator(el) {
+    const tag = String((el && el.tagName) || '').toUpperCase();
+    return tag === 'TEXTAREA' ? '\n' : ' | ';
+  }
+
   async function appendNotesText(text) {
     const msg = String(text || '').trim();
     if (!msg) return { ok: false, reason: 'empty' };
@@ -839,7 +850,7 @@ function getCSS() {
     if (!el) return { ok: false, reason: 'no-field' };
     const cur = String(el.value || '').trim();
     if (cur.includes(msg)) return { ok: true, duplicated: true };
-    const combined = cur ? `${msg}\n${cur}` : msg;
+    const combined = cur ? `${msg}${notesSeparator(el)}${cur}` : msg;
     if (combined.length > NOTES_MAX) return { ok: false, reason: 'too-long', length: combined.length };
     if (typeof emulateUserInput === 'function') {
       try { await emulateUserInput(el, combined); }
@@ -4559,12 +4570,12 @@ function getCSS() {
       const checkedNotes = shadow.querySelectorAll('.note-cb:checked');
       logEvent('EXEC_PAGE3', `عدد الملاحظات: ${checkedNotes.length}`);
       if (checkedNotes.length > 0) {
-        const combined = Array.from(checkedNotes).map(cb => {
+        const noteTexts = Array.from(checkedNotes).map(cb => {
           if (cb.dataset.noteText) return cb.dataset.noteText;
           const idx = parseInt(cb.dataset.idx);
           return NOTES_LIST[idx] || '';
-        }).filter(Boolean).join('\n');
-        if (combined) {
+        }).filter(Boolean);
+        if (noteTexts.length) {
           setStatus(shadow, '⏳ جاري إدراج النص...');
           let notesEl = typeof findFieldByLabel === 'function'
             ? (findFieldByLabel(['Notes', 'ملاحظات', 'الملاحظات', 'التعليق', 'notes_support'], 'textarea')
@@ -4576,11 +4587,13 @@ function getCSS() {
             notesEl = findFirstInFrames('#ldv_resourcelastcomment, textarea[aria-label*="Notes"], textarea[aria-label*="ملاحظات"], textarea[id*="notes"], input[aria-label*="التعليق"], #notes');
           }
           if (notesEl) {
+            const sep = notesSeparator(notesEl);
+            const combined = noteTexts.join(sep);
             const currentVal = (notesEl.value || '').trim();
             let textToSet = combined;
             if (currentVal) {
               if (!currentVal.includes(combined)) {
-                textToSet = `${currentVal}\n${combined}`;
+                textToSet = `${currentVal}${sep}${combined}`;
               } else {
                 textToSet = currentVal;
               }
