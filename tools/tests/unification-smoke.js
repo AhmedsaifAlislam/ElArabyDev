@@ -1076,6 +1076,70 @@ function load(sandbox, file) {
       'اللوحة: رسالة واضحة عند انتهاء المهلة بدون اختيار');
   }
 
+  console.log('\n-- 32) نموذج البيانات الموحّد: عائلات + ملاحظات + شورت كت --');
+  {
+    const cat = JSON.parse(read('defect-catalog.json'));
+    const fams = cat.families || {};
+    ok(cat.version === 2, 'defect-catalog: الإصدار 2 (notes/shortcuts/noFaultCode)');
+    ok(Object.keys(fams).length >= 6, 'defect-catalog: ست عائلات معرّفة');
+
+    let shapeOk = true;
+    for (const f of Object.keys(fams)) {
+      const e = fams[f] || {};
+      if (!e.label || !Array.isArray(e.codes) || !Array.isArray(e.notes) || !Array.isArray(e.shortcuts)) shapeOk = false;
+    }
+    ok(shapeOk, 'defect-catalog: كل عائلة فيها codes + notes + shortcuts (حتى الفارغة)');
+
+    // كل كود في شورت كت لازم يكون موجودًا فعلًا في أكواد عائلته
+    let codesOk = true;
+    let noteOk = true;
+    const problems = [];
+    for (const f of Object.keys(fams)) {
+      const e = fams[f];
+      const have = new Set((e.codes || []).map(c => String(c.major || '').toUpperCase()));
+      const noteIds = new Set((e.notes || []).map(n => n && n.id));
+      for (const sc of (e.shortcuts || [])) {
+        for (const c of (sc.codes || [])) {
+          if (!have.has(String(c).toUpperCase())) { codesOk = false; problems.push(`${f}/${sc.id}:${c}`); }
+        }
+        for (const n of (sc.noteIds || [])) {
+          if (!noteIds.has(n)) { noteOk = false; problems.push(`${f}/${sc.id}:note=${n}`); }
+        }
+        if (e.noFaultCode && sc.codeFrom === 'noFaultCode' && !have.has(String(e.noFaultCode).toUpperCase())) codesOk = false;
+      }
+      if (e.noFaultCode && !have.has(String(e.noFaultCode).toUpperCase())) codesOk = false;
+    }
+    ok(codesOk, 'defect-catalog: كل كود في شورت كت موجود في أكواد عائلته' + (problems.length ? ' [' + problems.join(', ') + ']' : ''));
+    ok(noteOk, 'defect-catalog: كل noteId في شورت كت موجود في ملاحظات عائلته');
+
+    // لا تكرار ids داخل العائلة
+    let dupOk = true;
+    for (const f of Object.keys(fams)) {
+      const ids = (fams[f].shortcuts || []).map(s => s.id);
+      if (new Set(ids).size !== ids.length) dupOk = false;
+      const nIds = (fams[f].notes || []).map(n => n.id);
+      if (new Set(nIds).size !== nIds.length) dupOk = false;
+    }
+    ok(dupOk, 'defect-catalog: لا تكرار في معرفات الشورت كت أو الملاحظات');
+
+    const shared = cat.sharedShortcuts || [];
+    ok(shared.length >= 1 && shared.every(s => s.id && s.name), 'defect-catalog: أزرار مشتركة معرّفة (عدم توافر)');
+    ok(shared.some(s => s.codeFrom === 'noFaultCode'), 'defect-catalog: الشورت المشترك يستخدم كود «لا يوجد عطل» للعائلة');
+
+    const ac = fams.AC || {};
+    ok((ac.shortcuts || []).length === 4, 'AC: أربعة أزرار شورت كت');
+    const pm = (ac.shortcuts || []).find(s => s.id === 'pm');
+    ok(pm && JSON.stringify(pm.codes) === JSON.stringify(['AC001', 'AC004']), 'AC/صيانة دورية = AC001 + AC004');
+    const pull = (ac.shortcuts || []).find(s => s.id === 'pull');
+    ok(pull && pull.codes.length === 4 && pull.codes.includes('AC006'), 'AC/سحب وإرجاع = 4 أكواد رئيسية (منها AC006)');
+    ok((ac.notes || []).length === 6 && (ac.notes || []).every(n => n.id && n.text), 'AC: ست ملاحظات معرّفة بمعرفات مستقرة');
+
+    const pb = JSON.parse(read('problem-catalog.json'));
+    const pbCodes = new Set((pb.codes || []).map(c => String(c.code).toUpperCase()));
+    const leak = (ac.codes || []).map(c => c.major).filter(c => pbCodes.has(String(c).toUpperCase()));
+    ok(leak.length === 0, 'لا تسريب: أكواد الأعطال ليست أكواد مشاكل [' + leak.join(',') + ']');
+  }
+
   console.log('\n=== RESULT: ' + pass + ' passed, ' + fail + ' failed ===');
   if (fail > 0) {
     console.log('Failures:');
