@@ -1194,6 +1194,78 @@ function load(sandbox, file) {
       'الملاحظات: تُعرض ملاحظات عائلة الجهاز');
   }
 
+  console.log('\n-- 35) زر قطع الغيار: بناء النص + قاعدة المبلغ --');
+  {
+    const src = read('control-panel.js');
+    const p0 = src.indexOf('const NOTES_MAX = 2000;');
+    const p1 = src.indexOf('// كتابة نص في «آخر تعليق»');
+    ok(p0 > 0 && p1 > p0, 'قطع الغيار: كتلة buildPartsNote موجودة');
+    const api = new Function(src.slice(p0, p1) + '\nreturn { buildPartsNote, PARTS_STATUS };')();
+    const BP = api.buildPartsNote;
+    const S = api.PARTS_STATUS;
+
+    const usedIn = BP({ parts: [{ code: 'AC001', name: 'صيانة دورية', price: 0, qty: 1, total: 0 }], partsStatus: S.USED, officialTotal: 0, secondaryDescriptions: [] });
+    ok(usedIn.text === 'تم تغيير :[ AC001 (صيانة دورية) ]' && usedIn.eligibleTotal === 0,
+      'مستعمل/داخل الضمان: بدون أسعار وبدون «والتكلفة»');
+
+    const mix = BP({
+      parts: [
+        { code: 'AC001', name: 'صيانة', price: 0, qty: 1, total: 0 },
+        { code: 'AC006', name: 'كباس', price: 350, qty: 1, total: 350 }
+      ], partsStatus: S.USED, officialTotal: 350, secondaryDescriptions: []
+    });
+    ok(mix.text === 'تم تغيير :[ AC001 (صيانة) ][ AC006 (كباس) 350 ]// والتكلفة [ 350 ]' && mix.eligibleTotal === 350,
+      'مستعمل/خليط: السعر للقطع خارج الضمان فقط');
+
+    const qty = BP({ parts: [{ code: 'X', name: 'Y', price: 100, qty: 2, total: 200 }], partsStatus: S.USED, officialTotal: 200, secondaryDescriptions: [] });
+    ok(/\[ X \(Y\) 200 \]/.test(qty.text), 'الكمية > ١: يُستخدم إجمالي القطعة لا سعر الوحدة');
+
+    const qtyFallback = BP({ parts: [{ code: 'X', name: 'Y', price: 100, qty: 2, total: 0 }], partsStatus: S.USED, officialTotal: 0, secondaryDescriptions: [] });
+    ok(/\[ X \(Y\) 200 \]/.test(qtyFallback.text), 'إجمالي ناقص: يُحسب price × qty');
+
+    const wait = BP({ parts: [{ code: 'AC003', name: 'فريون', price: 250, qty: 1, total: 250 }], partsStatus: S.WAITING, officialTotal: 0, secondaryDescriptions: [] });
+    ok(wait.text === 'يحتاج AC003 (فريون) بالتكلفة 250' && wait.eligibleTotal === 0,
+      'منتظر: «يحتاج ... بالتكلفة» وبدون مساس بالمبلغ');
+
+    const wait0 = BP({ parts: [{ code: 'AC003', name: 'فريون', price: 0, qty: 1, total: 0 }], partsStatus: S.WAITING, officialTotal: 0, secondaryDescriptions: [] });
+    ok(wait0.text === 'يحتاج AC003 (فريون)', 'منتظر بدون سعر: لا «بالتكلفة 0»');
+
+    ok(BP({ parts: [{ code: 'A', name: 'B' }], partsStatus: S.WITHDRAW }).action === 'skip'
+      && BP({ parts: [{ code: 'A', name: 'B' }], partsStatus: S.EXCHANGE }).action === 'skip',
+      'سحب/استبدال: لا تعليق');
+
+    const none = BP({ parts: [], partsStatus: S.NONE, officialTotal: 0, secondaryDescriptions: ['صيانة دورية', 'ضبط حوض الصرف'] });
+    ok(none.text === 'تم صيانة دورية وضبط حوض الصرف', 'بدون قطع غيار: «تم» + أوصاف الأكواد المعلّمة');
+    ok(BP({ parts: [], partsStatus: S.NONE, secondaryDescriptions: [] }).text === 'تم', 'بدون قطع غيار وبدون أكواد: «تم» فقط');
+
+    ok(BP({ parts: [], partsStatus: '' }).action === 'need-status', 'حالة فاضية: توقف (لا افتراض «منتظر»)');
+    ok(BP({ parts: [], partsStatus: S.USED }).action === 'conflict', 'مستعمل/منتظر بجدول فاضي: تناقض ⇒ لا كتابة');
+
+    // قاعدة المبلغ المحصل
+    const a0 = src.indexOf('function applyCollectedAmount(');
+    const a1 = src.indexOf('// أوصاف الأكواد المعلّمة');
+    ok(a0 > 0 && a1 > a0, 'قاعدة المبلغ: applyCollectedAmount موجودة');
+    const applyFn = new Function(src.slice(a0, a1) + '\nreturn applyCollectedAmount;')();
+    const fake = (v) => ({ getElementById: () => ({ value: v }) });
+    ok(applyFn(fake('0'), 350).applied === true && applyFn(fake(''), 350).applied === true,
+      'المبلغ: يُملأ لو الحقل فاضي أو صفر وفيه تكلفة');
+    const keep = applyFn(fake('500'), 350);
+    ok(keep.applied === false && keep.reason === 'keep-manual', 'المبلغ: لا ينقص قيمة كتبها الفني');
+    ok(applyFn(fake('0'), 0).applied === false, 'المبلغ: لا يُكتب صفر فوق قيمة موجودة');
+    ok(/const amt = applyCollectedAmount\(shadow, plan\.eligibleTotal\)/.test(src)
+      && !/amtEl\.value = officialTotal/.test(src),
+      'قطع الغيار: لم يعد يضبط المبلغ المحصل بالإجمالي الرسمي مباشرة');
+
+    // الكاتب الموحّد + انتظار التحميل + حد ٢٠٠٠
+    ok(/async function appendNotesText/.test(src) && /await appendNotesText\(plan\.text\)/.test(src)
+      && /await appendShortcutNote\(def\.noteText\)/.test(src),
+      'كاتب ملاحظات موحّد للشورت كت وقطع الغيار');
+    ok(/NOTES_MAX = 2000/.test(src) && /reason: 'too-long'/.test(src), 'حد ٢٠٠٠ حرف محمي');
+    ok(/async function waitForPartsRows/.test(src) && /await waitForPartsRows\(3000\)/.test(src),
+      'انتظار تحميل صفوف القطع قبل الحكم «لا توجد قطع»');
+    ok(!/setStatus\(shadow, `.✅ .*الإجمالي المعتمد/.test(src), 'لا نجاح كاذب بعد فشل الكتابة');
+  }
+
   console.log('\n=== RESULT: ' + pass + ' passed, ' + fail + ' failed ===');
   if (fail > 0) {
     console.log('Failures:');

@@ -2,7 +2,7 @@
 // control-panel.js — لوحة التحكم الذكية v1.0
 // بصمة الإصدار: تُطبع في الـ log وتظهر بجانب عنوان اللوحة، للتأكد أن المتصفح
 // حمّل أحدث نسخة من الإضافة (Reload من edge://extensions مطلوب بعد أي نشر).
-const PANEL_BUILD = '2026-10-21.27';
+const PANEL_BUILD = '2026-10-21.28';
 // Floating panel with auto-detecting page tabs
 // =========================================================
 (function () {
@@ -741,86 +741,214 @@ function getCSS() {
     return el ? String(el.value || '').trim() : '';
   }
 
+  // ════════════════════════════════════════════════════════════════════════════
+  // تعليق قطع الغيار — بناء النص (دالة نقية قابلة للاختبار)
+  // القواعد المعتمدة:
+  //   مستعمل  : «تم تغيير :» + كل قطعة (بسعرها لو إجماليها > 0) + «// والتكلفة [X]» لو فيه سعر
+  //   منتظر   : «يحتاج CODE (NAME) بالتكلفة X» لكل قطعة (بدون «بالتكلفة» لو السعر 0)
+  //   سحب/استبدال: لا تعليق
+  //   بدون قطع غيار: «تم» + أوصاف الأكواد المعلّمة
+  //   حالة فاضية أو تناقض الحالة مع الجدول: توقف بلا كتابة
+  // ════════════════════════════════════════════════════════════════════════════
+  const NOTES_MAX = 2000;
+  const PARTS_STATUS = {
+    USED: '963400000',
+    WAITING: '963400001',
+    NONE: '963400002',
+    WITHDRAW: '963400003',
+    EXCHANGE: '963400004'
+  };
+
+  function buildPartsNote(opts) {
+    const o = opts || {};
+    const list = Array.isArray(o.parts) ? o.parts.filter(p => p && (p.code || p.name)) : [];
+    const status = String(o.partsStatus || '').trim();
+    const sec = Array.isArray(o.secondaryDescriptions) ? o.secondaryDescriptions.filter(Boolean) : [];
+    const money = (n) => {
+      const v = Math.round(Number(n) * 100) / 100;
+      return Number.isFinite(v) ? String(v) : '0';
+    };
+    const totalOf = (p) => {
+      const t = Number(p.total);
+      if (Number.isFinite(t) && t > 0) return t;
+      const price = Number(p.price);
+      const qty = Number(p.qty) > 0 ? Number(p.qty) : 1;
+      return (Number.isFinite(price) && price > 0) ? price * qty : 0;
+    };
+    const labelOf = (p) => {
+      const code = String(p.code || '').trim();
+      const name = String(p.name || '').trim();
+      if (code && name) return `${code} (${name})`;
+      return code || name;
+    };
+
+    if (!status) {
+      return { text: '', action: 'need-status', reason: 'حالة قطع الغيار غير محددة', eligibleTotal: 0 };
+    }
+    if (status === PARTS_STATUS.WITHDRAW || status === PARTS_STATUS.EXCHANGE) {
+      return {
+        text: '',
+        action: 'skip',
+        reason: status === PARTS_STATUS.WITHDRAW ? 'حالة «سحب» — لا تعليق' : 'حالة «استبدال» — لا تعليق',
+        eligibleTotal: 0
+      };
+    }
+    if ((status === PARTS_STATUS.USED || status === PARTS_STATUS.WAITING) && list.length === 0) {
+      return {
+        text: '',
+        action: 'conflict',
+        reason: 'الحالة «مستعمل/منتظر» لكن لا توجد قطع في الجدول',
+        eligibleTotal: 0
+      };
+    }
+    if (status === PARTS_STATUS.NONE || list.length === 0) {
+      const text = sec.length ? `تم ${sec.join(' و')}` : 'تم';
+      return { text, action: 'done', reason: 'بدون قطع غيار — نص «تم» وأكواد الأعطال', eligibleTotal: 0 };
+    }
+
+    if (status === PARTS_STATUS.WAITING) {
+      const lines = list.map(p => {
+        const t = totalOf(p);
+        return t > 0 ? `يحتاج ${labelOf(p)} بالتكلفة ${money(t)}` : `يحتاج ${labelOf(p)}`;
+      });
+      return { text: lines.join('\n'), action: 'done', reason: 'منتظر — طلب قطع', eligibleTotal: 0 };
+    }
+
+    // مستعمل (وأي حالة أخرى غير معروفة تُعامل كتنفيذ فعلي)
+    const blocks = list.map(p => {
+      const t = totalOf(p);
+      return t > 0 ? `[ ${labelOf(p)} ${money(t)} ]` : `[ ${labelOf(p)} ]`;
+    }).join('');
+    const eligibleTotal = list.reduce((s, p) => s + totalOf(p), 0);
+    const official = Number(o.officialTotal);
+    const grand = (Number.isFinite(official) && official > 0) ? official : eligibleTotal;
+    const text = `تم تغيير :${blocks}` + (eligibleTotal > 0 ? `// والتكلفة [ ${money(grand)} ]` : '');
+    return {
+      text,
+      action: 'done',
+      reason: eligibleTotal > 0 ? 'مستعمل — قطع خارج الضمان' : 'مستعمل — كل القطع داخل الضمان (بدون أسعار)',
+      eligibleTotal
+    };
+  }
+
+  // كتابة نص في «آخر تعليق» — مصدر واحد لكل الأزرار (شورت كت + قطع الغيار)
+  async function appendNotesText(text) {
+    const msg = String(text || '').trim();
+    if (!msg) return { ok: false, reason: 'empty' };
+    const el = findNotesField();
+    if (!el) return { ok: false, reason: 'no-field' };
+    const cur = String(el.value || '').trim();
+    if (cur.includes(msg)) return { ok: true, duplicated: true };
+    const combined = cur ? `${msg}\n${cur}` : msg;
+    if (combined.length > NOTES_MAX) return { ok: false, reason: 'too-long', length: combined.length };
+    if (typeof emulateUserInput === 'function') {
+      try { await emulateUserInput(el, combined); }
+      catch (_) {
+        el.value = combined;
+        el.dispatchEvent(new Event('input', { bubbles: true }));
+        el.dispatchEvent(new Event('change', { bubbles: true }));
+      }
+    } else {
+      el.value = combined;
+      el.dispatchEvent(new Event('input', { bubbles: true }));
+      el.dispatchEvent(new Event('change', { bubbles: true }));
+    }
+    return { ok: true };
+  }
+
+  // «المبلغ المحصل»: لا يُلمس إلا لو فاضي/صفر وفيه قطع خارج الضمان (لا ينقص قيمة يدوية أبدًا)
+  function applyCollectedAmount(shadow, eligibleTotal) {
+    const amtEl = shadow.getElementById('cp-amount');
+    if (!amtEl) return { applied: false, reason: 'no-field' };
+    const total = Number(eligibleTotal);
+    if (!(Number.isFinite(total) && total > 0)) return { applied: false, reason: 'no-cost' };
+    const cur = String(amtEl.value || '').trim();
+    const curNum = parseFloat(cur.replace(/[^0-9.]/g, ''));
+    const empty = cur === '' || !Number.isFinite(curNum) || curNum === 0;
+    if (!empty) return { applied: false, reason: 'keep-manual', current: curNum };
+    amtEl.value = String(Math.round(total * 100) / 100);
+    return { applied: true, value: amtEl.value };
+  }
+
+  // أوصاف الأكواد المعلّمة (الأكواد الثانوية) من الكتالوج المدموج
+  function checkedCodeDescriptions(shadow) {
+    const device = readDeviceHint();
+    const family = defectFamilyOf(device);
+    const catalog = defectCodesFor(device, family);
+    const byMajor = new Map();
+    (catalog || []).forEach(c => {
+      const k = String((c && c.major) || '').toUpperCase();
+      if (k && !byMajor.has(k)) byMajor.set(k, String(c.desc || '').trim());
+    });
+    const out = [];
+    shadow.querySelectorAll('.fault-cb:checked').forEach(cb => {
+      const major = String((cb.value || '').split(',')[0] || '').toUpperCase();
+      if (!major) return;
+      const desc = byMajor.get(major) || major;
+      if (!out.includes(desc)) out.push(desc);
+    });
+    return out;
+  }
+
+  // انتظار تحميل صفوف القطع (AJAX) قبل الحكم «لا توجد قطع»
+  async function waitForPartsRows(timeoutMs) {
+    const status = readSparePartsStatusFromPage();
+    const relevant = !status || status === PARTS_STATUS.USED || status === PARTS_STATUS.WAITING;
+    const waitMs = relevant ? (timeoutMs || 3000) : 300;
+    const deadline = Date.now() + waitMs;
+    let last = { parts: [], total: 0 };
+    for (;;) {
+      last = readPartsFromGrid();
+      if (last.parts.length > 0) return last;
+      if (Date.now() >= deadline) return last;
+      await sleep(250);
+    }
+  }
+
   async function executePartsShortcut(shadow) {
     logEvent('PARTS', 'بدء قراءة قطع الغيار');
-    const { parts, total } = readPartsFromGrid();
+    const { parts } = await waitForPartsRows(3000);
+    const partsStatus = readSparePartsStatusFromPage();
+    const officialTotal = readOfficialSparePartsTotal();
+    const secondary = checkedCodeDescriptions(shadow);
 
-    if (parts.length === 0) {
-      setStatus(shadow, '⚠️ لا توجد قطع غيار في الجدول', 'warn');
-      logEvent('PARTS', 'لم يتم العثور على قطع غيار');
+    const plan = buildPartsNote({ parts, partsStatus, officialTotal, secondaryDescriptions: secondary });
+    logEvent('PARTS', `حالة=${partsStatus || 'فاضية'} • قطع=${parts.length} • رسمي=${officialTotal} • أكواد معلّمة=${secondary.length} • قرار=${plan.action} — ${plan.reason}`);
+
+    if (plan.action === 'need-status') {
+      setStatus(shadow, '⚠️ حدّد حالة قطع الغيار الأول (مستعمل/منتظر/بدون…)، ثم أعد المحاولة', 'warn');
+      return;
+    }
+    if (plan.action === 'conflict') {
+      setStatus(shadow, '⚠️ الحالة «مستعمل/منتظر» لكن جداول القطع فاضية — صحّح الحالة أو أضف القطع', 'warn');
+      return;
+    }
+    if (plan.action === 'skip') {
+      setStatus(shadow, `ℹ️ ${plan.reason} — لم يُكتب شيء`, 'warn');
       return;
     }
 
-    const officialTotal = readOfficialSparePartsTotal();
-    const spareStatus = readSparePartsStatusFromPage();
-
-    logEvent('PARTS', `تم العثور على ${parts.length} قطعة - إجمالي الجدول: ${total} - الإجمالي الرسمي: ${officialTotal} - الحالة: ${spareStatus}`);
-
-    let text = '';
-    if (spareStatus === '963400000') {
-      // مستعمل USED
-      if (officialTotal <= 0) {
-        // إذا كان الإجمالي الرسمي = 0 لا تكتب أي أسعار نهائياً
-        const blocks = parts.map(p => {
-          if (p.code && p.name) {
-            return `[ ${p.code} (${p.name}) ]`;
-          } else {
-            return `[ ${p.name || p.code} ]`;
-          }
-        }).join('');
-        text = `تم تغيير :${blocks}`;
-      } else {
-        // رسمي > 0 : كل قطعة بسعر الوحدة + والتكلفة [ الإجمالي الرسمي ]
-        const blocks = parts.map(p => {
-          if (p.code && p.name) {
-            return `[ ${p.code} (${p.name}) ${p.price} ]`;
-          } else {
-            return `[ ${p.name || p.code} ${p.price} ]`;
-          }
-        }).join('');
-        text = `تم تغيير :${blocks}// والتكلفة [ ${officialTotal} ]`;
-      }
-    } else {
-      // منتظر WAITING (963400001 أو أي افتراضي آخر)
-      const lines = parts.map(p => {
-        const title = (p.code && p.name) ? `${p.code} (${p.name})` : (p.name || p.code);
-        return `يحتاج ${title} بالتكلفة ${p.price}`;
-      });
-      text = lines.join('\n');
+    const res = await appendNotesText(plan.text);
+    if (!res.ok) {
+      const msg = res.reason === 'no-field'
+        ? '❌ حقل الملاحظات غير موجود — لم يُكتب شيء'
+        : res.reason === 'too-long'
+          ? `⚠️ النص ${res.length} حرفًا وأقصى حد ${NOTES_MAX} — لم يُكتب شيء`
+          : '⚠️ لم يُكتب شيء';
+      setStatus(shadow, msg, 'warn');
+      logEvent('PARTS', `⛔ لم تُكتب الملاحظة: ${res.reason}${res.length ? ' (' + res.length + ')' : ''}`);
+      return;
     }
 
-    logEvent('PARTS', `النص:\n${text}`);
+    const amt = applyCollectedAmount(shadow, plan.eligibleTotal);
+    const dupNote = res.duplicated ? ' (موجود مسبقًا)' : '';
+    let amtMsg = '';
+    if (amt.applied) amtMsg = ` • المبلغ المحصل = ${amt.value}`;
+    else if (amt.reason === 'keep-manual') amtMsg = ` • المبلغ المحصل كما هو (${amt.current})`;
+    else if (plan.eligibleTotal > 0) amtMsg = ` • 💡 تكلفة القطع: ${Math.round(plan.eligibleTotal * 100) / 100}`;
 
-    let notesEl = findFirstInFrames('#ldv_resourcelastcomment, textarea[aria-label*="Notes"], textarea[aria-label*="ملاحظات"], textarea[id*="notes"], input[aria-label*="التعليق"], #notes');
-
-    if (notesEl) {
-      const currentVal = (notesEl.value || '').trim();
-      let textToSet = text;
-      if (currentVal) {
-        if (!currentVal.includes(text)) {
-          textToSet = `${text}\n${currentVal}`;
-        } else {
-          textToSet = currentVal;
-        }
-      }
-
-      if (typeof emulateUserInput === 'function') {
-        await emulateUserInput(notesEl, textToSet);
-      } else {
-        notesEl.value = textToSet;
-        notesEl.dispatchEvent(new Event('input', { bubbles: true }));
-        notesEl.dispatchEvent(new Event('change', { bubbles: true }));
-      }
-      logEvent('PARTS', 'تم حقن النص في حقل الملاحظات');
-    } else {
-      logEvent('PARTS', 'لم يتم العثور على حقل الملاحظات');
-      setStatus(shadow, '⚠️ حقل الملاحظات غير موجود', 'warn');
-    }
-
-    const amtEl = shadow.getElementById('cp-amount');
-    if (amtEl) amtEl.value = officialTotal;
-
-    setStatus(shadow, `✅ ${parts.length} قطعة — الإجمالي المعتمد: ${officialTotal} ج.م`, 'success');
+    setStatus(shadow, `✅ ${plan.reason}${dupNote}${amtMsg}`, 'success');
+    logEvent('PARTS', `✅ تم: ${plan.reason} — النص:\n${plan.text}`);
   }
 
   // ربط آمن: أي خطأ في ميزة واحدة لا يوقف بقية أزرار اللوحة (كان bindEvents
@@ -1245,7 +1373,7 @@ function getCSS() {
 
     // ③ تعليق مباشر في خانة الملاحظات (مثل «عدم توافر»)
     let noteWritten = false;
-    if (def.noteText) noteWritten = appendShortcutNote(def.noteText);
+    if (def.noteText) noteWritten = await appendShortcutNote(def.noteText);
 
     // ④ المبلغ (0 يعني بدون تحصيل)
     const amountNum = Number(def.amount);
@@ -1276,19 +1404,12 @@ function getCSS() {
     return el || null;
   }
 
-  // كتابة تعليق الشورت كت في خانة الملاحظات مباشرةً (بدون تكرار)
-  function appendShortcutNote(text) {
-    const msg = String(text || '').trim();
-    if (!msg) return false;
-    const el = findNotesField();
-    if (!el) { logEvent('SHORTCUT', '⚠️ تعذّر إيجاد خانة الملاحظات — لم يُكتب التعليق'); return false; }
-    const cur = String(el.value || '').trim();
-    if (cur.includes(msg)) { logEvent('SHORTCUT', 'التعليق موجود مسبقًا — بدون تكرار'); return true; }
-    el.value = cur ? `${cur}\n${msg}` : msg;
-    el.dispatchEvent(new Event('input', { bubbles: true }));
-    el.dispatchEvent(new Event('change', { bubbles: true }));
-    logEvent('SHORTCUT', `✍️ تعليق في الملاحظات: ${msg}`);
-    return true;
+  // كتابة تعليق الشورت كت — تُمرَّر إلى الكاتب الموحّد (نفس كاتب قطع الغيار)
+  async function appendShortcutNote(text) {
+    const res = await appendNotesText(text);
+    if (!res.ok) logEvent('SHORTCUT', `⚠️ تعليق لم يُكتب (${res.reason})`);
+    else logEvent('SHORTCUT', res.duplicated ? 'التعليق موجود مسبقًا — بدون تكرار' : `✍️ تعليق في الملاحظات: ${text}`);
+    return !!res.ok;
   }
 
   function makeDraggable(shadow) {
