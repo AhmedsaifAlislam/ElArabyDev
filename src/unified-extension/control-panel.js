@@ -2,7 +2,7 @@
 // control-panel.js — لوحة التحكم الذكية v1.0
 // بصمة الإصدار: تُطبع في الـ log وتظهر بجانب عنوان اللوحة، للتأكد أن المتصفح
 // حمّل أحدث نسخة من الإضافة (Reload من edge://extensions مطلوب بعد أي نشر).
-const PANEL_BUILD = '2026-10-20.23';
+const PANEL_BUILD = '2026-10-20.24';
 // Floating panel with auto-detecting page tabs
 // =========================================================
 (function () {
@@ -168,11 +168,19 @@ const escapeHtml = s => String(s ?? "").replace(/&/g, "&amp;").replace(/</g, "&l
     return url.includes('workorderreview') || url.includes('followup') || url.includes('technicalreviewdetails');
   }
 
+  // هل اللوحة مبنية فعلًا؟ (مضيف بلا shadow أو بلا .cp-panel = بقايا سكربت ميت)
+  function panelIsBuilt() {
+    const host = document.getElementById(PANEL_ID);
+    return !!(host && host.shadowRoot && host.shadowRoot.querySelector('.cp-panel'));
+  }
+
   async function init() {
     try {
       if (!isWorkOrderPage()) return;
       if (!await ensureReady()) return;
-      if (document.getElementById(PANEL_ID)) return;
+      if (panelIsBuilt()) return;
+      const stale = document.getElementById(PANEL_ID);
+      if (stale) { try { stale.remove(); } catch (_) {} } // بقايا حقن قديم
       logEvent('INIT', 'بدء تحميل لوحة التحكم — build ' + PANEL_BUILD);
       await loadProductsDb();
       injectPanel();
@@ -286,7 +294,19 @@ const escapeHtml = s => String(s ?? "").replace(/&/g, "&amp;").replace(/</g, "&l
   }
 
   function injectPanel() {
-    if (document.getElementById(PANEL_ID)) return; // لا حقن مزدوج
+    if (panelIsBuilt()) return; // لا حقن مزدوج
+    const stale = document.getElementById(PANEL_ID);
+    if (stale) { try { stale.remove(); } catch (_) {} } // بقايا حقن قديم بلا محتوى
+    // ترحيل لمرة واحدة (build 24): إلغاء أي إرساء محفوظ وفتح اللوحة عائمة،
+    // لأن الإرساء القديم قد يحبس اللوحة داخل حاوية مخفية في صفحة البوابة.
+    try {
+      if (localStorage.getItem('elaraby_cp_reset24') !== '1') {
+        localStorage.setItem('elaraby_cp_reset24', '1');
+        isDocked = false;
+        isMinimized = false;
+        localStorage.setItem(STATE_KEY, JSON.stringify({ minimized: false, docked: false }));
+      }
+    } catch (_) {}
     const host = document.createElement('div');
     host.id = PANEL_ID;
     const shadow = host.attachShadow({ mode: 'open' });
@@ -1100,12 +1120,23 @@ function getCSS() {
     isDocked = dock;
     if (isDocked) {
       panel.classList.add('docked');
-      const target = document.querySelector('main, .main-content, .container, form, body');
-      if (target && target !== document.body) {
+      let target = null;
+      for (const sel of ['main', '.main-content', '.container']) {
+        const el = document.querySelector(sel);
+        if (el && el.offsetParent !== null && el.getBoundingClientRect().height > 120) { target = el; break; }
+      }
+      if (!target) {
+        const form = document.querySelector('form');
+        if (form && form.offsetParent !== null && form.getBoundingClientRect().height > 120) target = form;
+      }
+      if (target) {
         target.insertBefore(host, target.firstChild);
       } else {
-        const form = document.querySelector('form');
-        if (form) form.parentNode.insertBefore(host, form);
+        // لا حاوية إرساء ظاهرة ⇒ لا نحبس اللوحة داخل عنصر مخفي
+        isDocked = false;
+        panel.classList.remove('docked');
+        document.body.appendChild(host);
+        logEvent('DOCK', 'لا حاوية إرساء ظاهرة — العودة للوضع العائم');
       }
     } else {
       panel.classList.remove('docked');
@@ -4408,8 +4439,9 @@ function getCSS() {
       const page = detectPage();
       let host = document.getElementById(PANEL_ID);
       // البوابة SPA: إعادة بناء الصفحة تحذف عناصرنا ⇒ نعيد الحقن تلقائيًا
-      if (!host || !host.shadowRoot) {
+      if (!panelIsBuilt()) {
         try {
+          if (host) { try { host.remove(); } catch (_) {} }
           injectPanel();
           host = document.getElementById(PANEL_ID);
           logEvent('INIT', 'إعادة حقن اللوحة بعد إعادة بناء صفحة البوابة');
@@ -4625,6 +4657,15 @@ function getCSS() {
   try {
     localStorage.setItem('elaraby_cp_boot', PANEL_BUILD + ' | ' + new Date().toISOString() + ' | ' + location.pathname);
   } catch (_) {}
+
+  // شارة تشخيص: تظهر فقط لو السكربت عمل ولم تُبنَ اللوحة (بدل صمت تام)
+  setTimeout(() => {
+    try {
+      if (!isWorkOrderPage() || panelIsBuilt()) return;
+      const ctx = (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.id) ? 'سياق سليم' : 'السياق منتهي — أعد تحميل الصفحة';
+      showBootErrorChip('لم تُبنَ اللوحة — build ' + PANEL_BUILD + ' | ' + ctx);
+    } catch (_) {}
+  }, 3000);
 
   loadPersistedLogs();
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);

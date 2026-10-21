@@ -973,14 +973,20 @@ function load(sandbox, file) {
   console.log('-- 30) اللوحة تبقى موجودة بعد إعادة بناء صفحة البوابة (SPA) --');
   {
     const cp = read('control-panel.js');
-    ok(/function injectPanel\(\) \{\r?\n\s*if \(document\.getElementById\(PANEL_ID\)\) return;/.test(cp),
-      'injectPanel: لا حقن مزدوج');
+    ok(/function panelIsBuilt\(\)/.test(cp) && /function injectPanel\(\) \{\r?\n\s*if \(panelIsBuilt\(\)\) return;/.test(cp),
+      'injectPanel: لا حقن مزدوج + رفض المضيف الفارغ (بقايا سكربت ميت)');
+    ok(/elaraby_cp_reset24/.test(cp) && /isMinimized = false;/.test(cp),
+      'ترحيل لمرة واحدة: إلغاء الإرساء المحفوظ وفتح اللوحة عائمة');
     ok(/if \(window\.__cpHeartbeat\) return;/.test(cp),
       'نبضة واحدة فقط مهما تكرّر init (لا مؤقّتات مكرّرة)');
-    ok(/if \(!host \|\| !host\.shadowRoot\) \{[\s\S]{0,200}injectPanel\(\)/.test(cp),
+    ok(/if \(!panelIsBuilt\(\)\) \{[\s\S]{0,260}injectPanel\(\)/.test(cp),
       'النبضة تعيد حقن اللوحة لو حذفتها البوابة (SPA)');
     ok(/catch \(e\) \{\r?\n\s*\/\/ نبضة واحدة فاشلة/.test(cp),
       'خطأ في نبضة واحدة لا يوقف بقية الفحوص');
+    ok(/showBootErrorChip/.test(cp) && /لم تُبنَ اللوحة/.test(cp),
+      'شارة تشخيص عند 3 ثوانٍ لو لم تُبنَ اللوحة (بدل صمت تام)');
+    ok(/offsetParent !== null/.test(cp) && /لا حاوية إرساء ظاهرة/.test(cp),
+      'الإرساء لا يحبس اللوحة داخل حاوية مخفية');
     ok(/function showBootErrorChip/.test(cp) && /catch \(e\) \{[\s\S]{0,320}showBootErrorChip\(msg\)/.test(cp),
       'فشل تحميل اللوحة يظهر كشريحة خطأ مرئية بدل الاختفاء الصامت');
     ok(/elaraby_cp_boot/.test(cp),
