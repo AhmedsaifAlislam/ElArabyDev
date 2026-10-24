@@ -5,6 +5,47 @@
 > **الإصدار:** يتبع [Semantic Versioning](https://semver.org/)
 ---
 
+## [2026-10-24] — الموجة 35: تنظيف المستودع وتثبيت الأساس (بوابة تحقق واحدة)
+
+### العلل
+1. **66 ملفًا معلّقًا في `git status`** — ملفات محذوفة من القرص لكن حذفها غير مسجّل،
+   وخردة غير متتبعة (`.bak`، جلسات أدوات، سكربتات لمرة واحدة) ⇒ لا يوجد خط أساس نظيف
+   ولا يمكن معرفة «ما تغيّر فعليًا» قبل أي رفع.
+2. **ملفات ميتة داخل الإضافة:** `shared/portal-error-suppressor.js` بلا أي مستخدم
+   (بقايا أداة «كتم أخطاء البورتال» المحذوفة)، ونسخة قديمة مكررة من كشف الأرقام
+   في `Tempermonky/elaraby-phone-reveal/` بينما المستخدم هو `Tempermonky/elaraby-phone-reveal.js`.
+3. **اختبار وحدة معطّل:** `tools/tests/run-tests.js` كان يحمّل `shared/n8n-event-bus.js`
+   و`shared/ai-prompts.js` وهما محذوفان من الكود ⇒ الاختبار يفشل من أول سطر ولا يفحص شيئًا.
+4. **لا بوابة تحقق واحدة:** كل فحص يُشغَّل يدويًا، و`deploy/` قد يختلف عن `src` دون اكتشاف.
+
+### التنظيف
+- **حُذف نهائيًا:** `.bak` الخمسة، `tools/arena-ai-mcp/` (أداة استشارة مؤرشفة بلا مستخدم)،
+  `Tempermonky/booking-automation.js`، `shared/portal-error-suppressor.js`،
+  مجلد `Tempermonky/elaraby-phone-reveal/` القديم، وسكربتات `copy_escape.js` / `fix_escape*`.
+- **أُعيد ما هو موثّق ومستخدم:** `MASTER_ROADMAP.md`، `IDEAS_BACKLOG.md`،
+  `tools/excel_autofix/`، `tools/sync-shared.ps1`، `tools/tests/run-tests.js`،
+  وسكربت DateFilter — لأن `AGENTS.md` و`MASTER_README.md` و`DEV_COPY.md` ما زالت تشير إليها.
+- `.gitignore`: إضافة `.arena-session/` و`*.log`.
+- توثيق الأثر: ملاحظة «مرجع تاريخي — الأداة أُزيلت» في `ARENA_CONSULT_PLAN.md`
+  و`CONSULTATION_RESULT_PLAN.md`.
+
+### تثبيت الأساس
+- **`tools/verify.ps1`** — بوابة تحقق واحدة تعمل بخمس خطوات:
+  1. صحة نحوية لكل ملفات JS في `src` (72 ملفًا).
+  2. صحة كل ملفات JSON (10 ملفات).
+  3. وجود كل ملفات `manifest.json` (57 مرجعًا).
+  4. تشغيل الاختبارات الثلاثة (unit + unification smoke + portal write).
+  5. تطابق `src` مع `deploy` بالـ SHA256 (93 ملفًا) عبر `-CheckDeploy`.
+- **`tools/tests/run-tests.js` أُعيد بناؤه** ليغطي الوحدات الموجودة فعلًا:
+  `ai-client` (سجل الأدوات + الجلسات)، `n8n-client`، `ai/smart-ai-tools` (الأدوات الثلاث
+  الحقيقية)، `problem-codes` (تصنيف العائلة + منع الممنوع)، `arabic-utils` ⇒ **42 فحصًا**.
+- `AGENTS.md`: قاعدة إلزامية — لا `commit`/`push` قبل `verify.ps1 -CheckDeploy`.
+
+### التحقق
+`verify.ps1 -CheckDeploy` ⇒ **ALL GREEN (137 فحصًا)** ·
+unit 42/42 · unification smoke 378/378 · portal write 17/17 · deploy parity 93/93 ·
+`git status` نظيف بعد الالتزام.
+
 ## [2026-10-21] — الموجة 34: صياغة تعليق «منتظر» + إصلاح حذف الأسطر في الملاحظات
 
 ### المشكلة المكتشفة

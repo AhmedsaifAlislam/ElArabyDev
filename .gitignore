@@ -30,7 +30,9 @@ venv/
 
 # === Tooling artifacts (not source) ===
 .playwright-mcp/
+.arena-session/
 *.bak
+*.log
 
 # === Local work material (HTML dumps / review files — not source) ===
 اكواد/

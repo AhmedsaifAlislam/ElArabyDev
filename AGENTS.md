@@ -19,6 +19,12 @@
   - بمجرد قيام الـ Agent بأي تعديل على أي ملف داخل `src/unified-extension/`، **يجب إلزامياً وتلقائياً** تشغيل سكربت النشر قبل إنهاء الرد:
     `powershell -ExecutionPolicy Bypass -File tools\deploy.ps1`
   - ممنوع إخبار المستخدم بتجربة التعديلات قبل نجاح أمر النشر ونقل الملفات إلى `deploy/`.
+- **قاعدة التحقق قبل الرفع (Mandatory Verify Gate):**
+  - قبل أي `git commit` أو `git push` شغّل:
+    `powershell -ExecutionPolicy Bypass -File tools\verify.ps1 -CheckDeploy`
+  - البوابة تفحص: صحة JS، صحة JSON، وجود كل ملفات `manifest.json`، الاختبارات الثلاثة
+    (unit + unification smoke + portal write)، وتطابق `src` مع `deploy` بالـ SHA256.
+  - لا تُرفع نسخة غير خضراء (ALL GREEN) إلا بموافقة صريحة مع تسجيل السبب.
 
 ## 1. المشروع
 طقم أدوات شامل لخدمة مراكز مجموعة El Araby عبر أدوات إضافية Chrome (MV3)،
@@ -39,7 +45,7 @@
 - `DEV_COPY.md` — دليل نسخة التطوير والبنية والنشر.
 - `src/` — **المصدر الوحيد**: `src/unified-extension/` (الإضافة الموحدة MV3) + `dashboard/` + `design-system/` + `crm-content/` + `ui-components/`.
 - `deploy/` — **مجلد النشر** (يُحمَّل في المتصفح) — يُبنى من المصدر عبر `tools/deploy.ps1` فقط.
-- `tools/` — أدوات التشغيل: `deploy.ps1` (نشر)، `sync-shared.ps1`، `excel_autofix/` (Python).
+- `tools/` — أدوات التشغيل: `deploy.ps1` (نشر)، `verify.ps1` (بوابة التحقق الوحيدة)، `sync-shared.ps1`، `excel_autofix/` (Python)، `tests/` (اختبارات).
 - `legacy/` — النسخ المنفصلة القديمة (أرشيف/مرجع فقط — لا تطوير منها).
 - `backups/` — كل النسخ الاحتياطية (لا تلمس).
 - `docs/` — توثيق مرجعي فرعي.

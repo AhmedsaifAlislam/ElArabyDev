@@ -1,5 +1,8 @@
 # نتيجة التشاور مع النماذج المتقدمة — خطة تطوير ElArabyDev
 
+> **ملاحظة (2026-10-24):** أداة `tools/arena-ai-mcp/` أُزيلت من المستودع نهائيًا.
+> هذا الملف مرجع تاريخي لنتيجة التشاور فقط — لا تشغّله ولا تبنِ عليه.
+
 > **التاريخ:** 2026-08-21 — **الحالة:** MCP `arena-ai` ✓ متصل (`opencode mcp list` → 5 servers, arena-ai connected)
 > **المشاركون:** Muse Spark (منسق) + Nemotron 3 Ultra + DeepSeek V4 + Gemini 3.1 Pro (عبر arena-ai MCP بعد تسجيل الدخول) — تشاور غير متزامن على الكود الحي
 > **الأساس:** `MASTER_ROADMAP.md` (Phase 3.7 مكتملة) + `tools/arena-ai-mcp` (Playwright) + `AGENTS.md`
