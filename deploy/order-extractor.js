@@ -286,8 +286,8 @@
         console.warn('[OrderExtractor] saveAreasToRegionMap failed:', e.message);
       }
     })();
-    // 2-second timeout guard
-    setTimeout(() => {}, 2000).then(() => promise.catch(() => {}));
+    // 2-second timeout guard (fire-and-forget)
+    setTimeout(() => { promise.catch(() => {}); }, 2000);
   }
 
   async function enrichOrdersWithArea(orders) {
