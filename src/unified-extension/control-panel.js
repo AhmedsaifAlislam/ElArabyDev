@@ -2,7 +2,7 @@
 // control-panel.js — لوحة التحكم الذكية v1.0
 // بصمة الإصدار: تُطبع في الـ log وتظهر بجانب عنوان اللوحة، للتأكد أن المتصفح
 // حمّل أحدث نسخة من الإضافة (Reload من edge://extensions مطلوب بعد أي نشر).
-const PANEL_BUILD = '2026-10-21.31';
+const PANEL_BUILD = '2026-10-24.32';
 // Floating panel with auto-detecting page tabs
 // =========================================================
 (function () {
@@ -432,6 +432,14 @@ function getCSS() {
 .cp-fav-parts{display:flex;flex-wrap:wrap;gap:3px;margin:3px 0 4px}
 .cp-fav-chip{background:#1a2744;border:1px solid #f59e0b;color:#fde68a;border-radius:10px;font-size:10px;padding:2px 6px;cursor:pointer;font-family:inherit}
 .cp-fav-chip small{color:#94a3b8;margin-left:3px}
+.cp-fav-chip .fav-other{border:1px solid #475569;border-radius:4px;font-size:8px;padding:0 3px;color:#94a3b8;margin-right:3px}
+.cp-fav-head{display:flex;align-items:center;justify-content:space-between;gap:4px}
+.cp-fav-manage{background:#1a2744;border:1px solid #f59e0b;color:#fde68a;border-radius:4px;font-size:9px;padding:1px 5px;cursor:pointer;font-family:inherit}
+.cp-fav-manage:hover{background:#24365c}
+.cp-edef-row.fav .cp-edef-name{color:#fbbf24}
+.cp-edef-row.fav-stop .cp-edef-meta{color:#f87171}
+.cp-fav-form-row{display:flex;gap:4px;margin-bottom:4px}
+.cp-fav-sel{background:#0a0f1f;color:#a8c7fa;border:1px solid #232840;border-radius:5px;font-size:10px;padding:3px;margin:0}
 #cp-pick{position:fixed;right:10px;bottom:70px;width:300px;max-width:calc(100vw - 20px);z-index:2147483600;background:#0b1324;border:1px solid #f59e0b;border-radius:6px;padding:7px;box-shadow:0 4px 18px #000c}
 .cp-btn-gold{background:linear-gradient(135deg,#f59e0b,#d97706);color:#000;font-size:11px;padding:6px}
 .cp-panel.docked{position:relative!important;bottom:auto!important;right:auto!important;margin:6px 12px;width:auto;max-height:none;min-width:0;max-width:none;min-height:0;resize:none;box-shadow:0 2px 10px rgba(0,0,0,.3)}
@@ -537,8 +545,11 @@ function getCSS() {
     </div>
     <div id="cp-codes-preview" class="cp-codes-preview-box"></div>
     <div id="cp-parts-review" class="cp-parts-review" style="display:none"></div>
-    <div id="cp-fav-parts-wrap" style="display:none">
-      <div class="cp-notes-title" style="margin:2px 0">⭐ قطع شائعة</div>
+    <div id="cp-fav-parts-wrap">
+      <div class="cp-fav-head">
+        <div class="cp-notes-title" style="margin:2px 0">⭐ قطع شائعة</div>
+        <button type="button" class="cp-fav-manage" id="cp-fav-manage" title="إدارة القطع الشائعة (تعديل / حذف / تصدير)">⚙ إدارة</button>
+      </div>
       <div id="cp-fav-parts" class="cp-fav-parts"></div>
     </div>
     <div id="cp-pick" style="display:none">
@@ -557,6 +568,7 @@ function getCSS() {
         <button type="button" class="cp-edef-tab on" data-etab="codes">🔤 أكواد</button>
         <button type="button" class="cp-edef-tab" data-etab="shortcuts">⚡ شورت كت</button>
         <button type="button" class="cp-edef-tab" data-etab="notes">📝 ملاحظات</button>
+        <button type="button" class="cp-edef-tab" data-etab="favorites">⭐ قطع</button>
       </div>
       <div style="display:flex;gap:4px;align-items:center;margin-bottom:5px">
         <select id="cp-defect-family" class="cp-select" style="flex:1;margin:0">
@@ -627,6 +639,45 @@ function getCSS() {
         <div style="display:flex;gap:4px">
           <button class="cp-btn cp-btn-exec" id="cp-nt-save" type="button" style="flex:1">➕ إضافة ملاحظة</button>
           <button class="cp-btn" id="cp-nt-cancel" type="button" style="flex:0 0 80px;background:#334466;display:none">✕ إلغاء</button>
+        </div>
+      </div>
+
+      <div id="cp-edef-pane-favorites" class="cp-edef-pane" style="display:none">
+        <div id="cp-fav-count" class="cp-edef-count"></div>
+        <div id="cp-fav-list" class="cp-edef-list"></div>
+        <div class="cp-notes-title" style="margin:4px 0">➕ إضافة / تعديل قطعة ⭐</div>
+        <div class="cp-fav-form-row">
+          <input id="cp-fav-code" class="cp-amount" placeholder="كود القطعة" style="flex:1;margin:0;font-size:10px;text-transform:uppercase">
+          <input id="cp-fav-name" class="cp-amount" placeholder="اسم القطعة" style="flex:1;margin:0;font-size:10px">
+        </div>
+        <div class="cp-fav-form-row">
+          <select id="cp-fav-family" class="cp-fav-sel" style="flex:1">
+            <option value="">كل العائلات</option>
+            <option value="AC">تكييف (AC)</option>
+            <option value="GS">بوتجاز ومسطح (GS)</option>
+            <option value="GR">ثلاجات (GR)</option>
+            <option value="WM">غسالات (WM)</option>
+            <option value="HT">سخانات (HT)</option>
+            <option value="DW">غسالات أطباق (DW)</option>
+          </select>
+          <select id="cp-fav-warranty" class="cp-fav-sel" style="flex:1">
+            <option value="">ضمان افتراضي</option>
+            <option value="in">داخل الضمان</option>
+            <option value="out">خارج الضمان</option>
+          </select>
+        </div>
+        <div class="cp-fav-form-row">
+          <input id="cp-fav-qty" class="cp-amount" type="number" min="1" step="1" value="1" title="الكمية الافتراضية" style="flex:0 0 56px;margin:0;font-size:10px">
+          <input id="cp-fav-price" class="cp-amount" type="number" min="0" step="1" value="0" title="السعر الافتراضي" style="flex:0 0 76px;margin:0;font-size:10px">
+          <input id="cp-fav-comment" class="cp-amount" placeholder="تعليق (اختياري)" maxlength="500" style="flex:1;margin:0;font-size:10px">
+        </div>
+        <div style="display:flex;gap:4px">
+          <button class="cp-btn cp-btn-exec" id="cp-fav-save" type="button" style="flex:1">➕ إضافة قطعة</button>
+          <button class="cp-btn" id="cp-fav-cancel" type="button" style="flex:0 0 80px;background:#334466;display:none">✕ إلغاء</button>
+        </div>
+        <div style="display:flex;gap:4px;margin-top:4px">
+          <button class="cp-btn cp-btn-inject" id="cp-fav-export" type="button" style="flex:1;margin:0;font-size:10px">📤 تصدير ⭐</button>
+          <button class="cp-btn" id="cp-fav-reset" type="button" style="flex:0 0 90px;margin:0;font-size:10px;background:#334466">↩️ استعادة</button>
         </div>
       </div>
     </div>
@@ -1062,6 +1113,9 @@ function getCSS() {
   function bindEvents(shadow) {
     PANEL_SHADOW = shadow;
     renderFavParts(shadow);
+    loadFavStore()
+      .then(() => { try { renderFavParts(shadow); } catch (_) {} })
+      .catch(e => logEvent('FAV', 'تحميل ⭐: ' + (e.message || e)));
     shadow.getElementById('cp-toggle').onclick = () => { logEvent('CLICK', 'نقر على زر التبديل'); toggle(shadow); };
     shadow.getElementById('cp-dock').onclick = () => { logEvent('CLICK', 'نقر على زر الإرساء'); toggleDock(shadow); };
     const defaultBtn = shadow.getElementById('btn-default-p1');
@@ -1071,6 +1125,7 @@ function getCSS() {
     safeBind(shadow, 'التالي التلقائي (ص2)', () => bindAutoNext2(shadow));
     safeBind(shadow, 'ملاحظات الموديل', () => bindModelNoteEditor(shadow));
     safeBind(shadow, 'محرر أكواد الأعطال', () => bindDefectEditor(shadow));
+    safeBind(shadow, 'محرر القطع الشائعة ⭐', () => bindFavEditor(shadow));
     safeBind(shadow, 'أزرار الشورت كت', () => {
       loadDefectCatalog().then(() => { try { renderShortcuts(shadow); } catch (e) { logEvent('SHORTCUT', 'render: ' + (e.message || e)); } });
     });
@@ -1962,7 +2017,7 @@ function getCSS() {
   }
 
   function setEditorTab(shadow, tab) {
-    _editorTab = (tab === 'shortcuts' || tab === 'notes') ? tab : 'codes';
+    _editorTab = (tab === 'shortcuts' || tab === 'notes' || tab === 'favorites') ? tab : 'codes';
     shadow.querySelectorAll('.cp-edef-tab').forEach(b => {
       b.classList.toggle('on', b.dataset.etab === _editorTab);
     });
@@ -1989,15 +2044,23 @@ function getCSS() {
     setEditorTab(shadow, _editorTab);
     const fam = editorFamily(shadow);
     const sharedScope = fam === '*';
-    const showHint = sharedScope && _editorTab !== 'shortcuts';
+    const showHint = sharedScope && _editorTab !== 'shortcuts' && _editorTab !== 'favorites';
     const hint = shadow.getElementById('cp-edef-hint');
     if (hint) hint.style.display = showHint ? 'block' : 'none';
-    ['codes', 'shortcuts', 'notes'].forEach(t => {
+    ['codes', 'shortcuts', 'notes', 'favorites'].forEach(t => {
       const pane = shadow.getElementById('cp-edef-pane-' + t);
       if (pane) pane.style.display = (!showHint && t === _editorTab) ? 'block' : 'none';
     });
     if (showHint) return;
-    if (_editorTab === 'shortcuts') renderShortcutEditor(shadow, fam);
+    if (_editorTab === 'favorites') {
+      if (_favStore) renderFavEditor(shadow);
+      else {
+        const list = shadow.getElementById('cp-fav-list');
+        if (list) list.innerHTML = '<div class="cp-empty">⏳ جاري تحميل قطع ⭐…</div>';
+        loadFavStore().then(() => { try { renderFavEditor(shadow); } catch (_) {} });
+      }
+    }
+    else if (_editorTab === 'shortcuts') renderShortcutEditor(shadow, fam);
     else if (_editorTab === 'notes') renderNoteEditor(shadow, fam);
     else renderCodeEditor(shadow, fam);
   }
@@ -2195,7 +2258,7 @@ function getCSS() {
       if (box.style.display === 'block') { box.style.display = 'none'; return; }
       // افتح فورًا ثم حدّث بعد التحميل
       try { famSel.value = defectFamilyOf(readDeviceHint()) || 'AC'; } catch (_) { famSel.value = 'AC'; }
-      try { clearCodeForm(); clearShortcutForm(); clearNoteForm(); } catch (_) {}
+      try { clearCodeForm(); clearShortcutForm(); clearNoteForm(); clearFavForm(shadow); } catch (_) {}
       try { renderDefectEditor(shadow); } catch (e) { logEvent('CODES', 'renderDefectEditor: ' + (e.message || e)); }
       box.style.display = 'block';
       logEvent('CODES', 'فتح محرر الخدمات (أكواد/شورت كت/ملاحظات)');
@@ -2445,6 +2508,7 @@ function getCSS() {
     const exportBtn = shadow.getElementById('cp-defect-export');
     if (exportBtn) exportBtn.onclick = async () => {
       await loadDefectUser();
+      await loadFavStore();
       const fams = ['AC', 'GS', 'GR', 'WM', 'HT', 'DW'];
       const shortOut = (s) => ({
         id: s.id, name: s.name, icon: s.icon,
@@ -2465,6 +2529,7 @@ function getCSS() {
         };
       });
       out.sharedShortcuts = mergedSharedShortcuts().map(shortOut);
+      out.favorites = (_favStore && Array.isArray(_favStore.items)) ? _favStore.items : [];
       const json = JSON.stringify(out, null, 2);
       try {
         await navigator.clipboard.writeText(json);
@@ -4065,76 +4130,293 @@ function getCSS() {
   }
 
   // ════════════════════════════════════════════════════════════════════════════
-  // القطع الشائعة (⭐) — تُحفظ محليًا وتظهر في تبويب الصفحة الثالثة
+  // ⭐ القطع الشائعة — خدمة كاملة:
+  //   كود + اسم + كود عطل + عائلة + ضمان افتراضي + كمية + سعر + تعليق + عدد استخدام
+  //   المخزن: chrome.storage.local → fav_parts_v2 (نسخة احتياطية في localStorage)
+  //   ترحيل تلقائي مرة واحدة من v1 (elaraby_fav_parts) — v1 خريطة بلا عائلة/سعر/تعليق
   // ════════════════════════════════════════════════════════════════════════════
-  const FAV_PARTS_KEY = 'elaraby_fav_parts';
+  const FAV_PARTS_KEY = 'elaraby_fav_parts';        // v1 قديم — للترحيل فقط
+  const FAV_STORE_KEY = 'fav_parts_v2';             // v2 في chrome.storage.local
+  const FAV_LS_KEY = 'elaraby_fav_parts_v2';        // نسخة محلية احتياطية/بديلة
+  const FAV_MIGRATED_KEY = 'elaraby_fav_parts_migrated';
+  const FAV_FAMILIES = ['AC', 'GS', 'GR', 'WM', 'HT', 'DW'];
 
+  let _favStore = null;
+  let _favPromise = null;
+  let _favEditingKey = '';
+  let _favDeleteArmed = null;
+  let _favResetArmed = 0;
+
+  function favStorageAvailable() {
+    try { return !!(typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local); }
+    catch (_) { return false; }
+  }
+
+  function favMigrated() {
+    try { return localStorage.getItem(FAV_MIGRATED_KEY) === '1'; } catch (_) { return false; }
+  }
+
+  // توحيد شكل القطعة: أرقام منطقية + عائلة معروفة + ضمان محصور في in/out
+  function favNormalizeItem(raw) {
+    if (!raw || typeof raw !== 'object') return null;
+    const key = String(raw.key || raw.productId || raw.code || raw.name || '').trim();
+    if (!key) return null;
+    const fam = String(raw.family || '').toUpperCase();
+    return {
+      key,
+      code: String(raw.code || '').trim(),
+      name: String(raw.name || '').trim(),
+      fullName: String(raw.fullName || ''),
+      productId: String(raw.productId || ''),
+      family: FAV_FAMILIES.includes(fam) ? fam : '',
+      majorCode: String(raw.majorCode || '').toUpperCase(),
+      subCode: String(raw.subCode || '').toUpperCase(),
+      warranty: raw.warranty === 'out' ? 'out' : (raw.warranty === 'in' ? 'in' : ''),
+      qty: Math.max(1, Math.min(99, Number(raw.qty) || 1)),
+      price: Math.max(0, Number(raw.price) || 0),
+      comment: String(raw.comment || '').slice(0, 500),
+      count: Math.max(0, Number(raw.count) || 0),
+      at: Number(raw.at) || Date.now(),
+      updatedAt: raw.updatedAt || new Date().toISOString()
+    };
+  }
+
+  // توحيد المخزن: {version:2, items:[]} مع إزالة التكرار بالمعرّف
+  function favNormalizeStore(raw) {
+    const src = Array.isArray(raw) ? raw : (raw && Array.isArray(raw.items) ? raw.items : []);
+    const out = { version: 2, items: [] };
+    const seen = new Set();
+    src.forEach(r => {
+      const it = favNormalizeItem(r);
+      if (it && !seen.has(it.key)) { seen.add(it.key); out.items.push(it); }
+    });
+    return out;
+  }
+
+  function favMapFrom(store) {
+    const map = {};
+    (store && Array.isArray(store.items) ? store.items : []).forEach(it => { map[it.key] = it; });
+    return map;
+  }
+
+  // الخريطة المتزامنة (كل الواجهة الحالية تقرأها بلا await)
   function loadFavParts() {
-    const v = safeParseJSON(localStorage.getItem(FAV_PARTS_KEY), {});
-    return (v && typeof v === 'object' && !Array.isArray(v)) ? v : {};
+    if (_favStore) return favMapFrom(_favStore);
+    // قبل اكتمال التحميل: نسخة v2 المحلية ثم v1 (حتى لا تظهر الواجهة فاضية)
+    const cached = safeParseJSON(localStorage.getItem(FAV_LS_KEY), null);
+    if (cached && Array.isArray(cached.items) && cached.items.length) {
+      return favMapFrom(favNormalizeStore(cached));
+    }
+    const legacy = safeParseJSON(localStorage.getItem(FAV_PARTS_KEY), null);
+    if (legacy && typeof legacy === 'object' && !Array.isArray(legacy)) {
+      const items = Object.keys(legacy)
+        .map(k => favNormalizeItem({ ...(legacy[k] || {}), key: k }))
+        .filter(Boolean);
+      return favMapFrom({ items });
+    }
+    return {};
   }
-  function saveFavParts(map) {
-    try { localStorage.setItem(FAV_PARTS_KEY, JSON.stringify(map)); } catch(_) {}
+
+  async function favStorageRead() {
+    if (favStorageAvailable()) {
+      try {
+        const got = await chrome.storage.local.get({ [FAV_STORE_KEY]: null });
+        const v = got ? got[FAV_STORE_KEY] : null;
+        // مخزن chrome فاضي (تثبيت جديد/مسح) ⇒ نستخدم النسخة المحلية إن وُجدت
+        if (v && Array.isArray(v.items) && v.items.length) return v;
+      } catch (e) {
+        logEvent('FAV', 'تعذّر قراءة ⭐ من chrome.storage: ' + (e.message || e));
+      }
+    }
+    return safeParseJSON(localStorage.getItem(FAV_LS_KEY), null);
   }
+
+  async function favStorageWrite(store) {
+    if (favStorageAvailable()) {
+      await chrome.storage.local.set({ [FAV_STORE_KEY]: store });
+    }
+    try {
+      localStorage.setItem(FAV_LS_KEY, JSON.stringify(store));
+      localStorage.setItem(FAV_MIGRATED_KEY, '1');
+    } catch (_) {}
+  }
+
+  async function loadFavStore(force) {
+    if (_favStore && !force) return _favStore;
+    if (_favPromise && !force) return _favPromise;
+    _favPromise = (async () => {
+      let store = favNormalizeStore(await favStorageRead());
+      if (!store.items.length && !favMigrated()) {
+        const legacy = safeParseJSON(localStorage.getItem(FAV_PARTS_KEY), null);
+        if (legacy && typeof legacy === 'object' && !Array.isArray(legacy)) {
+          const items = Object.keys(legacy)
+            .map(k => favNormalizeItem({ ...(legacy[k] || {}), key: k }))
+            .filter(Boolean);
+          if (items.length) {
+            store = favNormalizeStore({ items });
+            try {
+              await favStorageWrite(store);
+              try { localStorage.removeItem(FAV_PARTS_KEY); } catch (_) {}
+              logEvent('FAV', `ترحيل ⭐ من v1 إلى v2: ${items.length} قطعة`);
+            } catch (e) {
+              logEvent('FAV', 'تعذّر ترحيل ⭐ v1: ' + (e.message || e));
+            }
+          }
+        }
+      }
+      _favStore = store;
+      return _favStore;
+    })();
+    try { return await _favPromise; } finally { _favPromise = null; }
+  }
+
+  async function saveFavStore(store) {
+    _favStore = favNormalizeStore(store);
+    try { await favStorageWrite(_favStore); }
+    catch (e) { logEvent('FAV', 'تعذّر حفظ ⭐: ' + (e.message || e)); }
+    // إعادة الرسم مؤجّلة خارج دورة الحدث (نفس أسلوب مخزن الأعطال)
+    if (typeof PANEL_SHADOW !== 'undefined' && PANEL_SHADOW) {
+      const sh = PANEL_SHADOW;
+      setTimeout(() => {
+        try { renderFavParts(sh); } catch (_) {}
+        try { renderFavEditor(sh); } catch (_) {}
+      }, 0);
+    }
+    return _favStore;
+  }
+
   function favKeyOf(p) {
     return String((p && (p.productId || p.code || p.name)) || '').trim();
   }
-  function isFavPart(p) {
-    const k = favKeyOf(p);
-    return !!(k && loadFavParts()[k]);
+
+  // مطابقة موحّدة: نفس المعرّف أو نفس الكود (يمنع تكرار نفس القطعة
+  // حين تُضاف يدويًا بكود فقط ثم تُعلَّم ★ من لوحة المراجعة بمعرّف منتج)
+  function favFindMatch(items, p) {
+    const key = favKeyOf(p);
+    const code = String((p && p.code) || '').trim().toUpperCase();
+    return (Array.isArray(items) ? items : []).findIndex(it =>
+      it.key === key || (!!code && String(it.code || '').toUpperCase() === code));
   }
-  function toggleFavPart(p) {
-    const k = favKeyOf(p);
-    if (!k) return false;
-    const map = loadFavParts();
-    if (map[k]) { delete map[k]; saveFavParts(map); return false; }
-    map[k] = {
-      code: p.code || '', name: p.name || '', productId: p.productId || '',
-      count: 0, warranty: p.warranty || '',
-      majorCode: p.majorCode || '', subCode: p.subCode || '', at: Date.now()
-    };
-    saveFavParts(map);
+
+  function favFindItem(p) {
+    const items = _favStore ? _favStore.items : Object.values(loadFavParts());
+    const idx = favFindMatch(items, p);
+    return idx >= 0 ? items[idx] : null;
+  }
+
+  function isFavPart(p) {
+    const key = favKeyOf(p);
+    return !!(key && favFindItem(p));
+  }
+
+  function favFamilyFor(p) {
+    if (p && p.family) return String(p.family).toUpperCase();
+    try { return defectFamilyOf(readDeviceHint()) || ''; } catch (_) { return ''; }
+  }
+
+  function favItemFromPart(p) {
+    const key = favKeyOf(p);
+    if (!key) return null;
+    return favNormalizeItem({
+      key,
+      code: p.code || '', name: p.name || '', fullName: p.fullName || '',
+      productId: p.productId || '', family: favFamilyFor(p),
+      majorCode: p.majorCode || '', subCode: p.subCode || '',
+      warranty: p.warranty || '', qty: p.qty || 1, price: p.price || 0,
+      comment: p.comment || '', count: p.count || 0, at: p.at || Date.now(),
+      updatedAt: new Date().toISOString()
+    });
+  }
+
+  async function toggleFavPart(p) {
+    const key = favKeyOf(p);
+    if (!key) return false;
+    const store = await loadFavStore();
+    const idx = favFindMatch(store.items, p);
+    if (idx >= 0) {
+      store.items.splice(idx, 1);
+      await saveFavStore(store);
+      return false;
+    }
+    const item = favItemFromPart(p);
+    if (!item) return false;
+    store.items.push(item);
+    await saveFavStore(store);
     return true;
   }
-  function bumpFavUsage(p) {
-    const k = favKeyOf(p);
-    if (!k) return;
-    const map = loadFavParts();
-    if (!map[k]) return;
-    map[k].count = (map[k].count || 0) + 1;
-    if (p.warranty) map[k].warranty = p.warranty;
-    if (p.majorCode) map[k].majorCode = p.majorCode;
-    if (p.subCode) map[k].subCode = p.subCode;
-    saveFavParts(map);
+
+  async function bumpFavUsage(p) {
+    const key = favKeyOf(p);
+    if (!key) return;
+    const store = await loadFavStore();
+    const it = store.items.find(x => x.key === key);
+    if (!it) return;
+    it.count = (Number(it.count) || 0) + 1;
+    if (p.warranty === 'in' || p.warranty === 'out') it.warranty = p.warranty;
+    if (p.majorCode) it.majorCode = String(p.majorCode).toUpperCase();
+    if (p.subCode) it.subCode = String(p.subCode).toUpperCase();
+    it.updatedAt = new Date().toISOString();
+    await saveFavStore(store);
   }
 
   function renderFavParts(shadow) {
-    const sh = shadow || PANEL_SHADOW;
+    const sh = shadow || (typeof PANEL_SHADOW !== 'undefined' ? PANEL_SHADOW : null);
     if (!sh) return;
     const wrap = sh.getElementById('cp-fav-parts-wrap');
     const box = sh.getElementById('cp-fav-parts');
     if (!wrap || !box) return;
+    wrap.style.display = 'block';
     const map = loadFavParts();
+    let devFam = '';
+    try { devFam = defectFamilyOf(readDeviceHint()) || ''; } catch (_) {}
     const list = Object.entries(map)
       .sort((a, b) => ((b[1].count || 0) - (a[1].count || 0)) || ((b[1].at || 0) - (a[1].at || 0)))
       .slice(0, 12);
-    if (!list.length) { wrap.style.display = 'none'; box.innerHTML = ''; return; }
-    wrap.style.display = 'block';
+    if (!list.length) { box.style.display = 'none'; box.innerHTML = ''; return; }
+    box.style.display = 'flex';
     box.innerHTML = '';
     list.forEach(([k, v]) => {
+      const other = !!(v.family && devFam && v.family !== devFam);
       const b = document.createElement('button');
       b.type = 'button';
       b.className = 'cp-fav-chip';
+      b.dataset.favKey = k;
       b.textContent = (v.code || v.name || k) + (v.count ? ` ×${v.count}` : '');
-      b.title = v.name || v.code || k;
-      b.onclick = () => quickAddFavoritePart(sh, k);
+      if (other) {
+        const badge = document.createElement('span');
+        badge.className = 'fav-other';
+        badge.textContent = v.family;
+        b.appendChild(badge);
+      }
+      b.title = [
+        v.name || v.code || k,
+        v.family ? 'عائلة ' + v.family : 'كل العائلات',
+        v.price ? v.price + ' ج.م' : '',
+        v.comment ? '💬 ' + v.comment : '',
+        other ? '⚠️ ليست لعائلة الجهاز الحالي — كليك يمين للتعديل' : 'كليك يمين للتعديل'
+      ].filter(Boolean).join(' • ');
+      b.onclick = () => {
+        quickAddFavoritePart(sh, k).catch(e => logEvent('FAV', 'إضافة سريعة: ' + (e.message || e)));
+      };
+      b.oncontextmenu = (ev) => {
+        try { ev.preventDefault(); ev.stopPropagation(); } catch (_) {}
+        openFavEditor(sh, k).catch(e => logEvent('FAV', 'محرر ⭐: ' + (e.message || e)));
+      };
       box.appendChild(b);
     });
   }
 
   async function quickAddFavoritePart(shadow, key) {
-    const fav = loadFavParts()[key];
-    if (!fav) return;
+    const store = await loadFavStore();
+    const fav = store.items.find(it => it.key === key);
+    if (!fav) { setStatus(shadow, '⚠️ القطعة لم تعد موجودة في ⭐ — أعد فتح اللوحة', 'warn'); return; }
+    let devFam = '';
+    try { devFam = defectFamilyOf(readDeviceHint()) || ''; } catch (_) {}
+    if (fav.family && devFam && fav.family !== devFam) {
+      setStatus(shadow, `⚠️ «${fav.code || fav.name}» لعائلة ${fav.family} والجهاز الحالي ${devFam}`, 'warn');
+      logEvent('FAV', `منع إضافة ${fav.code || fav.name}: عائلة ${fav.family} ≠ ${devFam}`);
+      return;
+    }
     await runExclusive(shadow, `إضافة ${fav.code || fav.name}`, async () => {
       let faultCode = fav.majorCode ? { majorCode: fav.majorCode, defectCode: fav.subCode || '' } : null;
       if (!faultCode) {
@@ -4148,16 +4430,227 @@ function getCSS() {
         setStatus(shadow, '⚠️ اختر كود عطل أولًا (لربط القطعة)', 'warn');
         return;
       }
-      const part = { code: fav.code, name: fav.name, productId: fav.productId, qty: 1, warranty: fav.warranty || '' };
+      const part = {
+        code: fav.code, name: fav.name, fullName: fav.fullName || '',
+        productId: fav.productId, qty: fav.qty || 1, price: fav.price || 0,
+        warranty: fav.warranty || ''
+      };
       const res = await addSparePartPage3(part, faultCode);
       if (res && res.ok) {
-        bumpFavUsage({ ...part, majorCode: faultCode.majorCode, subCode: faultCode.defectCode });
-        setStatus(shadow, `✅ أُضيفت: ${fav.code || fav.name}`, 'success');
+        await bumpFavUsage({ ...part, majorCode: faultCode.majorCode, subCode: faultCode.defectCode });
+        const note = fav.comment ? ` — 💬 ${fav.comment}` : '';
+        setStatus(shadow, `✅ أُضيفت: ${fav.code || fav.name}${note}`, 'success');
       } else {
         setStatus(shadow, `⚠️ ${res?.reason || 'فشل الإضافة'}`, 'warn');
       }
       renderFavParts(shadow);
     });
+  }
+
+  // ── واجهة إدارة ⭐ (تبويب «قطع» داخل المحرر الموحّد) ──────────────────
+  function favMetaText(it) {
+    const out = [];
+    out.push(it.family ? 'عائلة ' + it.family : 'كل العائلات');
+    if (it.warranty === 'in') out.push('داخل الضمان');
+    else if (it.warranty === 'out') out.push('خارج الضمان');
+    if (it.qty > 1) out.push('×' + it.qty);
+    if (it.price) out.push(it.price + ' ج.م');
+    if (it.comment) out.push('💬 ' + it.comment);
+    out.push('استُخدمت ' + (it.count || 0));
+    return out.join(' · ');
+  }
+
+  function renderFavEditor(shadow) {
+    const list = shadow.getElementById('cp-fav-list');
+    if (!list) return;
+    const items = (_favStore && Array.isArray(_favStore.items) ? _favStore.items : []).slice()
+      .sort((a, b) => String(a.family || 'zz').localeCompare(String(b.family || 'zz'))
+        || ((b.count || 0) - (a.count || 0))
+        || ((b.at || 0) - (a.at || 0)));
+    const count = shadow.getElementById('cp-fav-count');
+    if (count) count.textContent = `${items.length} قطعة — الكود + العائلة + الضمان + الكمية + السعر + التعليق`;
+    if (!items.length) {
+      list.innerHTML = '<div class="cp-empty">لا توجد قطع ⭐ بعد — أضف أول قطعة من الأسفل أو من ★ في لوحة المراجعة</div>';
+      return;
+    }
+    list.innerHTML = items.map(it => `<div class="cp-edef-row fav" data-fav-key="${escapeHtml(it.key)}">`
+      + `<span class="cp-edef-name" title="${escapeHtml(it.name || '')}">${escapeHtml(it.code || it.name || it.key)}</span>`
+      + `<span class="cp-edef-meta" title="${escapeHtml(favMetaText(it))}">${escapeHtml(favMetaText(it))}</span>`
+      + `<button type="button" class="cp-defect-mini" data-act="edit" title="تعديل">✏️</button>`
+      + `<button type="button" class="cp-defect-mini cp-defect-del" data-act="del" title="حذف">🗑️</button>`
+      + `</div>`).join('');
+  }
+
+  function fillFavForm(shadow, it) {
+    _favEditingKey = it.key;
+    const set = (id, v) => { const el = shadow.getElementById(id); if (el) el.value = v; };
+    set('cp-fav-code', it.code || '');
+    set('cp-fav-name', it.name || '');
+    set('cp-fav-family', it.family || '');
+    set('cp-fav-warranty', it.warranty || '');
+    set('cp-fav-qty', String(it.qty || 1));
+    set('cp-fav-price', String(it.price || 0));
+    set('cp-fav-comment', it.comment || '');
+    const save = shadow.getElementById('cp-fav-save');
+    if (save) save.textContent = '💾 حفظ القطعة';
+    const cancel = shadow.getElementById('cp-fav-cancel');
+    if (cancel) cancel.style.display = 'block';
+  }
+
+  function clearFavForm(shadow) {
+    _favEditingKey = '';
+    const set = (id, v) => { const el = shadow.getElementById(id); if (el) el.value = v; };
+    set('cp-fav-code', '');
+    set('cp-fav-name', '');
+    set('cp-fav-family', '');
+    set('cp-fav-warranty', '');
+    set('cp-fav-qty', '1');
+    set('cp-fav-price', '0');
+    set('cp-fav-comment', '');
+    const save = shadow.getElementById('cp-fav-save');
+    if (save) save.textContent = '➕ إضافة قطعة';
+    const cancel = shadow.getElementById('cp-fav-cancel');
+    if (cancel) cancel.style.display = 'none';
+  }
+
+  async function openFavEditor(shadow, key) {
+    const btn = shadow.getElementById('cp-defect-edit-btn');
+    const box = shadow.getElementById('cp-defect-editor');
+    if (!box) return;
+    if (box.style.display !== 'block' && btn) { try { btn.click(); } catch (_) {} }
+    if (box.style.display !== 'block') box.style.display = 'block';
+    await loadFavStore();
+    setEditorTab(shadow, 'favorites');
+    renderDefectEditor(shadow);
+    if (key) {
+      const it = (_favStore.items || []).find(x => x.key === key);
+      if (it) fillFavForm(shadow, it);
+    }
+    try { box.scrollIntoView({ block: 'nearest' }); } catch (_) {}
+  }
+
+  async function saveFavEntry(shadow) {
+    const g = (id) => { const el = shadow.getElementById(id); return el ? String(el.value || '').trim() : ''; };
+    const code = g('cp-fav-code');
+    const name = g('cp-fav-name');
+    if (!code && !name) { setStatus(shadow, '⚠️ اكتب كود القطعة أو اسمها على الأقل', 'warn'); return null; }
+    const key = code || name;
+    const store = await loadFavStore();
+    const editingKey = _favEditingKey;
+    const existing = store.items.find(it => it.key === editingKey);
+    const others = store.items.filter(it => it.key !== editingKey);
+    if (favFindMatch(others, { key, code }) >= 0) {
+      setStatus(shadow, `⚠️ «${key}» موجودة بالفعل في ⭐ — عدّلها من القائمة`, 'warn');
+      return null;
+    }
+    const item = favNormalizeItem({
+      key,
+      code, name,
+      fullName: existing ? existing.fullName : '',
+      productId: existing ? existing.productId : '',
+      family: g('cp-fav-family'),
+      warranty: g('cp-fav-warranty'),
+      majorCode: existing ? existing.majorCode : '',
+      subCode: existing ? existing.subCode : '',
+      qty: g('cp-fav-qty'),
+      price: g('cp-fav-price'),
+      comment: g('cp-fav-comment'),
+      count: existing ? existing.count : 0,
+      at: existing ? existing.at : Date.now()
+    });
+    if (!item) { setStatus(shadow, '⚠️ بيانات القطعة غير صالحة', 'warn'); return null; }
+    const rows = store.items.filter(it => it.key !== editingKey && it.key !== item.key);
+    rows.push(item);
+    await saveFavStore({ version: 2, items: rows });
+    clearFavForm(shadow);
+    setStatus(shadow, `✅ ${editingKey ? 'حُدِّثت' : 'أُضيفت'} القطعة ⭐ «${item.code || item.name}»`, 'success');
+    logEvent('FAV', `${editingKey ? 'تعديل' : 'إضافة'} قطعة ⭐: ${item.key}`);
+    return item;
+  }
+
+  async function deleteFavEntry(shadow, key) {
+    const store = await loadFavStore();
+    const rows = store.items.filter(it => it.key !== key);
+    if (rows.length === store.items.length) return;
+    await saveFavStore({ version: 2, items: rows });
+    if (_favEditingKey === key) clearFavForm(shadow);
+    setStatus(shadow, `🗑️ حُذفت القطعة «${key}» من ⭐`, 'success');
+    logEvent('FAV', 'حذف قطعة ⭐: ' + key);
+  }
+
+  async function exportFavoritesJson(shadow) {
+    const store = await loadFavStore();
+    const out = { version: 2, updatedAt: new Date().toISOString(), items: store.items };
+    const json = JSON.stringify(out, null, 2);
+    try {
+      await navigator.clipboard.writeText(json);
+      setStatus(shadow, `📤 نُسخ JSON لـ ${store.items.length} قطعة ⭐`, 'success');
+    } catch (_) {
+      console.log('[PortalHelper] fav_parts_v2.json\n' + json);
+      setStatus(shadow, '📋 تعذّر النسخ — الـ JSON مطبوع في Console', 'warn');
+    }
+    logEvent('FAV', `تصدير ⭐ (${store.items.length} قطعة)`);
+  }
+
+  function bindFavEditor(shadow) {
+    const manage = shadow.getElementById('cp-fav-manage');
+    const list = shadow.getElementById('cp-fav-list');
+    const saveBtn = shadow.getElementById('cp-fav-save');
+    const cancelBtn = shadow.getElementById('cp-fav-cancel');
+    const exportBtn = shadow.getElementById('cp-fav-export');
+    const resetBtn = shadow.getElementById('cp-fav-reset');
+    if (!list || !saveBtn || !cancelBtn) return;
+    if (list.dataset.bound === '1') return;
+    list.dataset.bound = '1';
+
+    if (manage) manage.onclick = () => {
+      openFavEditor(shadow).catch(e => logEvent('FAV', 'فتح محرر ⭐: ' + (e.message || e)));
+    };
+
+    list.onclick = async (e) => {
+      const b = e.target.closest('button[data-act]');
+      const row = b && b.closest('.cp-edef-row');
+      if (!row) return;
+      const key = row.dataset.favKey || '';
+      if (b.dataset.act === 'del') {
+        const armed = _favDeleteArmed && _favDeleteArmed.key === key
+          && (Date.now() - _favDeleteArmed.at < 4000);
+        if (!armed) {
+          _favDeleteArmed = { key, at: Date.now() };
+          b.textContent = '⚠️';
+          setStatus(shadow, '⚠️ اضغط 🗑️ مرة أخرى لحذف القطعة من ⭐', 'warn');
+          setTimeout(() => { try { b.textContent = '🗑️'; } catch (_) {} }, 4000);
+          return;
+        }
+        _favDeleteArmed = null;
+        await deleteFavEntry(shadow, key);
+        return;
+      }
+      const it = (_favStore && _favStore.items ? _favStore.items : []).find(x => x.key === key);
+      if (!it) return;
+      fillFavForm(shadow, it);
+      setStatus(shadow, `✏️ تعديل «${it.code || it.name}» — غيّر ثم احفظ`, 'warn');
+    };
+
+    saveBtn.onclick = () => {
+      saveFavEntry(shadow).catch(e => logEvent('FAV', 'حفظ ⭐: ' + (e.message || e)));
+    };
+    cancelBtn.onclick = () => clearFavForm(shadow);
+    if (exportBtn) exportBtn.onclick = () => {
+      exportFavoritesJson(shadow).catch(e => logEvent('FAV', 'تصدير ⭐: ' + (e.message || e)));
+    };
+    if (resetBtn) resetBtn.onclick = async () => {
+      if (!_favResetArmed || (Date.now() - _favResetArmed > 4000)) {
+        _favResetArmed = Date.now();
+        setStatus(shadow, '⚠️ اضغط «استعادة» مرة أخرى لحذف كل قطع ⭐', 'warn');
+        return;
+      }
+      _favResetArmed = 0;
+      await saveFavStore({ version: 2, items: [] });
+      clearFavForm(shadow);
+      setStatus(shadow, '↩️ حُذفت كل قطع ⭐', 'success');
+      logEvent('FAV', 'استعادة ⭐ (حذف الكل)');
+    };
   }
 
   // ════════════════════════════════════════════════════════════════════════════
@@ -4223,13 +4716,31 @@ function getCSS() {
 
         const star = document.createElement('button');
         star.type = 'button';
-        star.className = 'cp-star' + (isFavPart({ ...it.sparePart }) ? ' on' : '');
+        const favNow = favFindItem(it.sparePart);
+        star.className = 'cp-star' + (favNow ? ' on' : '');
         star.textContent = '★';
-        star.title = 'تمييز كقطعة شائعة';
-        star.onclick = () => {
-          const on = toggleFavPart({ ...it.sparePart, warranty: it.warranty });
-          star.className = 'cp-star' + (on ? ' on' : '');
-          renderFavParts(shadow);
+        star.title = (favNow && favNow.comment)
+          ? `⭐ ${favNow.comment}`
+          : 'تمييز كقطعة شائعة (تُعدَّل من تبويب ⭐ قطع)';
+        star.onclick = async () => {
+          star.disabled = true;
+          try {
+            const linked = it.faultCode || {};
+            const on = await toggleFavPart({
+              ...it.sparePart,
+              qty: it.sparePart.qty || 1,
+              warranty: it.warranty,
+              family: favFamilyFor(it.sparePart),
+              majorCode: linked.majorCode || it.sparePart.majorCode || '',
+              subCode: linked.defectCode || it.sparePart.subCode || ''
+            });
+            star.className = 'cp-star' + (on ? ' on' : '');
+            if (on) setStatus(shadow, '⭐ حُفظت القطعة — عدّلها من تبويب «⭐ قطع»', 'success');
+          } catch (e) {
+            setStatus(shadow, '⚠️ تعذّر حفظ ⭐: ' + (e.message || e), 'warn');
+          } finally {
+            star.disabled = false;
+          }
         };
         ctl.appendChild(star);
 

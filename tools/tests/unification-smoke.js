@@ -1421,6 +1421,223 @@ function load(sandbox, file) {
     }
   }
 
+  console.log('\n-- 37) ⭐ القطع الشائعة: خدمة كاملة (مخزن v2 + ترحيل + تحرير) --');
+  {
+    const cp = read('control-panel.js');
+
+    // (أ) الواجهة: تبويب رابع + نموذج + زر إدارة + كليك يمين للتعديل
+    ok(/data-etab="favorites"/.test(cp) && /id="cp-edef-pane-favorites"/.test(cp),
+      '⭐ الواجهة: تبويب «قطع» ولوح مستقل داخل المحرر الموحّد');
+    ok(/id="cp-fav-list"/.test(cp) && /id="cp-fav-save"/.test(cp) && /id="cp-fav-code"/.test(cp)
+      && /id="cp-fav-family"/.test(cp) && /id="cp-fav-warranty"/.test(cp)
+      && /id="cp-fav-qty"/.test(cp) && /id="cp-fav-price"/.test(cp) && /id="cp-fav-comment"/.test(cp),
+      '⭐ الواجهة: نموذج (كود + اسم + عائلة + ضمان + كمية + سعر + تعليق)');
+    ok(/id="cp-fav-manage"/.test(cp) && /id="cp-fav-export"/.test(cp) && /id="cp-fav-reset"/.test(cp),
+      '⭐ الواجهة: إدارة + تصدير + استعادة');
+    ok(/b\.oncontextmenu = \(ev\) =>/.test(cp) && /openFavEditor\(sh, k\)/.test(cp),
+      '⭐ الواجهة: كليك يمين على الشريحة يفتح تعديلها');
+
+    // (ب) طبقة التطبيع والمخزن (تشغيل حقيقي)
+    const b0 = cp.indexOf("const FAV_PARTS_KEY = 'elaraby_fav_parts';");
+    const b1 = cp.indexOf('function showPartsReview(');
+    ok(b0 > 0 && b1 > b0, '⭐ المخزن: كتلة الخدمة كاملة قبل لوحة المراجعة');
+
+    const makeStore = (opts = {}) => {
+      const lsData = { ...(opts.ls || {}) };
+      const csData = { ...(opts.cs || {}) };
+      const ls = {
+        getItem: (k) => (Object.prototype.hasOwnProperty.call(lsData, k) ? lsData[k] : null),
+        setItem: (k, v) => { lsData[k] = String(v); },
+        removeItem: (k) => { delete lsData[k]; }
+      };
+      const chromeStub = opts.noChrome ? undefined : {
+        storage: { local: {
+          get: async (defaults) => {
+            const out = {};
+            Object.keys(defaults).forEach(k => {
+              out[k] = Object.prototype.hasOwnProperty.call(csData, k) ? csData[k] : defaults[k];
+            });
+            return out;
+          },
+          set: async (obj) => { Object.assign(csData, obj); }
+        } }
+      };
+      const api = new Function(
+        'chrome', 'localStorage', 'safeParseJSON', 'logEvent', 'defectFamilyOf',
+        'readDeviceHint', 'escapeHtml', 'setStatus', 'runExclusive', 'addSparePartPage3', 'navigator',
+        cp.slice(b0, b1) + '\nreturn { favNormalizeItem, favNormalizeStore, favStorageAvailable, loadFavStore,'
+        + ' saveFavStore, loadFavParts, favKeyOf, favItemFromPart, toggleFavPart, bumpFavUsage, isFavPart,'
+        + ' favFindMatch, favFindItem, favMetaText, saveFavEntry, deleteFavEntry, exportFavoritesJson };'
+      )(
+        chromeStub, ls,
+        (raw, def) => { try { return raw ? JSON.parse(raw) : def; } catch (_) { return def; } },
+        () => {}, () => 'AC', () => 'AY-AP12YHE', (s) => String(s == null ? '' : s),
+        (sh, msg) => { (opts.status || []).push(msg); },
+        async (sh, label, fn) => fn(), async () => ({ ok: true }),
+        opts.nav || { clipboard: { writeText: async () => {} } }
+      );
+      return { api, lsData, csData };
+    };
+
+    {
+      const { api } = makeStore();
+      const it = api.favNormalizeItem({ key: 'k1', code: ' ac003 ', family: 'ac', warranty: 'nope', qty: -5, price: '250', comment: 'x'.repeat(600) });
+      ok(it.code === 'ac003' && it.family === 'AC' && it.warranty === '',
+        '⭐ التطبيع: الكود يُقلَّم والعائلة تُكبَّر والضمان غير الصالح يُفرَّغ');
+      ok(it.qty === 1 && it.price === 250 && it.comment.length === 500,
+        '⭐ التطبيع: الكمية ≥ 1 والسعر رقمي والتعليق ≤ 500');
+      ok(api.favNormalizeItem({}) === null && api.favNormalizeItem(null) === null,
+        '⭐ التطبيع: القطعة بلا معرّف تُرفض');
+      const st = api.favNormalizeStore({ items: [{ key: 'a', code: 'A1' }, { key: 'a', code: 'A2' }, { key: 'b' }] });
+      ok(st.version === 2 && st.items.length === 2 && st.items[0].code === 'A1',
+        '⭐ المخزن: إزالة التكرار بالمعرّف مع إبقاء أول ظهور');
+      ok(JSON.stringify(api.favNormalizeStore(null)) === '{"version":2,"items":[]}',
+        '⭐ المخزن: قيمة تالفة ⇒ مخزن فاضي v2');
+    }
+
+    // (ج) الترحيل من v1 ثم عدم إحياء المحذوف
+    {
+      const legacy = {
+        elaraby_fav_parts: JSON.stringify({
+          P1: { code: 'AC003', name: 'موتور مروحة', productId: 'P1', count: 3, warranty: 'out', majorCode: 'ac001', subCode: '0005', at: 111 },
+          AC009: { code: 'AC009', name: 'كباس', count: 1, at: 222 }
+        })
+      };
+      const { api, lsData, csData } = makeStore({ ls: legacy });
+      const store = await api.loadFavStore();
+      ok(store.items.length === 2, '⭐ الترحيل: قطعتا v1 انتقلتا إلى v2');
+      const p1 = store.items.find(x => x.key === 'P1');
+      ok(p1 && p1.count === 3 && p1.warranty === 'out' && p1.majorCode === 'AC001',
+        '⭐ الترحيل: العدّاد/الضمان/كود العطل محفوظة');
+      ok(!!csData.fav_parts_v2 && csData.fav_parts_v2.items.length === 2,
+        '⭐ الترحيل: v2 مكتوب في chrome.storage.local');
+      ok(!Object.prototype.hasOwnProperty.call(lsData, 'elaraby_fav_parts')
+        && lsData.elaraby_fav_parts_migrated === '1',
+        '⭐ الترحيل: v1 يُحذف بعد نجاح الكتابة مع علامة ترحيل');
+
+      await api.saveFavStore({ version: 2, items: [] });
+      lsData.elaraby_fav_parts = legacy.elaraby_fav_parts; // v1 «قديم» ما زال موجودًا
+      const again = await api.loadFavStore(true);
+      ok(again.items.length === 0, '⭐ الترحيل: لا إحياء لقطع حُذفت بعد الترحيل');
+    }
+
+    // (د) بدون chrome.storage ⇒ fallback محلي كامل الوظائف
+    {
+      const { api, lsData } = makeStore({ noChrome: true });
+      ok(api.favStorageAvailable() === false, '⭐ fallback: غياب chrome.storage يُكتشف');
+      const on = await api.toggleFavPart({ code: 'GS001', name: 'شواية', warranty: 'in', price: 120, qty: 2 });
+      ok(on === true, '⭐ fallback: الإضافة تعمل بلا chrome.storage');
+      ok(!!lsData.elaraby_fav_parts_v2 && api.favKeyOf({ code: 'GS001' }) === 'GS001',
+        '⭐ fallback: الحفظ في localStorage v2');
+      ok(api.isFavPart({ code: 'GS001' }) === true, '⭐ fallback: isFavPart يقرأ الذاكرة');
+      const off = await api.toggleFavPart({ code: 'GS001' });
+      ok(off === false && Object.keys(api.loadFavParts()).length === 0,
+        '⭐ fallback: التبديل الثاني يحذف القطعة');
+    }
+
+    // (د٢) chrome.storage موجود لكنه فاضي (تثبيت جديد) ⇒ النسخة المحلية v2
+    {
+      const { api } = makeStore({
+        ls: {
+          elaraby_fav_parts_v2: JSON.stringify({
+            version: 2, items: [{ key: 'L1', code: 'WM001', name: 'حوض', family: 'WM' }]
+          })
+        }
+      });
+      const store = await api.loadFavStore();
+      ok(store.items.length === 1 && store.items[0].family === 'WM',
+        '⭐ الاستعادة: مخزن chrome الفاضي لا يُخفي النسخة المحلية v2');
+    }
+
+    // (هـ) الاستخدام + التعديل + الحذف + التصدير
+    {
+      const status = [];
+      const nav = { clipboard: { writeText: async (t) => { nav.text = t; } } };
+      const { api, csData } = makeStore({ nav, status });
+
+      const on = await api.toggleFavPart({
+        code: 'AC003', name: 'موتور', productId: 'prod-1',
+        warranty: 'out', price: 250, qty: 2, majorCode: 'ac001', subCode: '0005'
+      });
+      const item = api.loadFavParts()['prod-1'];
+      ok(on === true && item && item.price === 250 && item.qty === 2
+        && item.family === 'AC' && item.warranty === 'out',
+        '⭐ الخدمة: ★ يخزّن العائلة + السعر + الكمية + الضمان + كود العطل');
+      ok(item.count === 0 && api.isFavPart({ productId: 'prod-1' }) === true,
+        '⭐ الخدمة: القطعة تبدأ بعدّاد صفر وتُعرف بمعرّف المنتج');
+
+      await api.bumpFavUsage({ productId: 'prod-1', warranty: 'in', majorCode: 'ac002', subCode: '0007' });
+      const bumped = api.loadFavParts()['prod-1'];
+      ok(bumped.count === 1 && bumped.warranty === 'in'
+        && bumped.majorCode === 'AC002' && bumped.subCode === '0007',
+        '⭐ الخدمة: الاستخدام يزيد العدّاد ويحدّث الضمان/كود العطل');
+
+      const vals = {
+        'cp-fav-code': { value: 'AC010' }, 'cp-fav-name': { value: 'ريلاي' },
+        'cp-fav-family': { value: 'AC' }, 'cp-fav-warranty': { value: 'in' },
+        'cp-fav-qty': { value: '3' }, 'cp-fav-price': { value: '75' },
+        'cp-fav-comment': { value: 'يُطلب غالبًا' },
+        'cp-fav-save': { textContent: '' }, 'cp-fav-cancel': { style: {} }
+      };
+      const shadow = { getElementById: (id) => vals[id] || null };
+      const saved = await api.saveFavEntry(shadow);
+      ok(saved && saved.code === 'AC010' && saved.qty === 3 && saved.price === 75
+        && saved.comment === 'يُطلب غالبًا',
+        '⭐ التحرير: إضافة من النموذج تحفظ كل الحقول');
+      const clash = await api.saveFavEntry(shadow);
+      ok(clash === null, '⭐ التحرير: كود مكرر يُرفض بلا كتابة');
+
+      ok(api.favFindMatch(Object.values(api.loadFavParts()), { productId: 'prod-x', code: 'AC010' }) >= 0
+        && api.favFindItem({ code: 'ac010' }) !== null,
+        '⭐ المطابقة: نفس الكود بمعرّف مختلف لا يُنشئ قطعة مكررة');
+      const offDup = await api.toggleFavPart({ productId: 'prod-x', code: 'AC010' });
+      ok(offDup === false && !api.favFindItem({ code: 'AC010' }),
+        '⭐ المطابقة: ★ الثاني يحذف القطعة نفسها لا نسخة أخرى');
+
+      vals['cp-fav-code'].value = 'AC010';
+      vals['cp-fav-name'].value = 'ريلاي';
+      vals['cp-fav-qty'].value = '3';
+      vals['cp-fav-price'].value = '75';
+      vals['cp-fav-comment'].value = 'يُطلب غالبًا';
+      await api.saveFavEntry(shadow);
+      ok(!!api.loadFavParts()['AC010'], '⭐ التحرير: إعادة الإضافة بعد الحذف تعمل');
+
+      const meta = api.favMetaText(saved);
+      ok(/عائلة AC/.test(meta) && /داخل الضمان/.test(meta) && /×3/.test(meta)
+        && /75 ج\.م/.test(meta) && /يُطلب غالبًا/.test(meta) && /استُخدمت 0/.test(meta),
+        '⭐ العرض: سطر الوصف يجمع العائلة + الضمان + الكمية + السعر + التعليق + الاستخدام');
+
+      await api.exportFavoritesJson(shadow);
+      const exported = JSON.parse(nav.text);
+      ok(exported.version === 2 && exported.items.some(x => x.code === 'AC010')
+        && exported.items.some(x => x.code === 'AC003'),
+        '⭐ التصدير: JSON v2 يشمل كل القطع');
+
+      await api.deleteFavEntry(shadow, 'AC010');
+      ok(!api.loadFavParts()['AC010'] && Object.keys(api.loadFavParts()).length === 1,
+        '⭐ الحذف: القطعة تُزال من المخزن');
+      ok(!!csData.fav_parts_v2, '⭐ الحفظ: chrome.storage.local هو المصدر');
+    }
+
+    // (و) الحمايات المرتبطة باللوحة
+    {
+      ok(/fav\.family && devFam && fav\.family !== devFam/.test(cp),
+        '⭐ الحماية: منع إضافة قطعة عائلة أخرى لجهاز مختلف');
+      ok(/async function toggleFavPart/.test(cp) && /const on = await toggleFavPart\(/.test(cp)
+        && /family: favFamilyFor\(it\.sparePart\)/.test(cp),
+        '⭐ لوحة المراجعة: ★ يحفظ العائلة/الضمان/السعر ويتعامل مع الحفظ غير المتزامن');
+      ok(/majorCode: linked\.majorCode \|\| it\.sparePart\.majorCode/.test(cp),
+        '⭐ لوحة المراجعة: ★ يربط القطعة بكود العطل المختار في الصف');
+      ok(/out\.favorites = \(_favStore/.test(cp),
+        '⭐ التصدير الموحّد: كتالوج الخدمات يشمل قطع ⭐');
+      ok(/loadFavStore\(\)[\s\S]{0,160}renderFavParts\(shadow\)/.test(cp),
+        '⭐ الإقلاع: تحميل المخزن ثم إعادة رسم الشرائح');
+      ok(/const FAV_STORE_KEY = 'fav_parts_v2'/.test(cp)
+        && !/saveFavParts\(/.test(cp),
+        '⭐ المخزن: مفتاح v2 واحد ولا كتابة مباشرة في v1');
+    }
+  }
+
   console.log('\n=== RESULT: ' + pass + ' passed, ' + fail + ' failed ===');
   if (fail > 0) {
     console.log('Failures:');
