@@ -92,13 +92,12 @@
   let customerAreaCache = new Map();
   let customerIdCache = new Map();
 
-  async function fetchCustomerId(incidentId, signal) {
+  async function fetchCustomerId(incidentId) {
     if (customerIdCache.has(incidentId)) return customerIdCache.get(incidentId);
     try {
       const controller = new AbortController();
       const timeout = setTimeout(() => controller.abort(), 8000);
-      const finalSignal = signal ? AbortSignal.any([signal, controller.signal]) : controller.signal;
-      const resp = await fetch('/_api/incidents(' + incidentId + ')?$select=_customerid_value,ldv_mobilenumber,ldv_referencecontact', { signal: finalSignal });
+      const resp = await fetch('/_api/incidents(' + incidentId + ')?$select=_customerid_value,ldv_mobilenumber,ldv_referencecontact', { signal: controller.signal });
       clearTimeout(timeout);
       const data = await resp.json();
       const id = data._customerid_value || null;
@@ -116,13 +115,12 @@
     }
   }
 
-  async function fetchArea(customerId, signal) {
+  async function fetchArea(customerId) {
     if (customerAreaCache.has(customerId)) return customerAreaCache.get(customerId);
     try {
       const controller = new AbortController();
       const timeout = setTimeout(() => controller.abort(), 8000);
-      const finalSignal = signal ? AbortSignal.any([signal, controller.signal]) : controller.signal;
-      const resp = await fetch('/_api/accounts(' + customerId + ')?$select=accountid,_ldv_area_value', { signal: finalSignal });
+      const resp = await fetch('/_api/accounts(' + customerId + ')?$select=accountid,_ldv_area_value', { signal: controller.signal });
       clearTimeout(timeout);
       const data = await resp.json();
       const area = data['_ldv_area_value@OData.Community.Display.V1.FormattedValue'] || '';
@@ -310,8 +308,7 @@
         break;
       }
       const batch = uniqueIds.slice(i, i + BATCH);
-      const signal = new AbortSignal(); // for batch-level abort if needed
-      const results = await Promise.allSettled(batch.map(id => fetchCustomerId(id, signal)));
+      const results = await Promise.allSettled(batch.map(id => fetchCustomerId(id)));
       results.forEach((r, idx) => {
         const orderId = batch[idx];
         if (r.status === 'fulfilled' && r.value) {
@@ -329,8 +326,7 @@
       if (stopRequested) break;
       if (Date.now() - phaseStart > MAX_PHASE_MS) break;
       const batch = custArray.slice(i, i + BATCH);
-      const signal = new AbortSignal();
-      await Promise.allSettled(batch.map(id => fetchArea(id, signal)));
+      await Promise.allSettled(batch.map(id => fetchArea(id)));
       // Progress: area fetch
       setStatus(`⏳ جاري سحب بيانات المناطق... ${custArray.length} عميل (${Math.min(i + BATCH, custArray.length)}/${custArray.length})`, 'warn');
     }
