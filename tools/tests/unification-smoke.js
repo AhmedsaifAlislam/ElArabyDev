@@ -1290,6 +1290,137 @@ function load(sandbox, file) {
     ok(!/setStatus\(shadow, `.✅ .*الإجمالي المعتمد/.test(src), 'لا نجاح كاذب بعد فشل الكتابة');
   }
 
+  console.log('\n-- 36) المحرر الموحّد: تبويبات + دمج تعديلات المستخدم --');
+  {
+    const cat = JSON.parse(read('defect-catalog.json'));
+    const cp = read('control-panel.js');
+
+    // (أ) الواجهة: تبويبات ونماذج التحرير
+    ok(/id="cp-edef-tabs"/.test(cp) && /data-etab="codes"/.test(cp)
+      && /data-etab="shortcuts"/.test(cp) && /data-etab="notes"/.test(cp),
+      'المحرر: تبويبات أكواد / شورت كت / ملاحظات');
+    ok(/id="cp-edef-pane-codes"/.test(cp) && /id="cp-edef-pane-shortcuts"/.test(cp)
+      && /id="cp-edef-pane-notes"/.test(cp),
+      'المحرر: ثلاثة ألواح منفصلة');
+    ok(/<option value="\*">/.test(cp), 'المحرر: نطاق «مشترك لكل العائلات» في قائمة العائلات');
+    ok(/id="cp-sc-list"/.test(cp) && /id="cp-sc-save"/.test(cp) && /id="cp-sc-codes"/.test(cp)
+      && /id="cp-sc-notes"/.test(cp) && /id="cp-sc-note-text"/.test(cp),
+      'المحرر: نموذج الشورت كت (أكواد + ملاحظات + تعليق + مبلغ)');
+    ok(/id="cp-nt-list"/.test(cp) && /id="cp-nt-save"/.test(cp) && /id="cp-nt-text"/.test(cp),
+      'المحرر: نموذج الملاحظات');
+
+    // (ب) المخزن الموحّد: ترقية آمنة للأكواد/الملاحظات/الشورت كت
+    {
+      const n0 = cp.indexOf('function normalizeDefectUser(');
+      const n1 = cp.indexOf('async function saveDefectUser(');
+      ok(n0 > 0 && n1 > n0, 'المخزن: normalizeDefectUser موجودة');
+      const norm = new Function(cp.slice(n0, n1) + '; return normalizeDefectUser;')();
+      const z = norm({ codes: [{ major: 'AC001' }] });
+      ok(z.version === 2 && Array.isArray(z.notes) && Array.isArray(z.shortcuts) && z.codes.length === 1,
+        'المخزن: ترقية v1 → v2 تُضيف notes/shortcuts بلا فقدان الأكواد');
+      const z2 = norm(null || { codes: 'x' });
+      ok(Array.isArray(z2.codes) && z2.codes.length === 0, 'المخزن: قيم تالفة تُستبدل بمصفوفات فاضية');
+    }
+
+    // (ج) الدمج فوق الكتالوج الرسمي
+    const s0 = cp.indexOf('function familyServices(');
+    const s1 = cp.indexOf('function renderDefectEditor(');
+    ok(s0 > 0 && s1 > s0, 'الدمج: كتلة الخدمات موجودة قبل المحرر');
+    const mk = (user) => new Function('_defectCatalog', '_defectUser',
+      cp.slice(s0, s1) + '\nreturn { familyServices, shortcutCodes, visibleShortcuts, mergedNotesFor, mergedShortcutsFor, mergedSharedShortcuts, catalogOverrides };'
+    )(cat, user);
+
+    const base = mk(null);
+    ok(base.familyServices('AC').notes.length === 6 && base.familyServices('AC').shortcuts.length === 4,
+      'الدمج: بلا تعديلات ⇒ الكتالوج الرسمي كما هو');
+
+    const withNotes = mk({
+      version: 2, codes: [],
+      notes: [
+        { family: 'AC', id: 'ac-note-3', text: 'نص معدَّل' },
+        { family: 'AC', id: 'un1', text: 'ملاحظة جديدة' },
+        { family: 'AC', id: 'ac-note-1', removed: true }
+      ],
+      shortcuts: []
+    });
+    const acNotes = withNotes.familyServices('AC').notes;
+    ok(acNotes.length === 6 && acNotes.find(n => n.id === 'ac-note-3').text === 'نص معدَّل',
+      'الدمج: تعديل ملاحظة رسمية يستبدل نصها بلا تكرار');
+    ok(!!acNotes.find(n => n.id === 'un1') && !acNotes.find(n => n.id === 'ac-note-1'),
+      'الدمج: إضافة ملاحظة جديدة وحذف رسمية');
+    ok(withNotes.catalogOverrides('notes', 'AC').length === 3
+      && withNotes.catalogOverrides('notes', 'GS').length === 0,
+      'الدمج: التعديلات لا تتسرّب بين العائلات');
+
+    const withShortcuts = mk({
+      version: 2, codes: [], notes: [],
+      shortcuts: [
+        { family: 'AC', id: 'u-test', name: 'زر تجريبي', icon: '🧪', codes: ['ac001', 'AC001'], noteIds: ['ac-note-1'], noteText: '', codeFrom: '', amount: '150' },
+        { family: '*', id: 'shared-test', name: 'زر مشترك', icon: '🌐', codeFrom: 'noFaultCode', amount: 0 }
+      ]
+    });
+    const acS = withShortcuts.familyServices('AC');
+    const uTest = acS.shortcuts.find(s => s.id === 'u-test');
+    ok(acS.shortcuts.length === 5 && uTest && uTest.amount === 150 && uTest.codes.length === 1,
+      'الدمج: زر جديد يُضاف ويُطبَّع (سعر رقمي + أكواد بلا تكرار)');
+    ok(uTest._scope === 'family' && uTest._src === 'user', 'الدمج: الزر الجديد معلَّم كتعديل مستخدم');
+    ok(JSON.stringify(withShortcuts.shortcutCodes(uTest, acS)) === '["AC001"]',
+      'الدمج: أكواد الزر الجديد تُقرأ في التنفيذ');
+    const sharedNew = withShortcuts.visibleShortcuts('AC').list.find(s => s.id === 'shared-test');
+    ok(sharedNew && sharedNew._scope === 'shared'
+      && JSON.stringify(withShortcuts.shortcutCodes(sharedNew, acS)) === '["AC005"]',
+      'الدمج: زر مشترك جديد يظهر لكل عائلة ويُحلّ إلى كود «لا يوجد عطل»');
+
+    const removedShared = mk({
+      version: 2, codes: [], notes: [],
+      shortcuts: [{ family: '*', id: 'unavailable', removed: true }]
+    });
+    ok(removedShared.visibleShortcuts('GS').list.length === 0,
+      'الدمج: حذف زر مشترك رسمي يخفيه عن كل العائلات');
+
+    // (د) الحذف بتأكيد مزدوج + تصدير كامل
+    ok(/_scDeleteArmed/.test(cp) && /_ntDeleteArmed/.test(cp)
+      && /async function deleteShortcutDef/.test(cp) && /async function deleteNoteDef/.test(cp),
+      'الحذف: تأكيد مزدوج لأزرار الشورت كت والملاحظات');
+    ok(/out\.sharedShortcuts = mergedSharedShortcuts\(\)/.test(cp)
+      && /notes: mergedNotesFor\(f\)/.test(cp) && /shortcuts: mergedShortcutsFor\(f\)/.test(cp),
+      'التصدير: JSON واحد يشمل الأكواد + الملاحظات + الشورت كت + المشترك');
+    ok(/الملاحظات لكل عائلة — اختر عائلة محددة/.test(cp),
+      'الحماية: لا ملاحظات في النطاق المشترك');
+    ok(/notes: \[\], shortcuts: \[\]/.test(cp) || /codes: \[\], notes: \[\], shortcuts: \[\]/.test(cp),
+      'الاستعادة: تُلغي كل تعديلات المستخدم معًا');
+
+    // (هـ) الحذف الفعلي: الرسمي ⇒ «removed»، وتعديل المستخدم ⇒ إزالة نهائية
+    {
+      const d0 = cp.indexOf('async function deleteShortcutDef(');
+      const d1 = cp.indexOf('function bindDefectEditor(shadow) {');
+      ok(d0 > 0 && d1 > d0, 'الحذف: كتلة deleteShortcutDef/deleteNoteDef موجودة');
+      let saved = null;
+      const api = new Function('loadDefectUser', 'saveDefectUser', 'setStatus', 'logEvent', '_defectCatalog',
+        cp.slice(d0, d1) + '\nreturn { deleteShortcutDef, deleteNoteDef };')(
+        async () => ({ version: 2, codes: [], notes: [], shortcuts: [] }),
+        async (d) => { saved = d; },
+        () => {}, () => {}, cat
+      );
+      try {
+        await api.deleteShortcutDef({}, 'AC', 'pm');
+        const row1 = (saved.shortcuts || []).find(x => x.id === 'pm');
+        ok(row1 && row1.removed === true && row1.family === 'AC', 'الحذف: زر رسمي ⇒ تعديل «removed»');
+
+        saved = null;
+        await api.deleteShortcutDef({}, 'AC', 'u-self');
+        ok((saved.shortcuts || []).length === 0, 'الحذف: زر مستخدم ⇒ إزالة نهائية بلا «removed»');
+
+        saved = null;
+        await api.deleteNoteDef({}, 'AC', 'ac-note-2');
+        const row2 = (saved.notes || []).find(x => x.id === 'ac-note-2');
+        ok(row2 && row2.removed === true, 'الحذف: ملاحظة رسمية ⇒ تعديل «removed»');
+      } catch (e) {
+        ok(false, 'الحذف: خطأ غير متوقع — ' + (e.message || e));
+      }
+    }
+  }
+
   console.log('\n=== RESULT: ' + pass + ' passed, ' + fail + ' failed ===');
   if (fail > 0) {
     console.log('Failures:');

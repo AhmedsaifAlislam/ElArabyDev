@@ -2,7 +2,7 @@
 // control-panel.js — لوحة التحكم الذكية v1.0
 // بصمة الإصدار: تُطبع في الـ log وتظهر بجانب عنوان اللوحة، للتأكد أن المتصفح
 // حمّل أحدث نسخة من الإضافة (Reload من edge://extensions مطلوب بعد أي نشر).
-const PANEL_BUILD = '2026-10-21.30';
+const PANEL_BUILD = '2026-10-21.31';
 // Floating panel with auto-detecting page tabs
 // =========================================================
 (function () {
@@ -390,6 +390,23 @@ function getCSS() {
 .cp-defect-mini{background:#1e293b;border:1px solid #334155;color:#e2e8f0;border-radius:3px;padding:0 4px;font-size:10px;cursor:pointer;line-height:16px}
 .cp-defect-mini:hover{background:#334155}
 .cp-defect-del:hover{background:#7f1d1d;border-color:#dc2626}
+.cp-edef-tabs{display:flex;gap:3px;margin-bottom:6px}
+.cp-edef-tab{flex:1;padding:4px 2px;border:1px solid #2a3050;border-radius:5px;background:#0d1528;color:#8fa7c9;font-size:10px;font-weight:700;cursor:pointer;transition:all .12s}
+.cp-edef-tab:hover{background:#1a2744;color:#e2eaf5}
+.cp-edef-tab.on{background:#1a2744;border-color:#2563eb;color:#e2eaf5}
+.cp-edef-pane{display:block}
+.cp-edef-count{font-size:9px;color:#64748b;margin-bottom:4px}
+.cp-edef-list{max-height:170px;overflow:auto;margin-bottom:6px}
+.cp-edef-picks{max-height:96px;overflow:auto;background:#0b1220;border:1px solid #1e293b;border-radius:4px;padding:3px 5px;margin-bottom:4px}
+.cp-edef-picks label{display:flex;align-items:flex-start;gap:4px;font-size:10px;color:#cbd5e1;padding:1px 0;cursor:pointer;line-height:1.35}
+.cp-edef-picks input{margin-top:1px;flex-shrink:0;width:12px;height:12px;cursor:pointer;accent-color:#2563eb}
+.cp-edef-row{display:flex;align-items:center;gap:4px;background:#0b1220;border:1px solid #1e293b;border-radius:4px;padding:3px 5px;margin-bottom:3px;font-size:10px}
+.cp-edef-row.user{border-color:#a16207}
+.cp-edef-row .cp-edef-name{font-weight:700;color:#93c5fd;white-space:nowrap;max-width:46%;overflow:hidden;text-overflow:ellipsis}
+.cp-edef-row.user .cp-edef-name{color:#fbbf24}
+.cp-edef-row .cp-edef-meta{flex:1;color:#7c8ba6;font-size:9px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.cp-edef-row .cp-edef-text{flex:1;color:#cbd5e1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.cp-edef-row .cp-edef-id{color:#475569;font-size:8px;white-space:nowrap;direction:ltr}
 .cp-note-item{background:#0f1a2e;padding:3px 6px;border-radius:5px;margin-bottom:1px;cursor:grab;font-size:10px;line-height:1.4;border:1px solid transparent;transition:all .12s;display:flex;align-items:flex-start;gap:4px;user-select:none}
 .cp-note-item:hover{background:#162a45;border-color:#2a4a6a}
 .cp-note-item:active{cursor:grabbing}
@@ -534,8 +551,13 @@ function getCSS() {
     </div>
     <label class="cp-label">أكواد إضافية (اختيار متعدد):</label>
     <div class="cp-codes" id="cp-codes-list"></div>
-    <button class="cp-btn cp-btn-inject" id="cp-defect-edit-btn" type="button" style="margin:6px 0">✏️ إدارة أكواد الأعطال (إضافة/تعديل/حذف)</button>
+    <button class="cp-btn cp-btn-inject" id="cp-defect-edit-btn" type="button" style="margin:6px 0">🛠 محرر الخدمات (أكواد / شورت كت / ملاحظات)</button>
     <div id="cp-defect-editor" style="display:none;background:#0f172a;border:1px solid #334155;border-radius:6px;padding:6px;margin-bottom:8px">
+      <div class="cp-edef-tabs" id="cp-edef-tabs">
+        <button type="button" class="cp-edef-tab on" data-etab="codes">🔤 أكواد</button>
+        <button type="button" class="cp-edef-tab" data-etab="shortcuts">⚡ شورت كت</button>
+        <button type="button" class="cp-edef-tab" data-etab="notes">📝 ملاحظات</button>
+      </div>
       <div style="display:flex;gap:4px;align-items:center;margin-bottom:5px">
         <select id="cp-defect-family" class="cp-select" style="flex:1;margin:0">
           <option value="AC">تكييف (AC)</option>
@@ -544,22 +566,68 @@ function getCSS() {
           <option value="WM">غسالات (WM)</option>
           <option value="HT">سخانات (HT)</option>
           <option value="DW">غسالات أطباق (DW)</option>
+          <option value="*">⭐ مشترك (كل العائلات)</option>
         </select>
-        <button class="cp-btn cp-btn-inject" id="cp-defect-export" type="button" style="flex:1;margin:0;font-size:10px">📤 نسخ JSON</button>
-        <button class="cp-btn" id="cp-defect-reset" type="button" style="flex:0 0 78px;margin:0;font-size:10px;background:#334466">↩️ استعادة</button>
+        <button class="cp-btn cp-btn-inject" id="cp-defect-export" type="button" style="flex:0 0 70px;margin:0;font-size:10px">📤 JSON</button>
+        <button class="cp-btn" id="cp-defect-reset" type="button" style="flex:0 0 62px;margin:0;font-size:10px;background:#334466">↩️ استعادة</button>
       </div>
-      <div id="cp-defect-count" style="font-size:9px;color:#64748b;margin-bottom:4px"></div>
-      <div id="cp-defect-list" style="max-height:170px;overflow:auto;margin-bottom:6px"></div>
-      <div class="cp-notes-title" style="margin:4px 0">➕ إضافة / تعديل كود</div>
-      <div style="display:flex;gap:4px;margin-bottom:4px">
-        <input id="cp-defect-major" class="cp-amount" placeholder="AC001" style="flex:1;margin:0;font-size:10px;text-transform:uppercase">
-        <input id="cp-defect-sub" class="cp-amount" placeholder="0005" style="flex:1;margin:0;font-size:10px;text-transform:uppercase">
+      <div id="cp-edef-hint" class="cp-empty" style="display:none">اختر عائلة محددة — الأكواد والملاحظات لكل عائلة على حدة</div>
+
+      <div id="cp-edef-pane-codes" class="cp-edef-pane">
+        <div id="cp-defect-count" class="cp-edef-count"></div>
+        <div id="cp-defect-list" class="cp-edef-list"></div>
+        <div class="cp-notes-title" style="margin:4px 0">➕ إضافة / تعديل كود</div>
+        <div style="display:flex;gap:4px;margin-bottom:4px">
+          <input id="cp-defect-major" class="cp-amount" placeholder="AC001" style="flex:1;margin:0;font-size:10px;text-transform:uppercase">
+          <input id="cp-defect-sub" class="cp-amount" placeholder="0005" style="flex:1;margin:0;font-size:10px;text-transform:uppercase">
+        </div>
+        <input id="cp-defect-full" class="cp-amount" placeholder="الكود الكامل (اختياري)" style="width:100%;box-sizing:border-box;margin:0 0 4px;font-size:10px;text-transform:uppercase">
+        <input id="cp-defect-desc" class="cp-amount" placeholder="الوصف" style="width:100%;box-sizing:border-box;margin:0 0 4px;font-size:10px">
+        <div style="display:flex;gap:4px">
+          <button class="cp-btn cp-btn-exec" id="cp-defect-save" type="button" style="flex:1">➕ إضافة</button>
+          <button class="cp-btn" id="cp-defect-cancel-edit" type="button" style="flex:0 0 80px;background:#334466;display:none">✕ إلغاء</button>
+        </div>
       </div>
-      <input id="cp-defect-full" class="cp-amount" placeholder="الكود الكامل (اختياري)" style="width:100%;box-sizing:border-box;margin:0 0 4px;font-size:10px;text-transform:uppercase">
-      <input id="cp-defect-desc" class="cp-amount" placeholder="الوصف" style="width:100%;box-sizing:border-box;margin:0 0 4px;font-size:10px">
-      <div style="display:flex;gap:4px">
-        <button class="cp-btn cp-btn-exec" id="cp-defect-save" type="button" style="flex:1">➕ إضافة</button>
-        <button class="cp-btn" id="cp-defect-cancel-edit" type="button" style="flex:0 0 80px;background:#334466;display:none">✕ إلغاء</button>
+
+      <div id="cp-edef-pane-shortcuts" class="cp-edef-pane" style="display:none">
+        <div id="cp-sc-count" class="cp-edef-count"></div>
+        <div id="cp-sc-list" class="cp-edef-list"></div>
+        <div class="cp-notes-title" style="margin:4px 0">➕ إضافة / تعديل زر</div>
+        <div style="display:flex;gap:4px;margin-bottom:4px">
+          <input id="cp-sc-icon" class="cp-amount" value="⚡" maxlength="2" title="الأيقونة" style="flex:0 0 42px;margin:0;font-size:12px;text-align:center;direction:ltr">
+          <input id="cp-sc-name" class="cp-amount" placeholder="اسم الزر" style="flex:1;margin:0;font-size:10px">
+        </div>
+        <div style="display:flex;gap:4px;margin-bottom:4px">
+          <select id="cp-sc-codefrom" class="cp-select" style="flex:1;margin:0;font-size:10px">
+            <option value="">أكواد محددة</option>
+            <option value="noFaultCode">كود «لا يوجد عطل» للعائلة</option>
+          </select>
+          <input id="cp-sc-amount" class="cp-amount" type="number" min="0" step="1" value="0" title="المبلغ المحصل" style="flex:0 0 66px;margin:0;font-size:10px">
+        </div>
+        <div id="cp-sc-codes-wrap">
+          <div class="cp-label" style="margin:2px 0">أكواد الزر:</div>
+          <div id="cp-sc-codes" class="cp-edef-picks"></div>
+        </div>
+        <div id="cp-sc-notes-wrap">
+          <div class="cp-label" style="margin:2px 0">ملاحظات الزر (جمل التقرير):</div>
+          <div id="cp-sc-notes" class="cp-edef-picks"></div>
+        </div>
+        <input id="cp-sc-note-text" class="cp-amount" placeholder="تعليق مباشر في خانة الملاحظات (اختياري)" style="width:100%;box-sizing:border-box;margin:0 0 4px;font-size:10px">
+        <div style="display:flex;gap:4px">
+          <button class="cp-btn cp-btn-exec" id="cp-sc-save" type="button" style="flex:1">➕ إضافة زر</button>
+          <button class="cp-btn" id="cp-sc-cancel" type="button" style="flex:0 0 80px;background:#334466;display:none">✕ إلغاء</button>
+        </div>
+      </div>
+
+      <div id="cp-edef-pane-notes" class="cp-edef-pane" style="display:none">
+        <div id="cp-nt-count" class="cp-edef-count"></div>
+        <div id="cp-nt-list" class="cp-edef-list"></div>
+        <div class="cp-notes-title" style="margin:4px 0">➕ إضافة / تعديل ملاحظة</div>
+        <textarea id="cp-nt-text" class="cp-amount" rows="2" maxlength="2000" placeholder="نص الملاحظة (حتى 2000 حرف)…" style="width:100%;box-sizing:border-box;margin:0 0 4px;font-size:10px;resize:vertical;direction:rtl;text-align:right"></textarea>
+        <div style="display:flex;gap:4px">
+          <button class="cp-btn cp-btn-exec" id="cp-nt-save" type="button" style="flex:1">➕ إضافة ملاحظة</button>
+          <button class="cp-btn" id="cp-nt-cancel" type="button" style="flex:0 0 80px;background:#334466;display:none">✕ إلغاء</button>
+        </div>
       </div>
     </div>
     <!-- Manual JSON input (replaces window.prompt) -->
@@ -1675,13 +1743,13 @@ function getCSS() {
     if (_defectUserPromise && !force) return _defectUserPromise;
     _defectUserPromise = (async () => {
       try {
-        const got = await chrome.storage.local.get({ [LS_DEFECT_USER]: { version: 1, codes: [] } });
+        const got = await chrome.storage.local.get({ [LS_DEFECT_USER]: { version: 2, codes: [], notes: [], shortcuts: [] } });
         const v = got && got[LS_DEFECT_USER];
-        _defectUser = (v && typeof v === 'object') ? v : { version: 1, codes: [] };
-        if (!Array.isArray(_defectUser.codes)) _defectUser.codes = [];
+        _defectUser = (v && typeof v === 'object') ? v : { version: 2 };
+        normalizeDefectUser(_defectUser);
       } catch (e) {
-        _defectUser = { version: 1, codes: [] };
-        logEvent('CODES', 'تعذّر قراءة تعديلات الأعطال: ' + (e.message || e));
+        _defectUser = { version: 2, codes: [], notes: [], shortcuts: [] };
+        logEvent('CODES', 'تعذّر قراءة تعديلات الكتالوج: ' + (e.message || e));
       }
       return _defectUser;
     })();
@@ -1689,12 +1757,20 @@ function getCSS() {
     finally { _defectUserPromise = null; }
   }
 
+  // توحيد شكل مخزن التعديلات: أكواد + ملاحظات + شورت كت (ترقيات آمنة)
+  function normalizeDefectUser(obj) {
+    const out = (obj && typeof obj === 'object') ? obj : {};
+    ['codes', 'notes', 'shortcuts'].forEach(k => {
+      if (!Array.isArray(out[k])) out[k] = [];
+    });
+    out.version = 2;
+    return out;
+  }
+
   async function saveDefectUser(data) {
-    _defectUser = (data && typeof data === 'object') ? data : { version: 1, codes: [] };
-    _defectUser.version = 1;
-    if (!Array.isArray(_defectUser.codes)) _defectUser.codes = [];
+    _defectUser = normalizeDefectUser((data && typeof data === 'object') ? data : null);
     try { await chrome.storage.local.set({ [LS_DEFECT_USER]: _defectUser }); }
-    catch (e) { logEvent('CODES', 'تعذّر حفظ تعديلات الأعطال: ' + (e.message || e)); }
+    catch (e) { logEvent('CODES', 'تعذّر حفظ تعديلات الكتالوج: ' + (e.message || e)); }
     // إعادة الرسم مؤجّلة (خارج دورة حدث الحفظ) حتى لا تتعارض مع الكتابة في الحقول
     if (PANEL_SHADOW) {
       const sh = PANEL_SHADOW;
@@ -1742,16 +1818,100 @@ function getCSS() {
   function familyServices(family) {
     const fam = String(family || '').toUpperCase();
     const entry = (_defectCatalog && _defectCatalog.families && _defectCatalog.families[fam]) || null;
-    const shared = (_defectCatalog && Array.isArray(_defectCatalog.sharedShortcuts))
+    return {
+      shortcuts: mergedShortcutsFor(fam),
+      notes: mergedNotesFor(fam),
+      noFaultCode: entry ? String(entry.noFaultCode || '').toUpperCase() : '',
+      shared: mergedSharedShortcuts()
+    };
+  }
+
+  // ── دمج تعديلات المستخدم فوق الكتالوج الرسمي ─────────────────────────
+  // الأكواد/الملاحظات/الشورت كت كلها في نفس المخزن _defectUser، والمفتاح
+  // family='*' يعني «مشترك لكل العائلات» (للشورت كت فقط).
+  // ملاحظة: typeof guard مقصود — اختبارات smoke تُقيّم هذه الكتلة وحدها.
+  function catalogOverrides(kind, family) {
+    const fam = String(family || '').toUpperCase();
+    if (typeof _defectUser === 'undefined' || !_defectUser) return [];
+    const arr = _defectUser[kind];
+    if (!Array.isArray(arr)) return [];
+    return arr.filter(x => x && String(x.family || '').toUpperCase() === fam);
+  }
+
+  function normalizeShortcutDef(raw, scope) {
+    const s = (raw && typeof raw === 'object') ? raw : {};
+    const codes = Array.isArray(s.codes)
+      ? Array.from(new Set(s.codes.map(c => String(c || '').toUpperCase().trim()).filter(Boolean)))
+      : [];
+    const noteIds = Array.isArray(s.noteIds)
+      ? Array.from(new Set(s.noteIds.map(x => String(x || '').trim()).filter(Boolean)))
+      : [];
+    const amount = Number(s.amount);
+    return {
+      id: String(s.id || '').trim(),
+      name: String(s.name || '').trim(),
+      icon: String(s.icon || '⚡'),
+      codes,
+      noteIds,
+      noteText: String(s.noteText || '').trim(),
+      codeFrom: s.codeFrom === 'noFaultCode' ? 'noFaultCode' : '',
+      amount: Number.isFinite(amount) ? amount : 0,
+      _scope: scope,
+      _src: s._src === 'user' ? 'user' : 'bundled'
+    };
+  }
+
+  function mergeShortcutList(base, overrides, scope) {
+    const map = new Map();
+    (Array.isArray(base) ? base : []).forEach(s => {
+      if (!s || !s.id) return;
+      map.set(String(s.id), normalizeShortcutDef(s, scope));
+    });
+    (Array.isArray(overrides) ? overrides : []).forEach(o => {
+      if (!o || !o.id) return;
+      const id = String(o.id).trim();
+      if (o.removed) { map.delete(id); return; }
+      const def = normalizeShortcutDef(o, scope);
+      def._src = 'user';
+      if (!def.name) def.name = id;
+      map.set(id, def);
+    });
+    return Array.from(map.values());
+  }
+
+  function mergedNotesFor(family) {
+    const fam = String(family || '').toUpperCase();
+    const entry = _defectCatalog && _defectCatalog.families && _defectCatalog.families[fam];
+    const map = new Map();
+    if (entry && Array.isArray(entry.notes)) {
+      entry.notes.forEach(n => {
+        if (!n || !n.id || !String(n.text || '').trim()) return;
+        map.set(String(n.id), { id: String(n.id), text: String(n.text), _src: 'bundled' });
+      });
+    }
+    catalogOverrides('notes', fam).forEach(o => {
+      if (!o || !o.id) return;
+      const id = String(o.id);
+      if (o.removed) { map.delete(id); return; }
+      const text = String(o.text || '').trim();
+      if (!text) return;
+      map.set(id, { id, text, _src: 'user' });
+    });
+    return Array.from(map.values());
+  }
+
+  function mergedShortcutsFor(family) {
+    const fam = String(family || '').toUpperCase();
+    const entry = _defectCatalog && _defectCatalog.families && _defectCatalog.families[fam];
+    const base = (entry && Array.isArray(entry.shortcuts)) ? entry.shortcuts.filter(s => s && s.id) : [];
+    return mergeShortcutList(base, catalogOverrides('shortcuts', fam), 'family');
+  }
+
+  function mergedSharedShortcuts() {
+    const base = (_defectCatalog && Array.isArray(_defectCatalog.sharedShortcuts))
       ? _defectCatalog.sharedShortcuts.filter(s => s && s.id)
       : [];
-    if (!entry) return { shortcuts: [], notes: [], noFaultCode: '', shared };
-    return {
-      shortcuts: Array.isArray(entry.shortcuts) ? entry.shortcuts.filter(s => s && s.id) : [],
-      notes: Array.isArray(entry.notes) ? entry.notes.filter(n => n && n.id && n.text) : [],
-      noFaultCode: String(entry.noFaultCode || '').toUpperCase(),
-      shared
-    };
+    return mergeShortcutList(base, catalogOverrides('shortcuts', '*'), 'shared');
   }
 
   // أكواد الشورت كت الفعلية — codeFrom:'noFaultCode' يُحلّ إلى كود العائلة
@@ -1785,12 +1945,66 @@ function getCSS() {
     return { services, list };
   }
 
+  // ════════════════════════════════════════════════════════════════════
+  // محرر الخدمات الموحّد — تبويبات: أكواد / شورت كت / ملاحظات
+  // كل التعديلات تُحفظ في chrome.storage.local فوق الكتالوج الرسمي،
+  // ويمكن تصديرها JSON للنشر الدائم في defect-catalog.json.
+  // ════════════════════════════════════════════════════════════════════
+  let _editorTab = 'codes';
+  let _scEditingId = '';
+  let _ntEditingId = '';
+  let _scDeleteArmed = null;
+  let _ntDeleteArmed = null;
+
+  function editorFamily(shadow) {
+    const sel = shadow.getElementById('cp-defect-family');
+    return (sel && sel.value) ? sel.value : 'AC';
+  }
+
+  function setEditorTab(shadow, tab) {
+    _editorTab = (tab === 'shortcuts' || tab === 'notes') ? tab : 'codes';
+    shadow.querySelectorAll('.cp-edef-tab').forEach(b => {
+      b.classList.toggle('on', b.dataset.etab === _editorTab);
+    });
+  }
+
+  function clipText(text, max) {
+    const s = String(text || '');
+    return s.length > max ? s.slice(0, Math.max(0, max - 1)) + '…' : s;
+  }
+
+  function shortcutMetaText(def) {
+    const out = [];
+    if (def.codes && def.codes.length) out.push(`${def.codes.length} كود`);
+    if (def.codeFrom === 'noFaultCode') out.push('كود لا يوجد عطل');
+    if (def.noteIds && def.noteIds.length) out.push(`${def.noteIds.length} ملاحظة`);
+    if (def.noteText) out.push('تعليق');
+    if (def.amount) out.push(`${def.amount} ج.م`);
+    return out.join(' · ') || '—';
+  }
+
   function renderDefectEditor(shadow) {
     const box = shadow.getElementById('cp-defect-editor');
+    if (!box) return;
+    setEditorTab(shadow, _editorTab);
+    const fam = editorFamily(shadow);
+    const sharedScope = fam === '*';
+    const showHint = sharedScope && _editorTab !== 'shortcuts';
+    const hint = shadow.getElementById('cp-edef-hint');
+    if (hint) hint.style.display = showHint ? 'block' : 'none';
+    ['codes', 'shortcuts', 'notes'].forEach(t => {
+      const pane = shadow.getElementById('cp-edef-pane-' + t);
+      if (pane) pane.style.display = (!showHint && t === _editorTab) ? 'block' : 'none';
+    });
+    if (showHint) return;
+    if (_editorTab === 'shortcuts') renderShortcutEditor(shadow, fam);
+    else if (_editorTab === 'notes') renderNoteEditor(shadow, fam);
+    else renderCodeEditor(shadow, fam);
+  }
+
+  function renderCodeEditor(shadow, fam) {
     const list = shadow.getElementById('cp-defect-list');
-    if (!box || !list) return;
-    const famSel = shadow.getElementById('cp-defect-family');
-    const fam = (famSel && famSel.value) ? famSel.value : 'AC';
+    if (!list) return;
     const codes = mergedDefectCodes(fam);
     const count = shadow.getElementById('cp-defect-count');
     if (count) count.textContent = `${codes.length} كود — العائلة ${fam}`;
@@ -1811,6 +2025,75 @@ function getCSS() {
     }).join('');
   }
 
+  function renderShortcutEditor(shadow, fam) {
+    const list = shadow.getElementById('cp-sc-list');
+    if (!list) return;
+    const shared = fam === '*';
+    const items = shared ? mergedSharedShortcuts() : mergedShortcutsFor(fam);
+    const count = shadow.getElementById('cp-sc-count');
+    if (count) count.textContent = `${items.length} زر — ${shared ? 'مشترك لكل العائلات' : 'العائلة ' + fam}`;
+
+    // النطاق المشترك: الأكواد والملاحظات تُحلّ من عائلة الجهاز وقت التشغيل
+    const codesWrap = shadow.getElementById('cp-sc-codes-wrap');
+    if (codesWrap) codesWrap.style.display = shared ? 'none' : 'block';
+    const notesWrap = shadow.getElementById('cp-sc-notes-wrap');
+    if (notesWrap) notesWrap.style.display = shared ? 'none' : 'block';
+
+    list.innerHTML = items.length
+      ? items.map(s => {
+        const cls = 'cp-edef-row' + (s._src === 'user' ? ' user' : '');
+        return `<div class="${cls}" data-id="${escapeHtml(s.id)}">`
+          + `<span class="cp-edef-name" title="${escapeHtml(s.id)}">${escapeHtml(s.icon || '⚡')} ${escapeHtml(s.name || s.id)}</span>`
+          + `<span class="cp-edef-meta">${escapeHtml(shortcutMetaText(s))}</span>`
+          + `<button type="button" class="cp-defect-mini" data-act="edit" title="تعديل">✏️</button>`
+          + `<button type="button" class="cp-defect-mini cp-defect-del" data-act="del" title="حذف">🗑️</button>`
+          + `</div>`;
+      }).join('')
+      : `<div class="cp-empty">لا توجد أزرار ${shared ? 'مشتركة' : 'لهذه العائلة'} — أضف أول زر من الأسفل</div>`;
+
+    const codesBox = shadow.getElementById('cp-sc-codes');
+    if (codesBox) {
+      const seen = new Set();
+      const codes = shared ? [] : mergedDefectCodes(fam).filter(c => {
+        const key = String(c.major || '').toUpperCase();
+        if (!key || seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      });
+      codesBox.innerHTML = codes.length
+        ? codes.map(c => `<label><input type="checkbox" class="sc-code-cb" value="${escapeHtml(c.major)}"> <span>${escapeHtml(c.major)} — ${escapeHtml(c.desc || '')}</span></label>`).join('')
+        : '<div class="cp-empty">لا توجد أكواد لهذه العائلة بعد — أضفها من تبويب «أكواد»</div>';
+    }
+
+    const notesBox = shadow.getElementById('cp-sc-notes');
+    if (notesBox) {
+      const notes = shared ? [] : mergedNotesFor(fam);
+      notesBox.innerHTML = notes.length
+        ? notes.map(n => `<label><input type="checkbox" class="sc-note-cb" data-note-id="${escapeHtml(n.id)}"> <span>${escapeHtml(clipText(n.text, 80))}</span></label>`).join('')
+        : '<div class="cp-empty">لا توجد ملاحظات لهذه العائلة بعد — أضفها من تبويب «ملاحظات»</div>';
+    }
+  }
+
+  function renderNoteEditor(shadow, fam) {
+    const list = shadow.getElementById('cp-nt-list');
+    if (!list) return;
+    const notes = mergedNotesFor(fam);
+    const count = shadow.getElementById('cp-nt-count');
+    if (count) count.textContent = `${notes.length} ملاحظة — العائلة ${fam}`;
+    if (!notes.length) {
+      list.innerHTML = '<div class="cp-empty">لا توجد ملاحظات لهذه العائلة — أضف أول ملاحظة من الأسفل</div>';
+      return;
+    }
+    list.innerHTML = notes.map(n => {
+      const cls = 'cp-edef-row' + (n._src === 'user' ? ' user' : '');
+      return `<div class="${cls}" data-id="${escapeHtml(n.id)}">`
+        + `<span class="cp-edef-text" title="${escapeHtml(n.text)}">${escapeHtml(n.text)}</span>`
+        + `<button type="button" class="cp-defect-mini" data-act="edit" title="تعديل">✏️</button>`
+        + `<button type="button" class="cp-defect-mini cp-defect-del" data-act="del" title="حذف">🗑️</button>`
+        + `</div>`;
+    }).join('');
+  }
+
   async function deleteDefectCode(shadow, family, major, sub) {
     const user = await loadDefectUser();
     const key = defectKey(family, major, sub);
@@ -1819,9 +2102,35 @@ function getCSS() {
     if (isBundled) {
       codes.push({ family, major, sub: sub || '', removed: true, updatedAt: new Date().toISOString() });
     }
-    await saveDefectUser({ ...user, version: 1, codes });
+    await saveDefectUser({ ...user, version: 2, codes });
     setStatus(shadow, `🗑️ حُذف ${major}${sub ? '/' + sub : ''}`, 'success');
     logEvent('CODES', `حذف كود عطل: ${family} ${major}/${sub}${isBundled ? ' (تجاوز الرسمي)' : ''}`);
+  }
+
+  async function deleteShortcutDef(shadow, family, id) {
+    const fam = String(family || '*').toUpperCase();
+    const user = await loadDefectUser();
+    const bundled = fam === '*'
+      ? ((_defectCatalog && Array.isArray(_defectCatalog.sharedShortcuts)) ? _defectCatalog.sharedShortcuts : [])
+      : (((_defectCatalog && _defectCatalog.families && _defectCatalog.families[fam]) || {}).shortcuts || []);
+    const isBundled = (Array.isArray(bundled) ? bundled : []).some(s => s && String(s.id) === String(id));
+    const rows = (user.shortcuts || []).filter(x => !(String(x.family || '').toUpperCase() === fam && String(x.id || '') === String(id)));
+    if (isBundled) rows.push({ family: fam, id: String(id), removed: true, updatedAt: new Date().toISOString() });
+    await saveDefectUser({ ...user, shortcuts: rows });
+    setStatus(shadow, `🗑️ حُذف الزر «${id}»${isBundled ? ' (تجاوز الرسمي)' : ''}`, 'success');
+    logEvent('CODES', `حذف زر شورت كت: ${fam} ${id}${isBundled ? ' (تجاوز الرسمي)' : ''}`);
+  }
+
+  async function deleteNoteDef(shadow, family, id) {
+    const fam = String(family || '').toUpperCase();
+    const user = await loadDefectUser();
+    const entry = _defectCatalog && _defectCatalog.families && _defectCatalog.families[fam];
+    const isBundled = !!(entry && Array.isArray(entry.notes) && entry.notes.some(n => n && String(n.id) === String(id)));
+    const rows = (user.notes || []).filter(x => !(String(x.family || '').toUpperCase() === fam && String(x.id || '') === String(id)));
+    if (isBundled) rows.push({ family: fam, id: String(id), removed: true, updatedAt: new Date().toISOString() });
+    await saveDefectUser({ ...user, notes: rows });
+    setStatus(shadow, `🗑️ حُذفت الملاحظة${isBundled ? ' (تجاوز الرسمي)' : ''}`, 'success');
+    logEvent('CODES', `حذف ملاحظة: ${fam} ${id}${isBundled ? ' (تجاوز الرسمي)' : ''}`);
   }
 
   function bindDefectEditor(shadow) {
@@ -1845,29 +2154,75 @@ function getCSS() {
       box.addEventListener(type, ev => { try { ev.stopPropagation(); } catch (_) {} });
     });
 
-    const clearForm = () => {
+    const setVal = (id, v) => { const el = shadow.getElementById(id); if (el) el.value = v; };
+    const render = () => {
+      try { renderDefectEditor(shadow); } catch (e) { logEvent('CODES', 'renderDefectEditor: ' + (e.message || e)); }
+    };
+
+    // ── تفريغ النماذج الثلاثة ──────────────────────────────────────────
+    const clearCodeForm = () => {
       _defectEditingKey = '';
       majorIn.value = ''; subIn.value = ''; fullIn.value = ''; descIn.value = '';
       saveBtn.textContent = '➕ إضافة';
       cancelBtn.style.display = 'none';
     };
 
+    const clearShortcutForm = () => {
+      _scEditingId = '';
+      setVal('cp-sc-name', '');
+      setVal('cp-sc-icon', '⚡');
+      setVal('cp-sc-amount', '0');
+      setVal('cp-sc-note-text', '');
+      setVal('cp-sc-codefrom', '');
+      shadow.querySelectorAll('#cp-sc-codes .sc-code-cb, #cp-sc-notes .sc-note-cb').forEach(cb => { cb.checked = false; });
+      const save = shadow.getElementById('cp-sc-save');
+      if (save) save.textContent = '➕ إضافة زر';
+      const cancel = shadow.getElementById('cp-sc-cancel');
+      if (cancel) cancel.style.display = 'none';
+    };
+
+    const clearNoteForm = () => {
+      _ntEditingId = '';
+      setVal('cp-nt-text', '');
+      const save = shadow.getElementById('cp-nt-save');
+      if (save) save.textContent = '➕ إضافة ملاحظة';
+      const cancel = shadow.getElementById('cp-nt-cancel');
+      if (cancel) cancel.style.display = 'none';
+    };
+
+    // ── فتح/غلق المحرر ─────────────────────────────────────────────────
     btn.onclick = () => {
       if (box.style.display === 'block') { box.style.display = 'none'; return; }
-      // افتح فورًا بما هو متاح، ثم حدّث القائمة بعد اكتمال التحميل (بدون تعليق الواجهة)
+      // افتح فورًا ثم حدّث بعد التحميل
       try { famSel.value = defectFamilyOf(readDeviceHint()) || 'AC'; } catch (_) { famSel.value = 'AC'; }
-      try { clearForm(); } catch (_) {}
+      try { clearCodeForm(); clearShortcutForm(); clearNoteForm(); } catch (_) {}
       try { renderDefectEditor(shadow); } catch (e) { logEvent('CODES', 'renderDefectEditor: ' + (e.message || e)); }
       box.style.display = 'block';
-      logEvent('CODES', 'فتح محرر أكواد الأعطال');
+      logEvent('CODES', 'فتح محرر الخدمات (أكواد/شورت كت/ملاحظات)');
       Promise.all([loadDefectCatalog(), loadDefectUser()])
-        .then(() => { try { renderDefectEditor(shadow); } catch (_) {} })
+        .then(() => { render(); })
         .catch(e => logEvent('CODES', 'تحميل كتالوج الأعطال: ' + (e.message || e)));
     };
 
-    famSel.onchange = () => { clearForm(); renderDefectEditor(shadow); };
-    cancelBtn.onclick = () => clearForm();
+    // ── تبويبات المحرر (أكواد / شورت كت / ملاحظات) ──────────────────────
+    const tabsBox = shadow.getElementById('cp-edef-tabs');
+    if (tabsBox && tabsBox.dataset.bound !== '1') {
+      tabsBox.dataset.bound = '1';
+      tabsBox.addEventListener('click', (e) => {
+        const b = e.target.closest('.cp-edef-tab');
+        if (!b || !b.dataset.etab) return;
+        setEditorTab(shadow, b.dataset.etab);
+        render();
+      });
+    }
 
+    famSel.onchange = () => {
+      clearCodeForm(); clearShortcutForm(); clearNoteForm();
+      render();
+    };
+    cancelBtn.onclick = () => clearCodeForm();
+
+    // ── قائمة الأكواد: تعديل / حذف ──────────────────────────────────────
     list.onclick = async (e) => {
       const b = e.target.closest('button[data-act]');
       const row = b && b.closest('.cp-defect-row');
@@ -1928,45 +2283,209 @@ function getCSS() {
         family, major, sub, full: full || '',
         desc, removed: false, updatedAt: new Date().toISOString()
       });
-      await saveDefectUser({ ...user, version: 1, codes });
-      clearForm();
+      await saveDefectUser({ ...user, codes });
+      clearCodeForm();
       setStatus(shadow, `✅ حُفظ ${major}/${sub}`, 'success');
       logEvent('CODES', `حفظ كود عطل: ${family} ${major}/${sub} — ${desc || 'بلا وصف'}`);
     };
 
+    // ── قائمة الشورت كت: تعديل / حذف ────────────────────────────────────
+    const scList = shadow.getElementById('cp-sc-list');
+    if (scList) scList.onclick = async (e) => {
+      const b = e.target.closest('button[data-act]');
+      const row = b && b.closest('.cp-edef-row');
+      if (!row) return;
+      const fam = editorFamily(shadow);
+      const id = row.dataset.id || '';
+
+      if (b.dataset.act === 'del') {
+        const key = 'sc|' + fam + '|' + id;
+        const armed = _scDeleteArmed && _scDeleteArmed.key === key
+          && (Date.now() - _scDeleteArmed.at < 4000);
+        if (!armed) {
+          _scDeleteArmed = { key, at: Date.now() };
+          b.textContent = '⚠️';
+          setStatus(shadow, `⚠️ اضغط 🗑️ مرة أخرى لحذف الزر «${id}»`, 'warn');
+          setTimeout(() => { try { b.textContent = '🗑️'; } catch (_) {} }, 4000);
+          return;
+        }
+        _scDeleteArmed = null;
+        await deleteShortcutDef(shadow, fam, id);
+        return;
+      }
+
+      const defs = fam === '*' ? mergedSharedShortcuts() : mergedShortcutsFor(fam);
+      const def = defs.find(s => s.id === id);
+      if (!def) return;
+      _scEditingId = id;
+      setVal('cp-sc-name', def.name || '');
+      setVal('cp-sc-icon', def.icon || '⚡');
+      setVal('cp-sc-amount', String(Number(def.amount) || 0));
+      setVal('cp-sc-note-text', def.noteText || '');
+      setVal('cp-sc-codefrom', def.codeFrom || '');
+      shadow.querySelectorAll('#cp-sc-codes .sc-code-cb').forEach(cb => {
+        cb.checked = (def.codes || []).includes(String(cb.value).toUpperCase());
+      });
+      shadow.querySelectorAll('#cp-sc-notes .sc-note-cb').forEach(cb => {
+        cb.checked = (def.noteIds || []).includes(cb.dataset.noteId || '');
+      });
+      const save = shadow.getElementById('cp-sc-save');
+      if (save) save.textContent = '💾 حفظ الزر';
+      const cancel = shadow.getElementById('cp-sc-cancel');
+      if (cancel) cancel.style.display = 'block';
+      setStatus(shadow, `✏️ تعديل الزر «${def.name || id}» — غيّر ثم احفظ`, 'warn');
+    };
+
+    const scSaveBtn = shadow.getElementById('cp-sc-save');
+    if (scSaveBtn) scSaveBtn.onclick = async () => {
+      const fam = editorFamily(shadow);
+      const shared = fam === '*';
+      const name = (shadow.getElementById('cp-sc-name').value || '').trim();
+      if (!name) { setStatus(shadow, '⚠️ اكتب اسم الزر', 'warn'); return; }
+      const icon = (shadow.getElementById('cp-sc-icon').value || '⚡').trim() || '⚡';
+      const amountNum = Number(shadow.getElementById('cp-sc-amount').value || 0);
+      const codeFrom = shared ? 'noFaultCode' : (shadow.getElementById('cp-sc-codefrom').value || '');
+      const codes = shared ? [] : Array.from(shadow.querySelectorAll('#cp-sc-codes .sc-code-cb:checked'))
+        .map(cb => String(cb.value || '').toUpperCase()).filter(Boolean);
+      const noteIds = shared ? [] : Array.from(shadow.querySelectorAll('#cp-sc-notes .sc-note-cb:checked'))
+        .map(cb => cb.dataset.noteId || '').filter(Boolean);
+      const noteText = (shadow.getElementById('cp-sc-note-text').value || '').trim();
+      if (!shared && codeFrom !== 'noFaultCode' && !codes.length && !noteText) {
+        setStatus(shadow, '⚠️ الزر يحتاج كودًا واحدًا على الأقل (أو كود «لا يوجد عطل» أو تعليقًا)', 'warn');
+        return;
+      }
+      if (noteText.length > 2000) { setStatus(shadow, '⚠️ التعليق أطول من 2000 حرف', 'warn'); return; }
+
+      const editing = !!_scEditingId;
+      const user = await loadDefectUser();
+      const id = _scEditingId || ('u' + Date.now().toString(36));
+      const entry = {
+        family: shared ? '*' : fam,
+        scope: shared ? 'shared' : 'family',
+        id, name, icon,
+        codes: Array.from(new Set(codes)),
+        noteIds,
+        noteText,
+        codeFrom,
+        amount: Number.isFinite(amountNum) ? amountNum : 0,
+        removed: false,
+        updatedAt: new Date().toISOString()
+      };
+      const rows = (user.shortcuts || []).filter(x =>
+        !(String(x.family || '').toUpperCase() === entry.family && String(x.id || '') === id));
+      rows.push(entry);
+      await saveDefectUser({ ...user, shortcuts: rows });
+      clearShortcutForm();
+      setStatus(shadow, `✅ ${editing ? 'حُدِّث' : 'أُضيف'} الزر «${name}» (${shared ? 'مشترك' : fam})`, 'success');
+      logEvent('CODES', `${editing ? 'تعديل' : 'إضافة'} زر شورت كت: ${entry.family} ${id} — ${name}`);
+    };
+
+    const scCancelBtn = shadow.getElementById('cp-sc-cancel');
+    if (scCancelBtn) scCancelBtn.onclick = () => clearShortcutForm();
+
+    // ── قائمة الملاحظات: تعديل / حذف ────────────────────────────────────
+    const ntList = shadow.getElementById('cp-nt-list');
+    if (ntList) ntList.onclick = async (e) => {
+      const b = e.target.closest('button[data-act]');
+      const row = b && b.closest('.cp-edef-row');
+      if (!row) return;
+      const fam = editorFamily(shadow);
+      const id = row.dataset.id || '';
+
+      if (b.dataset.act === 'del') {
+        const key = 'nt|' + fam + '|' + id;
+        const armed = _ntDeleteArmed && _ntDeleteArmed.key === key
+          && (Date.now() - _ntDeleteArmed.at < 4000);
+        if (!armed) {
+          _ntDeleteArmed = { key, at: Date.now() };
+          b.textContent = '⚠️';
+          setStatus(shadow, '⚠️ اضغط 🗑️ مرة أخرى لحذف الملاحظة', 'warn');
+          setTimeout(() => { try { b.textContent = '🗑️'; } catch (_) {} }, 4000);
+          return;
+        }
+        _ntDeleteArmed = null;
+        await deleteNoteDef(shadow, fam, id);
+        return;
+      }
+
+      const note = mergedNotesFor(fam).find(n => n.id === id);
+      if (!note) return;
+      _ntEditingId = id;
+      setVal('cp-nt-text', note.text || '');
+      const save = shadow.getElementById('cp-nt-save');
+      if (save) save.textContent = '💾 حفظ الملاحظة';
+      const cancel = shadow.getElementById('cp-nt-cancel');
+      if (cancel) cancel.style.display = 'block';
+      setStatus(shadow, '✏️ تعديل ملاحظة — غيّر ثم احفظ', 'warn');
+    };
+
+    const ntSaveBtn = shadow.getElementById('cp-nt-save');
+    if (ntSaveBtn) ntSaveBtn.onclick = async () => {
+      const fam = editorFamily(shadow);
+      if (fam === '*') { setStatus(shadow, '⚠️ الملاحظات لكل عائلة — اختر عائلة محددة', 'warn'); return; }
+      const text = (shadow.getElementById('cp-nt-text').value || '').trim();
+      if (!text) { setStatus(shadow, '⚠️ اكتب نص الملاحظة', 'warn'); return; }
+      if (text.length > 2000) { setStatus(shadow, '⚠️ الملاحظة أطول من 2000 حرف', 'warn'); return; }
+      const editing = !!_ntEditingId;
+      const user = await loadDefectUser();
+      const id = _ntEditingId || ('un' + Date.now().toString(36));
+      const rows = (user.notes || []).filter(x =>
+        !(String(x.family || '').toUpperCase() === fam && String(x.id || '') === id));
+      rows.push({ family: fam, id, text, removed: false, updatedAt: new Date().toISOString() });
+      await saveDefectUser({ ...user, notes: rows });
+      clearNoteForm();
+      setStatus(shadow, `✅ ${editing ? 'حُدِّثت' : 'أُضيفت'} ملاحظة (${fam})`, 'success');
+      logEvent('CODES', `${editing ? 'تعديل' : 'إضافة'} ملاحظة: ${fam} ${id}`);
+    };
+
+    const ntCancelBtn = shadow.getElementById('cp-nt-cancel');
+    if (ntCancelBtn) ntCancelBtn.onclick = () => clearNoteForm();
+
+    // ── تصدير الكتالوج الكامل (كتالوج + تعديلات) ─────────────────────────
     const exportBtn = shadow.getElementById('cp-defect-export');
     if (exportBtn) exportBtn.onclick = async () => {
       await loadDefectUser();
       const fams = ['AC', 'GS', 'GR', 'WM', 'HT', 'DW'];
-      const out = { version: 1, updatedAt: new Date().toISOString(), families: {} };
+      const shortOut = (s) => ({
+        id: s.id, name: s.name, icon: s.icon,
+        codes: s.codes || [], noteIds: s.noteIds || [],
+        noteText: s.noteText || '',
+        ...(s.codeFrom ? { codeFrom: s.codeFrom } : {}),
+        amount: Number(s.amount) || 0
+      });
+      const out = { version: 2, updatedAt: new Date().toISOString(), families: {}, sharedShortcuts: [] };
       fams.forEach(f => {
-        const label = (_defectCatalog && _defectCatalog.families && _defectCatalog.families[f] && _defectCatalog.families[f].label) || f;
+        const entry = (_defectCatalog && _defectCatalog.families && _defectCatalog.families[f]) || {};
         out.families[f] = {
-          label,
-          codes: mergedDefectCodes(f).map(c => ({ major: c.major, sub: c.sub || '', full: c.full || '', desc: c.desc || '' }))
+          label: entry.label || f,
+          noFaultCode: String(entry.noFaultCode || '').toUpperCase(),
+          codes: mergedDefectCodes(f).map(c => ({ major: c.major, sub: c.sub || '', full: c.full || '', desc: c.desc || '' })),
+          notes: mergedNotesFor(f).map(n => ({ id: n.id, text: n.text })),
+          shortcuts: mergedShortcutsFor(f).map(shortOut)
         };
       });
+      out.sharedShortcuts = mergedSharedShortcuts().map(shortOut);
       const json = JSON.stringify(out, null, 2);
       try {
         await navigator.clipboard.writeText(json);
-        setStatus(shadow, '📤 نُسخ JSON — ألصقه في defect-catalog.json للنشر الدائم', 'success');
+        setStatus(shadow, '📤 نُسخ JSON الكامل — ألصقه في defect-catalog.json للنشر الدائم', 'success');
       } catch (_) {
         console.log('[PortalHelper] defect-catalog.json\n' + json);
         setStatus(shadow, '📋 تعذّر النسخ — الـ JSON مطبوع في Console', 'warn');
       }
-      logEvent('CODES', 'تصدير كتالوج الأعطال');
+      logEvent('CODES', 'تصدير الكتالوج الموحّد (أكواد + ملاحظات + شورت كت)');
     };
 
     const resetBtn = shadow.getElementById('cp-defect-reset');
     if (resetBtn) resetBtn.onclick = async () => {
       if (!_defectResetArmed || (Date.now() - _defectResetArmed > 4000)) {
         _defectResetArmed = Date.now();
-        setStatus(shadow, '⚠️ اضغط «استعادة» مرة أخرى لإلغاء كل تعديلاتك على الكتالوج', 'warn');
+        setStatus(shadow, '⚠️ اضغط «استعادة» مرة أخرى لإلغاء كل تعديلاتك (أكواد + ملاحظات + شورت كت)', 'warn');
         return;
       }
       _defectResetArmed = 0;
-      await saveDefectUser({ version: 1, codes: [] });
-      clearForm();
+      await saveDefectUser({ version: 2, codes: [], notes: [], shortcuts: [] });
+      clearCodeForm(); clearShortcutForm(); clearNoteForm();
       setStatus(shadow, '↩️ استُعيد الكتالوج الرسمي كما هو', 'success');
       logEvent('CODES', 'استعادة كتالوج الأعطال الرسمي');
     };
