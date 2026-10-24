@@ -2,7 +2,7 @@
 // control-panel.js — لوحة التحكم الذكية v1.0
 // بصمة الإصدار: تُطبع في الـ log وتظهر بجانب عنوان اللوحة، للتأكد أن المتصفح
 // حمّل أحدث نسخة من الإضافة (Reload من edge://extensions مطلوب بعد أي نشر).
-const PANEL_BUILD = '2026-10-21.29';
+const PANEL_BUILD = '2026-10-21.30';
 // Floating panel with auto-detecting page tabs
 // =========================================================
 (function () {
@@ -807,15 +807,14 @@ function getCSS() {
     }
 
     if (status === PARTS_STATUS.WAITING) {
-      // سطر واحد آمن: «يحتاج» مرة واحدة + بلوكات + التكلفة المتوقعة في الآخر
+      // سطر واحد آمن: «يحتاج» مرة واحدة + بلوكات + الإجمالي في الآخر
       const sum = list.reduce((s, p) => s + totalOf(p), 0);
       const blocks = list.map(p => {
         const t = totalOf(p);
         return t > 0 ? `[ ${labelOf(p)} ${money(t)} ]` : `[ ${labelOf(p)} ]`;
       }).join(' ');
-      const head = list.length > 1 ? `يحتاج ${list.length} قطعة : ` : 'يحتاج : ';
-      const tail = sum > 0 ? ` // التكلفة المتوقعة [ ${money(sum)} ] ج.م` : '';
-      return { text: head + blocks + tail, action: 'done', reason: 'منتظر — طلب قطع', eligibleTotal: 0 };
+      const tail = sum > 0 ? ` // الإجمالي [ ${money(sum)} ] ج.م` : '';
+      return { text: 'يحتاج : ' + blocks + tail, action: 'done', reason: 'منتظر — طلب قطع', eligibleTotal: 0 };
     }
 
     // مستعمل (وأي حالة أخرى غير معروفة تُعامل كتنفيذ فعلي)

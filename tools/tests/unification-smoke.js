@@ -1224,8 +1224,8 @@ function load(sandbox, file) {
     ok(/\[ X \(Y\) 200 \]/.test(qtyFallback.text), 'إجمالي ناقص: يُحسب price × qty');
 
     const wait = BP({ parts: [{ code: 'AC003', name: 'فريون', price: 250, qty: 1, total: 250 }], partsStatus: S.WAITING, officialTotal: 0, secondaryDescriptions: [] });
-    ok(wait.text === 'يحتاج : [ AC003 (فريون) 250 ] // التكلفة المتوقعة [ 250 ] ج.م' && wait.eligibleTotal === 0,
-      'منتظر: «يحتاج» مرة واحدة + التكلفة المتوقعة في الآخر');
+    ok(wait.text === 'يحتاج : [ AC003 (فريون) 250 ] // الإجمالي [ 250 ] ج.م' && wait.eligibleTotal === 0,
+      'منتظر: «يحتاج» مرة واحدة + الإجمالي في الآخر');
 
     const waitMany = BP({
       parts: [
@@ -1235,9 +1235,10 @@ function load(sandbox, file) {
     });
     ok((waitMany.text.match(/يحتاج/g) || []).length === 1
       && (waitMany.text.match(/بالتكلفة/g) || []).length === 0
-      && /يحتاج 2 قطعة :/.test(waitMany.text)
-      && /التكلفة المتوقعة \[ 460 \] ج\.م$/.test(waitMany.text),
-      'منتظر: لا تكرار «يحتاج/بالتكلفة» + عدد القطع + إجمالي مجمّع');
+      && !/قطعة/.test(waitMany.text)
+      && /^يحتاج : \[/.test(waitMany.text)
+      && / \/\/ الإجمالي \[ 460 \] ج\.م$/.test(waitMany.text),
+      'منتظر: لا تكرار «يحتاج/بالتكلفة» ولا عدد قطع + إجمالي مجمّع');
 
     const wait0 = BP({ parts: [{ code: 'AC003', name: 'فريون', price: 0, qty: 1, total: 0 }], partsStatus: S.WAITING, officialTotal: 0, secondaryDescriptions: [] });
     ok(wait0.text === 'يحتاج : [ AC003 (فريون) ]', 'منتظر بدون سعر: لا «بالتكلفة 0» ولا إجمالي');
