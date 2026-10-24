@@ -56,22 +56,35 @@
   let reportFetchQueue = [];
   let reportFetchResults = [];
 
-  // ── Storage (routed through background.js to bypass Edge Tracking Prevention) ──
+  // ── Storage (direct chrome.storage.local; background fallback kept for compatibility) ──
   async function storageGet(keys) {
     try {
-      const resp = await chrome.runtime.sendMessage({ type: 'STORAGE_GET', keys });
-      return resp?.ok ? resp.data : {};
+      // keys can be string, string[], or object with defaults
+      const keysArr = typeof keys === 'string' ? [keys] : (Array.isArray(keys) ? keys : Object.keys(keys));
+      const defaults = typeof keys === 'object' && keys !== null && !Array.isArray(keys) ? keys : {};
+      const result = await chrome.storage.local.get(keysArr);
+      // Merge defaults for missing keys
+      for (const k of keysArr) {
+        if (!(k in result) && k in defaults) result[k] = defaults[k];
+      }
+      return result;
     } catch (e) {
-      console.warn('[OrderExtractor] Storage GET failed:', e.message);
-      return {};
+      console.warn('[OrderExtractor] Storage GET failed, trying background:', e.message);
+      try {
+        const resp = await chrome.runtime.sendMessage({ type: 'STORAGE_GET', keys });
+        return resp?.ok ? resp.data : {};
+      } catch (_) { return {}; }
     }
   }
 
   async function storageSet(data) {
     try {
-      await chrome.runtime.sendMessage({ type: 'STORAGE_SET', data });
+      await chrome.storage.local.set(data);
     } catch (e) {
-      console.warn('[OrderExtractor] Storage SET failed:', e.message);
+      console.warn('[OrderExtractor] Storage SET failed, trying background:', e.message);
+      try {
+        await chrome.runtime.sendMessage({ type: 'STORAGE_SET', data });
+      } catch (_) {}
     }
   }
 
@@ -79,14 +92,17 @@
   let customerAreaCache = new Map();
   let customerIdCache = new Map();
 
-  async function fetchCustomerId(incidentId) {
+  async function fetchCustomerId(incidentId, signal) {
     if (customerIdCache.has(incidentId)) return customerIdCache.get(incidentId);
     try {
-      const resp = await fetch('/_api/incidents(' + incidentId + ')?$select=_customerid_value,ldv_mobilenumber,ldv_referencecontact');
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 8000);
+      const finalSignal = signal ? AbortSignal.any([signal, controller.signal]) : controller.signal;
+      const resp = await fetch('/_api/incidents(' + incidentId + ')?$select=_customerid_value,ldv_mobilenumber,ldv_referencecontact', { signal: finalSignal });
+      clearTimeout(timeout);
       const data = await resp.json();
       const id = data._customerid_value || null;
       customerIdCache.set(incidentId, id);
-      // أثر جانبي: خزّن الهاتفين من نفس النداء لتفادي نداء إضافي لاحقًا (S4)
       if (!incidentPhoneCache.has(incidentId)) {
         incidentPhoneCache.set(incidentId, {
           mobile: normalizePhone(data.ldv_mobilenumber),
@@ -100,14 +116,16 @@
     }
   }
 
-  async function fetchArea(customerId) {
+  async function fetchArea(customerId, signal) {
     if (customerAreaCache.has(customerId)) return customerAreaCache.get(customerId);
     try {
-      const resp = await fetch('/_api/accounts(' + customerId + ')?$select=accountid,_ldv_area_value');
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 8000);
+      const finalSignal = signal ? AbortSignal.any([signal, controller.signal]) : controller.signal;
+      const resp = await fetch('/_api/accounts(' + customerId + ')?$select=accountid,_ldv_area_value', { signal: finalSignal });
+      clearTimeout(timeout);
       const data = await resp.json();
-      const area = data['_ldv_area_value@OData.Community.Display.V1.FormattedValue']
-        || data['_ldv_centraltelephone_value@OData.Community.Display.V1.FormattedValue']
-        || '';
+      const area = data['_ldv_area_value@OData.Community.Display.V1.FormattedValue'] || '';
       customerAreaCache.set(customerId, area);
       return area;
     } catch (e) {
@@ -246,27 +264,32 @@
     }
   }
 
-  // ── Save new regions to regionTechMap ──
-  async function saveAreasToRegionMap(orders) {
+  // ── Save new regions to regionTechMap (fire-and-forget, 2s timeout) ──
+  function saveAreasToRegionMap(orders) {
     const newAreas = [...new Set(orders.map(o => (o.area || '').trim()).filter(a => a && a !== 'غير محدد'))];
     if (!newAreas.length) return;
-    try {
-      const data = await storageGet({ regionTechMap: {} });
-      const map = data.regionTechMap || {};
-      let added = 0;
-      for (const area of newAreas) {
-        if (!(area in map)) {
-          map[area] = '';
-          added++;
+    // Non-blocking: fire and forget with timeout
+    const promise = (async () => {
+      try {
+        const data = await storageGet({ regionTechMap: {} });
+        const map = data.regionTechMap || {};
+        let added = 0;
+        for (const area of newAreas) {
+          if (!(area in map)) {
+            map[area] = '';
+            added++;
+          }
         }
+        if (added > 0) {
+          await storageSet({ regionTechMap: map });
+          console.log(`[OrderExtractor] Added ${added} new region(s) to regionTechMap`);
+        }
+      } catch (e) {
+        console.warn('[OrderExtractor] saveAreasToRegionMap failed:', e.message);
       }
-      if (added > 0) {
-        await storageSet({ regionTechMap: map });
-        console.log(`[OrderExtractor] Added ${added} new region(s) to regionTechMap`);
-      }
-    } catch (e) {
-      console.warn('[OrderExtractor] saveAreasToRegionMap failed:', e.message);
-    }
+    })();
+    // 2-second timeout guard
+    setTimeout(() => {}, 2000).then(() => promise.catch(() => {}));
   }
 
   async function enrichOrdersWithArea(orders) {
@@ -276,11 +299,19 @@
     const customerIds = new Set();
     const orderCustomerMap = new Map();
     const BATCH = 10;
+    const MAX_PHASE_MS = 45000; // 45-second ceiling for the whole phase
+    const phaseStart = Date.now();
 
-    // Resolve customer IDs in batches
+    // Resolve customer IDs in batches with progress
     for (let i = 0; i < uniqueIds.length; i += BATCH) {
+      if (stopRequested) break;
+      if (Date.now() - phaseStart > MAX_PHASE_MS) {
+        setStatus(`⚠️ سقف زمني (45 ث) — تكملة بالمناطق المتاحة`, 'warn');
+        break;
+      }
       const batch = uniqueIds.slice(i, i + BATCH);
-      const results = await Promise.allSettled(batch.map(id => fetchCustomerId(id)));
+      const signal = new AbortSignal(); // for batch-level abort if needed
+      const results = await Promise.allSettled(batch.map(id => fetchCustomerId(id, signal)));
       results.forEach((r, idx) => {
         const orderId = batch[idx];
         if (r.status === 'fulfilled' && r.value) {
@@ -288,13 +319,20 @@
           orderCustomerMap.set(orderId, r.value);
         }
       });
+      // Progress: customer ID resolution
+      setStatus(`⏳ جاري سحب بيانات المناطق... ${Math.min(i + BATCH, uniqueIds.length)}/${uniqueIds.length} بلاغ`, 'warn');
     }
 
-    // Fetch areas in batches
+    // Fetch areas in batches with progress
     const custArray = [...customerIds];
     for (let i = 0; i < custArray.length; i += BATCH) {
+      if (stopRequested) break;
+      if (Date.now() - phaseStart > MAX_PHASE_MS) break;
       const batch = custArray.slice(i, i + BATCH);
-      await Promise.allSettled(batch.map(id => fetchArea(id)));
+      const signal = new AbortSignal();
+      await Promise.allSettled(batch.map(id => fetchArea(id, signal)));
+      // Progress: area fetch
+      setStatus(`⏳ جاري سحب بيانات المناطق... ${custArray.length} عميل (${Math.min(i + BATCH, custArray.length)}/${custArray.length})`, 'warn');
     }
 
     // Map back to orders
@@ -1620,7 +1658,7 @@
         } else {
           setStatus(`⏳ جاري سحب بيانات المناطق...`, 'warn');
           await enrichOrdersWithArea(allOrders);
-          await saveAreasToRegionMap(allOrders);
+          saveAreasToRegionMap(allOrders); // fire-and-forget, لا ننتظرها
           setStatus(`⏳ جاري تحميل ملف Excel...`, 'warn');
           exportXLSX(allOrders, firstHeaders);
           setStatus(`✅ تم تحميل ${allOrders.length} بلاغ (${pageNum} صفحة) كملف Excel`, 'ok');
@@ -1657,7 +1695,7 @@
         await startReportFetching(list, FUTURE_FALLBACK_HEADERS);
       } else {
         await enrichOrdersWithArea(list);
-        await saveAreasToRegionMap(list);
+        saveAreasToRegionMap(list); // fire-and-forget
         exportXLSX(list, FUTURE_FALLBACK_HEADERS);
       }
       setStatus(`✅ تم تحميل ${list.length} بلاغ مستقبلي كملف Excel`, 'ok');
@@ -1736,7 +1774,7 @@
       await startReportFetching(result.orders, result.headers);
     } else {
       await enrichOrdersWithArea(result.orders);
-      await saveAreasToRegionMap(result.orders);
+      saveAreasToRegionMap(result.orders); // fire-and-forget
       exportXLSX(result.orders, result.headers);
       setStatus(`✅ تم تحميل ${result.orders.length} بلاغ من الصفحة الحالية كملف Excel`, 'ok');
     }
