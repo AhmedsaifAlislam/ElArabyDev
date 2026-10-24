@@ -327,7 +327,7 @@ function load(sandbox, file) {
     'order-extractor: addDataRow يقرأ _phone2 كبديل لعمود الشبكة');
   ok(/'ldv_mobilenumber', 'ldv_referencecontact'/.test(oesrc),
     'order-extractor: يجلب ldv_referencecontact (رقم شخص ذو صلة)');
-  ok(/\$select=_customerid_value,ldv_mobilenumber,ldv_referencecontact/.test(oesrc),
+  ok(/\$select=[^"'&]*_customerid_value,ldv_mobilenumber,ldv_referencecontact/.test(oesrc),
     'order-extractor: يجلب الهاتفين مع نداء العميل نفسه (بلا نداء إضافي)');
   ok(/PHONE_SOURCE_LABELS/.test(oesrc) && /company:/.test(oesrc) && /api:/.test(oesrc),
     'order-extractor: وسوم المصدر (البوابة/الإضافة) مُعرّفة');

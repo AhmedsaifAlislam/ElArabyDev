@@ -88,46 +88,192 @@
     }
   }
 
-  // ── Customer Area API ──
-  let customerAreaCache = new Map();
-  let customerIdCache = new Map();
+  // ── Customer Area API (دفعات: طلب واحد لكل 10 بلاغات بدل طلبين لكل بلاغ) ──
+  const GUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  const FV_SUFFIX = '@OData.Community.Display.V1.FormattedValue';
+  const AREA_BATCH = 10;
+  const AREA_PHASE_MS = 45000;
+
+  const customerAreaCache = new Map();   // accountId → area (نجاح فقط — لا نُخزّن الفشل)
+  const incidentMetaCache = new Map();   // incidentId → { customerId, territory }
+  const ticketMetaCache = new Map();     // ticketnumber → { incidentId, customerId, territory }
+
+  function isGuid(v) { return GUID_RE.test(String(v == null ? '' : v).trim()); }
+
+  async function apiFetchJson(url, ms, attempt) {
+    const tryNo = attempt || 0;
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), ms || 8000);
+    let resp;
+    try {
+      resp = await fetch(url, { signal: controller.signal, headers: { Accept: 'application/json' } });
+    } finally {
+      clearTimeout(timer);
+    }
+    if (!resp.ok) {
+      const body = await resp.text().catch(() => '');
+      const err = new Error('HTTP ' + resp.status + (body ? ' · ' + body.slice(0, 120) : ''));
+      err.status = resp.status;
+      // 429/503 = ضغط على البوابة: انتظر ثم أعد المحاولة مرة واحدة
+      if (tryNo < 1 && (resp.status === 429 || resp.status === 503)) {
+        await new Promise(r => setTimeout(r, 1200));
+        return apiFetchJson(url, ms, tryNo + 1);
+      }
+      throw err;
+    }
+    return resp.json();
+  }
+
+  function areaFromLookup(data, field) {
+    return (data && data[field + FV_SUFFIX]) || '';
+  }
+
+  function buildOrFilter(field, values, quote) {
+    return values.map(v => quote
+      ? `${field} eq '${String(v).replace(/'/g, "''")}'`
+      : `${field} eq ${v}`).join(' or ');
+  }
+
+  function rememberIncidentMeta(item) {
+    const id = String((item && item.incidentid) || '').trim().toLowerCase();
+    if (!id) return null;
+    const prev = incidentMetaCache.get(id);
+    const meta = {
+      customerId: item._customerid_value || null,
+      territory: (prev && prev.territory) || '',
+    };
+    incidentMetaCache.set(id, meta);
+    if (item.ticketnumber) ticketMetaCache.set(String(item.ticketnumber).trim().toLowerCase(), Object.assign({ incidentId: id }, meta));
+    if (!incidentPhoneCache.has(id)) {
+      incidentPhoneCache.set(id, {
+        mobile: normalizePhone(item.ldv_mobilenumber),
+        related: normalizePhone(item.ldv_referencecontact),
+      });
+    }
+    return meta;
+  }
+
+  async function fetchIncidentMetaBatch(ids, deadline) {
+    const todo = [...new Set(ids.map(id => String(id || '').trim().toLowerCase()))]
+      .filter(id => isGuid(id) && !incidentMetaCache.has(id));
+    for (let i = 0; i < todo.length; i += AREA_BATCH) {
+      if (stopRequested || Date.now() > deadline) return;
+      const chunk = todo.slice(i, i + AREA_BATCH);
+      const url = '/_api/incidents?$select=incidentid,ticketnumber,_customerid_value,ldv_mobilenumber,ldv_referencecontact'
+        + '&$filter=' + encodeURIComponent(buildOrFilter('incidentid', chunk, false));
+      try {
+        const data = await apiFetchJson(url);
+        for (const item of (data.value || [])) rememberIncidentMeta(item);
+      } catch (e) {
+        console.warn('[OrderExtractor] batch incidents failed, falling back to single:', e.message);
+        for (const id of chunk) {
+          if (stopRequested || Date.now() > deadline) return;
+          if (!incidentMetaCache.has(id)) await fetchCustomerId(id);
+        }
+      }
+      if (todo.length > AREA_BATCH) {
+        setStatus(`⏳ جاري سحب بيانات المناطق... ${Math.min(i + AREA_BATCH, todo.length)}/${todo.length} بلاغ`, 'warn');
+      }
+    }
+  }
 
   async function fetchCustomerId(incidentId) {
-    if (customerIdCache.has(incidentId)) return customerIdCache.get(incidentId);
+    const key = String(incidentId || '').trim().toLowerCase();
+    if (!isGuid(key)) return null;
+    if (incidentMetaCache.has(key)) return incidentMetaCache.get(key).customerId;
     try {
-      const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), 8000);
-      const resp = await fetch('/_api/incidents(' + incidentId + ')?$select=_customerid_value,ldv_mobilenumber,ldv_referencecontact', { signal: controller.signal });
-      clearTimeout(timeout);
-      const data = await resp.json();
-      const id = data._customerid_value || null;
-      customerIdCache.set(incidentId, id);
-      if (!incidentPhoneCache.has(incidentId)) {
-        incidentPhoneCache.set(incidentId, {
-          mobile: normalizePhone(data.ldv_mobilenumber),
-          related: normalizePhone(data.ldv_referencecontact),
-        });
-      }
-      return id;
+      const data = await apiFetchJson('/_api/incidents(' + key + ')?$select=incidentid,ticketnumber,_customerid_value,ldv_mobilenumber,ldv_referencecontact');
+      const meta = rememberIncidentMeta(data);
+      return meta ? meta.customerId : null;
     } catch (e) {
-      customerIdCache.set(incidentId, null);
-      return null;
+      console.warn('[OrderExtractor] incident fetch failed:', key, '·', e.message);
+      return null; // لا نُخزّن الفشل — فرصة لإعادة المحاولة
+    }
+  }
+
+  // مطابقة البلاغات بأرقامها (CAS...) حين لا يصلح الـ GUID
+  async function fetchIncidentMetaByTickets(tickets, deadline) {
+    const todo = [...new Set(tickets.map(t => String(t || '').trim()).filter(Boolean))]
+      .filter(t => !ticketMetaCache.has(t.toLowerCase()));
+    for (let i = 0; i < todo.length; i += AREA_BATCH) {
+      if (stopRequested || Date.now() > deadline) return;
+      const chunk = todo.slice(i, i + AREA_BATCH);
+      const url = '/_api/incidents?$select=incidentid,ticketnumber,_customerid_value'
+        + '&$filter=' + encodeURIComponent(buildOrFilter('ticketnumber', chunk, true));
+      try {
+        const data = await apiFetchJson(url);
+        for (const item of (data.value || [])) rememberIncidentMeta(item);
+      } catch (e) {
+        console.warn('[OrderExtractor] ticket lookup failed:', e.message);
+      }
+    }
+  }
+
+  // بديل أخير: «الإقليم» (territory) على البلاغ — استعلام اختياري قد يرفضه البورتال
+  let territorySupported = null;
+  async function fetchTerritoryBatch(orders, deadline) {
+    if (territorySupported === false) return;
+    const ids = [...new Set(orders.map(o => String(o._orderId || '').trim().toLowerCase()))]
+      .filter(id => isGuid(id) && incidentMetaCache.has(id) && !incidentMetaCache.get(id).territory);
+    for (let i = 0; i < ids.length; i += AREA_BATCH) {
+      if (stopRequested || Date.now() > deadline || territorySupported === false) return;
+      const chunk = ids.slice(i, i + AREA_BATCH);
+      const url = '/_api/incidents?$select=incidentid,_ats_territories_value'
+        + '&$filter=' + encodeURIComponent(buildOrFilter('incidentid', chunk, false));
+      try {
+        const data = await apiFetchJson(url);
+        territorySupported = true;
+        for (const item of (data.value || [])) {
+          const id = String(item.incidentid || '').trim().toLowerCase();
+          const t = areaFromLookup(item, '_ats_territories_value');
+          const meta = incidentMetaCache.get(id);
+          if (meta && t) meta.territory = t;
+        }
+      } catch (e) {
+        territorySupported = false;
+        console.warn('[OrderExtractor] territory is not available on this portal:', e.message);
+      }
+    }
+  }
+
+  async function fetchAreaBatch(customerIds, deadline) {
+    const todo = [...new Set(customerIds.map(id => String(id || '').trim().toLowerCase()))]
+      .filter(id => isGuid(id) && !customerAreaCache.has(id));
+    for (let i = 0; i < todo.length; i += AREA_BATCH) {
+      if (stopRequested || Date.now() > deadline) return;
+      const chunk = todo.slice(i, i + AREA_BATCH);
+      const url = '/_api/accounts?$select=accountid,_ldv_area_value'
+        + '&$filter=' + encodeURIComponent(buildOrFilter('accountid', chunk, false));
+      try {
+        const data = await apiFetchJson(url);
+        for (const item of (data.value || [])) {
+          const id = String((item && item.accountid) || '').trim().toLowerCase();
+          const area = areaFromLookup(item, '_ldv_area_value');
+          if (id && area) customerAreaCache.set(id, area);
+        }
+      } catch (e) {
+        console.warn('[OrderExtractor] batch accounts failed, falling back to single:', e.message);
+        for (const id of chunk) {
+          if (!customerAreaCache.has(id)) await fetchArea(id);
+        }
+      }
+      if (todo.length > AREA_BATCH) {
+        setStatus(`⏳ جاري سحب مناطق ${todo.length} عميل... ${Math.min(i + AREA_BATCH, todo.length)}/${todo.length}`, 'warn');
+      }
     }
   }
 
   async function fetchArea(customerId) {
-    if (customerAreaCache.has(customerId)) return customerAreaCache.get(customerId);
+    const key = String(customerId || '').trim().toLowerCase();
+    if (!isGuid(key)) return '';
+    if (customerAreaCache.has(key)) return customerAreaCache.get(key);
     try {
-      const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), 8000);
-      const resp = await fetch('/_api/accounts(' + customerId + ')?$select=accountid,_ldv_area_value', { signal: controller.signal });
-      clearTimeout(timeout);
-      const data = await resp.json();
-      const area = data['_ldv_area_value@OData.Community.Display.V1.FormattedValue'] || '';
-      customerAreaCache.set(customerId, area);
+      const data = await apiFetchJson('/_api/accounts(' + key + ')?$select=accountid,_ldv_area_value');
+      const area = areaFromLookup(data, '_ldv_area_value');
+      if (area) customerAreaCache.set(key, area);
       return area;
     } catch (e) {
-      customerAreaCache.set(customerId, '');
+      console.warn('[OrderExtractor] account fetch failed:', key, '·', e.message);
       return '';
     }
   }
@@ -186,20 +332,18 @@
   }
 
   async function fetchIncidentPhones(incidentId) {
-    if (!incidentId) return { mobile: '', related: '' };
-    if (incidentPhoneCache.has(incidentId)) return incidentPhoneCache.get(incidentId);
-    let out = { mobile: '', related: '' };
+    const key = String(incidentId || '').trim().toLowerCase();
+    if (!isGuid(key)) return { mobile: '', related: '' };
+    if (incidentPhoneCache.has(key)) return incidentPhoneCache.get(key);
     try {
-      const resp = await fetch('/_api/incidents(' + incidentId + ')?$select=ldv_mobilenumber,ldv_referencecontact');
-      if (resp.ok) {
-        const d = await resp.json();
-        out = { mobile: normalizePhone(d.ldv_mobilenumber), related: normalizePhone(d.ldv_referencecontact) };
-      }
+      const d = await apiFetchJson('/_api/incidents(' + key + ')?$select=ldv_mobilenumber,ldv_referencecontact');
+      const out = { mobile: normalizePhone(d.ldv_mobilenumber), related: normalizePhone(d.ldv_referencecontact) };
+      incidentPhoneCache.set(key, out);
+      return out;
     } catch (e) {
-      console.warn('[OrderExtractor] fetchIncidentPhones failed:', e.message);
+      console.warn('[OrderExtractor] fetchIncidentPhones failed:', key, '·', e.message);
+      return { mobile: '', related: '' };
     }
-    incidentPhoneCache.set(incidentId, out);
-    return out;
   }
 
   async function enrichOrdersWithPhones(orders, portalHeaders) {
@@ -290,56 +434,91 @@
     setTimeout(() => { promise.catch(() => {}); }, 2000);
   }
 
+  // رقم الطلب (CAS...) لأي صف بلا اعتماد على اسم العمود
+  function ticketOfOrder(order) {
+    for (const [k, v] of Object.entries(order || {})) {
+      if (k.charAt(0) === '_') continue;
+      if (typeof v !== 'string') continue;
+      const m = v.trim().match(/^CAS\d{6,}$/i);
+      if (m) return m[0];
+    }
+    return '';
+  }
+
+  function metaOfOrder(order) {
+    const guid = String(order._orderId || '').trim().toLowerCase();
+    if (isGuid(guid) && incidentMetaCache.has(guid)) return incidentMetaCache.get(guid);
+    const t = ticketOfOrder(order).toLowerCase();
+    if (t && ticketMetaCache.has(t)) return ticketMetaCache.get(t);
+    return null;
+  }
+
+  // يُرجع عدد البلاغات التي بقيت بلا منطقة
   async function enrichOrdersWithArea(orders) {
-    const uniqueIds = [...new Set(orders.map(o => o._orderId).filter(Boolean))];
-    if (!uniqueIds.length) return;
+    if (!Array.isArray(orders) || !orders.length) return 0;
+    const deadline = Date.now() + AREA_PHASE_MS;
 
-    const customerIds = new Set();
-    const orderCustomerMap = new Map();
-    const BATCH = 10;
-    const MAX_PHASE_MS = 45000; // 45-second ceiling for the whole phase
-    const phaseStart = Date.now();
+    // 1) بيانات البلاغات (عميل + إقليم) دفعة واحدة
+    const guidIds = orders.map(o => o._orderId).filter(Boolean);
+    setStatus(`⏳ جاري سحب بيانات المناطق... ${guidIds.length} بلاغ`, 'warn');
+    await fetchIncidentMetaBatch(guidIds, deadline);
 
-    // Resolve customer IDs in batches with progress
-    for (let i = 0; i < uniqueIds.length; i += BATCH) {
-      if (stopRequested) break;
-      if (Date.now() - phaseStart > MAX_PHASE_MS) {
-        setStatus(`⚠️ سقف زمني (45 ث) — تكملة بالمناطق المتاحة`, 'warn');
-        break;
-      }
-      const batch = uniqueIds.slice(i, i + BATCH);
-      const results = await Promise.allSettled(batch.map(id => fetchCustomerId(id)));
-      results.forEach((r, idx) => {
-        const orderId = batch[idx];
-        if (r.status === 'fulfilled' && r.value) {
-          customerIds.add(r.value);
-          orderCustomerMap.set(orderId, r.value);
-        }
-      });
-      // Progress: customer ID resolution
-      setStatus(`⏳ جاري سحب بيانات المناطق... ${Math.min(i + BATCH, uniqueIds.length)}/${uniqueIds.length} بلاغ`, 'warn');
+    // 2) أي بلاغ لم يُحل ⇒ نطابقه برقم الطلب (CAS)
+    const unresolvedTickets = orders
+      .filter(o => {
+        const g = String(o._orderId || '').trim().toLowerCase();
+        return !(isGuid(g) && incidentMetaCache.has(g)) && !ticketMetaCache.has(ticketOfOrder(o).toLowerCase());
+      })
+      .map(ticketOfOrder)
+      .filter(Boolean);
+    if (unresolvedTickets.length) {
+      setStatus(`⏳ جاري مطابقة أرقام الطلبات... ${unresolvedTickets.length}`, 'warn');
+      await fetchIncidentMetaByTickets(unresolvedTickets, deadline);
     }
 
-    // Fetch areas in batches with progress
-    const custArray = [...customerIds];
-    for (let i = 0; i < custArray.length; i += BATCH) {
-      if (stopRequested) break;
-      if (Date.now() - phaseStart > MAX_PHASE_MS) break;
-      const batch = custArray.slice(i, i + BATCH);
-      await Promise.allSettled(batch.map(id => fetchArea(id)));
-      // Progress: area fetch
-      setStatus(`⏳ جاري سحب بيانات المناطق... ${custArray.length} عميل (${Math.min(i + BATCH, custArray.length)}/${custArray.length})`, 'warn');
+    // 3) مناطق العملاء دفعة واحدة
+    const custIds = new Set();
+    for (const o of orders) {
+      const m = metaOfOrder(o);
+      if (m && m.customerId) custIds.add(m.customerId);
+    }
+    if (custIds.size) {
+      setStatus(`⏳ جاري سحب مناطق ${custIds.size} عميل...`, 'warn');
+      await fetchAreaBatch([...custIds], deadline);
     }
 
-    // Map back to orders
+    // 4) بديل اختياري: «الإقليم» على البلاغ لمن لم تُحل منطقته بعد
+    const stillMissing = orders.filter(o => {
+      const m = metaOfOrder(o);
+      if (!m) return true;
+      const accArea = m.customerId ? customerAreaCache.get(String(m.customerId).toLowerCase()) : '';
+      return !accArea && !m.territory;
+    });
+    if (stillMissing.length) await fetchTerritoryBatch(stillMissing, deadline);
+
+    // 5) التوزيع: منطقة العميل ← الإقليم (territory) ← «غير محدد»
+    let missing = 0;
+    const missingRows = [];
     for (const order of orders) {
-      const custId = orderCustomerMap.get(order._orderId);
-      if (custId && customerAreaCache.has(custId)) {
-        order.area = customerAreaCache.get(custId);
-      } else {
-        order.area = '';
+      const meta = metaOfOrder(order);
+      let area = '';
+      if (meta && meta.customerId) area = customerAreaCache.get(String(meta.customerId).toLowerCase()) || '';
+      if (!area && meta && meta.territory) area = meta.territory;
+      order.area = area || '';
+      if (!order.area) {
+        missing++;
+        missingRows.push({
+          'رقم الطلب': ticketOfOrder(order) || String(order._orderId || ''),
+          'اسم العميل': order['اسم العميل'] || '',
+          'السبب': !meta ? 'لم يُعثر على البلاغ في API' : (meta.customerId ? 'العميل بلا منطقة' : 'بلاغ بلا عميل'),
+        });
       }
     }
+
+    console.log(`[OrderExtractor] Areas: ${orders.length - missing}/${orders.length} resolved, ${missing} missing`);
+    if (missingRows.length) console.table(missingRows);
+    if (Date.now() > deadline) console.warn('[OrderExtractor] area phase hit the 45s ceiling');
+    return missing;
   }
 
   // ── Travel Costs ──
@@ -1653,11 +1832,11 @@
           await startReportFetching(allOrders, firstHeaders);
         } else {
           setStatus(`⏳ جاري سحب بيانات المناطق...`, 'warn');
-          await enrichOrdersWithArea(allOrders);
+          const missingAreas = await enrichOrdersWithArea(allOrders);
           saveAreasToRegionMap(allOrders); // fire-and-forget, لا ننتظرها
           setStatus(`⏳ جاري تحميل ملف Excel...`, 'warn');
           exportXLSX(allOrders, firstHeaders);
-          setStatus(`✅ تم تحميل ${allOrders.length} بلاغ (${pageNum} صفحة) كملف Excel`, 'ok');
+          setStatus(`✅ تم تحميل ${allOrders.length} بلاغ (${pageNum} صفحة) كملف Excel` + (missingAreas ? ` — ⚠️ ${missingAreas} بلا منطقة` : ''), missingAreas ? 'warn' : 'ok');
           setProgress(100);
         }
       } else if (stopRequested) {
@@ -1687,14 +1866,15 @@
         return false;
       }
       const fetchReports = document.getElementById('oe-fetch-reports')?.checked || false;
+      let missingAreas = 0;
       if (fetchReports) {
         await startReportFetching(list, FUTURE_FALLBACK_HEADERS);
       } else {
-        await enrichOrdersWithArea(list);
+        missingAreas = await enrichOrdersWithArea(list);
         saveAreasToRegionMap(list); // fire-and-forget
         exportXLSX(list, FUTURE_FALLBACK_HEADERS);
       }
-      setStatus(`✅ تم تحميل ${list.length} بلاغ مستقبلي كملف Excel`, 'ok');
+      setStatus(`✅ تم تحميل ${list.length} بلاغ مستقبلي كملف Excel` + (missingAreas ? ` — ⚠️ ${missingAreas} بلا منطقة` : ''), missingAreas ? 'warn' : 'ok');
       return true;
     } catch (e) {
       setStatus('❌ فشل سحب البلاغات المستقبلية: ' + e.message, 'error');
@@ -1769,10 +1949,10 @@
       setStatus(`🔍 جاري بدء سحب التقارير لـ ${result.orders.length} بلاغ...`, 'warn');
       await startReportFetching(result.orders, result.headers);
     } else {
-      await enrichOrdersWithArea(result.orders);
+      const missingAreas = await enrichOrdersWithArea(result.orders);
       saveAreasToRegionMap(result.orders); // fire-and-forget
       exportXLSX(result.orders, result.headers);
-      setStatus(`✅ تم تحميل ${result.orders.length} بلاغ من الصفحة الحالية كملف Excel`, 'ok');
+      setStatus(`✅ تم تحميل ${result.orders.length} بلاغ من الصفحة الحالية كملف Excel` + (missingAreas ? ` — ⚠️ ${missingAreas} بلا منطقة` : ''), missingAreas ? 'warn' : 'ok');
     }
   }
 
