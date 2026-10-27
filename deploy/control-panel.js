@@ -2,7 +2,7 @@
 // control-panel.js — لوحة التحكم الذكية v1.0
 // بصمة الإصدار: تُطبع في الـ log وتظهر بجانب عنوان اللوحة، للتأكد أن المتصفح
 // حمّل أحدث نسخة من الإضافة (Reload من edge://extensions مطلوب بعد أي نشر).
-const PANEL_BUILD = '2026-10-24.32';
+const PANEL_BUILD = '2026-10-26.35';
 // Floating panel with auto-detecting page tabs
 // =========================================================
 (function () {
@@ -429,6 +429,26 @@ function getCSS() {
 .cp-w-btn.on-out{background:#4a1d1d;border-color:#ef4444;color:#fecaca}
 .cp-star{border:none;background:transparent;color:#475569;font-size:15px;cursor:pointer;padding:0 2px;line-height:1}
 .cp-star.on{color:#fbbf24}
+.cp-review-hint{font-size:9px;color:#7c8ba6;margin-bottom:4px;line-height:1.5}
+.cp-code-pool{display:flex;flex-wrap:wrap;gap:3px;margin-bottom:6px;padding:4px;border:1px dashed #2a3f6b;border-radius:5px;min-height:26px}
+.cp-code-pool.drag-over{border-color:#fbbf24;background:#241f0e}
+.cp-code-chip{background:#152242;border:1px solid #3b82f6;color:#dbeafe;border-radius:10px;font-size:10px;padding:2px 7px;cursor:grab;user-select:none;line-height:1.5;display:inline-flex;align-items:center;gap:3px}
+.cp-code-chip:active{cursor:grabbing}
+.cp-code-chip small{color:#93c5fd;font-size:9px;max-width:110px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.cp-code-chip.used{background:#14321f;border-color:#22c55e;color:#bbf7d0}
+.cp-code-chip.used small{color:#86efac}
+.cp-code-chip.dragging{opacity:.45}
+.cp-code-chip.armed{outline:2px solid #fbbf24;outline-offset:1px}
+.cp-code-chip.cost{border-color:#f59e0b;background:#2a2008;color:#fde68a}
+.cp-code-chip.cost small{color:#fcd34d}
+.cp-cost-badge{font-size:10px;line-height:1;cursor:help;filter:saturate(1.2)}
+.cp-cost-note{font-size:9px;color:#fbbf24;margin-top:3px;line-height:1.5}
+.cp-part-slot{display:flex;align-items:center;gap:3px;flex:1;min-width:120px;min-height:24px;padding:2px 5px;border:1px dashed #2a3f6b;border-radius:5px;font-size:10px;color:#64748b}
+.cp-part-slot.filled{border-style:solid;border-color:#22c55e;background:#0e2018;color:#bbf7d0}
+.cp-part-slot.drag-over{border-color:#fbbf24;background:#2a2410}
+.cp-part-slot.missing{border-color:#ef4444;background:#2a1212}
+.cp-part-src{font-size:9px;color:#94a3b8;cursor:help}
+.cp-slot-x{border:none;background:transparent;color:#f87171;cursor:pointer;font-size:12px;line-height:1;padding:0 2px}
 .cp-fav-parts{display:flex;flex-wrap:wrap;gap:3px;margin:3px 0 4px}
 .cp-fav-chip{background:#1a2744;border:1px solid #f59e0b;color:#fde68a;border-radius:10px;font-size:10px;padding:2px 6px;cursor:pointer;font-family:inherit}
 .cp-fav-chip small{color:#94a3b8;margin-left:3px}
@@ -465,6 +485,12 @@ function getCSS() {
 .cp-btn-code-paste:active{transform:scale(.97)}
 .cp-codes-preview-box{display:none;background:#0d1528;border:1px dashed #2a3d60;border-radius:5px;padding:5px 8px;margin-bottom:8px;font-size:10px;color:#94a3b8;line-height:1.4}
 .cp-codes-preview-box b{color:#60a5fa}
+.cp-copy-board{display:none;margin:6px 0;padding:6px;border:1px solid #2a3f6b;border-radius:6px;background:#0b1324}
+.cp-copy-head{font-size:11px;font-weight:700;color:#93c5fd;margin-bottom:3px;word-break:break-word}
+.cp-copy-sec{font-size:10px;color:#7c8ba6;margin:6px 0 2px}
+.cp-copy-part{display:flex;align-items:center;gap:3px;padding:3px 2px;border-bottom:1px solid #16213a;font-size:11px}
+.cp-copy-part:last-of-type{border-bottom:none}
+.cp-copy-name{flex:0 0 34%;color:#cfe0ff;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;direction:ltr;text-align:right}
 `;
   }
 
@@ -524,6 +550,11 @@ function getCSS() {
     </div>
     <div id="cp-problem-picker" style="display:none;margin:6px 0 2px;padding:6px;border:1px dashed #f59e0b;border-radius:6px;background:#1a1408">
       <div class="cp-label" style="margin:0 0 3px;color:#fbbf24">⚠️ الكود المطلوب غير متاح — اختر من المتاح:</div>
+      <div id="cp-problem-context" style="font-size:11px;color:#94a3b8;margin:0 0 4px;line-height:1.5"></div>
+      <div id="cp-problem-service" style="display:none;margin:0 0 5px;gap:4px">
+        <button class="cp-btn" data-svc="install" type="button" style="padding:2px 8px;font-size:11px">🔧 تركيب</button>
+        <button class="cp-btn" data-svc="maintenance" type="button" style="padding:2px 8px;font-size:11px">🛠️ صيانة</button>
+      </div>
       <select class="cp-select" id="cp-problem-select"></select>
       <div id="cp-problem-countdown" style="font-size:11px;color:#fbbf24;margin:3px 0 0"></div>
       <button class="cp-btn cp-btn-exec" id="btn-add-problem" type="button" style="margin-top:4px">➕ إضافة المشكلة المختارة</button>
@@ -544,6 +575,7 @@ function getCSS() {
       </button>
     </div>
     <div id="cp-codes-preview" class="cp-codes-preview-box"></div>
+    <div id="cp-copy-board" class="cp-copy-board" style="display:none"></div>
     <div id="cp-parts-review" class="cp-parts-review" style="display:none"></div>
     <div id="cp-fav-parts-wrap">
       <div class="cp-fav-head">
@@ -713,6 +745,181 @@ function getCSS() {
 `;
   }
 
+  // ── الشبكات المقسّمة على صفحات ──────────────────────────────────────────
+  // البوابة تعرض ٤ صفوف فقط في الصفحة، والبقية في «2» وما بعدها:
+  //   <div class="view-pagination" data-current-page="1" data-pages="1">
+  //     <a data-page="2" class="entity-pager-next-link">
+  // قراءة الصفحة الأولى وحدها تُسقط أكوادًا حقيقية من الحزمة (تحقق حي 2026-10-26).
+  // ملاحظة حيّة: `data-pages="1"` قد تكون خاطئة مع وجود رابط للصفحة ٢ فعليًا
+  //   ⇒ نأخذ الأكبر بين data-pages وأكبر data-page موجود في الروابط.
+  const GRID_PAGE_WAIT_MS = 7000;
+  const GRID_MAX_PAGES = 15;
+
+  function gridRootOf(row) {
+    if (!row) return null;
+    let el = row.closest('table') || row.parentElement;
+    for (let i = 0; i < 8 && el; i++) {
+      if (el.querySelector && el.querySelector('.view-pagination, .entity-pager-next-link')) return el;
+      el = el.parentElement;
+    }
+    const tbl = row.closest('table');
+    return tbl ? tbl.parentElement : null;
+  }
+
+  function gridPagerOf(root) {
+    return root && root.querySelector ? root.querySelector('.view-pagination') : null;
+  }
+
+  function gridPageCount(root) {
+    const pager = gridPagerOf(root);
+    if (!pager) return 1;
+    const declared = parseInt(pager.getAttribute('data-pages') || '', 10) || 0;
+    const nums = Array.from(pager.querySelectorAll('a[data-page]'))
+      .map(a => parseInt(a.getAttribute('data-page') || '0', 10))
+      .filter(v => v > 0);
+    const maxLink = nums.length ? Math.max(...nums) : 0;
+    return Math.max(1, declared, maxLink);
+  }
+
+  function gridCurrentPage(root) {
+    const pager = gridPagerOf(root);
+    const n = pager ? parseInt(pager.getAttribute('data-current-page') || '', 10) : NaN;
+    if (n > 0) return n;
+    const active = pager ? pager.querySelector('li.active a[data-page]') : null;
+    return active ? (parseInt(active.getAttribute('data-page') || '1', 10) || 1) : 1;
+  }
+
+  function gridRowsSignature(root, rowSelector) {
+    if (!root) return '';
+    const rows = Array.from(root.querySelectorAll(rowSelector || 'table tbody tr'));
+    return rows.map(r => r.getAttribute('data-id')
+      || (r.innerText || '').replace(/\s+/g, ' ').trim().slice(0, 60)).join('|');
+  }
+
+  function findFirstGridRoot(selectors) {
+    for (const doc of getShallowDocs()) {
+      for (const sel of selectors) {
+        const row = doc.querySelector(sel);
+        if (!row) continue;
+        const root = gridRootOf(row);
+        if (root) return { doc, root, row };
+      }
+    }
+    return null;
+  }
+
+  async function gotoGridPage(root, page, rowSelector) {
+    const pager = gridPagerOf(root);
+    if (!pager) return false;
+    const link = pager.querySelector('a[data-page="' + page + '"]');
+    if (!link) return false;
+    // رابط معطّل/مخفي = لا صفحة فعلية (البوابة ترسم كل الروابط أحيانًا)
+    const li = link.closest('li');
+    if (li && (li.classList.contains('disabled') || li.classList.contains('hidden') || li.style.display === 'none')) return false;
+    if (link.getAttribute('aria-disabled') === 'true') return false;
+    const beforeSig = gridRowsSignature(root, rowSelector);
+    const beforePage = gridCurrentPage(root);
+    try { link.click(); } catch (_) { return false; }
+    const deadline = Date.now() + GRID_PAGE_WAIT_MS;
+    while (Date.now() < deadline) {
+      await sleep(250);
+      const nowSig = gridRowsSignature(root, rowSelector);
+      if (gridCurrentPage(root) !== beforePage || nowSig !== beforeSig) {
+        await sleep(300); // استقرار الرسم بعد AJAX
+        return true;
+      }
+    }
+    return false;
+  }
+
+  // بوابة أخطاء البورتال: الرسالة «Error completing request» تعني أن الطلب فشل،
+  // وما قُرئ حتى الآن هو المعتمد — لا نُكمل الترقيم على شبكة معطوبة.
+  function gridErrorTextVisible() {
+    const RE = /error\s*completing\s*request|حدث\s*خطأ\s*أثناء\s*تنفيذ\s*الطلب|an\s*error\s*has\s*occurred/i;
+    try {
+      for (const doc of getShallowDocs()) {
+        const nodes = doc.querySelectorAll('.alert, .alert-danger, .alert-error, .validation-summary-errors, .notification, [role="alert"], .text-danger');
+        for (const n of nodes) {
+          const t = (n.innerText || '').replace(/\s+/g, ' ').trim();
+          if (!t || t.length > 300) continue;
+          if (!RE.test(t)) continue;
+          if (isElementVisible(n)) return t.slice(0, 120);
+        }
+      }
+    } catch (_) {}
+    return '';
+  }
+
+  // يقرأ كل صفحة عبر readFn ويعيد نتائجها؛ ثم يُرجع الشبكة للصفحة ١
+  // aborted=true ⇒ توقف الترقيم لخطأ بوابة (اقرأ ما تيسّر فقط)
+  async function forEachGridPage(root, rowSelector, readFn, opts) {
+    const o = opts || {};
+    const totalPages = Math.min(gridPageCount(root), o.maxPages || GRID_MAX_PAGES);
+    const pages = [readFn()];
+    let prevSig = gridRowsSignature(root, rowSelector);
+    let aborted = false;
+    if (totalPages > 1) {
+      for (let p = 2; p <= totalPages; p++) {
+        const ok = await gotoGridPage(root, p, rowSelector);
+        // خطأ البورتال أثناء الترقيم ⇒ توقف + اعتماد ما قُرئ (لا ترقيم أعمى)
+        const errText = gridErrorTextVisible();
+        if (errText) {
+          logEvent('GRID', `⛔ خطأ بوابة أثناء الانتقال للصفحة ${p}: «${errText}» — توقف واعتماد ${pages.length} صفحة`);
+          aborted = true;
+          break;
+        }
+        if (!ok) break;
+        const sig = gridRowsSignature(root, rowSelector);
+        // نفس الصفوف ⇒ الصفحة لم تتغيّر فعلًا (نهاية الشبكة) — لا نعيد القراءة
+        if (sig && sig === prevSig) break;
+        prevSig = sig;
+        pages.push(readFn());
+      }
+      if (gridCurrentPage(root) !== 1) await gotoGridPage(root, 1, rowSelector);
+    }
+    return { pages, totalPages, aborted };
+  }
+
+  const PARTS_GRID_ROW_SELECTORS = [
+    'tr[data-entity="msdyn_inventoryadjustmentproduct"]',
+    '#InventoryAdjustmentProduct_Subgrid table tbody tr',
+    '#InventoryAdjustmentProduct_SubGrid table tbody tr',
+    '#InventoryAdjustmentProductIsLscYes_Subgrid table tbody tr',
+    'div[data-name*="InventoryAdjustmentProduct"] table tbody tr',
+    'div[data-name*="inventoryadjustmentproduct"] table tbody tr'
+  ];
+
+  const DEFECT_GRID_ROW_SELECTORS = [
+    'tr[data-entity="ldv_workorder_defect"]',
+    '#WorkOrder_defect table tbody tr',
+    '#WorkOrder_Defects table tbody tr',
+    '#WorkOrderDefectIsLscYes_Subgrid table tbody tr',
+    '[data-name*="WorkOrder_defect"] table tbody tr'
+  ];
+
+  // قراءة قطع الغيار من كل الصفحات (لا الأولى فقط) — إزالة تكرار بـ rowId
+  async function readPartsFromGridAllPages() {
+    const found = findFirstGridRoot(PARTS_GRID_ROW_SELECTORS);
+    if (!found) {
+      const only = readPartsFromGrid();
+      return { parts: only.parts, total: only.total, pages: 1, totalPages: 1, aborted: false };
+    }
+    const res = await forEachGridPage(found.root, 'table tbody tr', () => readPartsFromGrid());
+    const parts = [];
+    const seen = new Set();
+    let total = 0;
+    res.pages.forEach(pageRes => {
+      (pageRes.parts || []).forEach(p => {
+        const key = p.rowId || `${p.code || ''}|${p.fullName || ''}|${p.qty}`;
+        if (seen.has(key)) return;
+        seen.add(key);
+        parts.push(p);
+        total += Number(p.total) || 0;
+      });
+    });
+    return { parts, total, pages: res.pages.length, totalPages: res.totalPages, aborted: res.aborted === true };
+  }
+
   function readPartsFromGrid() {
     const allDocs = getShallowDocs();
 
@@ -733,13 +940,14 @@ function getCSS() {
 
       if (rows.length === 0) {
         // فحص الجداول التي ترويستها تحتوي صراحة على "قطعة الغيار" ولا تحتوي على "كود العطل"
-        const tables = Array.from(doc.querySelectorAll('div.view-grid table, table'));
+        // (الجداول الـleaf فقط: الخارجي جدول تخطيط يحوي جداول متداخلة)
+        const tables = Array.from(doc.querySelectorAll('div.view-grid table, table')).filter(isLeafTable);
         for (const tbl of tables) {
           if (tbl.closest('#WorkOrder_defect, #WorkOrder_Defects, #WorkOrderDefectIsLscYes_Subgrid, [data-name*="WorkOrder_defect"], [data-name*="defect"]')) continue;
-          const ths = Array.from(tbl.querySelectorAll('thead th, tr:first-child th')).map(th => th.innerText.trim());
+          const ths = ownHeaderCells(tbl).map(th => th.innerText.trim());
           const thJoined = ths.join(' ');
           if (/قطعة\s*الغيار|Spare\s*Part/i.test(thJoined) && !/كود\s*العطل|Defect\s*Major/i.test(thJoined)) {
-            rows = Array.from(tbl.querySelectorAll('tbody tr'));
+            rows = ownBodyRows(tbl);
             if (rows.length > 0) break;
           }
         }
@@ -753,6 +961,8 @@ function getCSS() {
       rows.forEach(tr => {
         // تجاهل صفوف أكواد الأعطال أو صفوف لا توجد سجلات
         if (tr.getAttribute('data-entity') === 'ldv_workorder_defect') return;
+        // صف الرؤوس قد يُرسم داخل tbody — يُرفض
+        if (isHeaderRow(tr)) return;
         const rawText = tr.innerText.trim();
         if (!rawText || /no\s*records|لا\s*توجد/i.test(rawText)) return;
         if (/sort\s*descending|sort\s*ascending/i.test(rawText) && !tr.querySelector('td[data-attribute]')) return;
@@ -779,6 +989,11 @@ function getCSS() {
           if (t) { const p2 = parsePartName(t); code = p2.code; name = p2.name || t; }
         }
         if (code) code = code.replace(/[\s_\-–—]+$/, '').trim();
+        // فلتر نظافة: أي «كود» ليس كودًا حقيقيًا (سعر/نص أثاث/عربي) يُسقَط ويُبقى الاسم
+        if (code && !isValidPartCode(code)) {
+          logEvent('PARTS_GRID', `🧹 كود قطعة غير صالح أُسقط: «${code}»`);
+          code = '';
+        }
 
         const qtyTd = tr.querySelector('td[data-attribute="ats_quantity"], td[data-attribute="quantity"]');
         const priceTd = tr.querySelector('td[data-attribute="ats_price"]');
@@ -1113,8 +1328,12 @@ function getCSS() {
   function bindEvents(shadow) {
     PANEL_SHADOW = shadow;
     renderFavParts(shadow);
+    try { renderCopyBoard(shadow); } catch (e) { logEvent('COPY_CODES', 'لوحة النسخ: ' + (e.message || e)); }
     loadFavStore()
-      .then(() => { try { renderFavParts(shadow); } catch (_) {} })
+      .then(() => {
+        try { renderFavParts(shadow); } catch (_) {}
+        try { renderCopyBoard(shadow); } catch (_) {}
+      })
       .catch(e => logEvent('FAV', 'تحميل ⭐: ' + (e.message || e)));
     shadow.getElementById('cp-toggle').onclick = () => { logEvent('CLICK', 'نقر على زر التبديل'); toggle(shadow); };
     shadow.getElementById('cp-dock').onclick = () => { logEvent('CLICK', 'نقر على زر الإرساء'); toggleDock(shadow); };
@@ -1153,6 +1372,7 @@ function getCSS() {
       };
     }
     renderProblemOptions(shadow, loadProblemOptions());
+    bindProblemServiceChoice(shadow);
     shadow.getElementById('btn-exec3').onclick = () => { logEvent('CLICK', 'نقر على تنفيذ الكل'); runExclusive(shadow, 'تنفيذ الكل', () => executePage3(shadow)); };
     const btnCopyCodes = shadow.getElementById('btn-copy-codes');
     if (btnCopyCodes) {
@@ -1231,7 +1451,11 @@ function getCSS() {
       const detail = (e && e.detail) || {};
       const list = Array.isArray(detail.list) ? detail.list : [];
       focusPage2Tab(shadow);
-      renderProblemOptions(shadow, list);
+      renderProblemOptions(shadow, list, {
+        device: detail.device || '',
+        service: detail.service || '',
+        persist: true
+      });
       const cd = shadow.getElementById('cp-problem-countdown');
       const total = Number(detail.timeoutMs) || 0;
       const started = Date.now();
@@ -1482,14 +1706,15 @@ function getCSS() {
     codes.forEach(cb => { cb.checked = false; });
     notes.forEach(cb => { cb.checked = false; });
 
-    // ① الأكواد — مطابقة الكود الرئيسي (major) القادم من JSON
+    // ① الأكواد — «رئيسي|فرعي» يحدد الفرع بدقة، و«رئيسي» يحدد كل فروعه
     const wanted = shortcutCodes(def, services);
     const missing = [];
     wanted.forEach(code => {
       let hit = false;
       codes.forEach(cb => {
-        const major = String((cb.value || '').split(',')[0] || '').toUpperCase();
-        if (major === code) { cb.checked = true; hit = true; }
+        const parts = String(cb.value || '').split(',');
+        const entry = String(parts[0] || '').toUpperCase() + (parts[1] ? '|' + String(parts[1]).toUpperCase() : '');
+        if (shortcutCodeMatches(entry, code)) { cb.checked = true; hit = true; }
       });
       if (!hit) missing.push(code);
     });
@@ -1650,7 +1875,11 @@ function getCSS() {
       }
     }
     if (page === 'PAGE_2') updateDeviceInfo(shadow);
-    if (page === 'PAGE_3') { updateDeviceCodes(shadow); renderFavParts(shadow); }
+    if (page === 'PAGE_3') {
+      updateDeviceCodes(shadow);
+      renderFavParts(shadow);
+      try { renderCopyBoard(shadow); } catch (_) {}
+    }
   }
 
   function detectInstallation() {
@@ -1685,9 +1914,62 @@ function getCSS() {
     return false;
   }
 
-  // مصدر واحد لكشف "تركيب": الحقول المهيكلة أولًا (أقوى) ثم منطق الـ engine المشترك
+  // ── نوع الخدمة: install | maintenance | unknown ──────────────────────
+  // المصدر الأول هو الحقل الصريح #ats_workordertype_name (label: نوع الخدمة)،
+  // ثم #ats_servicetype_name، ثم خلية label «نوع الخدمة»، وأخيرًا #ldv_workordertype
+  // كاحتياط فقط — كي لا يقلب احتياط قديم نتيجة صريحة (صيانة → تركيب).
+  function readServiceType() {
+    const pick = (v) => {
+      const s = String(v || '').trim();
+      if (!s) return '';
+      if (/تركيب|installation/i.test(s)) return 'install';
+      if (/صيان|maintenance/i.test(s)) return 'maintenance';
+      return '';
+    };
+
+    for (const doc of getShallowDocs()) {
+      try {
+        const el = doc.querySelector('#ats_workordertype_name') || doc.querySelector('#ats_servicetype_name');
+        if (!el) continue;
+        const svc = pick(el.value || el.innerText || el.getAttribute('aria-label'));
+        if (svc) {
+          logEvent('SERVICE', `#ats_workordertype_name="${(el.value || '').trim()}" → ${svc === 'install' ? 'تركيب' : 'صيانة'}`);
+          return svc;
+        }
+      } catch (_) {}
+    }
+
+    try {
+      const labels = Array.from(document.querySelectorAll('label, .field-label, th'));
+      for (const k of ['نوع الخدمة', 'نوع البلاغ', 'Report Type', 'Service Type']) {
+        const label = labels.find(l => l.innerText && l.innerText.trim().includes(k));
+        if (!label) continue;
+        const td = label.closest('td, .cell, [data-logical-name]');
+        const valEl = td ? td.querySelector('.control input, .control select, .control [role="textbox"], .control') : null;
+        const svc = pick(valEl ? (valEl.value || valEl.innerText || '') : '');
+        if (svc) { logEvent('SERVICE', `label "${k}" → ${svc}`); return svc; }
+      }
+    } catch (_) {}
+
+    try {
+      for (const doc of getShallowDocs()) {
+        const sel = doc.querySelector('#ldv_workordertype');
+        const selText = sel && sel.options && sel.selectedIndex >= 0 ? (sel.options[sel.selectedIndex].text || '') : '';
+        const svc = pick(selText) || (sel && sel.value === '0' ? 'install' : '');
+        if (svc) {
+          logEvent('SERVICE', `#ldv_workordertype (احتياط) → ${svc}`);
+          return svc;
+        }
+      }
+    } catch (_) {}
+
+    logEvent('SERVICE', 'نوع الخدمة غير معروف');
+    return 'unknown';
+  }
+
+  // غلاف متوافق لكل المواضع القديمة (تنبيه التركيب، بيانات الجهاز، صفحة ٣...)
   function resolveIsInstall() {
-    try { if (detectInstallation()) return true; } catch(_) {}
+    if (readServiceType() === 'install') return true;
     if (typeof isInstallationReport === 'function') {
       try { if (isInstallationReport() === true) return true; } catch(_) {}
     }
@@ -1982,6 +2264,20 @@ function getCSS() {
     return out;
   }
 
+  // مطابقة كود الزر مع كود القائمة:
+  //   «رئيسي|فرعي» = الكود الفرعي بالتحديد (AC003|L24B · RF3600|3606)
+  //   «رئيسي» فقط = كل فروعه (السلوك القديم — داعم للخلف)
+  function shortcutCodeMatches(entryCode, wantedCode) {
+    const entry = String(entryCode || '').toUpperCase().trim();
+    const want = String(wantedCode || '').toUpperCase().trim();
+    if (!entry || !want) return false;
+    const [wMajor, wSub] = want.split('|');
+    const [eMajor, eSub] = entry.split('|');
+    if (wMajor !== eMajor) return false;
+    if (!wSub) return true;
+    return String(eSub || '') === wSub;
+  }
+
   // الأزرار الظاهرة للعائلة: أزرار العائلة ثم المشتركة (بلا تكرار معرّف)
   function visibleShortcuts(family) {
     const services = familyServices(family);
@@ -2116,15 +2412,16 @@ function getCSS() {
 
     const codesBox = shadow.getElementById('cp-sc-codes');
     if (codesBox) {
-      const seen = new Set();
-      const codes = shared ? [] : mergedDefectCodes(fam).filter(c => {
-        const key = String(c.major || '').toUpperCase();
-        if (!key || seen.has(key)) return false;
-        seen.add(key);
-        return true;
-      });
+      // كل كود فرعي سطر مستقل (RF3600/3606 ≠ RF3600/3607) حتى لا تضيع دقة الزر:
+      // القيمة «رئيسي|فرعي» = تحديد فرعي صريح، و«رئيسي» = كل فروعه.
+      const codes = shared ? [] : mergedDefectCodes(fam).filter(c => String(c.major || '').trim());
       codesBox.innerHTML = codes.length
-        ? codes.map(c => `<label><input type="checkbox" class="sc-code-cb" value="${escapeHtml(c.major)}"> <span>${escapeHtml(c.major)} — ${escapeHtml(c.desc || '')}</span></label>`).join('')
+        ? codes.map(c => {
+          const major = String(c.major || '').toUpperCase();
+          const sub = String(c.sub || '').toUpperCase();
+          const val = sub ? major + '|' + sub : major;
+          return `<label><input type="checkbox" class="sc-code-cb" value="${escapeHtml(val)}"> <span>${escapeHtml(major)} — ${escapeHtml(c.desc || '')}${sub ? ` <span class="cp-badge">${escapeHtml(sub)}</span>` : ''}</span></label>`;
+        }).join('')
         : '<div class="cp-empty">لا توجد أكواد لهذه العائلة بعد — أضفها من تبويب «أكواد»</div>';
     }
 
@@ -2387,7 +2684,7 @@ function getCSS() {
       setVal('cp-sc-note-text', def.noteText || '');
       setVal('cp-sc-codefrom', def.codeFrom || '');
       shadow.querySelectorAll('#cp-sc-codes .sc-code-cb').forEach(cb => {
-        cb.checked = (def.codes || []).includes(String(cb.value).toUpperCase());
+        cb.checked = (def.codes || []).some(w => shortcutCodeMatches(cb.value, w));
       });
       shadow.querySelectorAll('#cp-sc-notes .sc-note-cb').forEach(cb => {
         cb.checked = (def.noteIds || []).includes(cb.dataset.noteId || '');
@@ -3323,20 +3620,45 @@ function getCSS() {
   // الذي يطلبه المحرّك/الـ AI. بدل تخمين كود غير موجود، نعرض للمستخدم ما تعرضه
   // البوابة فعلًا (تُرجَع من handleSubgridIframeModal في available) ليختار بنفسه.
   const PROBLEM_OPTIONS_KEY = 'cp-problem-options';
+  const PROBLEM_OPTIONS_TTL_MS = 30 * 60 * 1000;
+
+  // رقم البلاغ: مفتاح القائمة — لا تُسترجع قائمة بلاغ آخر أبدًا.
+  function incidentKey() {
+    try {
+      const id = String(new URLSearchParams(location.search).get('id') || '').trim();
+      if (/^[a-f0-9-]{36}$/i.test(id)) return id.toLowerCase();
+    } catch (_) {}
+    try {
+      const el = document.querySelector('input[name*="incidentid"], #EntityFormView_EntityID, input[id*="EntityID"]');
+      const v = el && el.value ? String(el.value).trim() : '';
+      if (/^[a-f0-9-]{36}$/i.test(v)) return v.toLowerCase();
+    } catch (_) {}
+    return '';
+  }
 
   function loadProblemOptions() {
     try {
-      const raw = localStorage.getItem(PROBLEM_OPTIONS_KEY);
-      const obj = safeParseJSON(raw, null);
+      localStorage.removeItem(PROBLEM_OPTIONS_KEY); // تنظيف المفتاح القديم غير المرتبط ببلاغ
+    } catch (_) {}
+    try {
+      const id = incidentKey();
+      if (!id) return []; // بلاغ مجهول ⇒ لا استرجاع إطلاقًا
+      const obj = safeParseJSON(localStorage.getItem(PROBLEM_OPTIONS_KEY + ':' + id), null);
       if (!obj || !Array.isArray(obj.list)) return [];
-      // القائمة صالحة 30 دقيقة فقط — بعدها تكون مرتبطة بأمر شغل آخر
-      if (obj.ts && (Date.now() - obj.ts) > 30 * 60 * 1000) return [];
+      if (obj.ts && (Date.now() - obj.ts) > PROBLEM_OPTIONS_TTL_MS) return [];
       return obj.list.filter(Boolean);
     } catch (_) { return []; }
   }
 
   function saveProblemOptions(options) {
-    try { localStorage.setItem(PROBLEM_OPTIONS_KEY, JSON.stringify({ ts: Date.now(), list: options || [] })); } catch (_) {}
+    try {
+      const id = incidentKey();
+      if (!id) return;
+      localStorage.setItem(
+        PROBLEM_OPTIONS_KEY + ':' + id,
+        JSON.stringify({ ts: Date.now(), incident: id, list: options || [] })
+      );
+    } catch (_) {}
   }
 
   function extractProblemCode(label) {
@@ -3345,25 +3667,87 @@ function getCSS() {
     return head.trim() || s;
   }
 
-  function renderProblemOptions(shadow, options) {
+  // حالة صندوق الاختيار بين عمليات الرسم (نوع الخدمة اليدوي + القائمة الخام)
+  const _pickerState = { raw: [], device: '', service: '', fromCatalog: false };
+
+  // opts: { device, service, persist, fromCatalog }
+  //  - persist=true فقط للقوائم الحيّة (طلب اختيار/تنفيذ) — لا عند استرجاع قائمة محفوظة.
+  function renderProblemOptions(shadow, options, opts) {
     const box = shadow.getElementById('cp-problem-picker');
     const sel = shadow.getElementById('cp-problem-select');
     if (!box || !sel) return;
-    // المسموح فقط — الممنوع لا يُعرض ولا يُختار إطلاقًا (السجل المشترك)
-    let list = (options || []).filter(Boolean);
+    const o = opts || {};
     const PC = window.ProblemCodes;
-    if (PC && typeof PC.filterAllowed === 'function') list = PC.filterAllowed(list);
-    saveProblemOptions(list);
+
+    if (Array.isArray(options)) _pickerState.raw = options.filter(Boolean);
+    if (o.device) _pickerState.device = o.device;
+    if (o.service !== undefined) _pickerState.service = o.service || '';
+    if (o.fromCatalog !== undefined) _pickerState.fromCatalog = !!o.fromCatalog;
+
+    const device = _pickerState.device || readDeviceHint();
+    let service = _pickerState.service || readServiceType();
+    if (service === 'unknown') service = '';
+
+    // ممنوع + عائلة + نوع خدمة (fail-open لأي صف لا يُفهم)
+    let list = _pickerState.raw.slice();
+    let stats = {};
+    if (PC && typeof PC.filterCompatible === 'function') {
+      const res = PC.filterCompatible(list, { device, service });
+      list = res.list;
+      stats = res.stats || {};
+    } else if (PC && typeof PC.filterAllowed === 'function') {
+      list = PC.filterAllowed(list);
+    }
+
+    if (o.persist === true) saveProblemOptions(list);
+
+    const ctx = shadow.getElementById('cp-problem-context');
+    const svcBox = shadow.getElementById('cp-problem-service');
+    const cd = shadow.getElementById('cp-problem-countdown');
+
     if (!list.length) {
       box.style.display = 'none';
-      const cd = shadow.getElementById('cp-problem-countdown');
       if (cd) cd.textContent = '';
+      if (ctx) ctx.textContent = '';
+      if (svcBox) svcBox.style.display = 'none';
       return;
     }
+
+    if (ctx) {
+      const fam = (PC && typeof PC.familyOf === 'function') ? (PC.familyOf(device) || '') : '';
+      const svcLabel = service === 'install' ? 'تركيب' : (service === 'maintenance' ? 'صيانة' : 'غير معروف');
+      const parts = [];
+      if (device) parts.push(`الجهاز: ${device}${fam ? ' (' + fam + ')' : ''}`);
+      parts.push(`الخدمة: ${svcLabel}`);
+      if (_pickerState.fromCatalog) parts.push('المصدر: كتالوج العائلة');
+      const excluded = [];
+      if (stats.family) excluded.push(`عائلة ${stats.family}`);
+      if (stats.service) excluded.push(`خدمة ${stats.service}`);
+      if (stats.forbidden) excluded.push(`ممنوع ${stats.forbidden}`);
+      if (excluded.length) parts.push(`استُبعد: ${excluded.join(' · ')}`);
+      ctx.textContent = `${parts.join(' · ')} — ${list.length} خيار`;
+    }
+    if (svcBox) svcBox.style.display = service ? 'none' : 'flex';
+
     sel.innerHTML = list
-      .map(o => `<option value="${String(o).replace(/"/g, '&quot;')}">${String(o).replace(/</g, '&lt;')}</option>`)
+      .map(o2 => `<option value="${String(o2).replace(/"/g, '&quot;')}">${String(o2).replace(/</g, '&lt;')}</option>`)
       .join('');
     box.style.display = 'block';
+  }
+
+  // أزرار نوع الخدمة عند الجهالة — تُعيد تصفية نفس القائمة فورًا (بلا مودال جديد).
+  function bindProblemServiceChoice(shadow) {
+    const svcBox = shadow.getElementById('cp-problem-service');
+    if (!svcBox || svcBox.dataset.bound === '1') return;
+    svcBox.dataset.bound = '1';
+    svcBox.querySelectorAll('[data-svc]').forEach(btn => {
+      btn.onclick = () => {
+        const svc = btn.dataset.svc;
+        logEvent('PROB_PICK', `نوع الخدمة يدويًا: ${svc === 'install' ? 'تركيب' : 'صيانة'}`);
+        _pickerState.service = svc;
+        renderProblemOptions(shadow, _pickerState.raw, { service: svc });
+      };
+    });
   }
 
   async function addSelectedProblem(shadow) {
@@ -3373,6 +3757,17 @@ function getCSS() {
     const PC = window.ProblemCodes;
     const code = (PC && typeof PC.codeOf === 'function') ? PC.codeOf(label) : extractProblemCode(label);
     logEvent('PROB_PICK', `إضافة مشكلة مختارة: ${label}`);
+
+    // حارس أخير قبل الإرسال: لا نضيف كودًا من عائلة أخرى للجهاز الحالي أبدًا.
+    const device = _pickerState.device || readDeviceHint();
+    const service = _pickerState.service || readServiceType();
+    const deviceFam = (PC && typeof PC.familyOf === 'function') ? (PC.familyOf(device) || '') : '';
+    const codeFam = (PC && typeof PC.familyOfCode === 'function') ? (PC.familyOfCode(code) || '') : '';
+    if (deviceFam && codeFam && codeFam !== '*' && codeFam !== deviceFam) {
+      logEvent('PROB_PICK', `⛔ مرفوض: ${code} عائلة ${codeFam} ≠ ${deviceFam} (${device})`);
+      setStatus(shadow, `⛔ ${code} من عائلة أخرى (${codeFam}) — الجهاز ${deviceFam}`, 'warn');
+      return;
+    }
 
     // مسار واحد موحّد: لو المحرّك ينتظر اختيارًا، سلّمه الاختيار (هو الذي يضيف).
     if (PC && typeof PC.resolveUserPick === 'function' && typeof PC.hasPendingPick === 'function' && PC.hasPendingPick()) {
@@ -3394,7 +3789,9 @@ function getCSS() {
         /ترصيد|تجار|ارضي|أرضي|بلاغ|GI00|GS08|GR05|SR00|SR01|WM04/i,
         null
       );
-      if (PC && typeof PC.recordOutcome === 'function') PC.recordOutcome(code, '', !!(res && res.ok));
+      if (PC && typeof PC.recordOutcome === 'function') {
+        PC.recordOutcome(code, device, !!(res && res.ok), { service, family: deviceFam });
+      }
       if (res && res.ok) {
         logEvent('PROB_PICK', `✅ أُضيفت: ${res.name || label}`);
         setStatus(shadow, `✅ أُضيفت المشكلة: ${res.name || label}`, 'success');
@@ -3476,8 +3873,10 @@ function getCSS() {
 
       if (addProblems) {
         const device = readDeviceHint();
-        const isInstall = resolveIsInstall();
-        logEvent('EXEC_PAGE2', `إضافة مشاكل: الجهاز=${device}, النوع=${isInstall ? 'تركيب' : 'صيانة'}`);
+        const serviceType = readServiceType();
+        const isInstall = serviceType === 'install' || resolveIsInstall();
+        const service = isInstall ? 'install' : (serviceType === 'maintenance' ? 'maintenance' : '');
+        logEvent('EXEC_PAGE2', `إضافة مشاكل: الجهاز=${device}, النوع=${service === 'install' ? 'تركيب' : (service === 'maintenance' ? 'صيانة' : 'غير معروف')}`);
         const probCode = typeof getSmartProblemCode === 'function'
           ? await getSmartProblemCode(device, isInstall)
           : (typeof getProblemCode === 'function' ? await getProblemCode(device, isInstall) : null);
@@ -3487,7 +3886,8 @@ function getCSS() {
           try {
             const probRes = await P2.resolveActualProblem(probCode, {
               device,
-              priority: isInstall ? /تركيب وتشغيل/i : null
+              service,
+              priority: isInstall ? /تركيب/i : null
             });
             probOk = !!(probRes && probRes.ok);
             probLabel = (probRes && probRes.name) || probCode;
@@ -3500,7 +3900,12 @@ function getCSS() {
             }
             if (!probOk && probAvailable.length) {
               logEvent('EXEC_PAGE2', 'الأكواد المسموحة في هذه القائمة: ' + probAvailable.join(' | '));
-              renderProblemOptions(shadow, probAvailable);
+              renderProblemOptions(shadow, probAvailable, {
+                device,
+                service,
+                persist: true,
+                fromCatalog: !!(probRes && probRes.fromCatalog)
+              });
             }
           } catch (e) {
             logEvent('EXEC_PAGE2', 'فشل إضافة المشكلة: ' + (e.message || e));
@@ -3636,7 +4041,94 @@ function getCSS() {
     return el ? (el.value || el.innerText || '0').replace(/[^0-9.]/g, '') || '0' : '0';
   }
 
-  function extractFaultCodesFromPage(shadow) {
+  // ── مساعدات قراءة الشبكات ──────────────────────────────────────────────────
+  // البوابة تلفّ كل شبكة داخل جدول تخطيط خارجي (layout table) يحوي الشبكة الحقيقية
+  // كجدول متداخل. القراءة العامة داخله تُرجع صفوف تخطيط/أثاث لا بيانات
+  // (تحقق حي 2026-10-26 على W6226000701: ٨٧ صفًا متداخلًا ⇒ ٢٦ «كود» أثاث).
+  // القاعدة: نقرأ الجداول الـleaf فقط، ورؤوس/صفوف الجدول نفسه فقط.
+  function isLeafTable(tbl) {
+    if (!tbl) return false;
+    try { return !tbl.querySelector('table'); } catch (_) { return false; }
+  }
+
+  function ownHeaderCells(tbl) {
+    if (!tbl) return [];
+    try {
+      return Array.from(tbl.querySelectorAll(':scope > thead > tr > th, :scope > thead > tr > td'));
+    } catch (_) { return []; }
+  }
+
+  function ownBodyRows(tbl) {
+    if (!tbl) return [];
+    try { return Array.from(tbl.querySelectorAll(':scope > tbody > tr')); } catch (_) { return []; }
+  }
+
+  // صف الرؤوس قد يُرسم داخل tbody (حقيقة حية) — نرفضه حتى لا يُقرأ كبيانات
+  function isHeaderRow(tr) {
+    if (!tr) return false;
+    try { if (tr.querySelector('th')) return true; } catch (_) {}
+    try { if (tr.querySelector('td[data-attribute]')) return false; } catch (_) {}
+    const t = (tr.innerText || '').replace(/\s+/g, ' ').trim();
+    if (!t) return false;
+    return /sort\s*(?:ascending|descending)/i.test(t)
+      || /كود\s*العطل\s*الرئيسي/.test(t)
+      || /وصف\s*كود\s*العطل/.test(t)
+      || /قطعة\s*الغيار/.test(t);
+  }
+
+  // ── فلاتر نظافة الاستخراج ──────────────────────────────────────────────────
+  // نمط كود العطل الحقيقي (تحقق حي): بادئة المنتج (٢–٣ أحرف) + ٣–٤ أرقام مثل
+  // RF1102 / VH0101. أي شيء آخر (نصوص أثاث الصفحة، أسعار مثل 1.000) يُرفض.
+  const DEFECT_CODE_RE = /^[A-Za-z]{2,3}\s?-?\d{3,4}(?:[-_][A-Za-z0-9]{1,4})?$/;
+  const FURNITURE_RE = /^(?:sort\s*(?:ascending|descending)|no\s*records|لا\s*توجد\s*سجلات?|إضافة|تعديل|حذف|عرض|تصفية|add|edit|delete|view|filter)$/i;
+
+  function isValidDefectCode(value) {
+    const c = String(value == null ? '' : value).replace(/\s+/g, ' ').trim();
+    if (!c || c.length > 24) return false;
+    if (FURNITURE_RE.test(c)) return false;
+    return DEFECT_CODE_RE.test(c);
+  }
+
+  // صالح لو حمل كودًا حقيقيًا في أي من حقوله الثلاثة (رئيسي/فرعي/كامل)
+  function isValidDefectEntry(entry) {
+    if (!entry || typeof entry !== 'object') return false;
+    return isValidDefectCode(entry.fullCode)
+      || isValidDefectCode(entry.defectCode)
+      || isValidDefectCode(entry.majorCode);
+  }
+
+  // أكواد القطع الحقيقية تبدأ بحروف-شرطات: WM-TH-BRAK-WIRE-G · EG-W6226000701
+  function isValidPartCode(value) {
+    const c = String(value == null ? '' : value).replace(/\s+/g, ' ').trim();
+    if (!c || c.length > 40) return false;
+    if (FURNITURE_RE.test(c)) return false;
+    if (/^[\d.,\s]+$/.test(c)) return false;   // سعر/رقم فقط
+    if (!/[A-Za-z]/.test(c)) return false;      // بلا حرف لاتيني ⇒ ليس كودًا
+    return /^[A-Za-z0-9][A-Za-z0-9 _\-–—./]*$/.test(c);
+  }
+
+  // حزمة قديمة مخزَّنة قبل إصلاح الاستخراج قد تحمل «أكواد» أثاث — تُنظَّف عند القراءة
+  function sanitizeStoredBundle(bundle) {
+    if (!bundle || typeof bundle !== 'object') return bundle;
+    if (Array.isArray(bundle.faultCodes)) {
+      const before = bundle.faultCodes.length;
+      bundle.faultCodes = bundle.faultCodes.filter(isValidDefectEntry);
+      if (bundle.faultCodes.length !== before) {
+        logEvent('COPY_CODES', `🧹 حزمة مخزَّنة: حُذف ${before - bundle.faultCodes.length} «كود» غير صالح (أثاث/سعر)`);
+      }
+    }
+    if (Array.isArray(bundle.spareParts)) {
+      const before = bundle.spareParts.length;
+      bundle.spareParts = bundle.spareParts.filter(p => p && (isValidPartCode(p.code) || String(p.name || '').trim()));
+      if (bundle.spareParts.length !== before) {
+        logEvent('COPY_CODES', `🧹 حزمة مخزَّنة: حُذف ${before - bundle.spareParts.length} صف قطعة غير صالح`);
+      }
+    }
+    return bundle;
+  }
+
+  // استخراج أكواد الأعطال من الصفحة المعروضة حاليًا (تُكرَّر لكل صفحة شبكة)
+  function extractDefectCodesOnce() {
     const allDocs = getShallowDocs();
 
     const faultCodes = [];
@@ -3710,14 +4202,16 @@ function getCSS() {
       if (faultCodes.length === 0) {
         const tables = doc.querySelectorAll('table');
         tables.forEach(table => {
-          const ths = Array.from(table.querySelectorAll('thead th, tr:first-child th')).map(th => (th.innerText || '').trim());
+          // الجدول الخارجي = تخطيط الصفحة (يحوي جداول متداخلة) ⇒ يُتجاهل تمامًا
+          if (!isLeafTable(table)) return;
+          const ths = ownHeaderCells(table).map(th => (th.innerText || '').trim());
           const majorColIdx = ths.findIndex(t => /كود\s*العطل\s*الرئيسي/i.test(t));
           const defectColIdx = ths.findIndex(t => /^كود\s*العطل/i.test(t));
           const descColIdx = ths.findIndex(t => /وصف\s*كود\s*العطل/i.test(t));
 
           if (majorColIdx >= 0 || defectColIdx >= 0) {
-            const trs = table.querySelectorAll('tbody tr');
-            trs.forEach(tr => {
+            ownBodyRows(table).forEach(tr => {
+              if (isHeaderRow(tr)) return;
               const tds = tr.querySelectorAll('td');
               if (tds.length === 0) return;
               const mText = majorColIdx >= 0 && tds[majorColIdx] ? tds[majorColIdx].innerText.trim() : '';
@@ -3726,22 +4220,62 @@ function getCSS() {
               if (mText || dText) {
                 const mCode = mText.split(/\s*[-–—_]\s*/)[0]?.trim() || mText;
                 const fCode = descText ? (descText.split(/\s*[-–—_]\s*/)[0]?.trim() || dText) : dText;
+                const entry = {
+                  majorCode: mCode,
+                  majorName: mText,
+                  defectCode: dText,
+                  fullCode: fCode,
+                  description: descText
+                };
+                // لا نقبل صفًا لا يحمل كود عطل حقيقيًا (أثاث الصفحة/الأسعار)
+                if (!isValidDefectEntry(entry)) return;
                 const key = `${mCode}|${dText}|${fCode}`;
                 if (!seen.has(key)) {
                   seen.add(key);
-                  faultCodes.push({
-                    majorCode: mCode,
-                    majorName: mText,
-                    defectCode: dText,
-                    fullCode: fCode,
-                    description: descText
-                  });
+                  faultCodes.push(entry);
                 }
               }
             });
           }
         });
       }
+    }
+
+    // 🪙 وسم كلمات التكلفة مرة واحدة عند الاستخراج (تُقرأ لاحقًا بلا إعادة حساب)
+    return faultCodes.map(markCostCode);
+  }
+
+  // الحزمة الكاملة: يقرأ كل صفحات شبكة الأعطال وكل صفحات شبكة القطع
+  async function extractFaultCodesFromPage(shadow) {
+    const faultCodes = [];
+    const seen = new Set();
+    const rejected = [];
+    const pushAll = (list) => (list || []).forEach(c => {
+      // فلتر نظافة: أي مدخل بلا كود عطل حقيقي (أثاث الصفحة/سعر/نص) يُرفض ويُسجَّل
+      if (!isValidDefectEntry(c)) {
+        const label = String((c && (c.fullCode || c.defectCode || c.majorCode)) || '').trim();
+        if (label) rejected.push(label);
+        return;
+      }
+      const key = `${c.majorCode || ''}|${c.defectCode || ''}|${c.fullCode || ''}`;
+      if (seen.has(key)) return;
+      seen.add(key);
+      faultCodes.push(c);
+    });
+
+    let defectPages = 1;
+    let defectTotalPages = 1;
+    let gridAborted = false;
+    const defectRoot = findFirstGridRoot(DEFECT_GRID_ROW_SELECTORS);
+    if (defectRoot) {
+      const res = await forEachGridPage(defectRoot.root, 'table tbody tr', () => extractDefectCodesOnce());
+      res.pages.forEach(pushAll);
+      defectPages = res.pages.length;
+      defectTotalPages = res.totalPages;
+      gridAborted = res.aborted === true;
+      if (gridAborted) logEvent('COPY_CODES', '⛔ توقف ترقيم شبكة الأعطال (خطأ بوابة) — اعتُمد ما قُرئ');
+    } else {
+      pushAll(extractDefectCodesOnce());
     }
 
     // 3. كود احتياطي: لو لم تكن هناك صفوف بالجدول، قراءة الأكواد المحددة بالـ checkboxes في اللوحة
@@ -3753,21 +4287,25 @@ function getCSS() {
         const s = parts[1] || '';
         const full = parts[2] || '';
         const label = cb.closest('label')?.innerText?.trim() || '';
-        faultCodes.push({
+        pushAll([{
           majorCode: m,
           majorName: label || m,
           defectCode: s,
           fullCode: full || s || m,
           description: label
-        });
+        }]);
       });
     }
 
-    const partsRes = readPartsFromGrid();
+    const partsRes = await readPartsFromGridAllPages();
     const amtVal = shadow ? (shadow.getElementById('cp-amount')?.value?.trim() || readCollectedAmountFromPage()) : readCollectedAmountFromPage();
     const notesVal = readNotesFromPage();
     const isLscEl = findFirstInFrames('#ldv_islsc');
     const isLscVal = isLscEl ? String(isLscEl.value || '').trim() : '';
+
+    if (rejected.length) {
+      logEvent('COPY_CODES', `🧹 رُفض ${rejected.length} مدخلًا ليس كود عطل: ${rejected.slice(0, 8).join(' · ')}${rejected.length > 8 ? ' …' : ''}`);
+    }
 
     return {
       type: 'ELARABY_CODES_BUNDLE',
@@ -3777,10 +4315,21 @@ function getCSS() {
       // سياق البلاغ المصدر (للعلم وللعرض — لا يُطبّق تلقائيًا على البلاغ الجديد)
       sparePartsStatus: readSparePartsStatusFromPage() || '',
       isLsc: isLscVal,
-      faultCodes,
+      faultCodes: faultCodes.map(markCostCode),
       spareParts: partsRes?.parts || [],
       amount: amtVal || '0',
-      notes: notesVal || ''
+      notes: notesVal || '',
+      // المنتج الذي تُجمَّع تحته الحزمة (من الصفحة/الموديل — لا تخمين)
+      product: readProductContext(),
+      // عدد الصفحات المقروءة فعليًا — يظهر في السجل ليُثبت أن القراءة شملت «٢» وما بعدها
+      gridPages: {
+        defects: defectPages,
+        defectsTotal: defectTotalPages,
+        parts: partsRes?.pages || 1,
+        partsTotal: partsRes?.totalPages || 1
+      },
+      // بوابة الخطأ: هل توقف الترقيم قبل نهاية الشبكة؟ (اقرأ ما تيسّر، لا تُكمل بعمى)
+      aborted: (gridAborted === true) || (partsRes?.aborted === true)
     };
   }
 
@@ -3794,7 +4343,7 @@ function getCSS() {
         preview.innerHTML = '';
         return;
       }
-      const bundle = safeParseJSON(raw, null);
+      const bundle = sanitizeStoredBundle(safeParseJSON(raw, null));
       if (bundle && ((Array.isArray(bundle.faultCodes) && bundle.faultCodes.length > 0) || (Array.isArray(bundle.spareParts) && bundle.spareParts.length > 0))) {
         const partsCount = bundle.spareParts?.length || 0;
         const codesCount = bundle.faultCodes?.length || 0;
@@ -3813,11 +4362,377 @@ function getCSS() {
     }
   }
 
+  // ── سياق المنتج (الصفحة/الموديل) ──────────────────────────────────────
+  // الحزمة تُجمَّع افتراضيًا تحت منتج واحد يُقرأ من الصفحة، لا يُخمَّن.
+  function readProductContext() {
+    const readLookup = (sel) => {
+      const el = findFirstInFrames(sel);
+      if (!el) return { name: '', id: '' };
+      let name = String(el.value || el.innerText || '').trim();
+      let id = '';
+      try {
+        const v = JSON.parse(el.getAttribute('data-value') || '{}');
+        if (v && v.Name) name = String(v.Name).trim();
+        if (v && v.Id) id = String(v.Id);
+      } catch (_) {}
+      return { name, id };
+    };
+    const model = readLookup('#ats_modelid_name, #ats_modelid');
+    const actual = readLookup('#ats_actualmodel_name, #ats_actualmodel');
+    let device = '';
+    try { device = String(readDeviceHint() || '').trim(); } catch (_) { device = ''; }
+    const modelName = model.name || actual.name || '';
+    let family = '';
+    try { family = defectFamilyOf(modelName || device || '') || ''; } catch (_) { family = ''; }
+    return {
+      model: modelName || device || '',
+      modelId: model.id || '',
+      actualModel: actual.name || '',
+      device: device || '',
+      family: String(family || '').toUpperCase()
+    };
+  }
+
+  function copyBoardCodeKey(c) {
+    return String((c && c.majorCode) || '').trim() + '|' + String((c && c.defectCode) || '').trim();
+  }
+
+  // ── لوحة النسخ: سحب كود العطل على القطعة قبل ⭐ وقبل اللصق ──────────────
+  // الهدف: ⭐ يُحفظ بالزوج الصحيح (رئيسي|فرعي) من شاشة النسخ نفسها،
+  // والحزمة تحمل الاقتران (majorCode/subCode) فيصل إلى اللصق بلا تخمين.
+  function renderCopyBoard(shadow, bundleIn) {
+    const sh = shadow || (typeof PANEL_SHADOW !== 'undefined' ? PANEL_SHADOW : null);
+    if (!sh) return;
+    const box = sh.getElementById('cp-copy-board');
+    if (!box) return;
+
+    let bundle = bundleIn;
+    if (!bundle) {
+      try { bundle = sanitizeStoredBundle(safeParseJSON(localStorage.getItem('elaraby_copied_codes_bundle'), null)); } catch (_) { bundle = null; }
+    } else {
+      bundle = sanitizeStoredBundle(bundle);
+    }
+    const codes = Array.isArray(bundle?.faultCodes) ? bundle.faultCodes.filter(Boolean) : [];
+    const parts = Array.isArray(bundle?.spareParts) ? bundle.spareParts.filter(Boolean) : [];
+    if (!bundle || (!codes.length && !parts.length)) {
+      box.style.display = 'none';
+      box.innerHTML = '';
+      return;
+    }
+
+    const live = readProductContext();
+    // منتج الحزمة (وقت النسخ) أولى من منتج الصفحة الحالية — الحزمة قد تكون من بلاغ آخر
+    const product = (bundle.product && (bundle.product.model || bundle.product.family))
+      ? bundle.product
+      : live;
+    if (!bundle.product) bundle.product = product;
+    const fam = String(product.family || '').toUpperCase();
+
+    const save = (msg) => {
+      try { localStorage.setItem('elaraby_copied_codes_bundle', JSON.stringify(bundle)); } catch (_) {}
+      try { refreshCopiedCodesPreview(sh); } catch (_) {}
+      if (msg) setStatus(sh, msg, 'success');
+    };
+    const rerender = () => renderCopyBoard(sh, bundle);
+
+    box.style.display = 'block';
+    box.innerHTML = '';
+
+    const head = document.createElement('div');
+    head.className = 'cp-copy-head';
+    head.textContent = `📦 ${product.model || bundle.product?.model || 'بدون منتج'}`
+      + (fam ? ` · عائلة ${fam}` : '');
+    box.appendChild(head);
+
+    const hint = document.createElement('div');
+    hint.className = 'cp-review-hint';
+    box.appendChild(hint);
+
+    const pool = document.createElement('div');
+    pool.className = 'cp-code-pool';
+    box.appendChild(pool);
+
+    const slots = [];
+    let dragState = null;
+    const linkedKeyOf = (p) => {
+      const m = String((p && p.majorCode) || '').trim();
+      const s = String((p && p.subCode) || '').trim();
+      return (m && s) ? `${m}|${s}` : '';
+    };
+    const usageOf = (key) => parts.filter(p => linkedKeyOf(p) === key).length;
+
+    // ── تعبئة تلقائية عند النسخ (قرار المالك): لا قطعة بلا كود عطل ──────────
+    // الترتيب: ⭐/ذاكرة مُثبتة ← كلمات الوصف ← احتياطي. القيمة قابلة للتعديل
+    // بالسحب، ولا تُحفظ في ذاكرة الاقتران إلا بنقرة ⭐ صريحة.
+    // تُنفَّذ مرة واحدة لكل حزمة (autoPaired) حتى لا يُعاد ربط قطعة فكّها المستخدم.
+    if (!bundle.autoPaired) {
+      const usedKeys = new Set(parts.map(linkedKeyOf).filter(Boolean));
+      const loadOf = (c) => usageOf(copyBoardCodeKey(c));
+      const filled = autoPairParts(parts, codes, { usedKeys, loadOf });
+      bundle.autoPaired = true;
+      try { localStorage.setItem('elaraby_copied_codes_bundle', JSON.stringify(bundle)); } catch (_) {}
+      if (filled) logEvent('COPY_CODES', `🔗 تعبئة تلقائية: ${filled} قطعة اقترنت بكود عطل (راجعها قبل ⭐)`);
+    }
+    const autoCount = (src) => parts.filter(p => p.pairSource === src).length;
+
+
+    const refreshHint = () => {
+      const unlinked = codes.filter(c => usageOf(copyBoardCodeKey(c)) === 0).length;
+      const kw = autoCount('keywords');
+      const fb = autoCount('fallback');
+      hint.textContent = `${codes.length} كود · ${parts.length} قطعة · ${unlinked} بلا قطعة`
+        + (kw ? ` · 🔑 ${kw} مطابقة وصف` : '')
+        + (fb ? ` · 🤖 ${fb} احتياطي` : '')
+        + ' — راجع الاقتران ثم اضغط ⭐';
+    };
+
+    const makeChip = (code, opts) => {
+      const o = opts || {};
+      const key = copyBoardCodeKey(code);
+      const chip = document.createElement('span');
+      chip.className = 'cp-code-chip' + (usageOf(key) > 0 ? ' used' : '');
+      chip.draggable = true;
+      chip.dataset.key = key;
+      chip.appendChild(document.createTextNode(String(code.fullCode || code.defectCode || key)));
+      const desc = String(code.description || '')
+        .replace(/^[A-Za-z]{2}\d{3,4}\s*[-–—]\s*/, '')
+        .replace(/^[()\s]+|[()\s]+$/g, '')
+        .trim();
+      if (desc) {
+        const d = document.createElement('small');
+        d.textContent = desc.slice(0, 34);
+        chip.appendChild(d);
+      }
+      if (isCostCode(code)) {
+        chip.classList.add('cost');
+        chip.appendChild(costBadge(code));
+      }
+      chip.addEventListener('dragstart', (ev) => {
+        try {
+          ev.dataTransfer.setData('text/plain', key);
+          ev.dataTransfer.effectAllowed = 'copyMove';
+        } catch (_) {}
+        chip.classList.add('dragging');
+        dragState = { key, from: o.from == null ? -1 : o.from };
+      });
+      chip.addEventListener('dragend', () => {
+        chip.classList.remove('dragging');
+        dragState = null;
+        slots.forEach(s => s.classList.remove('drag-over'));
+      });
+      return chip;
+    };
+
+    const renderSlot = (i) => {
+      const p = parts[i];
+      const slot = slots[i];
+      if (!slot || !p) return;
+      slot.innerHTML = '';
+      const key = linkedKeyOf(p);
+      slot.className = 'cp-part-slot' + (key ? ' filled' : '');
+      if (!key) {
+        slot.appendChild(document.createTextNode('— اسحب كود العطل هنا —'));
+        return;
+      }
+      const code = codes.find(c => copyBoardCodeKey(c) === key)
+        || { majorCode: p.majorCode, defectCode: p.subCode, fullCode: key };
+      slot.appendChild(makeChip(code, { from: i }));
+      // وسم مصدر الاقتران التلقائي (🔑 مطابقة وصف / 🤖 احتياطي) حتى تعرف ما تراجعه
+      const srcMeta = PAIR_SRC[p.pairSource];
+      if (srcMeta && (p.pairSource === 'keywords' || p.pairSource === 'fallback')) {
+        const badge = document.createElement('span');
+        badge.className = 'cp-part-src';
+        badge.textContent = srcMeta.icon;
+        badge.title = srcMeta.label;
+        slot.appendChild(badge);
+      }
+      const x = document.createElement('button');
+      x.type = 'button';
+      x.className = 'cp-slot-x';
+      x.textContent = '✕';
+      x.title = 'فكّ الربط (تعود القطعة بلا كود)';
+      x.onclick = (ev) => {
+        ev.stopPropagation();
+        p.majorCode = '';
+        p.subCode = '';
+        p.pairSource = '';
+        save();
+        rerender();
+      };
+      slot.appendChild(x);
+    };
+
+    // إفلات على القائمة = فكّ ربط القطعة المسحوبة
+    pool.addEventListener('dragover', (ev) => { ev.preventDefault(); pool.classList.add('drag-over'); });
+    pool.addEventListener('dragleave', () => pool.classList.remove('drag-over'));
+    pool.addEventListener('drop', (ev) => {
+      ev.preventDefault();
+      pool.classList.remove('drag-over');
+      const from = dragState ? dragState.from : -1;
+      if (from >= 0 && parts[from]) {
+        parts[from].majorCode = '';
+        parts[from].subCode = '';
+        parts[from].pairSource = '';
+        save();
+        rerender();
+      }
+    });
+
+    parts.forEach((p, i) => {
+      const row = document.createElement('div');
+      row.className = 'cp-copy-part';
+
+      const nm = document.createElement('span');
+      nm.className = 'cp-copy-name';
+      nm.textContent = p.code || p.name || `قطعة ${i + 1}`;
+      nm.title = p.fullName || p.name || '';
+      row.appendChild(nm);
+
+      const slot = document.createElement('div');
+      slot.className = 'cp-part-slot';
+      slot.addEventListener('dragover', (ev) => { ev.preventDefault(); slot.classList.add('drag-over'); });
+      slot.addEventListener('dragleave', () => slot.classList.remove('drag-over'));
+      slot.addEventListener('drop', (ev) => {
+        ev.preventDefault();
+        slot.classList.remove('drag-over');
+        const key = dragState ? dragState.key : (ev.dataTransfer ? ev.dataTransfer.getData('text/plain') : '');
+        const code = codes.find(c => copyBoardCodeKey(c) === key);
+        if (!code) return;
+        const from = dragState ? dragState.from : -1;
+        if (from >= 0 && from !== i && parts[from]) {
+          parts[from].majorCode = '';
+          parts[from].subCode = '';
+        }
+        p.majorCode = String(code.majorCode || '').trim();
+        p.subCode = String(code.defectCode || '').trim();
+        p.pairSource = 'manual';
+        save();
+        rerender();
+      });
+      slots[i] = slot;
+      row.appendChild(slot);
+
+      const star = document.createElement('button');
+      star.type = 'button';
+      const favNow = favFindItem(p);
+      star.className = 'cp-star' + (favNow ? ' on' : '');
+      star.textContent = '★';
+      const pair = linkedKeyOf(p);
+      star.title = pair
+        ? `⭐ حفظ ${p.code || p.name || 'القطعة'} مع الاقتران ${pair}`
+        : '⭐ حفظ القطعة بلا اقتران — اربطها بكود أولًا ليُحفظ صحيحًا';
+      star.onclick = async () => {
+        star.disabled = true;
+        try {
+          const on = await toggleFavPart({
+            ...p,
+            family: fam || favFamilyFor(p),
+            majorCode: String(p.majorCode || '').trim(),
+            subCode: String(p.subCode || '').trim()
+          });
+          star.className = 'cp-star' + (on ? ' on' : '');
+          setStatus(sh, on
+            ? `⭐ حُفظت ${p.code || p.name || 'القطعة'}${pair ? ' مع ' + pair : ' (بلا اقتران)'}`
+            : '⭐ أُزيلت من المفضلة', on ? 'success' : 'warn');
+        } catch (e) {
+          setStatus(sh, '⚠️ تعذّر حفظ ⭐: ' + (e.message || e), 'warn');
+        } finally {
+          star.disabled = false;
+        }
+      };
+      row.appendChild(star);
+
+      box.appendChild(row);
+    });
+
+    codes.forEach(c => pool.appendChild(makeChip(c, {})));
+    if (!codes.length) {
+      const none = document.createElement('span');
+      none.style.cssText = 'color:#f87171;font-size:10px';
+      none.textContent = 'لا توجد أكواد أعطال في الحزمة';
+      pool.appendChild(none);
+    }
+    slots.forEach((_, i) => renderSlot(i));
+    refreshHint();
+
+    // ⭐ الخاصة بهذا المنتج فقط (نفس العائلة أو بلا عائلة)
+    const favs = Object.entries(loadFavParts())
+      .filter(([, v]) => !fam || !v.family || String(v.family).toUpperCase() === fam)
+      .sort((a, b) => ((b[1].count || 0) - (a[1].count || 0)) || ((b[1].at || 0) - (a[1].at || 0)))
+      .slice(0, 12);
+    if (favs.length) {
+      const sec = document.createElement('div');
+      sec.className = 'cp-copy-sec';
+      sec.textContent = `⭐ هذا المنتج (${fam || 'كل العائلات'}) — اضغط لإضافتها للحزمة`;
+      box.appendChild(sec);
+      const favBox = document.createElement('div');
+      favBox.className = 'cp-fav-parts';
+      favs.forEach(([k, v]) => {
+        const b = document.createElement('button');
+        b.type = 'button';
+        b.className = 'cp-fav-chip';
+        b.textContent = v.code || v.name || k;
+        const fp = (v.majorCode && v.subCode) ? `${v.majorCode}|${v.subCode}` : '';
+        b.title = [
+          v.name || '',
+          fp ? 'اقتران محفوظ: ' + fp : 'بلا اقتران محفوظ',
+          'اضغط لإضافتها إلى الحزمة'
+        ].filter(Boolean).join(' • ');
+        b.onclick = () => {
+          if (parts.some(p => favKeyOf(p) === k)) {
+            setStatus(sh, 'ℹ️ القطعة موجودة في الحزمة بالفعل', 'warn');
+            return;
+          }
+          parts.push({
+            code: v.code || '',
+            name: v.name || '',
+            fullName: v.fullName || v.code || v.name || '',
+            productId: v.productId || '',
+            qty: v.qty || 1,
+            price: v.price || 0,
+            warranty: v.warranty || '',
+            majorCode: v.majorCode || '',
+            subCode: v.subCode || '',
+            fromFav: true
+          });
+          save(`⭐ أُضيفت ${v.code || v.name} إلى الحزمة${fp ? ' مع ' + fp : ''}`);
+          rerender();
+        };
+        favBox.appendChild(b);
+      });
+      box.appendChild(favBox);
+    }
+  }
+
   async function copyCodesAction(shadow) {
     logEvent('COPY_CODES', 'بدء نسخ الأكواد من الصفحة');
-    setStatus(shadow, '⏳ جاري استخراج الأكواد من الصفحة...');
+    setStatus(shadow, '⏳ جاري استخراج الأكواد من كل صفحات الشبكة...');
     try {
-      const bundle = extractFaultCodesFromPage(shadow);
+      // 🧹 مودال مفتوح يحجب الشبكة ويغيّر DOM ⇒ إغلاق آمن أولًا ثم النسخ
+      //    (تحقق حي 2026-10-26: النسخ مع مودال مفتوح أعاد صفرًا/بيانات ناقصة)
+      const openModals = [];
+      for (const doc of getShallowDocs()) {
+        try { Array.from(doc.querySelectorAll('.modal')).filter(isModalOpenSafe).forEach(m => openModals.push(m)); } catch (_) {}
+      }
+      if (openModals.length) {
+        logEvent('COPY_CODES', `🧹 إغلاق ${openModals.length} مودال مفتوح قبل النسخ`);
+        for (const m of openModals) {
+          try { await closeModalSafely(m, 'نسخ الأكواد'); } catch (_) {}
+        }
+        await sleep(300);
+      } else {
+        clearOrphanBackdrops('نسخ الأكواد');
+      }
+
+      const bundle = await extractFaultCodesFromPage(shadow);
+      const gp = bundle.gridPages || {};
+      if (gp.defectsTotal > 1 || gp.partsTotal > 1) {
+        logEvent('COPY_CODES', `📄 قُرئت ${gp.defects || 1}/${gp.defectsTotal || 1} صفحة أعطال · ${gp.parts || 1}/${gp.partsTotal || 1} صفحة قطع`);
+      }
+      if (bundle.aborted) {
+        logEvent('COPY_CODES', '⛔ توقف الترقيم بخطأ بوابة — اعتُمد ما قُرئ فقط (لا ترقيم أعمى)');
+        setStatus(shadow, '⚠️ توقف الترقيم بخطأ بوابة — اعتُمد ما قُرئ فقط', 'warn');
+      }
       if ((!bundle.faultCodes || bundle.faultCodes.length === 0) && (!bundle.spareParts || bundle.spareParts.length === 0)) {
         setStatus(shadow, '⚠️ لم يتم العثور على أكواد أعطال أو قطع غيار لنسخها في هذه الصفحة', 'warn');
         logEvent('COPY_CODES', 'لا توجد أكواد أعطال أو قطع غيار في الصفحة');
@@ -3838,6 +4753,7 @@ function getCSS() {
       } catch(_) {}
 
       refreshCopiedCodesPreview(shadow);
+      try { renderCopyBoard(shadow, bundle); } catch (e) { logEvent('COPY_CODES', 'لوحة النسخ: ' + (e.message || e)); }
 
       const codesSummary = (bundle.faultCodes || []).map(c => c.fullCode || c.defectCode || c.majorCode).join('، ');
       const partsSummary = (bundle.spareParts && bundle.spareParts.length > 0) ? ` و ${bundle.spareParts.length} قطعة غيار` : '';
@@ -4027,23 +4943,39 @@ function getCSS() {
   }
 
   // قائمة اختيار سريعة داخل اللوحة (بدل الاختيار الأعمى أو window.prompt)
+  // تقبل نصوصًا أو كائنات { text, cost } — و🪙 يظهر على أي خيار وصفه يحوي «بتكلفة».
   function promptLookupPick(title, options) {
     const sh = PANEL_SHADOW;
     const box = sh && sh.getElementById('cp-pick');
     const sel = sh && sh.getElementById('cp-pick-select');
     const titleEl = sh && sh.getElementById('cp-pick-title');
-    const list = (options || []).map(o => String(o || '').trim()).filter(Boolean);
+    const list = (options || []).map(o => {
+      const isObj = o && typeof o === 'object';
+      const text = String(isObj ? (o.text || '') : (o || '')).trim();
+      if (!text) return null;
+      return { text, cost: (isObj && o.cost === true) || hasCostTrigger(text) };
+    }).filter(Boolean);
     if (!box || !sel || !list.length) return Promise.resolve(null);
     if (box._resolve) { try { box._resolve(null); } catch(_) {} }
 
     sel.innerHTML = '';
+    let anyCost = false;
     list.forEach(o => {
       const opt = document.createElement('option');
-      opt.value = o;
-      opt.textContent = o.length > 80 ? o.slice(0, 80) + '…' : o;
+      opt.value = o.text;
+      const label = o.text.length > 80 ? o.text.slice(0, 80) + '…' : o.text;
+      opt.textContent = o.cost ? '🪙 ' + label : label;
+      if (o.cost) {
+        anyCost = true;
+        opt.dataset.cost = '1';
+        opt.title = 'وصفه يحوي «بتكلفة» — يُحتسب على العميل حتى لو داخل الضمان';
+      }
       sel.appendChild(opt);
     });
-    if (titleEl) titleEl.textContent = title || 'اختر من المتاح:';
+    if (titleEl) {
+      titleEl.textContent = (title || 'اختر من المتاح:')
+        + (anyCost ? ' — 🪙 وصفه يحوي «بتكلفة»: يُحتسب على العميل حتى داخل الضمان' : '');
+    }
     box.style.display = 'block';
 
     return new Promise(resolve => {
@@ -4656,6 +5588,148 @@ function getCSS() {
   // ════════════════════════════════════════════════════════════════════════════
   // لوحة مراجعة قبل اللصق: كود العطل + الضمان + ⭐ لكل قطعة
   // ════════════════════════════════════════════════════════════════════════════
+  // ── ذاكرة اقتران مُثبتة بالتجربة: قطعة ← (رئيسي/فرعي) ───────────────────
+  // تُسجَّل فقط بعد حفظ ناجح في البوابة (لا تخمين)، وتُستخدم كاقتراح قابل للتعديل.
+  const PART_PAIRING_KEY = 'elaraby_part_pairing_v1';
+  const PART_PAIRING_MAX = 300;
+
+  function pairingKeyOf(sp) {
+    const raw = String((sp && (sp.code || sp.name || sp.fullName)) || '').trim();
+    return raw ? raw.replace(/\s+/g, ' ').toUpperCase() : '';
+  }
+
+  function readPairingCache() {
+    try { return safeParseJSON(localStorage.getItem(PART_PAIRING_KEY), {}) || {}; } catch (_) { return {}; }
+  }
+
+  function recordPartPairing(sp, majorCode, subCode) {
+    const key = pairingKeyOf(sp);
+    if (!key || !majorCode || !subCode) return;
+    try {
+      const map = readPairingCache();
+      map[key] = { majorCode, subCode, ts: Date.now() };
+      const keys = Object.keys(map);
+      if (keys.length > PART_PAIRING_MAX) {
+        keys.sort((a, b) => (map[a].ts || 0) - (map[b].ts || 0));
+        keys.slice(0, keys.length - PART_PAIRING_MAX).forEach(k => delete map[k]);
+      }
+      localStorage.setItem(PART_PAIRING_KEY, JSON.stringify(map));
+    } catch (_) {}
+  }
+
+  // 🚫 ذاكرة رفض: الزوج الذي فشل حفظه فعليًا لا يُقترح مرة أخرى تلقائيًا.
+  //    تُسجَّل مع السبب، وتبقى للعلم — لا حذف صامت.
+  function recordPartPairingFailure(sp, majorCode, subCode, reason) {
+    const key = pairingKeyOf(sp);
+    if (!key || !majorCode || !subCode) return;
+    try {
+      const map = readPairingCache();
+      map[key] = {
+        majorCode,
+        subCode,
+        ts: Date.now(),
+        failed: true,
+        reason: String(reason || 'failed').slice(0, 120),
+        failedAt: Date.now()
+      };
+      const keys = Object.keys(map);
+      if (keys.length > PART_PAIRING_MAX) {
+        keys.sort((a, b) => (map[a].ts || 0) - (map[b].ts || 0));
+        keys.slice(0, keys.length - PART_PAIRING_MAX).forEach(k => delete map[k]);
+      }
+      localStorage.setItem(PART_PAIRING_KEY, JSON.stringify(map));
+    } catch (_) {}
+  }
+
+  function lookupPartPairing(sp) {
+    const key = pairingKeyOf(sp);
+    if (!key) return null;
+    const rec = readPairingCache()[key];
+    // الزوج الفاشل لا يُقترح — يُعرض في السجل فقط
+    return (rec && rec.majorCode && rec.subCode && !rec.failed) ? rec : null;
+  }
+
+  // هل هذا الزوج بالتحديد مسجَّل فاشلًا لهذه القطعة؟
+  function pairFailureOf(sp, majorCode, subCode) {
+    const key = pairingKeyOf(sp);
+    if (!key) return null;
+    const rec = readPairingCache()[key];
+    if (!rec || !rec.failed) return null;
+    if (majorCode && subCode
+      && !(sameCode(rec.majorCode, majorCode) && sameCode(rec.subCode, subCode))) return null;
+    return rec;
+  }
+
+  // كود أول من نص صف البوابة: "RF1100 - (دائرة النوفروست)" ⇒ "RF1100"
+  function codeTokenOf(text) {
+    const t = String(text || '').trim();
+    return (t.split(/\s*[-–—_]\s*/)[0] || '').trim();
+  }
+
+  // مقارنة كودين بعد إزالة المسافات وتوحيد الحالة (RF 1102 = RF1102)
+  function sameCode(a, b) {
+    const norm = (v) => String(v || '').replace(/\s+/g, '').toUpperCase();
+    const A = norm(a);
+    const B = norm(b);
+    return !!A && !!B && A === B;
+  }
+
+  // سبب فشل مقروء للمستخدم — بدل رموز داخلية مبهمة في السجل/التقرير
+  function partFailureReason(res) {
+    const r = String(res?.reason || '');
+    if (r === 'pair-inconsistent') {
+      return `الزوج ${res.pair || '—'} غير متسق: القطعة «${res.part || ''}» غير موجودة في قائمة هذا الكود الفرعي`;
+    }
+    if (r === 'sub-mismatch') return `الكود الفرعي المختار «${res.picked || '—'}» ≠ المطلوب «${res.expected || '—'}»`;
+    if (r === 'major-mismatch') return `الكود الرئيسي المختار «${res.picked || '—'}» ≠ المطلوب «${res.expected || '—'}»`;
+    if (r === 'no-fault-code') return 'لا كود عطل مقترن — اربط الكود من اللوحة أولًا';
+    if (r === 'need-major-and-sub') return 'كود بلا قطعة غيار — أضفه يدويًا من «اضافة كود عطل»';
+    if (r === 'user-skipped') return 'أُلغي الاختيار يدويًا';
+    if (r === 'cost-confirm') return 'الكود المكلِّف (بتكلفة) لم يُؤكَّد يدويًا — لا اختيار تلقائي';
+    if (/^sub-no-match|^major-no-match/.test(r)) return 'الكود غير موجود في القائمة (حتى بكلمة الوصف)';
+    if (/^part-/.test(r)) return 'قطعة الغيار غير موجودة في قائمة الكود الفرعي';
+    return r || 'سبب غير معروف';
+  }
+
+  // ── 🪙 كلمات التكلفة (قاعدة تجارية مُثبتة من المالك) ─────────────────────
+  // أي كود وصفه يحوي «بتكلفة» يُحتسب على العميل **بالتكلفة حتى لو داخل الضمان**.
+  // لذلك لا يُقترح صامتًا أبدًا: يظهر بشارة 🪙 ويحتاج تأكيدًا يدويًا صريحًا.
+  // القائمة قابلة للتوسعة من السجل إذا ظهرت صيغ أخرى.
+  const COST_TRIGGER_WORDS = ['بتكلفة', 'بالتكلفة'];
+
+  function hasCostTrigger(text) {
+    const t = normalizeAr(text);
+    if (!t) return false;
+    return COST_TRIGGER_WORDS.some(w => t.includes(normalizeAr(w)));
+  }
+
+  function codeTextOf(code) {
+    if (!code || typeof code !== 'object') return '';
+    return [code.description, code.fullName, code.fullCode, code.majorName, code.defectCode]
+      .filter(Boolean).join(' ');
+  }
+
+  function isCostCode(code) {
+    if (!code || typeof code !== 'object') return false;
+    if (code.cost === true) return true;
+    return hasCostTrigger(codeTextOf(code));
+  }
+
+  // وسم دائم على الكود — يُحسب مرة واحدة عند الاستخراج ثم يُقرأ من اللوحات
+  function markCostCode(code) {
+    if (!code || typeof code !== 'object') return code;
+    code.cost = hasCostTrigger(codeTextOf(code));
+    return code;
+  }
+
+  function costBadge(code) {
+    const b = document.createElement('span');
+    b.className = 'cp-cost-badge';
+    b.textContent = '🪙';
+    b.title = 'وصف هذا الكود يحوي «بتكلفة» — يُحتسب على العميل حتى لو داخل الضمان. راجعه قبل الاستخدام.';
+    return b;
+  }
+
   function showPartsReview(shadow, jobs, allCodes) {
     const box = shadow.getElementById('cp-parts-review');
     if (!box) return Promise.resolve(jobs);
@@ -4663,9 +5737,211 @@ function getCSS() {
     return new Promise(resolve => {
       const state = jobs.map(j => ({
         sparePart: j.sparePart,
-        faultCode: j.faultCode,
+        faultCode: j.faultCode || null,
+        source: j.faultCode ? 'bundle' : '',
         warranty: j.sparePart.warranty === 'out' ? 'out' : 'in'
       }));
+
+      const codes = Array.isArray(allCodes) ? allCodes.filter(Boolean) : [];
+      const selectors = [];
+      const slots = [];
+
+      // مفتاح الزوج = رئيسي|فرعي — الفرعيان المختلفان لا يُدمجان أبدًا
+      // (RF3607 ضبط جوان الكابينة ≠ RF3606 ضبط جوان الفريزر، وكلاهما تحت RF3600).
+      const codeKey = (c) => String((c && c.majorCode) || '').trim() + '|' + String((c && c.defectCode) || '').trim();
+      const codeShortDesc = (c) => String((c && c.description) || '')
+        .replace(/^[A-Za-z]{2}\d{3,4}\s*[-–—]\s*/, '')
+        .replace(/^[()\s]+|[()\s]+$/g, '')
+        .trim();
+      const usageOf = (key) => state.filter(s => s.faultCode && codeKey(s.faultCode) === key).length;
+
+      // ── تعبئة تلقائية قبل العرض (قرار المالك): لا قطعة بلا كود ───────────────
+      // الترتيب: الحزمة (موجود) ← ⭐/ذاكرة مُثبتة ← كلمات الوصف ← احتياطي بالترتيب.
+      // كل شيء قابل للتعديل؛ والوسم يُظهر مصدر كل اقتراح حتى تعرف ما تراجعه.
+      {
+        const usedKeys = new Set(state.filter(s => s.faultCode).map(s => codeKey(s.faultCode)));
+        const loadOf = (c) => usageOf(codeKey(c));
+        state.forEach(it => {
+          if (it.faultCode) return;
+          const pick = pickCodeForPart(it.sparePart, codes, { usedKeys, loadOf });
+          if (!pick) return;
+          it.faultCode = pick.code;
+          it.source = pick.source;
+          usedKeys.add(codeKey(pick.code));
+          logEvent('PASTE_CODES', `🔗 اقتران ${it.sparePart.code || it.sparePart.name || 'قطعة'} ← ${codeKey(pick.code)} (${PAIR_SRC[pick.source]?.label || pick.source}${pick.score ? ' · ' + pick.score : ''})`);
+        });
+      }
+
+      const autoCounts = () => ({
+        keywords: state.filter(s => s.source === 'keywords').length,
+        fallback: state.filter(s => s.source === 'fallback').length
+      });
+
+      let dragState = null;   // { key, from } — from = فهرس القطعة (أو -1 من القائمة)
+      let armed = null;       // كود ملتقط بالنقر (بديل السحب للجوال/بلا ماوس)
+      let costArmed = false;  // 🪙 نقرة أولى تحذّر بالتكلفة، والثانية تنفّذ
+      let okBtnRef = null;
+
+      const resetCostArm = () => {
+        if (!costArmed) return;
+        costArmed = false;
+        if (okBtnRef) okBtnRef.textContent = '▶ تنفيذ اللصق';
+      };
+
+      const hint = document.createElement('div');
+      hint.className = 'cp-review-hint';
+      box.appendChild(hint);
+
+      const pool = document.createElement('div');
+      pool.className = 'cp-code-pool';
+      pool.title = 'أكواد الأعطال المنسوخة — اسحب كودًا إلى القطعة، أو من قطعة إلى أخرى للتبديل';
+      box.appendChild(pool);
+
+      const refreshHint = () => {
+        const unlinked = codes.filter(c => usageOf(codeKey(c)) === 0).length;
+        const counts = autoCounts();
+        hint.textContent = `${state.length} قطعة · ${codes.length} كود عطل · ${unlinked} بلا قطعة`
+          + (counts.keywords ? ` · 🔑 ${counts.keywords} مطابقة وصف` : '')
+          + (counts.fallback ? ` · 🤖 ${counts.fallback} احتياطي` : '')
+          + (codes.length ? ' — راجع ثم صحّح بالسحب أو القائمة' : '');
+      };
+
+      const makeChip = (code, opts) => {
+        const o = opts || {};
+        const key = codeKey(code);
+        const chip = document.createElement('span');
+        chip.className = 'cp-code-chip' + (usageOf(key) > 0 ? ' used' : '') + (armed === key ? ' armed' : '');
+        chip.draggable = true;
+        chip.dataset.key = key;
+        chip.appendChild(document.createTextNode(String(code.fullCode || code.defectCode || key)));
+        const desc = codeShortDesc(code);
+        if (desc) {
+          const d = document.createElement('small');
+          d.textContent = desc.slice(0, 40);
+          chip.appendChild(d);
+        }
+        if (isCostCode(code)) {
+          chip.classList.add('cost');
+          chip.appendChild(costBadge(code));
+        }
+        if (!o.inSlot) {
+          const n = usageOf(key);
+          if (n > 1) {
+            const u = document.createElement('small');
+            u.textContent = '×' + n;
+            chip.appendChild(u);
+          }
+        }
+        chip.addEventListener('dragstart', (ev) => {
+          try {
+            ev.dataTransfer.setData('text/plain', key);
+            ev.dataTransfer.effectAllowed = 'copyMove';
+          } catch (_) {}
+          chip.classList.add('dragging');
+          dragState = { key, from: o.from == null ? -1 : o.from };
+        });
+        chip.addEventListener('dragend', () => {
+          chip.classList.remove('dragging');
+          dragState = null;
+          slots.forEach(s => s.classList.remove('drag-over'));
+          pool.classList.remove('drag-over');
+        });
+        chip.addEventListener('click', (ev) => {
+          if (o.inSlot) return;                 // داخل خانة: الإزالة بزر ✕
+          ev.stopPropagation();
+          armed = (armed === key) ? null : key;
+          refreshAll();
+        });
+        return chip;
+      };
+
+      const assign = (index, code, src, moveFrom) => {
+        if (moveFrom != null && moveFrom >= 0 && moveFrom !== index) {
+          state[moveFrom].faultCode = null;
+          state[moveFrom].source = '';
+        }
+        state[index].faultCode = code;
+        state[index].source = src || 'manual';
+        armed = null;
+        resetCostArm();
+        refreshAll();
+      };
+
+      const unassign = (index) => {
+        state[index].faultCode = null;
+        state[index].source = '';
+        armed = null;
+        resetCostArm();
+        refreshAll();
+      };
+
+      const SOURCE_LABEL = {
+        bundle: ['📋', 'من الحزمة المنسوخة'],
+        fav: ['⭐', 'من ⭐ المفضلة'],
+        memory: ['🧠', 'من ذاكرة اقتران مُثبتة'],
+        keywords: ['🔑', 'مطابقة كلمات الوصف — راجع'],
+        fallback: ['🤖', 'احتياطي بالترتيب — راجع'],
+        manual: ['✋', 'اختيار يدوي']
+      };
+
+      const renderSlot = (index) => {
+        const it = state[index];
+        const slot = slots[index];
+        if (!slot) return;
+        slot.innerHTML = '';
+        slot.className = 'cp-part-slot' + (it.faultCode ? ' filled' : '');
+        if (it.faultCode) {
+          slot.appendChild(makeChip(it.faultCode, { inSlot: true, from: index }));
+          const meta = SOURCE_LABEL[it.source] || SOURCE_LABEL.manual;
+          const badge = document.createElement('span');
+          badge.className = 'cp-part-src';
+          badge.textContent = meta[0];
+          badge.title = meta[1];
+          slot.appendChild(badge);
+          const x = document.createElement('button');
+          x.type = 'button';
+          x.className = 'cp-slot-x';
+          x.textContent = '✕';
+          x.title = 'إزالة الربط (يعود الكود للقائمة)';
+          x.onclick = (ev) => { ev.stopPropagation(); unassign(index); };
+          slot.appendChild(x);
+        } else {
+          slot.appendChild(document.createTextNode('— اسحب كود العطل هنا —'));
+        }
+      };
+
+      const refreshAll = () => {
+        pool.innerHTML = '';
+        if (!codes.length) {
+          const none = document.createElement('span');
+          none.style.cssText = 'color:#f87171;font-size:10px';
+          none.textContent = 'لا توجد أكواد أعطال في الحزمة — انسخ البلاغ كاملًا ثم أعد اللصق';
+          pool.appendChild(none);
+        } else {
+          codes.forEach(c => pool.appendChild(makeChip(c, {})));
+        }
+        slots.forEach((_, i) => renderSlot(i));
+        selectors.forEach(({ sel, it }) => {
+          const key = it.faultCode ? codeKey(it.faultCode) : '';
+          let idx = 0;
+          for (let k = 1; k < sel.options.length; k++) {
+            if (sel.options[k].dataset.key === key) { idx = k; break; }
+          }
+          sel.selectedIndex = idx;
+          sel.style.outline = '';
+        });
+        refreshHint();
+      };
+
+      // إفلات على القائمة = فكّ الربط (الرجوع للوضع المستقل)
+      pool.addEventListener('dragover', (ev) => { ev.preventDefault(); pool.classList.add('drag-over'); });
+      pool.addEventListener('dragleave', () => pool.classList.remove('drag-over'));
+      pool.addEventListener('drop', (ev) => {
+        ev.preventDefault();
+        pool.classList.remove('drag-over');
+        const from = dragState ? dragState.from : -1;
+        if (from >= 0) unassign(from);
+      });
 
       state.forEach((it, i) => {
         const row = document.createElement('div');
@@ -4680,17 +5956,51 @@ function getCSS() {
         const ctl = document.createElement('div');
         ctl.className = 'cp-part-ctl';
 
-        if (allCodes && allCodes.length) {
+        // خانة الإفلات: هدف السحب لكل قطعة (السحب = زوج العطل كاملًا)
+        const slot = document.createElement('div');
+        slot.className = 'cp-part-slot';
+        slot.addEventListener('dragover', (ev) => { ev.preventDefault(); slot.classList.add('drag-over'); });
+        slot.addEventListener('dragleave', () => slot.classList.remove('drag-over'));
+        slot.addEventListener('drop', (ev) => {
+          ev.preventDefault();
+          slot.classList.remove('drag-over');
+          const key = dragState ? dragState.key : (ev.dataTransfer ? ev.dataTransfer.getData('text/plain') : '');
+          const code = codes.find(c => codeKey(c) === key);
+          if (!code) return;
+          const from = dragState ? dragState.from : -1;
+          // من قائمة الأكواد = ربط جديد · من قطعة أخرى = نقل/تبديل
+          assign(i, code, from >= 0 ? (state[from].source || 'manual') : 'manual', from);
+        });
+        slot.addEventListener('click', () => {
+          if (!armed) return;
+          const code = codes.find(c => codeKey(c) === armed);
+          if (code) assign(i, code, 'manual', -1);
+        });
+        slots[i] = slot;
+        ctl.appendChild(slot);
+
+        if (codes.length) {
           const sel = document.createElement('select');
-          allCodes.forEach(c => {
-            const label = c.fullCode || c.defectCode || c.majorCode || '';
+          const emptyOpt = document.createElement('option');
+          emptyOpt.value = '';
+          emptyOpt.textContent = '— اختر كود العطل —';
+          sel.appendChild(emptyOpt);
+          codes.forEach(c => {
             const o = document.createElement('option');
-            o.value = JSON.stringify({ majorCode: c.majorCode || '', defectCode: c.defectCode || '', fullCode: c.fullCode || '' });
-            o.textContent = label || '(بدون كود)';
-            if (it.faultCode && (label === (it.faultCode.fullCode || it.faultCode.defectCode || it.faultCode.majorCode))) o.selected = true;
+            o.dataset.key = codeKey(c);
+            o.value = codeKey(c);
+            o.textContent = String(c.fullCode || c.defectCode || c.majorCode || '(بدون كود)')
+              + (isCostCode(c) ? ' 🪙' : '');
             sel.appendChild(o);
           });
-          sel.onchange = () => { try { it.faultCode = JSON.parse(sel.value); } catch(_) {} };
+          sel.value = '';
+          sel.onchange = () => {
+            sel.style.outline = '';
+            const code = codes.find(c => codeKey(c) === sel.value);
+            if (!code) { unassign(i); return; }
+            assign(i, code, 'manual', -1);
+          };
+          selectors.push({ sel, it });
           ctl.appendChild(sel);
         } else {
           it.faultCode = null;
@@ -4748,6 +6058,8 @@ function getCSS() {
         box.appendChild(row);
       });
 
+      refreshAll();
+
       const actions = document.createElement('div');
       actions.style.cssText = 'display:flex;gap:4px;margin-top:7px';
       const okBtn = document.createElement('button');
@@ -4759,7 +6071,37 @@ function getCSS() {
         box.innerHTML = '';
         resolve(val);
       };
-      okBtn.onclick = () => finish(state);
+      okBtnRef = okBtn;
+      okBtn.onclick = () => {
+        // لا تنفيذ بقطعة بلا كود عطل: نموذج القطعة يحتاج الرئيسي + الفرعي ليحفظ
+        const missing = state.filter(s => !s.faultCode);
+        if (missing.length) {
+          resetCostArm();
+          slots.forEach((s, idx) => { if (!state[idx].faultCode) s.classList.add('missing'); });
+          const names = missing.map(s => s.sparePart.code || s.sparePart.name || 'قطعة').slice(0, 3).join('، ');
+          setStatus(shadow, (!allCodes || !allCodes.length)
+            ? '⚠️ لا توجد أكواد أعطال في الحزمة — انسخ البلاغ كاملًا (أكواد + قطع) ثم أعد اللصق'
+            : `⚠️ ${missing.length} قطعة بلا كود عطل (${names}${missing.length > 3 ? '…' : ''}) — اختر كودًا لكل قطعة`, 'warn');
+          return;
+        }
+        // 🪙 بوابة التكلفة: الكود الذي وصفه يحوي «بتكلفة» يُحتسب على العميل حتى داخل الضمان
+        const costCodes = state.filter(s => isCostCode(s.faultCode));
+        if (costCodes.length && !costArmed) {
+          costArmed = true;
+          okBtn.textContent = `🪙 تأكيد التكلفة والتنفيذ (${costCodes.length})`;
+          const names = costCodes
+            .map(s => String(s.faultCode.fullCode || s.faultCode.defectCode || '—'))
+            .slice(0, 4).join('، ');
+          setStatus(shadow, `🪙 ${costCodes.length} كود وصفه يحوي «بتكلفة» (${names}) — يُحتسب على العميل حتى لو داخل الضمان. اضغط «تأكيد التكلفة والتنفيذ» للمتابعة`, 'warn');
+          logEvent('PASTE_CODES', `🪙 تأكيد تكلفة مطلوب: ${costCodes.map(s => s.sparePart.code || s.sparePart.name).join(' · ')}`);
+          return;
+        }
+        // التأكيد صار صريحًا ⇒ يُمرَّر للتنفيذ حتى لا يُطلب مرة أخرى في البحث
+        state.forEach(s => {
+          if (s.faultCode && isCostCode(s.faultCode)) s.faultCode = { ...s.faultCode, cost: true, costConfirmed: true };
+        });
+        finish(state);
+      };
       cancelBtn.onclick = () => finish(null);
       actions.appendChild(okBtn);
       actions.appendChild(cancelBtn);
@@ -4767,6 +6109,207 @@ function getCSS() {
 
       box.style.display = 'block';
     });
+  }
+
+  // ── صيغ البحث في نافذة lookup ─────────────────────────────────────────
+  // البوابة تبحث بالكود كما هو، أما النص العربي/الوصف فلا يُطابق إلا بـ *…*
+  // (تحقق حي 2026-10-26: "كباس" → 0 صفوف، "*كباس*" → صفّان RF1200/RF1300).
+  // نجرب الصيغة الأرجح أولًا ثم الأخرى قبل اللجوء إلى «عرض كل الخيارات».
+  function lookupSearchVariants(value) {
+    const v = String(value || '').trim();
+    if (!v) return [];
+    const bare = v.replace(/^\*+|\*+$/g, '').trim();
+    if (!bare) return [];
+    const isCode = /^[A-Za-z0-9][A-Za-z0-9._\-\/]*$/.test(bare) && /[0-9]/.test(bare);
+    const variants = isCode ? [bare, '*' + bare + '*'] : ['*' + bare + '*', bare];
+    return Array.from(new Set(variants));
+  }
+
+  // ── البحث بكلمة من الوصف (بالنجمة) — الدور الثالث فقط ────────────────────
+  // البوابة لا تطابق النص العربي إلا بـ *…* (تحقق حي: "كباس" → 0، "*كباس*" → 2).
+  // يُستخدم فقط عند فشل البحث بالكود. والاختيار يبقى بالكود حرفيًا:
+  // نقرأ كود العطل من الصف نفسه، والوصف لا يُختار به أبدًا.
+  const DESC_STOP_WORDS = /^(تم|في|من|على|الى|إلى|او|أو|و|مع|غير|بدون|كود|عطل|العطل|اخر|آخر|the|of|and|for|with|none|other)$/i;
+
+  function lookupDescriptionWords(description, max) {
+    const raw = String(description || '')
+      .replace(/^[A-Za-z]{2}\s?\d{3,4}\s*[-–—_]\s*/, '')   // كود البداية
+      .replace(/[()]/g, ' ')
+      .trim();
+    if (!raw) return [];
+    const seen = new Set();
+    const out = [];
+    raw.split(/[^\p{L}\p{N}]+/u).forEach(w => {
+      const t = String(w || '').trim();
+      if (t.length < 3) return;
+      if (/^\d+$/.test(t)) return;
+      if (/^[A-Za-z]{2}\d{3,4}$/i.test(t)) return;          // كود لا كلمة
+      if (DESC_STOP_WORDS.test(t)) return;
+      const k = normalizeAr(t);
+      if (!k || seen.has(k)) return;
+      seen.add(k);
+      out.push(t);
+    });
+    return out.slice(0, max || 4);
+  }
+
+  // ════════════════════════════════════════════════════════════════════════════
+  // محرّك الاقتران التلقائي (قرار المالك 2026-10-26)
+  //   القاعدة: **لكل قطعة غيار كود عطل** — والعكس غير مطلوب (كود بلا قطعة مسموح،
+  //   لأن كود العطل الواحد قد يشمل أكثر من قطعة).
+  //   الترتيب: ⭐/ذاكرة مُثبتة ← مطابقة كلمات الوصف ← احتياطي بالترتيب.
+  //   كل النتائج اقتراح قابل للتعديل من لوحة المراجعة — لا حفظ بلا مراجعة.
+  // ════════════════════════════════════════════════════════════════════════════
+  const PAIR_SRC = {
+    bundle:   { icon: '📋', label: 'من الحزمة المنسوخة' },
+    fav:      { icon: '⭐', label: 'من ⭐ المفضلة' },
+    memory:   { icon: '🧠', label: 'من ذاكرة اقتران مُثبتة' },
+    keywords: { icon: '🔑', label: 'مطابقة كلمات الوصف' },
+    fallback: { icon: '🤖', label: 'احتياطي بالترتيب — راجع' },
+    manual:   { icon: '✋', label: 'اختيار يدوي' }
+  };
+
+  // كلمات دلالية من نص (عربي/لاتيني) بلا أكواد ولا أرقام ولا كلمات وقف
+  function matchWordsOf(text, max) {
+    const raw = String(text || '').replace(/[()\[\]{}]/g, ' ');
+    const seen = new Set();
+    const out = [];
+    raw.split(/[^\p{L}\p{N}]+/u).forEach(w => {
+      const t = String(w || '').trim();
+      if (t.length < 3) return;
+      if (/^\d+$/.test(t)) return;
+      if (/^[A-Za-z]{2}\d{3,4}$/i.test(t)) return;      // كود لا كلمة
+      if (DESC_STOP_WORDS.test(t)) return;
+      const k = normalizeAr(t);
+      if (!k || seen.has(k)) return;
+      seen.add(k);
+      out.push(k);
+    });
+    return out.slice(0, max || 6);
+  }
+
+  // نص الكود كاملًا (وصف + أسماء + أكواد) بعد التطبيع — للبحث الدلالي
+  function codeSearchText(code) {
+    if (!code || typeof code !== 'object') return '';
+    return normalizeAr([code.description, code.fullName, code.fullCode, code.majorName, code.defectCode]
+      .filter(Boolean).join(' '));
+  }
+
+  // درجة تطابق كلمات القطعة داخل نص كود العطل
+  function keywordScoreOf(partWords, code) {
+    if (!partWords || !partWords.length) return 0;
+    const hay = codeSearchText(code);
+    if (!hay) return 0;
+    let score = 0;
+    partWords.forEach(w => { if (hay.includes(w)) score += 1; });
+    return score;
+  }
+
+  // كلمات القطعة الدلالية: الاسم العربي إن وُجد، وإلا يُفكّك fullName
+  function partWordsOf(part) {
+    if (!part) return [];
+    const name = String(part.name || '').trim()
+      || parsePartName(part.fullName || '').name
+      || '';
+    return matchWordsOf(name, 6);
+  }
+
+  // هل هذا الزوج مسجَّل فاشلًا لهذه القطعة؟ (لا يُقترح أبدًا)
+  function isFailedPairFor(part, code) {
+    if (!part || !code) return false;
+    const rec = pairFailureOf(part, code.majorCode, code.defectCode);
+    return !!rec;
+  }
+
+  // يختار كود عطل لقطعة بلا كود. يُرجع { code, source, score } أو null.
+  // opts: { usedKeys:Set, loadOf(fn), allowFallback:boolean }
+  function pickCodeForPart(part, codes, opts) {
+    const o = opts || {};
+    if (!part || !Array.isArray(codes) || codes.length === 0) return null;
+    const keyOf = (c) => copyBoardCodeKey(c);
+
+    // (١) ⭐ ثم الذاكرة المُثبتة — بيانات مؤكَّدة مسبقًا، تُقدَّم على أي مطابقة نصية
+    let fav = null;
+    try { fav = favFindItem(part); } catch (_) { fav = null; }
+    const mem = lookupPartPairing(part);
+    const proven = [
+      { src: 'fav', majorCode: (fav && fav.majorCode) || part.majorCode, subCode: (fav && fav.subCode) || part.subCode },
+      mem ? { src: 'memory', majorCode: mem.majorCode, subCode: mem.subCode } : null
+    ];
+    for (const cand of proven) {
+      if (!cand) continue;
+      const major = String(cand.majorCode || '').trim();
+      const sub = String(cand.subCode || '').trim();
+      if (!major || !sub) continue;
+      if (pairFailureOf(part, major, sub)) continue;      // زوج فاشل سابقًا
+      const match = codes.find(c => String(c.majorCode || '').trim() === major
+        && String(c.defectCode || '').trim() === sub);
+      if (match) return { code: match, source: cand.src, score: 99 };
+    }
+
+    // (٢) مطابقة كلمات الوصف: اسم القطعة ↔ وصف كود العطل (قرار المالك)
+    const words = partWordsOf(part);
+    if (words.length) {
+      const scored = codes
+        .map(c => ({ code: c, score: keywordScoreOf(words, c) }))
+        .filter(x => x.score > 0 && !isFailedPairFor(part, x.code))
+        .sort((a, b) => b.score - a.score);
+      if (scored.length) return { code: scored[0].code, source: 'keywords', score: scored[0].score };
+    }
+
+    // (٣) احتياطي: لا قطعة بلا كود ⇒ كود غير مستخدم أولًا، وإلا الأقل تحميلًا
+    if (o.allowFallback === false) return null;
+    const used = o.usedKeys || new Set();
+    const loadOf = typeof o.loadOf === 'function' ? o.loadOf : () => 0;
+    const safe = codes.filter(c => !isFailedPairFor(part, c));
+    const unused = safe.find(c => !used.has(keyOf(c)));
+    if (unused) return { code: unused, source: 'fallback', score: 0 };
+    const least = safe.slice().sort((a, b) => loadOf(a) - loadOf(b))[0];
+    return least ? { code: least, source: 'fallback', score: 0 } : null;
+  }
+
+  // تعبئة قائمة قطع/أكواد (تُعدّل الكائنات في مكانها) — تُرجع عدد المُعبّأ
+  function autoPairParts(parts, codes, opts) {
+    const o = opts || {};
+    const list = Array.isArray(parts) ? parts : [];
+    const keyOf = (c) => copyBoardCodeKey(c);
+    const usedKeys = o.usedKeys || new Set();
+    const loadOf = typeof o.loadOf === 'function' ? o.loadOf : () => 0;
+    let filled = 0;
+    list.forEach(p => {
+      if (!p || (p.majorCode && p.subCode)) return;
+      const pick = pickCodeForPart(p, codes, { usedKeys, loadOf, allowFallback: o.allowFallback });
+      if (!pick) return;
+      p.majorCode = String(pick.code.majorCode || '').trim();
+      p.subCode = String(pick.code.defectCode || '').trim();
+      p.pairSource = pick.source;
+      p.pairScore = pick.score;
+      usedKeys.add(keyOf(pick.code));
+      filled++;
+    });
+    return filled;
+  }
+
+  // أكواد العطل المكتوبة داخل نص الصف — تُقرأ كما تُعرض (تسامح مسافة: "RF 1102")
+  const ROW_CODE_RE = /(?<![A-Za-z0-9])([A-Za-z]{2})\s?(\d{3,4})(?:[-_]([A-Za-z0-9]{1,3}))?(?![A-Za-z0-9])/g;
+
+  function codesInRowText(text) {
+    const out = [];
+    const s = String(text || '');
+    ROW_CODE_RE.lastIndex = 0;
+    let m;
+    while ((m = ROW_CODE_RE.exec(s)) !== null) {
+      const base = (m[1] + m[2]).toUpperCase();
+      out.push(base);
+      if (m[3]) out.push((base + '-' + m[3]).toUpperCase());
+    }
+    return out;
+  }
+
+  function rowMatchesCode(text, code) {
+    const want = String(code || '').replace(/\s+/g, '').toUpperCase();
+    if (!want) return false;
+    return codesInRowText(text).includes(want);
   }
 
   async function fillIframeLookup(iframeDoc, inputId, searchValue, opts = {}) {
@@ -4825,59 +6368,112 @@ function getCSS() {
     }
     if (!cleanSearch) cleanSearch = simplifySearchText(searchValue);
 
-    if (cleanSearch && searchInput && searchBtn) {
-      logEvent('PASTE_CODES', `كتابة نص البحث: "${cleanSearch}"`);
-      searchInput.value = cleanSearch;
-      try { searchInput.dispatchEvent(new Event('input', { bubbles: true })); } catch(_) {}
-      try { searchInput.dispatchEvent(new Event('change', { bubbles: true })); } catch(_) {}
-      await safeClick(searchBtn);
-      await sleep(1800);
-    }
-
-    // قراءة صفوف النتائج
-    let rows = Array.from(lookupModal.querySelectorAll('table tbody tr')).filter(r => {
+    // قراءة صفوف النتائج الظاهرة فعلًا (getClientRects: offsetParent يفشل مع عناصر position:fixed)
+    const readRows = () => Array.from(lookupModal.querySelectorAll('table tbody tr')).filter(r => {
       try {
-        if (r.offsetParent === null) return false;
-        const txt = r.innerText.trim();
+        if (!r.getClientRects().length) return false;
+        const txt = (r.innerText || '').trim();
         return txt.length > 0 && !/no\s*records|لا\s*توجد/i.test(txt);
       } catch(_) { return false; }
     });
 
-    // لو لم تظهر نتائج بالبحث النصي المحدد، مسح حقل البحث وعرض كل السجلات المتاحة للموديل/العطل
-    if (rows.length === 0 && searchInput && searchBtn) {
-      logEvent('PASTE_CODES', `لا توجد نتائج لـ "${cleanSearch}"، جاري مسح البحث وعرض كل الخيارات المتاحة`);
-      searchInput.value = '';
-      try { searchInput.dispatchEvent(new Event('input', { bubbles: true })); } catch(_) {}
-      try { searchInput.dispatchEvent(new Event('change', { bubbles: true })); } catch(_) {}
+    // كتابة نص البحث + تنفيذ البحث (بأحداث من عالم الـ iframe نفسه)
+    const runSearch = async (value) => {
+      const view = iframeDoc.defaultView || window;
+      searchInput.value = value;
+      try { searchInput.dispatchEvent(new view.Event('input', { bubbles: true })); } catch(_) {}
+      try { searchInput.dispatchEvent(new view.Event('change', { bubbles: true })); } catch(_) {}
       await safeClick(searchBtn);
       await sleep(1800);
-      rows = Array.from(lookupModal.querySelectorAll('table tbody tr')).filter(r => {
-        try {
-          if (r.offsetParent === null) return false;
-          const txt = r.innerText.trim();
-          return txt.length > 0 && !/no\s*records|لا\s*توجد/i.test(txt);
-        } catch(_) { return false; }
-      });
+    };
+
+    let rows = [];
+    if (cleanSearch && searchInput && searchBtn) {
+      for (const variant of lookupSearchVariants(cleanSearch)) {
+        logEvent('PASTE_CODES', `كتابة نص البحث (${inputId}): "${variant}"`);
+        await runSearch(variant);
+        rows = readRows();
+        if (rows.length > 0) {
+          logEvent('PASTE_CODES', `${inputId}: صيغة البحث الناجحة "${variant}" — ${rows.length} نتيجة`);
+          break;
+        }
+        logEvent('PASTE_CODES', `لا نتائج لـ "${variant}" في ${inputId} — تجربة الصيغة التالية`);
+      }
+    }
+
+    // لو لم تظهر نتائج بأي صيغة، مسح حقل البحث وعرض كل السجلات المتاحة للموديل/العطل.
+    // ⚠️ يُمنع في الحقول المرتبطة (opts.noShowAll): قائمة الكود الفرعي غير مقيّدة بالكود
+    // الرئيسي (تحقق حي 2026-10-26: بعد اختيار RF1100 ظهرت RF1025..RF1035 من عائلة RF1000)،
+    // فـ«عرض الكل» يعرض عائلات أخرى ويُغري باختيار كود غير تابع.
+    if (rows.length === 0 && searchInput && searchBtn && !opts.noShowAll) {
+      logEvent('PASTE_CODES', `لا توجد نتائج لـ "${cleanSearch}"، جاري مسح البحث وعرض كل الخيارات المتاحة`);
+      await runSearch('');
+      rows = readRows();
+    }
+
+    const target = (opts.exactText || searchValue || cleanSearch || '').trim();
+    // الدور الثالث لا معنى له إلا إذا كان المطلوب كودًا فعليًا (لا نص صف)
+    const targetIsCode = /^[A-Za-z]{2}\s?\d{3,4}(?:[-_][A-Za-z0-9]{1,3})?$/.test(target);
+
+    // ── الدور الثالث: البحث بكلمة من الوصف بالنجمة (فقط عند فشل الكود) ──
+    // مسح متسلسل: أول صف يحمل الكود المطلوب حرفيًا يُختار، وغيره يُرفض ويُسجَّل.
+    let descTried = [];
+    if (targetIsCode && !rows.some(r => rowMatchesCode(r.innerText || '', target))) {
+      const descWords = Array.isArray(opts.descriptionWords) ? opts.descriptionWords : [];
+      if (descWords.length && searchInput && searchBtn) {
+        let descRows = [];
+        for (const word of descWords) {
+          const variant = '*' + word + '*';
+          logEvent('PASTE_CODES', `الوصف (${inputId}): "${variant}"`);
+          await runSearch(variant);
+          const cand = readRows();
+          descTried.push(`${variant}:${cand.length}`);
+          if (!cand.length) continue;
+          descRows = cand;
+          const hit = cand.find(r => rowMatchesCode(r.innerText || '', target));
+          if (hit) {
+            rows = [hit];
+            logEvent('PASTE_CODES', `✅ ${inputId}: وُجد بالوصف "${variant}" — الصف يحمل الكود ${target} حرفيًا`);
+            break;
+          }
+          const codes = Array.from(new Set(cand.map(r => codesInRowText(r.innerText || '').join('/')).filter(Boolean)));
+          logEvent('PASTE_CODES', `⛔ ${inputId}: "${variant}" أرجعت ${cand.length} صفًا بلا الكود ${target} — أكواد موجودة: ${codes.slice(0, 8).join(' · ') || '—'}`);
+        }
+        // لا مطابقة حرفية ⇒ نعرض ما وُجد كبدائل فقط (لا اختيار تلقائي)
+        if (!rows.some(r => rowMatchesCode(r.innerText || '', target)) && descRows.length) {
+          rows = descRows;
+          logEvent('PASTE_CODES', `⚠️ ${inputId}: لا صف يحمل ${target} بعد ${descTried.length} صيغة وصف — البدائل تُعرض للمستخدم (لا اختيار تلقائي)`);
+        }
+      }
     }
 
     if (rows.length === 0) {
       logEvent('PASTE_CODES', `لا توجد صفوف نتائج في بحث ${inputId} عن "${cleanSearch}"`);
       await closeLookupModalInDoc(lookupModal);
-      return { ok: false, reason: `لا توجد نتائج مطابقة لـ "${cleanSearch}"` };
+      return { ok: false, reason: `لا توجد نتائج مطابقة لـ "${cleanSearch}"`, descTried };
     }
 
     // ── مطابقة مرتّبة بالنقاط: لا «أول صف» أعمى أبدًا ──
-    const target = (opts.exactText || searchValue || cleanSearch || '').trim();
     const scored = rows
       .map(r => ({ row: r, text: (r.innerText || '').trim(), score: scoreLookupRow(r.innerText || '', target) }))
       .sort((a, b) => b.score - a.score);
     const best = scored[0];
 
     if (!best || best.score < 50) {
-      const available = scored.slice(0, 25).map(s => s.text);
+      const available = scored.slice(0, 25).map(s => ({ text: s.text, cost: hasCostTrigger(s.text) }));
       logEvent('PASTE_CODES', `⚠️ ${inputId}: لا مطابقة كافية لـ "${target}" (أعلى نتيجة ${best ? best.score : 0}%) — ${available.length} بديل متاح`);
       await closeLookupModalInDoc(lookupModal);
       return { ok: false, reason: 'no-match', searched: target, available };
+    }
+
+    // 🪙 بوابة التكلفة: لا اختيار تلقائي لكود وصفه يحوي «بتكلفة».
+    //    القاعدة التجارية: هذا الكود يُحتسب على العميل بالتكلفة حتى لو داخل الضمان.
+    //    الاختيار اليدوي من القائمة (بشارة 🪙) هو التأكيد الصريح الوحيد المقبول.
+    if (!opts.allowCost && hasCostTrigger(best.text)) {
+      const available = scored.slice(0, 25).map(s => ({ text: s.text, cost: hasCostTrigger(s.text) }));
+      logEvent('PASTE_CODES', `🪙 ${inputId}: أفضل صف يحوي «بتكلفة» — لا اختيار تلقائي، تأكيد يدوي مطلوب`);
+      await closeLookupModalInDoc(lookupModal);
+      return { ok: false, reason: 'cost-confirm', searched: target, available, cost: true };
     }
 
     logEvent('PASTE_CODES', `${inputId}: اختيار "${best.text.slice(0, 70)}" (مطابقة ${best.score}%)`);
@@ -4928,22 +6524,267 @@ function getCSS() {
     return { ok: true, val: finalVal, selected: finalVal, score: best.score };
   }
 
+  // ════════════════════════════════════════════════════════════════════
+  //  زر حفظ النموذج داخل iframe — مصدر واحد للموضعين
+  //  (إضافة قطعة غيار / إضافة كود عطل)
+  //  ⚠️ لا تستخدم querySelector('#InsertButton, …, button.btn-primary'):
+  //  قائمة المحدّدات ترجع أول عنصر في ترتيب الـDOM، وزر «اختر» المخفي لمودال
+  //  الـlookup يسبق «حفظ» ⇒ يُضغط زر مخفي، فلا يُحفظ النموذج، ثم يُلغى بعد
+  //  مهلة الـ15 ثانية. نفس الفخ الموثّق في engine-lookups.js:230-241.
+  // ════════════════════════════════════════════════════════════════════
+  const SAVE_READY_TIMEOUT_MS = 4000;   // انتظار جاهزية الزر/زوال السبينر
+  const SAVE_CLOSE_TIMEOUT_MS = 15000;  // انتظار إغلاق النموذج بعد النقر
+  const SAVE_BUSY_GRACE_MS = 8000;      // مهلة إضافية لو البوابة لا تزال «مشغولة»
+  const SAVE_MAX_ATTEMPTS = 2;          // مرشحان كحد أقصى (منع الحفظ المزدوج)
+
+  // عنصر مرئي فعلًا؟ (offsetParent وحده يفشل مع position:fixed)
+  function isElementVisible(el) {
+    if (!el) return false;
+    try {
+      if (typeof el.getClientRects === 'function' && el.getClientRects().length) return true;
+      return el.offsetParent !== null;
+    } catch (_) { return false; }
+  }
+
+  // هل النموذج ما زال يحمّل؟ (سبينر/تحميل مرئي داخل الـiframe)
+  function isIframeFormBusy(doc) {
+    if (!doc) return false;
+    const sel = '.spinner, .loading, .loader, .busyIndicator, [aria-busy="true"]';
+    let nodes = [];
+    try { nodes = Array.from(doc.querySelectorAll(sel)); } catch (_) { return false; }
+    return nodes.some(n => isElementVisible(n));
+  }
+
+  // زر الحفظ جاهز للنقر؟ (مرئي + مفعّل + النموذج غير مشغول)
+  function isIframeSaveReady(doc, btn) {
+    if (!doc || !btn) return false;
+    try {
+      if (btn.disabled) return false;
+      if (btn.getAttribute('aria-disabled') === 'true') return false;
+      if (btn.classList && btn.classList.contains('disabled')) return false;
+    } catch (_) { return false; }
+    if (!isElementVisible(btn)) return false;
+    return !isIframeFormBusy(doc);
+  }
+
+  // نص الزر كما يظهر للمستخدم — للتسجيل والتحقق
+  function iframeSaveButtonText(btn) {
+    if (!btn) return '';
+    const t = (btn.innerText || btn.value || btn.title || btn.getAttribute('aria-label') || '').trim();
+    return t.replace(/\s+/g, ' ').slice(0, 40);
+  }
+
+  // المرشحون مرتبين: المعرّف الرسمي أولًا (الأدق)، ثم أي زر نصه «حفظ/Submit».
+  // لا نعيد نفس العنصر مرتين، ولا نُدرج أزرار «اختر/بحث/إلغاء».
+  function iframeSaveCandidates(doc) {
+    if (!doc) return [];
+    const out = [];
+    const push = (el, src) => {
+      if (!el || out.some(x => x.btn === el)) return;
+      out.push({ btn: el, src });
+    };
+    push(doc.getElementById('InsertButton'), 'id:InsertButton');
+    push(doc.getElementById('SubmitButton'), 'id:SubmitButton');
+    let cands = [];
+    try {
+      cands = Array.from(doc.querySelectorAll(
+        'input[type="submit"], button[type="submit"], button.btn-primary, input[type="button"], button'
+      ));
+    } catch (_) { return out; }
+    for (const b of cands) {
+      const text = iframeSaveButtonText(b);
+      if (!text || !/save|submit|حفظ|insert/i.test(text)) continue;
+      if (/اختر|select|بحث|search|إلغاء|cancel|حذف|delete|مسح|clear/i.test(text)) continue;
+      push(b, 'text:' + text);
+    }
+    return out;
+  }
+
+  // أسماء الحقول المطلوبة كما تظهر للمستخدم (لرسالة واضحة بدل الرفض الصامت)
+  const IFRAME_REQUIRED_LABELS = {
+    ats_actualmodel: 'الموديل الفعلي',
+    ats_modeldefectmajor: 'كود العطل الرئيسي',
+    ats_defectcodedefectmajor: 'الكود الفرعي للعطل',
+    ats_modeldefectspid: 'قطعة الغيار المرتبطة بالعطل',
+    msdyn_product: 'المنتج (قطعة الغيار)',
+    ats_modelid: 'الموديل',
+    ats_inventorystatus: 'حالة المخزون',
+    ats_warrantystatus: 'حالة الضمان',
+    ats_quantity: 'الكمية'
+  };
+
+  // الحقول المطلوبة الفارغة فعليًا في النموذج.
+  // ⚠️ البوابة ترفض الحفظ «بصمت» (0 كتابة، 0 رسالة خطأ، النموذج يبقى مفتوحًا)
+  // إذا بقي أي حقل aria-required فارغًا — تحقق حي 2026-10-26.
+  // الحقول المرجعية (lookup) GUIDها مخفي، فنقرأ الحقل المعروض `<id>_name` أولًا.
+  function iframeRequiredFields(doc) {
+    if (!doc) return [];
+    let nodes = [];
+    try { nodes = Array.from(doc.querySelectorAll('[aria-required="true"]')); } catch (_) { return []; }
+    const out = [];
+    for (const el of nodes) {
+      const id = el.id || el.getAttribute('name') || '';
+      if (!id) continue;
+      const disp = doc.getElementById(id + '_name') || el;
+      // حقل مخفي تمامًا: نتخطّاه إلا إذا كان حقل عمل معروفًا (مثل msdyn_product المخفي
+      // لكن البوابة ترفض الحفظ بدونه) — منعًا للإنذار الكاذب على حقول داخلية مجهولة.
+      if (!isElementVisible(disp) && !IFRAME_REQUIRED_LABELS[id]) continue;
+      const textVal = String(disp.value == null ? '' : disp.value).trim();
+      const idVal = disp === el ? textVal : String(el.value == null ? '' : el.value).trim();
+      if (textVal && idVal) continue;
+      out.push({ id, label: IFRAME_REQUIRED_LABELS[id] || id });
+    }
+    return out;
+  }
+
+  // نقر الحفظ مع بوابة جاهزية + إعادة محاولة على المرشح التالي قبل الإلغاء.
+  // يرجع { ok, reason, btn, tried } — والمنادي هو من يغلق النموذج عند الفشل.
+  async function saveIframeForm(iframeDoc, modal, label) {
+    // ⓪ بوابة الحقول المطلوبة: لا ننقر حفظًا محكومًا عليه بالفشل ثم ننتظر 15 ثانية
+    const missing = iframeRequiredFields(iframeDoc);
+    if (missing.length) {
+      const names = missing.map(f => f.label).join('، ');
+      logEvent('PASTE_CODES', `❌ ${label}: حقول مطلوبة فارغة (${names}) — البوابة سترفض الحفظ`);
+      return { ok: false, reason: 'required-empty', missing, fields: missing.map(f => f.label), tried: [] };
+    }
+
+    const cands = iframeSaveCandidates(iframeDoc);
+    if (!cands.length) {
+      logEvent('PASTE_CODES', `❌ ${label}: لا يوجد زر حفظ في النموذج`);
+      return { ok: false, reason: 'save-button-missing', tried: [] };
+    }
+
+    const tried = [];
+    const attempts = cands.slice(0, SAVE_MAX_ATTEMPTS);
+    for (let i = 0; i < attempts.length; i++) {
+      const cand = attempts[i];
+      const btn = cand.btn;
+
+      // ① بوابة الجاهزية: الزر مرئي/مفعّل ولا سبينر — وإلا ننتظر قليلًا
+      const readyDeadline = Date.now() + SAVE_READY_TIMEOUT_MS;
+      while (Date.now() < readyDeadline && !isIframeSaveReady(iframeDoc, btn)) {
+        await sleep(250);
+      }
+      if (!isIframeSaveReady(iframeDoc, btn)) {
+        const why = !isElementVisible(btn) ? 'مخفي' : (btn.disabled ? 'معطّل' : 'النموذج يحمّل');
+        tried.push(`${cand.src} (${why})`);
+        logEvent('PASTE_CODES', `⏳ ${label}: الزر [${cand.src}] غير جاهز (${why}) — تجربة المرشح التالي`);
+        continue;
+      }
+
+      const btnText = iframeSaveButtonText(btn);
+      logEvent('PASTE_CODES', `${label}: نقر زر الحفظ «${btnText}» [${cand.src}]`);
+      clickOnceSafe(btn);              // نقرة واحدة (النقر المزدوج يكرر الحفظ)
+      tried.push(cand.src);
+
+      // ② انتظار إغلاق النموذج (دليل الحفظ الفعلي)
+      let closed = false;
+      const deadline = Date.now() + SAVE_CLOSE_TIMEOUT_MS;
+      while (Date.now() < deadline) {
+        if (!isModalOpenSafe(modal) || !document.body.contains(modal)) { closed = true; break; }
+        await sleep(400);
+      }
+
+      // ③ البوابة قد تكون لا تزال تحفظ: لو السبينر ظاهر نمنحه مهلة إضافية
+      //    بدلًا من نقر زر آخر (النقر الثاني في هذه الحالة قد يكرر الحفظ).
+      if (!closed && isIframeFormBusy(iframeDoc)) {
+        logEvent('PASTE_CODES', `⏳ ${label}: النموذج ما زال يحمّل — مهلة إضافية قبل الحكم`);
+        const graceDeadline = Date.now() + SAVE_BUSY_GRACE_MS;
+        while (Date.now() < graceDeadline) {
+          if (!isModalOpenSafe(modal) || !document.body.contains(modal)) { closed = true; break; }
+          await sleep(500);
+        }
+      }
+
+      if (closed) {
+        await sleep(2500); // إتاحة وقت كافٍ للبورتال لتحديث الشبكة (AJAX)
+        return { ok: true, btn: btnText, tried };
+      }
+
+      // ④ لم يُغلق ولا سبينر ⇒ الزر لم يُنفّذ الحفظ فعلًا. جرّب المرشح التالي.
+      logEvent('PASTE_CODES', `⚠️ ${label}: «${btnText}» لم يُغلق النموذج — ${i + 1 < attempts.length ? 'تجربة المرشح التالي' : 'لا مرشح آخر'}`);
+    }
+
+    return { ok: false, reason: 'save-not-confirmed', tried };
+  }
+
   // يعبّي حقل lookup، ولو مفيش مطابقة يعرض قائمة اختيار من اللوحة (لا اختيار أعمى)
-  async function fillLookupWithPick(iframeDoc, inputId, searchValue, label, waitAfter = 1500) {
+  async function fillLookupWithPick(iframeDoc, inputId, searchValue, label, waitAfter = 1500, opts = {}) {
     if (!searchValue) return { ok: true, skipped: true };
-    let res = await fillIframeLookup(iframeDoc, inputId, searchValue);
-    if (!res.ok && res.reason === 'no-match') {
+    // كلمات الوصف تُجرَّب فقط عند فشل البحث بالكود (الدور الثالث)
+    const descriptionWords = Array.isArray(opts.descriptionWords)
+      ? opts.descriptionWords
+      : lookupDescriptionWords(opts.description || '', 4);
+    const runOpts = { ...opts, descriptionWords };
+    let res = await fillIframeLookup(iframeDoc, inputId, searchValue, runOpts);
+    if (!res.ok && (res.reason === 'no-match' || res.reason === 'cost-confirm')) {
       const short = String(searchValue).slice(0, 45);
-      const pick = await promptLookupPick(`${label}: لا مطابقة لـ «${short}» — اختر الصحيح:`, res.available);
+      // بلا قائمة بديلة موثوقة ⇒ لا نعرض اختيارًا قد يكون من عائلة أخرى
+      if (!Array.isArray(res.available) || res.available.length === 0) {
+        logEvent('PASTE_CODES', `❌ ${label}: لا يوجد «${short}» في القائمة المرتبطة`);
+        return { ok: false, reason: 'no-match' };
+      }
+      const cost = res.reason === 'cost-confirm';
+      const pick = await promptLookupPick(
+        cost
+          ? `${label}: «${short}» وصفه يحوي «بتكلفة» — اختر صراحةً (يُحتسب على العميل حتى داخل الضمان):`
+          : `${label}: لا مطابقة لـ «${short}» — اختر الصحيح:`,
+        res.available
+      );
       if (!pick) {
         logEvent('PASTE_CODES', `⏭ تخطّي ${label} («${short}») بطلب المستخدم`);
         return { ok: false, reason: 'user-skipped' };
       }
-      logEvent('PASTE_CODES', `اختيار يدوي لـ ${label}: "${pick}"`);
-      res = await fillIframeLookup(iframeDoc, inputId, pick, { exactText: pick });
+      logEvent('PASTE_CODES', `${cost ? '🪙 ' : ''}اختيار يدوي لـ ${label}: "${pick}"`);
+      // الاختيار اليدوي صريح ⇒ allowCost يمنع تكرار بوابة التكلفة في نفس الاختيار
+      res = await fillIframeLookup(iframeDoc, inputId, pick, { ...runOpts, exactText: pick, allowCost: true });
     }
     await sleep(waitAfter);
     return res;
+  }
+
+  // ── التحقق البعدي (بعد الحفظ): إغلاق النموذج ليس دليلًا على نجاح الحفظ ──────
+  // نقرأ الشبكة الفعلية ونطابق: صف القطعة بالكود + صف العطل بالزوج (رئيسي/فرعي).
+  const PARTS_GRID_IDS = ['InventoryAdjustmentProduct_Subgrid', 'InventoryAdjustmentProduct_SubGrid', 'InventoryAdjustmentProductIsLscYes_Subgrid'];
+  const DEFECT_GRID_IDS = ['WorkOrder_defect', 'WorkOrder_Defects', 'WorkOrderDefectIsLscYes_Subgrid'];
+
+  function readSubgridRows(ids) {
+    for (const id of ids) {
+      const g = document.getElementById(id);
+      if (!g) continue;
+      const rows = Array.from(g.querySelectorAll('table tbody tr')).filter(r => r.querySelector('td[data-attribute]'));
+      if (rows.length) return { id, rows };
+    }
+    return { id: '', rows: [] };
+  }
+
+  function gridCellOf(tr, attr) {
+    const td = tr.querySelector('td[data-attribute="' + attr + '"]');
+    return td ? String(td.innerText || '').trim() : '';
+  }
+
+  function verifyPartRow(partCode) {
+    const clean = String(partCode || '').replace(/[^a-z0-9]/gi, '').toLowerCase();
+    if (!clean) return { ok: false, reason: 'no-part-code' };
+    const { rows } = readSubgridRows(PARTS_GRID_IDS);
+    const hit = rows.find(r => (r.innerText || '').replace(/[^a-z0-9]/gi, '').toLowerCase().includes(clean));
+    return hit
+      ? { ok: true, text: (hit.innerText || '').replace(/\s+/g, ' ').trim().slice(0, 100) }
+      : { ok: false, reason: 'part-row-missing' };
+  }
+
+  function verifyDefectPair(majorCode, subCode) {
+    const major = String(majorCode || '').trim().toUpperCase();
+    const sub = String(subCode || '').trim().toUpperCase();
+    const { rows } = readSubgridRows(DEFECT_GRID_IDS);
+    const hit = rows.find(r => {
+      const m = gridCellOf(r, 'ats_defectmajor').toUpperCase();
+      const s = gridCellOf(r, 'ldv_defect').toUpperCase();
+      return (!major || m.startsWith(major)) && (!sub || s.includes(sub));
+    });
+    return hit
+      ? { ok: true, text: `${gridCellOf(hit, 'ats_defectmajor')} | ${gridCellOf(hit, 'ldv_defect')}` }
+      : { ok: false, reason: 'defect-row-missing' };
   }
 
   async function addSparePartPage3(spObj, faultCodeObj = null) {
@@ -4953,6 +6794,16 @@ function getCSS() {
     const partSearch = (spObj.fullName || spObj.code || spObj.name || spObj.product || '').trim();
     const partCodeOnly = (spObj.code || simplifySearchText(partSearch) || partSearch).trim();
     const qty = String(spObj.qty || 1);
+    // 🪙 إن كان الكود مكلِّفًا وأكّده المستخدم صراحةً في لوحة المراجعة
+    //    نمرّر allowCost حتى لا يُطلب التأكيد مرتين لنفس الكود.
+    const costConfirmed = !!(faultCodeObj && faultCodeObj.costConfirmed);
+
+    // 0. الاقتران شرط: نموذج «اضافة قطعة غيار» هو الذي يُنشئ صف العطل (major + sub)
+    //    تلقائيًا في البوابة (تحقق حي 2026-10-26). بلا كود رئيسي/فرعي لا يُحفظ شيء.
+    if (!majorSearch || !subSearch) {
+      logEvent('PASTE_CODES', `⛔ ${partCodeOnly || partSearch}: لا كود عطل مقترن — لن تُضاف (لا تخمين)`);
+      return { ok: false, reason: 'no-fault-code', part: partCodeOnly || partSearch };
+    }
 
     // 1. التحقق من وجود قطعة الغيار في الجدول بالفعل
     const spGrids = ['InventoryAdjustmentProduct_Subgrid', 'InventoryAdjustmentProduct_SubGrid', 'InventoryAdjustmentProductIsLscYes_Subgrid'];
@@ -5055,30 +6906,70 @@ function getCSS() {
 
     await sleep(1000);
 
-    // 5. كود العطل الرئيسي
+    // 5. كود العطل الرئيسي + بوابة الاتساق (المختار يجب أن يحمل الكود المطلوب)
+    let majorPicked = '';
     if (majorSearch) {
-      const r = await fillLookupWithPick(iframeDoc, 'ats_modeldefectmajor_name', majorSearch, 'كود العطل الرئيسي', 2000);
+      const r = await fillLookupWithPick(iframeDoc, 'ats_modeldefectmajor_name', majorSearch, 'كود العطل الرئيسي', 2000, {
+        description: faultCodeObj?.majorName || majorSearch,
+        allowCost: costConfirmed
+      });
       if (!r.ok) {
         await closeModalSafely(modal, 'فشل اختيار كود العطل الرئيسي');
         return { ok: false, reason: `major-${r.reason || 'failed'}` };
       }
+      majorPicked = codeTokenOf(r.text || iframeDoc.getElementById('ats_modeldefectmajor_name')?.value) || majorSearch;
+      const expectedMajor = codeTokenOf(faultCodeObj?.majorCode || majorSearch) || majorSearch;
+      if (!sameCode(majorPicked, expectedMajor)) {
+        logEvent('PASTE_CODES', `⛔ ${partCodeOnly || partSearch}: الرئيسي المختار "${majorPicked}" ≠ المطلوب "${expectedMajor}" — توقّف قبل الحفظ`);
+        await closeModalSafely(modal, 'كود رئيسي غير مطابق');
+        return { ok: false, reason: 'major-mismatch', picked: majorPicked, expected: expectedMajor };
+      }
     }
 
-    // 6. كود العطل الفرعي
+    // 6. كود العطل الفرعي — البحث بالكود، وبلا «عرض الكل» (القائمة غير مقيّدة بالرئيسي)
+    let subPicked = '';
     if (subSearch) {
-      const r = await fillLookupWithPick(iframeDoc, 'ats_defectcodedefectmajor_name', subSearch, 'كود العطل الفرعي', 1500);
+      const r = await fillLookupWithPick(iframeDoc, 'ats_defectcodedefectmajor_name', subSearch, 'كود العطل الفرعي', 1500, {
+        noShowAll: true,
+        description: faultCodeObj?.description || faultCodeObj?.fullCode || subSearch,
+        allowCost: costConfirmed
+      });
       if (!r.ok) {
         await closeModalSafely(modal, 'فشل اختيار كود العطل الفرعي');
         return { ok: false, reason: `sub-${r.reason || 'failed'}` };
       }
+      subPicked = codeTokenOf(r.text || iframeDoc.getElementById('ats_defectcodedefectmajor_name')?.value) || subSearch;
+      // بوابة الاتساق: الفرعي المختار يجب أن يكون الكود المطلوب نفسه
+      // (قائمة الفرعي غير مقيّدة بالرئيسي ⇒ قد يختار المستخدم كود عائلة أخرى)
+      const expectedSubs = [subSearch, faultCodeObj?.defectCode, faultCodeObj?.fullCode]
+        .map(v => codeTokenOf(v)).filter(Boolean);
+      if (!expectedSubs.some(e => sameCode(e, subPicked))) {
+        logEvent('PASTE_CODES', `⛔ ${partCodeOnly || partSearch}: الفرعي المختار "${subPicked}" ≠ المطلوب "${expectedSubs[0] || subSearch}" — توقّف قبل الحفظ`);
+        await closeModalSafely(modal, 'كود فرعي غير مطابق');
+        return { ok: false, reason: 'sub-mismatch', picked: subPicked, expected: expectedSubs[0] || subSearch };
+      }
     }
 
-    // 7. قطعة الغيار
+    // 7. قطعة الغيار — وهذا هو الدليل القابل للتحقق على اتساق الزوج:
+    //    قائمة القطع مقيّدة بالكود الفرعي المختار (تحقق حي: RF1102→١، RF1104→٤، RF2408→١).
+    //    صفر نتائج ⇒ الزوج غير متسق ⇒ توقّف فوري بلا محاولة حفظ.
     if (partCodeOnly || partSearch) {
-      const r = await fillLookupWithPick(iframeDoc, 'ats_modeldefectspid_name', partCodeOnly || partSearch, 'قطعة الغيار', 1200);
+      const r = await fillLookupWithPick(iframeDoc, 'ats_modeldefectspid_name', partCodeOnly || partSearch, 'قطعة الغيار', 1200, {
+        description: spObj.name || spObj.fullName || ''
+      });
       if (!r.ok) {
-        await closeModalSafely(modal, 'فشل اختيار قطعة الغيار');
-        return { ok: false, reason: `part-${r.reason || 'failed'}` };
+        const pair = `${majorPicked || '—'}|${subPicked || '—'}`;
+        const inconsistent = r.reason === 'no-match' || r.reason === 'user-skipped';
+        logEvent('PASTE_CODES', inconsistent
+          ? `⛔ ${pair}: قطعة الغيار «${partCodeOnly || partSearch}» غير موجودة في قائمة هذا الفرعي — الزوج غير متسق، لا حفظ`
+          : `⚠️ ${pair}: تعذّر اختيار قطعة الغيار (${r.reason || 'failed'})`);
+        await closeModalSafely(modal, 'قطعة غير موجودة في قائمة الكود الفرعي');
+        return {
+          ok: false,
+          reason: inconsistent ? 'pair-inconsistent' : `part-${r.reason || 'failed'}`,
+          pair,
+          part: partCodeOnly || partSearch
+        };
       }
     }
 
@@ -5097,23 +6988,23 @@ function getCSS() {
       logEvent('PASTE_CODES', `الكمية بعد الكتابة: "${qtyInput.value}"`);
     }
 
-    // 9. زر الحفظ
-    const saveBtn = iframeDoc.querySelector('#InsertButton, #SubmitButton, input[value="حفظ"], input[value="Submit"], button[type="submit"], input[type="submit"], button.btn-primary');
-    if (saveBtn) {
-      logEvent('PASTE_CODES', 'نقر زر حفظ قطعة الغيار');
-      clickOnceSafe(saveBtn);                 // نقرة واحدة (النقر المزدوج يكرر الحفظ)
-      const saveDeadline = Date.now() + 15000;
-      while (Date.now() < saveDeadline) {
-        if (!isModalOpenSafe(modal) || !document.body.contains(modal)) break;
-        await sleep(400);
-      }
-      await sleep(2500); // إتاحة وقت كافي للبورتال لتحديث شبكة المنتجات AJAX
-      if (isModalOpenSafe(modal)) {
-        // الحفظ لم يُغلق النموذج ⇒ فشل حقيقي، مع إغلاق المودال لمنع تراكم الستائر.
-        await closeModalSafely(modal, 'حفظ قطعة الغيار لم يُغلق النموذج');
-        return { ok: false, reason: 'save-not-confirmed' };
-      }
+    // 9. زر الحفظ — عبر الدالة الموحّدة (id أولًا، ثم مرئي/مفعّل/نص حفظ)
+    const saveRes = await saveIframeForm(iframeDoc, modal, 'قطعة الغيار');
+    if (saveRes.ok) {
       clearOrphanBackdrops('بعد حفظ قطعة الغيار');
+      // اقتران مُثبت بالتجربة (حفظ ناجح فعلي) — يُستخدم كاقتراح لاحقًا
+      recordPartPairing(spObj, majorPicked, subPicked);
+      logEvent('PASTE_CODES', `🔗 اقتران محفوظ: ${partCodeOnly || partSearch} ← ${majorPicked}/${subPicked}`);
+
+      // تحقق فعلي من الشبكة: إغلاق النموذج لا يعني أن الصف أُضيف صحيحًا
+      const vPart = verifyPartRow(partCodeOnly || partSearch);
+      const vDefect = verifyDefectPair(majorPicked, subPicked);
+      const verified = !!(vPart.ok && vDefect.ok);
+      if (verified) {
+        logEvent('PASTE_CODES', `✅ تحقق فعلي: ${partCodeOnly || partSearch} + ${majorPicked}/${subPicked} موجودان في الشبكة`);
+      } else {
+        logEvent('PASTE_CODES', `⚠️ حفظ بلا تحقق: القطعة ${vPart.ok ? '✓' : '✗ ' + (vPart.reason || '')} · العطل ${vDefect.ok ? '✓' : '✗ ' + (vDefect.reason || '')}`);
+      }
 
       // الضمان (داخل/خارج) — تعديل آمن فقط لو الحقل قابل للتعديل، ثم تحقق فعلي
       let warrantyManual = '';
@@ -5127,11 +7018,24 @@ function getCSS() {
           logEvent('PASTE_CODES', `✅ ضمان ${spObj.code || spObj.name}: ${wanted}`);
         }
       }
-      return { ok: true, name: partSearch || partCodeOnly, warrantyManual };
+      return { ok: true, name: partSearch || partCodeOnly, warrantyManual, saveBtn: saveRes.btn, verified, verify: { part: vPart, defect: vDefect } };
     }
 
-    await closeModalSafely(modal, 'زر حفظ قطعة الغيار غير موجود');
-    return { ok: false, reason: 'زر الحفظ غير موجود في نموذج قطعة الغيار' };
+    if (saveRes.reason === 'save-button-missing') {
+      await closeModalSafely(modal, 'زر حفظ قطعة الغيار غير موجود');
+      return { ok: false, reason: 'زر الحفظ غير موجود في نموذج قطعة الغيار' };
+    }
+    // حقول مطلوبة فارغة ⇒ البوابة ترفض بصمت: نغلق ونقول الحقل الناقص بدل الانتظار
+    if (saveRes.reason === 'required-empty') {
+      const names = (saveRes.fields || []).join('، ') || 'حقل مطلوب';
+      logEvent('PASTE_CODES', `❌ قطعة الغيار (${partSearch || partCodeOnly}): حقول مطلوبة فارغة — ${names}`);
+      await closeModalSafely(modal, 'حقول مطلوبة فارغة في نموذج قطعة الغيار');
+      return { ok: false, reason: `لم تُحفظ قطعة الغيار «${partSearch || partCodeOnly}» — البوابة تطلب: ${names}` };
+    }
+    // الحفظ لم يُغلق النموذج ⇒ فشل حقيقي، مع إغلاق المودال لمنع تراكم الستائر.
+    logEvent('PASTE_CODES', `❌ حفظ قطعة الغيار لم يُؤكَّد (جُرّب: ${(saveRes.tried || []).join(' | ') || '—'})`);
+    await closeModalSafely(modal, 'حفظ قطعة الغيار لم يُغلق النموذج');
+    return { ok: false, reason: 'save-not-confirmed' };
   }
 
   async function addSingleFaultCode(codeObj) {
@@ -5140,6 +7044,13 @@ function getCSS() {
     const subSearch = (codeObj.defectCode || codeObj.fullCode || codeObj.description || '').trim();
 
     if (!mainSearch && !subSearch) return { ok: false, reason: 'لا يوجد كود رئيسي أو فرعي للبحث' };
+
+    // نموذج «اضافة كود عطل» يحتاج الرئيسي والفرعي معًا، وقائمة الفرعي فيه فارغة دائمًا
+    // (تحقق حي 2026-10-26: 0 صفوف مع الكود أو البادئة أو «*») ⇒ لا نحاول حفظًا محكومًا بالفشل.
+    if (!mainSearch || !subSearch) {
+      logEvent('PASTE_CODES', `⛔ كود العطل (${subSearch || mainSearch}): يحتاج رئيسيًا وفرعيًا معًا — أضفه يدويًا`);
+      return { ok: false, reason: 'need-major-and-sub' };
+    }
 
     // التحقق من وجود كود العطل مسبقاً
     const defectGrids = ['WorkOrder_defect', 'WorkOrder_Defects', 'WorkOrderDefectIsLscYes_Subgrid'];
@@ -5248,34 +7159,39 @@ function getCSS() {
 
     // 5. خطوة كود العطل الفرعي (Sub defect lookup)
     if (subSearch) {
-      const r = await fillLookupWithPick(iframeDoc, 'ats_defectcodedefectmajor_name', subSearch, 'كود العطل الفرعي', 1200);
+      const r = await fillLookupWithPick(iframeDoc, 'ats_defectcodedefectmajor_name', subSearch, 'كود العطل الفرعي', 1200, { noShowAll: true });
       if (!r.ok) {
         await closeModalSafely(modal, 'فشل اختيار كود العطل الفرعي');
         return { ok: false, reason: `sub-${r.reason || 'failed'}` };
       }
     }
 
-    // 6. نقر زر الحفظ (InsertButton / SubmitButton)
-    const saveBtn = iframeDoc.querySelector('#InsertButton, #SubmitButton, input[value="حفظ"], input[value="Submit"], button[type="submit"], input[type="submit"], button.btn-primary');
-    if (saveBtn) {
-      logEvent('PASTE_CODES', 'نقر زر حفظ كود العطل');
-      clickOnceSafe(saveBtn);                 // نقرة واحدة (النقر المزدوج يكرر الحفظ)
-      const saveDeadline = Date.now() + 15000;
-      while (Date.now() < saveDeadline) {
-        if (!isModalOpenSafe(modal) || !document.body.contains(modal)) break;
-        await sleep(400);
-      }
-      await sleep(2500); // إتاحة وقت كافي للبورتال لتحديث شبكة الأعطال AJAX
-      if (isModalOpenSafe(modal)) {
-        await closeModalSafely(modal, 'حفظ كود العطل لم يُغلق النموذج');
-        return { ok: false, reason: 'save-not-confirmed' };
-      }
+    // 6. نقر زر الحفظ — عبر الدالة الموحّدة (id أولًا، ثم مرئي/مفعّل/نص حفظ)
+    const saveRes = await saveIframeForm(iframeDoc, modal, 'كود العطل');
+    if (saveRes.ok) {
       clearOrphanBackdrops('بعد حفظ كود العطل');
-      return { ok: true, name: subSearch || mainSearch };
+      // تحقق فعلي: هل ظهر صف العطل في الشبكة بالزوج الصحيح؟
+      const vDefect = verifyDefectPair(mainSearch, subSearch);
+      logEvent('PASTE_CODES', vDefect.ok
+        ? `✅ تحقق فعلي: كود العطل ${mainSearch}/${subSearch} في الشبكة`
+        : `⚠️ حفظ بلا تحقق: صف العطل ${mainSearch}/${subSearch} غير ظاهر (${vDefect.reason || '—'})`);
+      return { ok: true, name: subSearch || mainSearch, saveBtn: saveRes.btn, verified: vDefect.ok, verify: { defect: vDefect } };
     }
 
-    await closeModalSafely(modal, 'زر حفظ كود العطل غير موجود');
-    return { ok: false, reason: 'لم يتم العثور على زر الحفظ' };
+    if (saveRes.reason === 'save-button-missing') {
+      await closeModalSafely(modal, 'زر حفظ كود العطل غير موجود');
+      return { ok: false, reason: 'لم يتم العثور على زر الحفظ' };
+    }
+    // حقول مطلوبة فارغة ⇒ البوابة ترفض بصمت: نغلق ونقول الحقل الناقص بدل الانتظار
+    if (saveRes.reason === 'required-empty') {
+      const names = (saveRes.fields || []).join('، ') || 'حقل مطلوب';
+      logEvent('PASTE_CODES', `❌ كود العطل (${subSearch || mainSearch}): حقول مطلوبة فارغة — ${names}`);
+      await closeModalSafely(modal, 'حقول مطلوبة فارغة في نموذج كود العطل');
+      return { ok: false, reason: `لم يُحفظ كود العطل «${subSearch || mainSearch}» — البوابة تطلب: ${names}` };
+    }
+    logEvent('PASTE_CODES', `❌ حفظ كود العطل لم يُؤكَّد (جُرّب: ${(saveRes.tried || []).join(' | ') || '—'})`);
+    await closeModalSafely(modal, 'حفظ كود العطل لم يُغلق النموذج');
+    return { ok: false, reason: 'save-not-confirmed' };
   }
 
   async function pasteCodesAction(shadow) {
@@ -5357,8 +7273,17 @@ function getCSS() {
         }
       }
 
+      // تنظيف حزمة قديمة (قبل إصلاح الاستخراج): إسقاط «أكواد الأثاث»/الأسعار المخزَّنة
+      const beforeCodes = Array.isArray(bundle?.faultCodes) ? bundle.faultCodes.length : 0;
+      const beforeParts = Array.isArray(bundle?.spareParts) ? bundle.spareParts.length : 0;
+      if (bundle) sanitizeStoredBundle(bundle);
       const rawSpareParts = Array.isArray(bundle?.spareParts) ? bundle.spareParts : [];
       const rawFaultCodes = Array.isArray(bundle?.faultCodes) ? bundle.faultCodes : [];
+      if (bundle && (rawFaultCodes.length !== beforeCodes || rawSpareParts.length !== beforeParts)) {
+        const dropped = (beforeCodes - rawFaultCodes.length) + (beforeParts - rawSpareParts.length);
+        logEvent('PASTE_CODES', `🧹 حزمة قديمة: أُسقط ${dropped} مدخلًا غير صالح قبل اللصق`);
+        setStatus(shadow, `🧹 نُظّفت الحزمة: ${dropped} مدخل غير صالح أُسقط`, 'warn');
+      }
 
       // حزمة قديمة تُرفض فقط إذا حملت قطع غيار بلا معرّفات (v2).
       // حزمة أكواد أعطال فقط (بلا قطع) صالحة حتى لو لم تحمل version.
@@ -5397,50 +7322,40 @@ function getCSS() {
         }
       }
 
-      // تصنيف العناصر بدقة:
-      // 1. الأكواد المقترنة بقطع غيار -> تُضاف عبر "اضافة قطعة غيار"
-      // 2. الأكواد المستقلة بدون قطع غيار -> تُضاف عبر "اضافة كود عطل"
+      // تصنيف العناصر — بلا أي تخمين:
+      // 1. القطعة تُضاف عبر «اضافة قطعة غيار» وهي التي تُنشئ صف العطل (major + sub) في البوابة.
+      // 2. الاقتران يأتي من البيانات المحفوظة مع القطعة (majorCode/subCode) أو من اختيار
+      //    المستخدم في لوحة المراجعة — لا مطابقة كلمات مفتاحية ولا «أول كود غير مقترن».
+      //    (تحقق حي 2026-10-26: قائمة الكود الفرعي غير مقيّدة بالرئيسي، والاقتران الخاطئ
+      //     يجعل القطعة غير موجودة في قائمتها ⇒ رفض حفظ صامت.)
       const sparePartJobs = [];
-      const pairedFaultIndices = new Set();
+      const usedCodeKeys = new Set();
 
-      rawSpareParts.forEach((sp, spIdx) => {
-        let bestCode = null;
-        let bestIdx = -1;
-
-        const spText = ((sp.name || '') + ' ' + (sp.code || '')).toLowerCase();
-        for (let i = 0; i < rawFaultCodes.length; i++) {
-          if (pairedFaultIndices.has(i)) continue;
-          const fc = rawFaultCodes[i];
-          const fcText = ((fc.description || '') + ' ' + (fc.majorName || '') + ' ' + (fc.fullCode || '')).toLowerCase();
-          
-          const keywords = ['خرطوم', 'بودي', 'صرف', 'طلمبة', 'موتور', 'مروحة', 'حلة', 'مساعد', 'باب', 'لوحة', 'سير', 'كارت', 'تايمر', 'ريشة', 'سنسور', 'حساس'];
-          const matchedKw = keywords.some(kw => spText.includes(kw) && fcText.includes(kw));
-          if (matchedKw) {
-            bestCode = fc;
-            bestIdx = i;
-            break;
-          }
+      rawSpareParts.forEach(sp => {
+        const explicitMajor = String(sp.majorCode || sp.major || '').trim();
+        const explicitSub = String(sp.subCode || sp.defectCode || sp.defect || '').trim();
+        let linked = null;
+        if (explicitMajor && explicitSub) {
+          const key = explicitMajor + '|' + explicitSub;
+          linked = rawFaultCodes.find(fc => {
+            const fcMajor = String(fc.majorCode || '').trim();
+            const fcSub = String(fc.defectCode || '').trim();
+            return fcMajor + '|' + fcSub === key;
+          }) || { majorCode: explicitMajor, defectCode: explicitSub };
+          usedCodeKeys.add(key);
         }
-
-        if (!bestCode) {
-          for (let i = 0; i < rawFaultCodes.length; i++) {
-            if (!pairedFaultIndices.has(i)) {
-              bestCode = rawFaultCodes[i];
-              bestIdx = i;
-              break;
-            }
-          }
-        }
-
-        if (bestIdx >= 0) pairedFaultIndices.add(bestIdx);
-        sparePartJobs.push({ sparePart: sp, faultCode: bestCode });
+        sparePartJobs.push({ sparePart: sp, faultCode: linked });
       });
 
-      // أكواد الأعطال المتبقية التي ليس لها قطع غيار
-      const standaloneFaultCodes = rawFaultCodes.filter((_, idx) => !pairedFaultIndices.has(idx));
+      // أكواد الأعطال التي لم تُقترن بأي قطعة (تُضاف عبر «اضافة كود عطل»)
+      // ⚠️ تُحسب مبدئيًا هنا وتُعاد حسابتها بعد المراجعة (الاقتران النهائي هو المعتمد).
+      let standaloneFaultCodes = rawFaultCodes.filter(fc => {
+        const key = String(fc.majorCode || '').trim() + '|' + String(fc.defectCode || '').trim();
+        return !usedCodeKeys.has(key);
+      });
 
-      logEvent('PASTE_CODES', `الخطة: ${sparePartJobs.length} قطع غيار عبر (اضافة قطعة غيار) + ${standaloneFaultCodes.length} أكواد عطل عبر (اضافة كود عطل)`);
-
+      const unpairedCount = sparePartJobs.filter(j => !j.faultCode).length;
+      logEvent('PASTE_CODES', `الخطة: ${sparePartJobs.length} قطعة (${unpairedCount} بلا كود عطل) + ${standaloneFaultCodes.length} كود عطل مستقل`);
       // ── مراجعة قبل التنفيذ: كود العطل + الضمان (داخل/خارج) + ⭐ لكل قطعة ──
       if (sparePartJobs.length > 0) {
         setStatus(shadow, '👁️ راجع القطع (كود العطل + الضمان) ثم اضغط «تنفيذ اللصق»');
@@ -5455,9 +7370,24 @@ function getCSS() {
         logEvent('PASTE_CODES', `تم تأكيد ${chosen.length} قطعة من لوحة المراجعة`);
       }
 
+      // إعادة حساب الأكواد المستقلة بالاقتران النهائي (المؤكَّد في المراجعة):
+      // أي كود صار مقترنًا بقطعة أُنشئ صفّه تلقائيًا من نموذج القطعة ⇒ لا نضيفه مرة ثانية.
+      const finalPairedKeys = new Set(
+        sparePartJobs
+          .map(j => `${String(j.faultCode?.majorCode || '').trim()}|${String(j.faultCode?.defectCode || '').trim()}`)
+          .filter(k => k !== '|')
+      );
+      standaloneFaultCodes = rawFaultCodes.filter(fc => {
+        const key = `${String(fc.majorCode || '').trim()}|${String(fc.defectCode || '').trim()}`;
+        return !finalPairedKeys.has(key);
+      });
+      logEvent('PASTE_CODES', `بعد المراجعة: ${sparePartJobs.length} قطعة + ${standaloneFaultCodes.length} كود مستقل`);
+
       let addedPartsCount = 0;
       let addedCodesCount = 0;
       const manualWarranty = [];
+      const unverified = [];
+      const failedParts = [];
 
       // ── أ: تنفيذ إضافة قطع الغيار عبر "اضافة قطعة غيار" ──
       for (let i = 0; i < sparePartJobs.length; i++) {
@@ -5468,9 +7398,17 @@ function getCSS() {
         if (res && res.ok) {
           if (!res.alreadyExists) addedPartsCount++;
           if (res.warrantyManual) manualWarranty.push(`${label} (مطلوب: ${job.warranty === 'out' ? 'خارج' : 'داخل'})`);
+          if (res.verified === false) unverified.push(`${label} — القطعة أو صف العطل غير ظاهر في الشبكة`);
           logEvent('PASTE_CODES', `✅ تم إضافة قطعة الغيار: ${label}`);
         } else {
-          logEvent('PASTE_CODES', `⚠️ تعذر إضافة قطعة الغيار ${label}: ${res?.reason || 'غير معروف'}`);
+          const why = partFailureReason(res);
+          failedParts.push(`${label} — ${why}`);
+          logEvent('PASTE_CODES', `⚠️ تعذر إضافة قطعة الغيار ${label}: ${why}`);
+          // 🚫 ذاكرة الرفض: لا يُقترح هذا الزوج لهذه القطعة مرة أخرى تلقائيًا
+          const fc = job.faultCode;
+          if (fc && fc.majorCode && fc.defectCode) {
+            recordPartPairingFailure(job.sparePart, fc.majorCode, fc.defectCode, why);
+          }
         }
         await sleep(1500);
       }
@@ -5483,9 +7421,12 @@ function getCSS() {
         const res = await addSingleFaultCode(code);
         if (res && res.ok) {
           if (!res.alreadyExists) addedCodesCount++;
+          if (res.verified === false) unverified.push(`${title} — صف العطل غير ظاهر في الشبكة`);
           logEvent('PASTE_CODES', `✅ تم إضافة كود عطل: ${title}`);
         } else {
-          logEvent('PASTE_CODES', `⚠️ تعذر إضافة كود عطل ${title}: ${res?.reason || 'غير معروف'}`);
+          const why = partFailureReason(res);
+          failedParts.push(`${title} — ${why}`);
+          logEvent('PASTE_CODES', `⚠️ تعذر إضافة كود عطل ${title}: ${why}`);
         }
         await sleep(1500);
       }
@@ -5496,14 +7437,25 @@ function getCSS() {
       if (manualWarranty.length) {
         logEvent('PASTE_CODES', `⚠️ ضمان يحتاج تعديلًا يدويًا: ${manualWarranty.join('، ')}`);
       }
+      if (unverified.length) {
+        logEvent('PASTE_CODES', `⚠️ حفظ بلا تحقق فعلي (${unverified.length}): ${unverified.join(' · ')}`);
+      }
+      if (failedParts.length) {
+        logEvent('PASTE_CODES', `⛔ لم تُضف (${failedParts.length}): ${failedParts.join(' · ')}`);
+      }
 
       const summaryParts = [];
       if (addedPartsCount > 0) summaryParts.push(`${addedPartsCount} قطعة غيار`);
       if (addedCodesCount > 0) summaryParts.push(`${addedCodesCount} كود عطل`);
 
-      if (summaryParts.length > 0) {
-        const warn = manualWarranty.length ? ` — ⚠️ راجع الضمان يدويًا: ${manualWarranty.join('، ')}` : '';
-        setStatus(shadow, `✅ تم لصق ${summaryParts.join(' و ')} بنجاح!${warn}`, manualWarranty.length ? 'warn' : 'success');
+      if (summaryParts.length > 0 || failedParts.length > 0) {
+        const warnBits = [];
+        if (failedParts.length) warnBits.push(`${failedParts.length} لم تُضف (${failedParts.slice(0, 2).join(' · ')})`);
+        if (manualWarranty.length) warnBits.push(`راجع الضمان يدويًا: ${manualWarranty.join('، ')}`);
+        if (unverified.length) warnBits.push(`${unverified.length} بلا تحقق فعلي`);
+        const warn = warnBits.length ? ` — ⚠️ ${warnBits.join(' · ')}` : '';
+        const done = summaryParts.length ? `✅ تم لصق ${summaryParts.join(' و ')}` : '⛔ لم يُضف أي عنصر';
+        setStatus(shadow, `${done}${unverified.length || failedParts.length ? '' : ' وتحقّقت من الشبكة'}!${warn}`, warnBits.length ? 'warn' : 'success');
       } else {
         setStatus(shadow, 'ℹ️ جميع قطع الغيار والأكواد مضافة بالفعل في هذا البلاغ', 'success');
       }

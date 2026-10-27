@@ -439,7 +439,7 @@ window.AutoFillEngine = window.AutoFillEngine || {};
 
       if (data.shahnEnabled) {
         await sleep(2000);
-        FR.faultShahn = await addFaultCodePage3('AC003', 'AC9000L02B', ['تفريغ']);
+        FR.faultShahn = await addFaultCodePage3('AC003', 'AC9000L24B', ['تفريغ']);
         log(FR.faultShahn?.ok ? 'AC003 (شحن) added' : 'AC003 (شحن) failed');
       }
     } else if (data.faultCode) {

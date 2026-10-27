@@ -25,6 +25,17 @@ window.AutoFillEngine = window.AutoFillEngine || {};
 
   // ملاحظة: كود «المشكلة المبدئية» (شكوى العميل) لا يُنسخ كما هو إلا إذا كان
   // كودًا معروفًا في كتالوج المشاكل الفعلية وغير ممنوع. سبب الإصلاح: WM82 → WM82.
+
+  // مطابقة عائلة الكود لعائلة الجهاز — fail-open لو أي طرف مجهول.
+  function _familyMatches(code, deviceName) {
+    const PC = window.ProblemCodes;
+    if (!PC || typeof PC.familyOfCode !== 'function') return true;
+    const fam = typeof PC.familyOf === 'function' ? PC.familyOf(deviceName) : '';
+    const codeFam = PC.familyOfCode(code);
+    if (!fam || !codeFam || codeFam === '*') return true;
+    return codeFam === fam;
+  }
+
   async function getProblemCode(deviceName, isInstallRow) {
     const PC = window.ProblemCodes;
     if (PC && typeof PC.loadCatalog === 'function') {
@@ -46,20 +57,27 @@ window.AutoFillEngine = window.AutoFillEngine || {};
       return '*تركيب';
     }
 
-    // ③ كود الشكوى: يُقبل فقط ككود مشكلة معروف (وليس مجرد شكل XX99)
+    // ③ كود الشكوى: يُقبل فقط ككود مشكلة معروف (وليس مجرد شكل XX99) ومطابق لعائلة الجهاز
     if (complaintCode && /^\*?\w{2}\d{2}$/i.test(complaintCode)) {
       const bare = String(complaintCode).replace(/^\*+/, '').trim().toUpperCase();
       const known = PC && typeof PC.isKnownCode === 'function' ? PC.isKnownCode(bare) : false;
       if (known && !(PC && PC.isForbidden(bare))) {
-        log('Complaint code is a catalog problem code: ' + complaintCode);
-        return complaintCode;
+        if (!_familyMatches(bare, deviceName)) {
+          warn('Complaint code "' + complaintCode + '" is from another family than "' + deviceName + '" — ignored');
+        } else {
+          log('Complaint code is a catalog problem code: ' + complaintCode);
+          return complaintCode;
+        }
+      } else {
+        log('Complaint code "' + complaintCode + '" is not a usable catalog code — resolving from device type');
       }
-      log('Complaint code "' + complaintCode + '" is not a usable catalog code — resolving from device type');
     }
 
-    // ④ الكتالوج حسب عائلة الجهاز (المصدر الأول)
+    // ④ الكتالوج حسب عائلة الجهاز (المصدر الأول) — بلا التعلّم العالق من بلاغات سابقة
     if (PC && typeof PC.allowedCodesForDevice === 'function') {
-      const fromCatalog = PC.allowedCodesForDevice(deviceName) || [];
+      const fromCatalog = PC.allowedCodesForDevice(deviceName, null, {
+        service: isInstallRow ? 'install' : 'maintenance'
+      }) || [];
       if (fromCatalog.length) {
         const picked = fromCatalog[Math.floor(Math.random() * fromCatalog.length)];
         log('Picked catalog problem code: ' + picked);
@@ -140,6 +158,8 @@ window.AutoFillEngine = window.AutoFillEngine || {};
           if (candidate && known) {
             if (PC && typeof PC.isForbidden === 'function' && PC.isForbidden(bare)) {
               log('AI returned a forbidden code: ' + candidate + ' — falling back to the device map');
+            } else if (!_familyMatches(candidate, deviceName)) {
+              log('AI returned a code from another family: ' + candidate + ' — falling back to the device map');
             } else {
               return candidate;
             }
@@ -498,6 +518,8 @@ window.AutoFillEngine = window.AutoFillEngine || {};
     const device = opts.device || '';
     const priority = opts.priority || null;
     const exclude = opts.exclude || PROBLEM_EXCLUDE;
+    const service = (PC && typeof PC.normalizeService === 'function') ? PC.normalizeService(opts.service) : '';
+    const family = (PC && typeof PC.familyOf === 'function') ? PC.familyOf(device) : '';
 
     // تحذير تشخيصي فقط: الكود المطلوب غير موجود في الكتالوج (قد يكون كودًا قديمًا).
     if (PC && typeof PC.isKnownCode === 'function' && requestedCode
@@ -505,38 +527,73 @@ window.AutoFillEngine = window.AutoFillEngine || {};
       log('[Problem] ⚠️ requested code is not in problem-catalog: ' + requestedCode);
     }
 
-    // ① المحاولة بكود البيانات المخزنة
-    let res = await lookups.handleSubgridIframeModal(PROBLEM_BTN_REGEX, requestedCode, false, exclude, priority);
-    if (res && res.ok) {
-      if (PC) PC.recordOutcome(requestedCode, device, true);
-      return { ok: true, name: res.name, code: requestedCode, source: 'stored' };
+    // ⓪ هل الكود المطلوب يخص هذا الجهاز/هذه الخدمة؟
+    let requestedCompatible = !!requestedCode;
+    if (requestedCode && PC) {
+      if (!_familyMatches(requestedCode, device)) {
+        requestedCompatible = false;
+        warn('[Problem] ⛔ كود من عائلة أخرى: ' + requestedCode + ' | الجهاز: ' + (device || '?') + ' — سيُستبدل من قائمة البوابة');
+      }
+      const reqSvc = /تركيب/i.test(String(requestedCode)) ? 'install' : '';
+      if (requestedCompatible && service && reqSvc && reqSvc !== service) {
+        requestedCompatible = false;
+        warn('[Problem] ⛔ كود لنوع خدمة مختلف: ' + requestedCode + ' | المطلوب: ' + service + ' — سيُستبدل من قائمة البوابة');
+      }
     }
 
-    // فشل لسبب غير «عدم وجود الكود»؟ لا معنى لقائمة الاختيار.
-    const reason = (res && res.reason) || 'failed';
-    if (reason !== 'no-match') {
-      return { ok: false, reason, available: [] };
+    // ① المحاولة بكود البيانات المخزنة (فقط لو مطابق للجهاز/الخدمة)
+    let res = null;
+    if (requestedCompatible) {
+      res = await lookups.handleSubgridIframeModal(PROBLEM_BTN_REGEX, requestedCode, false, exclude, priority);
+      if (res && res.ok) {
+        if (PC) PC.recordOutcome(requestedCode, device, true, { service, family });
+        return { ok: true, name: res.name, code: requestedCode, source: 'stored' };
+      }
+      // فشل لسبب غير «عدم وجود الكود»؟ لا معنى لقائمة الاختيار.
+      const reason = (res && res.reason) || 'failed';
+      if (reason !== 'no-match') {
+        return { ok: false, reason, available: [] };
+      }
     }
 
-    // ② قائمة ما تعرضه البوابة فعلًا — استبعاد الممنوع
+    // ② قائمة ما تعرضه البوابة فعلًا — ممنوع + عائلة + نوع خدمة
     const available = (res && Array.isArray(res.available)) ? res.available : [];
-    const allowed = PC ? PC.filterAllowed(available) : available.filter(x => !PROBLEM_EXCLUDE.test(x));
-    if (!allowed.length) {
-      return { ok: false, reason: 'no-allowed-or-available', available };
+    const compat = (PC && typeof PC.filterCompatible === 'function')
+      ? PC.filterCompatible(available, { device, family, service })
+      : { list: (PC ? PC.filterAllowed(available) : available.filter(x => !PROBLEM_EXCLUDE.test(x))), stats: {} };
+    let allowed = compat.list;
+    let fromCatalog = false;
+
+    // لا صف مطابق في ما يعرضه المودال ⇒ بديل من كتالوج العائلة نفسها (لا من عائلة أخرى أبدًا)
+    if (!allowed.length && PC && typeof PC.allowedCodesForDevice === 'function') {
+      const pool = PC.allowedCodesForDevice(device, null, { service }) || [];
+      if (pool.length) {
+        allowed = pool.slice();
+        fromCatalog = true;
+        log(`[Problem] لا صف مطابق في البوابة — بديل من الكتالوج (${allowed.length} كودًا للعائلة ${family || '?'})`);
+      }
     }
-    log(`[Problem] requested="${requestedCode}" not offered — ${allowed.length} allowed option(s)`);
+    if (!allowed.length) {
+      return {
+        ok: false,
+        reason: (requestedCode && !requestedCompatible) ? 'incompatible-requested-code' : 'no-allowed-or-available',
+        available,
+        stats: compat.stats
+      };
+    }
+    log(`[Problem] requested="${requestedCode || '—'}" — ${allowed.length} خيارًا مطابقًا (استُبعد: عائلة ${compat.stats.family || 0} / خدمة ${compat.stats.service || 0} / ممنوع ${compat.stats.forbidden || 0})`);
 
     // ③ عرض القائمة وانتظار اختيار المستخدم (أو انتهاء المهلة)
     let chosen = null;
     if (PC && typeof PC.requestUserPick === 'function') {
-      chosen = await PC.requestUserPick(allowed, { device, requestedCode });
+      chosen = await PC.requestUserPick(allowed, { device, requestedCode, service, family });
     }
     let source = 'user-pick';
     if (!chosen) {
       // لا اختيار تلقائي (طلب المستخدم): انتهاء المهلة يعني «اتركها للمستخدم»،
       // والقائمة تبقى معروضة في اللوحة لإضافتها يدويًا. لا نضيف كودًا لم يختره أحد.
       log('[Problem] ⏳ انتهت مهلة الاختيار بدون تدخل — لن يُختار كود تلقائيًا');
-      return { ok: false, reason: 'pick-timeout', needsPick: true, available: allowed };
+      return { ok: false, reason: 'pick-timeout', needsPick: true, available: allowed, fromCatalog, stats: compat.stats };
     }
 
     // ④ إضافة الكود المختار (تدوير بين المسموح)
@@ -579,16 +636,18 @@ window.AutoFillEngine = window.AutoFillEngine || {};
     const { autofiller_ProductType } = await chrome.storage.local.get('autofiller_ProductType');
     const deviceName = (window.AutoFillEngine.Page1?.readDeviceTypeFromPage ? window.AutoFillEngine.Page1.readDeviceTypeFromPage() : '') || autofiller_ProductType || data.reportType || '';
     const isInstall = /تركيب/.test(data.reportType) || (window.AutoFillEngine.Page1?.isInstallationReport && window.AutoFillEngine.Page1.isInstallationReport());
+    const service = isInstall ? 'install' : 'maintenance';
     
     // For Second Visit & Masaha: use problemCode from profile directly
     const isProfileMode = data.secondVisitMode || data.masahaMode;
     const probCode = isProfileMode && data.problemCode ? data.problemCode : (data.problemCode || await getProblemCode(deviceName, isInstall));
     if (probCode) {
       log('Adding Actual Problem: ' + probCode);
-      const priorityActualProblem = /Premium\s*care|بريميم.?كير|تركيب وتشغيل/i;
+      const priorityActualProblem = /Premium\s*care|بريميم.?كير|تركيب/i;
       try {
         const probRes = await resolveActualProblem(probCode, {
           device: deviceName,
+          service,
           priority: priorityActualProblem
         });
         if (probRes && probRes.ok) {

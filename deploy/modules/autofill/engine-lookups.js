@@ -984,9 +984,9 @@ window.AutoFillEngine = window.AutoFillEngine || {};
         if (!rand) {
           log('No match for "' + cleanTarget + '" in ' + items.length + ' items — skipping');
           const available = rawItems
-            .map(i => (i.innerText || '').replace(/\s+/g, ' ').trim().slice(0, 70))
+            .map(i => (i.innerText || '').replace(/\s+/g, ' ').trim().slice(0, 120))
             .filter(Boolean)
-            .slice(0, 12);
+            .slice(0, 50);
           closeLookupModalOnly(iframeDoc);
           await sleep(600);
           closeFormModal(formModal);

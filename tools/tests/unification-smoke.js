@@ -769,8 +769,8 @@ function load(sandbox, file) {
       'engine-page2: أُزيل نسخ كود الشكوى كما هو (WM82 → WM82)');
     ok(/async function getProblemCode/.test(p2) && /PC\.isKnownCode\(bare\)/.test(p2),
       'engine-page2: getProblemCode يتحقق من الكتالوج قبل استخدام كود الشكوى');
-    ok(/PC\.allowedCodesForDevice\(deviceName\)/.test(p2),
-      'engine-page2: يختار من أكواد الكتالوج حسب العائلة');
+    ok(/PC\.allowedCodesForDevice\(deviceName, null, \{[\s\S]{0,80}service: isInstallRow \? 'install' : 'maintenance'/.test(p2),
+      'engine-page2: يختار من أكواد الكتالوج حسب العائلة ونوع الخدمة');
     ok(/function allowedCodesForAI/.test(p2) && /PC\.codesForDevice\(deviceName\)/.test(p2),
       'engine-page2: قائمة الـ AI تُبنى من الكتالوج لا من ثابت');
     ok(/await getProblemCode\(deviceName, isInstall\)/.test(p2),
@@ -1100,10 +1100,15 @@ function load(sandbox, file) {
     for (const f of Object.keys(fams)) {
       const e = fams[f];
       const have = new Set((e.codes || []).map(c => String(c.major || '').toUpperCase()));
+      // دقة «رئيسي|فرعي»: الكود الدقيق لازم يكون موجودًا فعليًا (لا يكفي الرئيسي)
+      const haveFull = new Set((e.codes || []).map(c => String(c.major || '').toUpperCase()
+        + (c.sub ? '|' + String(c.sub).toUpperCase() : '')));
       const noteIds = new Set((e.notes || []).map(n => n && n.id));
       for (const sc of (e.shortcuts || [])) {
         for (const c of (sc.codes || [])) {
-          if (!have.has(String(c).toUpperCase())) { codesOk = false; problems.push(`${f}/${sc.id}:${c}`); }
+          const w = String(c).toUpperCase();
+          const okCode = w.includes('|') ? haveFull.has(w) : have.has(w);
+          if (!okCode) { codesOk = false; problems.push(`${f}/${sc.id}:${c}`); }
         }
         for (const n of (sc.noteIds || [])) {
           if (!noteIds.has(n)) { noteOk = false; problems.push(`${f}/${sc.id}:note=${n}`); }
@@ -1636,6 +1641,804 @@ function load(sandbox, file) {
         && !/saveFavParts\(/.test(cp),
         '⭐ المخزن: مفتاح v2 واحد ولا كتابة مباشرة في v1');
     }
+  }
+
+  console.log('-- 38) ملاءمة الكود: العائلة + نوع الخدمة + حداثة البلاغ --');
+  {
+    const cat38 = JSON.parse(read('problem-catalog.json'));
+    ok(!!(cat38.families.DW && cat38.families.DW.some(l => /أطباق/.test(l))),
+      'problem-catalog: عائلة DW معرّفة (غسالة أطباق لا تُصنّف WM)');
+    ok(Array.isArray(cat38.families.HT) && cat38.families.HT.includes('WH'),
+      'problem-catalog: alias WH يُصنّف سخانات مياه');
+
+    const env38 = makeEnv();
+    env38.sandbox._CFG = JSON.parse(read('selectors.json'));
+    env38.sandbox.loadSelectors = async () => env38.sandbox._CFG;
+    env38.sandbox.fetch = async () => ({ ok: true, status: 200, json: async () => cat38 });
+    load(env38.sandbox, 'shared/problem-codes.js');
+    const PC38 = env38.sandbox.ProblemCodes;
+    await PC38.loadCatalog();
+    await PC38.loadRules();
+
+    const LBL = 'HT34 - ( صيانة - سخانات مياه - خارج الضمان )';
+    const info38 = PC38.parseProblemLabel(LBL);
+    ok(info38.code === 'HT34' && info38.service === 'maintenance'
+      && info38.family === 'HT' && info38.warranty === 'out',
+      'problem-codes: تفكيك صف البوابة (كود/خدمة/عائلة/ضمان)');
+    ok(PC38.parseProblemLabel('GS34 - ( تركيب - بوتاجاز - داخل الضمان )').service === 'install',
+      'problem-codes: صف التركيب يُقرأ install');
+    const plain38 = PC38.parseProblemLabel('HT01 - لا يسخن');
+    ok(plain38.parsed === true && plain38.service === '' && plain38.family === 'HT',
+      'problem-codes: صف بلا قوس يبقى بلا خدمة (fail-open)');
+
+    ok(PC38.familyOf('سخانات مياه') === 'HT' && PC38.familyOf('غسالة أطباق') === 'DW'
+      && PC38.familyOf('WH') === 'HT' && PC38.familyOf('Whirlpool fridge') === 'GR',
+      'problem-codes: familyOf بأطول تطابق وبحدود كلمة');
+    ok(PC38.familyOfCode('HT34') === 'HT' && PC38.familyOfCode('*تركيب') === '',
+      'problem-codes: عائلة الكود من البادئة (HT34 معروف) والتركيب بلا عائلة');
+
+    const f38 = PC38.filterCompatible(
+      [LBL, 'GS34 - ( صيانة - بوتاجاز - خارج الضمان )', 'HT07 - ( تركيب - سخانات مياه - داخل الضمان )'],
+      { device: 'سخانات مياه', service: 'maintenance' }
+    );
+    ok(f38.list.length === 1 && f38.list[0] === LBL
+      && f38.stats.family === 1 && f38.stats.service === 1,
+      'problem-codes: فلتر الملاءمة يستبعد عائلة أخرى ونوع خدمة آخر');
+    ok(PC38.filterCompatible(['HT01 - لا يسخن'], { device: '', service: 'maintenance' }).list.length === 1,
+      'problem-codes: جهاز مجهول ⇒ لا استبعاد (fail-open)');
+    ok(PC38.filterCompatible(['GS08 - ( صيانة - بوتاجاز )'], { device: 'بوتاجاز' }).list.length === 0,
+      'problem-codes: الممنوع يبقى مستبعدًا داخل فلتر الملاءمة');
+
+    // التعلّم: لا يوسّع الاختيار العشوائي، يُصفّى بالعائلة/الخدمة، ويُحذف عند الفشل
+    const pool38 = PC38.allowedCodesForDevice('سخانات مياه');
+    PC38.recordOutcome('HT34', 'سخانات مياه', true, { service: 'maintenance' });
+    const pool38b = PC38.allowedCodesForDevice('سخانات مياه');
+    ok(pool38.length === pool38b.length && !pool38b.includes('HT34'),
+      'problem-codes: الكود المتعلَّم لا يدخل مجموعة الاختيار العشوائي');
+    ok(PC38.learnedCodes('سخانات مياه').includes('HT34'),
+      'problem-codes: المتعلَّم يظهر اقتراحًا للجهاز نفسه');
+    ok(PC38.learnedCodes('سخانات مياه', { service: 'install' }).length === 0,
+      'problem-codes: الاقتراح يُصفّى بنوع الخدمة');
+    ok(PC38.learnedCodes('ثلاجة').length === 0,
+      'problem-codes: الاقتراح لا يتسرّب لجهاز آخر');
+    PC38.recordOutcome('HT34', 'سخانات مياه', false, { service: 'maintenance' });
+    ok(PC38.learnedCodes('سخانات مياه').length === 0,
+      'problem-codes: فشل الكود يحذفه من الاقتراحات');
+
+    const p2_38 = read('modules/autofill/engine-page2.js');
+    ok(/let requestedCompatible = !!requestedCode/.test(p2_38)
+      && /كود من عائلة أخرى/.test(p2_38) && /كود لنوع خدمة مختلف/.test(p2_38),
+      'engine-page2: بوابة الملاءمة ترفض الكود غير المطابق قبل إرساله');
+    ok(/PC\.filterCompatible\(available, \{ device, family, service \}\)/.test(p2_38),
+      'engine-page2: available تُصفّى بالعائلة والخدمة لا بالممنوع فقط');
+    ok(/service: isInstallRow \? 'install' : 'maintenance'/.test(p2_38)
+      && /service,\s*\n\s*priority: priorityActualProblem/.test(p2_38),
+      'engine-page2: نوع الخدمة يُمرَّر صريحًا مع الكود');
+    ok(/fromCatalog = true/.test(p2_38) && /stats: compat\.stats/.test(p2_38)
+      && /fromCatalog, stats: compat\.stats/.test(p2_38),
+      'engine-page2: بديل الكتالوج موسوم ويُعاد مع النتيجة');
+    ok(/_familyMatches\(candidate, deviceName\)/.test(p2_38),
+      'engine-page2: كود الـ AI يُرفض لو من عائلة أخرى');
+
+    const lk38 = read('modules/autofill/engine-lookups.js');
+    ok(/\.slice\(0, 120\)/.test(lk38) && /\.slice\(0, 50\)/.test(lk38),
+      'engine-lookups: قائمة المتاح 50 صفًا / 120 حرفًا (لا 12/70)');
+
+    const cp38 = read('control-panel.js');
+    const svcFn = cp38.slice(cp38.indexOf('function readServiceType'), cp38.indexOf('function resolveIsInstall'));
+    ok(svcFn.length > 0 && svcFn.indexOf('#ats_workordertype_name') !== -1
+      && svcFn.indexOf('#ats_workordertype_name') < svcFn.indexOf('#ldv_workordertype'),
+      'control-panel: نوع الخدمة يُقرأ من الحقل الصريح قبل ldv');
+    ok(!/if \(detectInstallation\(\)\) return true/.test(cp38),
+      'control-panel: detectInstallation لم يعد يسبق الحقل الصريح');
+    ok(/return 'unknown';/.test(cp38) && /service === 'unknown'/.test(cp38),
+      'control-panel: الجهالة حالة مستقلة لا تُعتبر صيانة');
+    ok(/function incidentKey\(\)/.test(cp38) && /PROBLEM_OPTIONS_KEY \+ ':' \+ id/.test(cp38),
+      'control-panel: قائمة الاختيار مرتبطة برقم البلاغ');
+    ok(/localStorage\.removeItem\(PROBLEM_OPTIONS_KEY\)/.test(cp38),
+      'control-panel: المفتاح القديم غير المرتبط ببلاغ يُنظَّف');
+    ok(/if \(o\.persist === true\) saveProblemOptions\(list\)/.test(cp38),
+      'control-panel: الاسترجاع لا يُجدّد صلاحية القائمة');
+    ok(/id="cp-problem-context"/.test(cp38) && /id="cp-problem-service"/.test(cp38),
+      'control-panel: صندوق الاختيار يعرض السياق وأزرار نوع الخدمة');
+    ok(/من عائلة أخرى \(\$\{codeFam\}\)/.test(cp38),
+      'control-panel: حارس أخير يمنع إضافة كود عائلة أخرى');
+  }
+
+  console.log('-- 40) نسخ/لصق الأكواد: بلا تخمين + بوابة الحقول + ذاكرة الاقتران --');
+  {
+    const cp40 = read('control-panel.js');
+
+    // (١) صيغ البحث: الكود كما هو أولًا ثم *كود*، والنص العربي بالعكس
+    const varFn40 = cp40.slice(cp40.indexOf('function lookupSearchVariants'), cp40.indexOf('async function fillIframeLookup'));
+    ok(varFn40.length > 0
+      && /isCode \? \[bare, '\*' \+ bare \+ '\*'\] : \['\*' \+ bare \+ '\*', bare\]/.test(varFn40),
+      'control-panel: صيغ البحث — الكود كما هو ثم بالنجمة، والنص العربي بالعكس');
+    ok(/const readRows = \(\) => Array\.from\(lookupModal\.querySelectorAll\('table tbody tr'\)\)/.test(cp40),
+      'control-panel: صفوف النتائج تُقرأ من نافذة البحث داخل الـ iframe');
+    ok(/searchInput\.dispatchEvent\(new view\.Event\('input'/.test(cp40)
+      && /const view = iframeDoc\.defaultView \|\| window/.test(cp40),
+      'control-panel: أحداث البحث تُطلق من عالم الـ iframe نفسه');
+
+    // (٢) «عرض كل الخيارات» ممنوع في الحقول المرتبطة (قائمة الفرعي غير مقيّدة بالرئيسي)
+    ok(/rows\.length === 0 && searchInput && searchBtn && !opts\.noShowAll/.test(cp40),
+      'control-panel: «عرض الكل» معطّل عند noShowAll');
+    const subLookupLines40 = cp40.split('\n');
+    const subLookupCalls40 = subLookupLines40
+      .map((l, i) => (l.includes("'ats_defectcodedefectmajor_name', subSearch")
+        ? subLookupLines40.slice(i, i + 4).join('\n')
+        : null))
+      .filter(Boolean);
+    ok(subLookupCalls40.length === 2 && subLookupCalls40.every(b => b.includes('noShowAll: true')),
+      'control-panel: حقلا الكود الفرعي (قطعة/عطل) يبحثان بلا «عرض الكل»');
+    ok(/if \(!Array\.isArray\(res\.available\) \|\| res\.available\.length === 0\)/.test(cp40),
+      'control-panel: لا قائمة اختيار بديلة عند غياب بدائل موثوقة');
+
+    // (٣) بوابة الحقول المطلوبة قبل نقر الحفظ
+    ok(/IFRAME_REQUIRED_LABELS/.test(cp40)
+      && /doc\.querySelectorAll\('\[aria-required="true"\]'\)/.test(cp40),
+      'control-panel: الحقول المطلوبة تُقرأ من aria-required');
+    ok(/doc\.getElementById\(id \+ '_name'\) \|\| el/.test(cp40) && /isElementVisible\(disp\)/.test(cp40),
+      'control-panel: قيمة الحقل المرجعي تُقرأ من <id>_name والمخفي يُتخطّى');
+    ok(/reason: 'required-empty', missing/.test(cp40)
+      && /saveRes\.reason === 'required-empty'/.test(cp40)
+      && /البوابة تطلب/.test(cp40),
+      'control-panel: الحفظ يتوقف ويسمّي الحقل الناقص بدل الرفض الصامت');
+
+    // (٤) الاقتران اقتراح معلن قابل للمراجعة (قرار المالك 2026-10-26):
+    //     ⭐/ذاكرة ← كلمات الوصف ← احتياطي. لا اقتران خفي بلا وسم ولا مراجعة.
+    ok(/function pickCodeForPart\(part, codes, opts\)/.test(cp40)
+      && /source: 'keywords'/.test(cp40)
+      && /source: 'fallback'/.test(cp40)
+      && !/pairedFaultIndices/.test(cp40),
+      'control-panel: الاقتران اقتراح موسوم (كلمات/احتياطي) لا تخمين خفي');
+    ok(/const usedCodeKeys = new Set\(\)/.test(cp40)
+      && /if \(explicitMajor && explicitSub\)/.test(cp40),
+      'control-panel: اقتران الحزمة يبقى من بيانات القطعة (majorCode/subCode)');
+    ok(/const finalPairedKeys = new Set\(/.test(cp40)
+      && /standaloneFaultCodes = rawFaultCodes\.filter/.test(cp40),
+      'control-panel: الأكواد المستقلة تُعاد حسابتها بعد المراجعة');
+
+    // (٥) لوحة المراجعة: لا تنفيذ بقطعة بلا كود
+    ok(/emptyOpt\.textContent = '— اختر كود العطل —'/.test(cp40)
+      && /sel\.value = ''/.test(cp40),
+      'control-panel: القائمة تبدأ بخيار فارغ لا بأول كود');
+    ok(/const missing = state\.filter\(s => !s\.faultCode\)/.test(cp40)
+      && /لا توجد أكواد أعطال في الحزمة/.test(cp40),
+      'control-panel: المراجعة تمنع التنفيذ بقطعة بلا كود عطل');
+
+    // (٦) ذاكرة اقتران مُثبتة بالتجربة (تُسجَّل بعد حفظ ناجح فقط)
+    ok(/const PART_PAIRING_KEY = 'elaraby_part_pairing_v1'/.test(cp40)
+      && /function recordPartPairing\(/.test(cp40)
+      && /function lookupPartPairing\(/.test(cp40),
+      'control-panel: ذاكرة اقتران القطعة ← كود العطل موجودة بمفتاح v1');
+    ok(/recordPartPairing\(spObj, majorPicked, subPicked\)/.test(cp40),
+      'control-panel: الاقتران يُسجَّل بعد حفظ ناجح لا قبل');
+    ok(/lookupPartPairing\(part\)/.test(cp40) && /pickCodeForPart\(it\.sparePart, codes/.test(cp40),
+      'control-panel: المراجعة تقترح الاقتران المحفوظ تجريبيًا');
+    ok(/function codeTokenOf\(/.test(cp40) && /codeTokenOf\(r\.text/.test(cp40),
+      'control-panel: الكود المستخلص من نص الصف يُسجَّل لا النص الكامل');
+
+    // (٧) رفض النماذج التي لا تحفظ شيئًا
+    ok(/reason: 'no-fault-code'/.test(cp40)
+      && /reason: 'need-major-and-sub'/.test(cp40),
+      'control-panel: النموذجان يرفضان العمل بلا رئيسي+فرعي');
+
+    // (٨) التوثيق المرجعي للموجة
+    const chg40 = read('../../CHANGELOG.md');
+    ok(/الموجة 40/.test(chg40) || /الموجة ٤٠/.test(chg40),
+      'CHANGELOG: الموجة 40 موثّقة');
+  }
+
+  console.log('-- 41) صفحة ٣: لوحة سحب أكواد الأعطال على القطع + تبديل --');
+  {
+    const cp41 = read('control-panel.js');
+    const board41 = cp41.slice(cp41.indexOf('function showPartsReview'), cp41.indexOf('// ── صيغ البحث في نافذة lookup'));
+
+    // وحدة السحب = زوج (رئيسي|فرعي) — الفرعيان المختلفان لا يُدمجان
+    ok(/const codeKey = \(c\) => String\(\(c && c\.majorCode\) \|\| ''\)\.trim\(\) \+ '\|' \+ String\(\(c && c\.defectCode\) \|\| ''\)\.trim\(\)/.test(board41),
+      'control-panel: مفتاح الزوج = رئيسي|فرعي (لا دمج بالوصف)');
+    ok(/cp-code-pool/.test(board41) && /cp-code-chip/.test(board41) && /chip\.draggable = true/.test(board41),
+      'control-panel: أكواد الأعطال chips قابلة للسحب في قائمة الحزمة');
+    ok(/cp-part-slot/.test(board41) && /slot\.addEventListener\('drop'/.test(board41),
+      'control-panel: كل قطعة هدف إفلات مستقل');
+
+    // النقل/التبديل: الإفلات من قطعة أخرى يفكّ ربط المصدر
+    ok(/const assign = \(index, code, src, moveFrom\) => \{[\s\S]{0,220}state\[moveFrom\]\.faultCode = null/.test(board41),
+      'control-panel: السحب من قطعة إلى أخرى يبدّل ويحرّر القديمة');
+    ok(/pool\.addEventListener\('drop'[\s\S]{0,300}unassign\(from\)/.test(board41),
+      'control-panel: الإفلات على القائمة يفكّ الربط');
+    ok(/const unassign = \(index\) => \{[\s\S]{0,200}refreshAll\(\);[\s\S]{0,60}\};/.test(board41),
+      'control-panel: زر ✕ يزيل الربط');
+
+    // بديل بلا سحب (نقر للتحديد ثم نقر على القطعة)
+    ok(/let armed = null/.test(board41) && /if \(!armed\) return/.test(board41),
+      'control-panel: بديل النقر — تلتقط كودًا ثم تنقره على القطعة');
+
+    // مصدر الاقتران ظاهر لكل صف
+    ok(/SOURCE_LABEL = \{[\s\S]{0,240}bundle: \['📋'[\s\S]{0,120}fav: \['⭐'/.test(board41)
+      && /memory: \['🧠'/.test(board41) && /manual: \['✋'/.test(board41),
+      'control-panel: مصدر كل اقتران ظاهر (📋 ⭐ 🧠 ✋)');
+
+    // الأكواد بلا قطعة تُعدّ وتُوجَّه لزر كود العطل
+    ok(/const unlinked = codes\.filter\(c => usageOf\(codeKey\(c\)\) === 0\)\.length/.test(board41)
+      && /بلا قطعة/.test(board41),
+      'control-panel: عدّاد «بلا قطعة» (تُضاف من زر كود العطل)');
+
+    // القائمة المنسدلة تبقى كبديل
+    ok(/if \(codes\.length\) \{[\s\S]{0,200}document\.createElement\('select'\)/.test(board41),
+      'control-panel: القائمة المنسدلة بديل للسحب');
+
+    // التحقق يعلّم الخانة الناقصة
+    ok(/slots\.forEach\(\(s, idx\) => \{ if \(!state\[idx\]\.faultCode\) s\.classList\.add\('missing'\)/.test(board41),
+      'control-panel: التحقق يعلّم القطعة بلا كود عند التنفيذ');
+
+    // الأنماط
+    const css41 = cp41.slice(cp41.indexOf('.cp-code-pool{'), cp41.indexOf('.cp-fav-parts{'));
+    ok(/\.cp-code-pool\{/.test(css41) && /\.cp-part-slot\.filled\{/.test(css41)
+      && /\.cp-part-slot\.drag-over\{/.test(css41) && /\.cp-code-chip\.dragging\{/.test(css41),
+      'control-panel: أنماط اللوحة (خانة ممتلئة/سحب/إفلات)');
+  }
+
+  console.log('-- 42) صفحة ٣: التحقق البعدي من الشبكة (لا يكفي إغلاق النموذج) --');
+  {
+    const cp42 = read('control-panel.js');
+
+    ok(/function verifyPartRow\(partCode\)/.test(cp42)
+      && /function verifyDefectPair\(majorCode, subCode\)/.test(cp42)
+      && /function readSubgridRows\(ids\)/.test(cp42),
+      'control-panel: دوال تحقق تقرأ الشبكة فعليًا');
+    ok(/const PARTS_GRID_IDS = \[[^\]]*InventoryAdjustmentProduct_Subgrid/.test(cp42)
+      && /const DEFECT_GRID_IDS = \[[^\]]*WorkOrder_defect/.test(cp42),
+      'control-panel: معرّفات شبكات القطع والأعطال مركزية');
+    ok(/td\[data-attribute="' \+ attr \+ '"\]/.test(cp42)
+      && /gridCellOf\(r, 'ats_defectmajor'\)/.test(cp42)
+      && /gridCellOf\(r, 'ldv_defect'\)/.test(cp42),
+      'control-panel: مطابقة الزوج من خلايا ats_defectmajor + ldv_defect');
+
+    // يُستدعى بعد الحفظ الناجح لا قبله
+    const save42 = cp42.slice(cp42.indexOf("const saveRes = await saveIframeForm(iframeDoc, modal, 'قطعة الغيار')"), cp42.indexOf('async function addSingleFaultCode'));
+    ok(/if \(saveRes\.ok\) \{[\s\S]{0,400}verifyPartRow\(/.test(save42)
+      && /verifyDefectPair\(majorPicked, subPicked\)/.test(save42),
+      'control-panel: القطعة تُتحقق بعد الحفظ (قطعة + صف العطل)');
+    ok(/verified, verify: \{ part: vPart, defect: vDefect \}/.test(cp42),
+      'control-panel: نتيجة التحقق تُعاد للمنادي');
+
+    const code42 = cp42.slice(cp42.indexOf('async function addSingleFaultCode'), cp42.indexOf('async function pasteCodesAction'));
+    ok(/if \(saveRes\.ok\) \{[\s\S]{0,300}verifyDefectPair\(mainSearch, subSearch\)/.test(code42)
+      && /verified: vDefect\.ok/.test(code42),
+      'control-panel: كود العطل يُتحقق بعد الحفظ');
+
+    ok(/const unverified = \[\]/.test(cp42)
+      && /if \(res\.verified === false\) unverified\.push/.test(cp42)
+      && /بلا تحقق فعلي/.test(cp42),
+      'control-panel: الأكواد/القطع غير المتحققة تُعدّ وتُعرض للمستخدم');
+  }
+
+  console.log('-- 43) Task 1.1: قراءة كل الصفحات + لوحة النسخ + منتج واحد --');
+  {
+    const cp43 = read('control-panel.js');
+    const grid43 = cp43.slice(cp43.indexOf('const GRID_PAGE_WAIT_MS'), cp43.indexOf('function readPartsFromGrid()'));
+
+    // ١.١.أ — قراءة كل صفحات الشبكة
+    ok(/const GRID_PAGE_WAIT_MS = 7000/.test(grid43) && /const GRID_MAX_PAGES = 15/.test(grid43),
+      'control-panel: حدود انتظار/صفحات صريحة لقراءة الشبكة');
+    ok(/const declared = parseInt\(pager\.getAttribute\('data-pages'\)[\s\S]{0,260}const maxLink = nums\.length \? Math\.max\(\.\.\.nums\) : 0;[\s\S]{0,80}Math\.max\(1, declared, maxLink\)/.test(grid43),
+      'control-panel: عدد الصفحات = الأكبر بين data-pages وروابط data-page (البوابة تكتب data-pages="1" مع وجود صفحة ٢)');
+    ok(/pager\.querySelector\('a\[data-page="' \+ page \+ '"\]'\)/.test(grid43)
+      && /link\.click\(\)/.test(grid43)
+      && /gridCurrentPage\(root\) !== beforePage \|\| nowSig !== beforeSig/.test(grid43),
+      'control-panel: الانتقال لصفحة عبر a[data-page] وانتظار تغيّر فعلي (لا sleep أعمى)');
+    ok(/const totalPages = Math\.min\(gridPageCount\(root\), o\.maxPages \|\| GRID_MAX_PAGES\)/.test(grid43)
+      && /for \(let p = 2; p <= totalPages; p\+\+\)/.test(grid43)
+      && /if \(gridCurrentPage\(root\) !== 1\) await gotoGridPage\(root, 1, rowSelector\)/.test(grid43),
+      'control-panel: يقرأ ٢..N ثم يُرجع الشبكة للصفحة ١');
+    ok(/async function readPartsFromGridAllPages\(\)/.test(grid43)
+      && /const key = p\.rowId \|\| `\$\{p\.code \|\| ''\}\|\$\{p\.fullName \|\| ''\}\|\$\{p\.qty\}`/.test(grid43)
+      && /if \(seen\.has\(key\)\) return;/.test(grid43),
+      'control-panel: قطع الغيار من كل الصفحات بلا تكرار (rowId)');
+
+    const defect43 = cp43.slice(cp43.indexOf('function extractDefectCodesOnce'), cp43.indexOf('async function copyCodesAction'));
+    ok(!/shadow/.test(cp43.slice(cp43.indexOf('function extractDefectCodesOnce'), cp43.indexOf('async function extractFaultCodesFromPage'))),
+      'control-panel: استخراج الأعطال منفصل عن اللوحة (قابل للتكرار لكل صفحة)');
+    ok(/async function extractFaultCodesFromPage\(shadow\)/.test(defect43)
+      && /forEachGridPage\(defectRoot\.root, 'table tbody tr', \(\) => extractDefectCodesOnce\(\)\)/.test(defect43)
+      && /await readPartsFromGridAllPages\(\)/.test(defect43),
+      'control-panel: الحزمة تقرأ كل صفحات الأعطال وكل صفحات القطع');
+    ok(/const bundle = await extractFaultCodesFromPage\(shadow\)/.test(cp43),
+      'control-panel: زر النسخ ينتظر انتهاء القراءة (async)');
+    ok(/gridPages: \{[\s\S]{0,200}defectsTotal/.test(defect43),
+      'control-panel: عدد الصفحات المقروءة يُسجَّل في الحزمة');
+
+    // ١.١.ج — منتج واحد من الصفحة/الموديل
+    ok(/function readProductContext\(\)/.test(cp43)
+      && /readLookup\('#ats_modelid_name, #ats_modelid'\)/.test(cp43)
+      && /readLookup\('#ats_actualmodel_name, #ats_actualmodel'\)/.test(cp43)
+      && /defectFamilyOf\(modelName \|\| device \|\| ''\)/.test(cp43),
+      'control-panel: سياق المنتج من الموديل/الصفحة (لا تخمين)');
+    ok(/product: readProductContext\(\),/.test(cp43),
+      'control-panel: الحزمة تحمل product \{ model, family, ... \}');
+
+    // ١.١.ب — لوحة النسخ بالسحب والإفلات
+    const board43 = cp43.slice(cp43.indexOf('function renderCopyBoard'), cp43.indexOf('async function copyCodesAction'));
+    ok(/<div id="cp-copy-board" class="cp-copy-board"/.test(cp43),
+      'control-panel: حاوية لوحة النسخ في الصفحة ٣');
+    ok(/function renderCopyBoard\(shadow, bundleIn\)/.test(board43)
+      && /safeParseJSON\(localStorage\.getItem\('elaraby_copied_codes_bundle'\), null\)/.test(board43),
+      'control-panel: اللوحة تُستعاد من الحزمة المنسوخة عند فتح الصفحة');
+    ok(/p\.majorCode = String\(code\.majorCode \|\| ''\)\.trim\(\);[\s\S]{0,120}p\.subCode = String\(code\.defectCode \|\| ''\)\.trim\(\);/.test(board43),
+      'control-panel: السحب يكتب الزوج الصحيح (majorCode/subCode) على القطعة');
+    ok(/localStorage\.setItem\('elaraby_copied_codes_bundle', JSON\.stringify\(bundle\)\)/.test(board43),
+      'control-panel: الاقتران يُحفظ في الحزمة فورًا');
+    ok(/const on = await toggleFavPart\(\{[\s\S]{0,300}majorCode: String\(p\.majorCode \|\| ''\)\.trim\(\),[\s\S]{0,120}subCode: String\(p\.subCode \|\| ''\)\.trim\(\)/.test(board43),
+      'control-panel: ⭐ من شاشة النسخ يُحفظ بالاقتران (لا بلا اقتران)');
+    ok(/\.filter\(\(\[, v\]\) => !fam \|\| !v\.family \|\| String\(v\.family\)\.toUpperCase\(\) === fam\)/.test(board43),
+      'control-panel: ⭐ المعروضة = الخاصة بعائلة هذا المنتج فقط');
+    ok(/const fam = String\(product\.family \|\| ''\)\.toUpperCase\(\)/.test(board43),
+      'control-panel: عائلة المنتج موحّدة الحالة (UPPER) للمقارنة');
+    ok(/if \(from >= 0 && from !== i && parts\[from\]\) \{[\s\S]{0,160}parts\[from\]\.majorCode = ''/.test(board43),
+      'control-panel: السحب من قطعة لأخرى يحرّر القديمة (تبديل لا نسخ)');
+    ok(/pool\.addEventListener\('drop'[\s\S]{0,260}parts\[from\]\.majorCode = ''/.test(board43),
+      'control-panel: الإفلات على القائمة يفكّ الربط');
+    ok(/parts\.some\(p => favKeyOf\(p\) === k\)/.test(board43) && /fromFav: true/.test(board43),
+      'control-panel: إضافة ⭐ إلى الحزمة بلا تكرار');
+
+    const cssStart43 = cp43.indexOf('.cp-copy-board{');
+    const css43 = cp43.slice(cssStart43, cssStart43 + 700);
+    ok(/\.cp-copy-board\{/.test(css43) && /\.cp-copy-head\{/.test(css43) && /\.cp-copy-part\{/.test(css43),
+      'control-panel: أنماط لوحة النسخ');
+  }
+
+  console.log('-- 44) Task 2.ب/ج: البحث بكلمة من الوصف (نجمة) + مسح متسلسل بالكود --');
+  {
+    const cp44 = read('control-panel.js');
+    const words44 = cp44.slice(cp44.indexOf('const DESC_STOP_WORDS'), cp44.indexOf('async function fillIframeLookup'));
+    const tier44 = cp44.slice(cp44.indexOf('const targetIsCode'), cp44.indexOf('// ── مطابقة مرتّبة بالنقاط'));
+
+    // استخراج كلمات الوصف
+    ok(/function lookupDescriptionWords\(description, max\)/.test(words44)
+      && /\.replace\(\/\^\[A-Za-z\]\{2\}\\s\?\\d\{3,4\}\\s\*\[-–—_\]\\s\*\/, ''\)/.test(words44),
+      'control-panel: كلمات الوصف تُستخرج بعد إزالة كود البداية');
+    ok(/if \(t\.length < 3\) return;/.test(words44)
+      && /if \(\/\^\\d\+\$\/\.test\(t\)\) return;/.test(words44)
+      && /DESC_STOP_WORDS\.test\(t\)/.test(words44)
+      && /return out\.slice\(0, max \|\| 4\);/.test(words44),
+      'control-panel: تجاهل القصير/الأرقام/كلمات الوقف + حد ٤ كلمات');
+
+    // قراءة الكود من الصف حرفيًا (لا بالوصف)
+    ok(/const ROW_CODE_RE = \/\(\?<!\[A-Za-z0-9\]\)/.test(words44)
+      && /\(\[A-Za-z\]\{2\}\)\\s\?\(\\d\{3,4\}\)/.test(words44),
+      'control-panel: الكود يُقرأ من نص الصف (يتحمّل "RF 1102")');
+    ok(/function rowMatchesCode\(text, code\)[\s\S]{0,220}codesInRowText\(text\)\.includes\(want\)/.test(words44),
+      'control-panel: المطابقة حرفية بالكود لا بالوصف');
+
+    // الدور الثالث لا يعمل إلا عند فشل الكود
+    ok(/const targetIsCode = \/\^\[A-Za-z\]\{2\}\\s\?\\d\{3,4\}/.test(tier44)
+      && /if \(targetIsCode && !rows\.some\(r => rowMatchesCode\(r\.innerText \|\| '', target\)\)\) \{/.test(tier44),
+      'control-panel: الدور الثالث مشروط بغياب الكود من كل الصفوف');
+    ok(/const variant = '\*' \+ word \+ '\*';/.test(tier44),
+      'control-panel: كلمة الوصف تُبحث بالنجمة *كلمة*');
+
+    // مسح متسلسل: أول صف كوده == المطلوب، وغيره يُرفض
+    ok(/const hit = cand\.find\(r => rowMatchesCode\(r\.innerText \|\| '', target\)\);/.test(tier44)
+      && /rows = \[hit\];/.test(tier44),
+      'control-panel: مسح متسلسل — أول صف يحمل الكود المطلوب');
+    ok(/أرجعت \$\{cand\.length\} صفًا بلا الكود \$\{target\}/.test(tier44)
+      && /codesInRowText\(r\.innerText \|\| ''\)/.test(tier44),
+      'control-panel: الأكواد المرفوضة تُسجَّل في اللوج');
+
+    // لا اختيار تلقائي عند نفاد الصفوف — تُعرض كبدائل فقط
+    ok(/if \(!rows\.some\(r => rowMatchesCode\(r\.innerText \|\| '', target\)\) && descRows\.length\) \{[\s\S]{0,120}rows = descRows;/.test(tier44)
+      && /لا اختيار تلقائي/.test(tier44),
+      'control-panel: نفاد الصفوف ⇒ بدائل للعرض فقط (لا اختيار تلقائي)');
+
+    // التمرير من fillLookupWithPick والمواضع الثلاثة
+    ok(/const descriptionWords = Array\.isArray\(opts\.descriptionWords\)[\s\S]{0,120}lookupDescriptionWords\(opts\.description \|\| '', 4\)/.test(cp44)
+      && /const runOpts = \{ \.\.\.opts, descriptionWords \};/.test(cp44),
+      'control-panel: كلمات الوصف تُحسب مرة واحدة وتُمرَّر للبحث');
+    ok(/description: faultCodeObj\?\.description \|\| faultCodeObj\?\.fullCode \|\| subSearch/.test(cp44)
+      && /description: faultCodeObj\?\.majorName \|\| majorSearch/.test(cp44)
+      && /description: spObj\.name \|\| spObj\.fullName \|\| ''/.test(cp44),
+      'control-panel: الرئيسي/الفرعي/القطعة تُمرّر وصفها للبحث الاحتياطي');
+  }
+
+  console.log('-- 45) Task 2.أ: بوابة الاتساق الفوري قبل الحفظ --');
+  {
+    const cp45 = read('control-panel.js');
+    const add45 = cp45.slice(cp45.indexOf('async function addSparePartPage3'), cp45.indexOf('async function addSingleFaultCode'));
+
+    ok(/function sameCode\(a, b\)[\s\S]{0,200}return !!A && !!B && A === B;/.test(cp45),
+      'control-panel: مقارنة الكود تتجاوز المسافات والحالة (RF 1102 = RF1102)');
+
+    // الرئيسي: المختار = المطلوب
+    ok(/const expectedMajor = codeTokenOf\(faultCodeObj\?\.majorCode \|\| majorSearch\) \|\| majorSearch;/.test(add45)
+      && /if \(!sameCode\(majorPicked, expectedMajor\)\)[\s\S]{0,300}reason: 'major-mismatch', picked: majorPicked, expected: expectedMajor/.test(add45),
+      'control-panel: بوابة الرئيسي — توقّف لو المختار ≠ المطلوب');
+
+    // الفرعي: المختار = المطلوب (يقبل defectCode/fullCode)
+    ok(/const expectedSubs = \[subSearch, faultCodeObj\?\.defectCode, faultCodeObj\?\.fullCode\]/.test(add45)
+      && /if \(!expectedSubs\.some\(e => sameCode\(e, subPicked\)\)\)[\s\S]{0,300}reason: 'sub-mismatch'/.test(add45),
+      'control-panel: بوابة الفرعي — توقّف لو المختار ≠ المطلوب');
+
+    // القطعة: صفر نتائج ⇒ زوج غير متسق، ولا حفظ
+    ok(/const inconsistent = r\.reason === 'no-match' \|\| r\.reason === 'user-skipped';/.test(add45)
+      && /reason: inconsistent \? 'pair-inconsistent' : `part-\$\{r\.reason \|\| 'failed'\}`/.test(add45)
+      && /pair,\s*\n\s*part: partCodeOnly \|\| partSearch/.test(add45),
+      'control-panel: القطعة غير موجودة في الفرعي ⇒ pair-inconsistent مع الزوج والقطعة');
+    ok(/await closeModalSafely\(modal, 'قطعة غير موجودة في قائمة الكود الفرعي'\)/.test(add45),
+      'control-panel: تُغلق النافذة بلا محاولة حفظ عند الزوج غير المتسق');
+
+    // أسباب مقروءة + تجميع الفشل في التقرير
+    ok(/function partFailureReason\(res\)/.test(cp45)
+      && /'pair-inconsistent'[\s\S]{0,160}غير متسق/.test(cp45)
+      && /'sub-mismatch'[\s\S]{0,120}≠ المطلوب/.test(cp45),
+      'control-panel: أسباب الفشل تُترجم إلى رسائل مفهومة');
+    ok(/const failedParts = \[\];/.test(cp45)
+      && /failedParts\.push\(`\$\{label\} — \$\{why\}`\)/.test(cp45)
+      && /failedParts\.push\(`\$\{title\} — \$\{why\}`\)/.test(cp45)
+      && /لم تُضف \(\$\{failedParts\.length\}\)/.test(cp45),
+      'control-panel: العناصر غير المضافة تُجمع وتُعرض في التقرير');
+  }
+
+  console.log('-- 46) Task 2.د/هـ: 🪙 فلتر التكلفة + ذاكرة رفض الأزواج --');
+  {
+    const cp46 = read('control-panel.js');
+    const cost46 = cp46.slice(cp46.indexOf('const COST_TRIGGER_WORDS'), cp46.indexOf('function showPartsReview'));
+
+    // (١) كلمات التكلفة: تُطبَّع عربيًا قبل المطابقة (ة/ه، التشكيل)
+    ok(/const COST_TRIGGER_WORDS = \['بتكلفة', 'بالتكلفة'\];/.test(cost46)
+      && /function hasCostTrigger\(text\)[\s\S]{0,160}normalizeAr\(text\)[\s\S]{0,160}COST_TRIGGER_WORDS\.some\(w => t\.includes\(normalizeAr\(w\)\)\)/.test(cost46),
+      'control-panel: كلمات التكلفة تُطابَق بعد التطبيع العربي');
+    ok(/function markCostCode\(code\)[\s\S]{0,200}code\.cost = hasCostTrigger\(codeTextOf\(code\)\);/.test(cost46)
+      && /function isCostCode\(code\)[\s\S]{0,200}if \(code\.cost === true\) return true;/.test(cost46),
+      'control-panel: وسم 🪙 يُحسب من نص الكود ويُقرأ لاحقًا');
+
+    // اختبار وظيفي مباشر للدوال النقية
+    try {
+      const normalizeAr46 = (x) => String(x || '').toLowerCase()
+        .replace(/[\u064B-\u0652\u0670]/g, '')
+        .replace(/[أإآٱ]/g, 'ا')
+        .replace(/ى/g, 'ي')
+        .replace(/ة/g, 'ه')
+        .replace(/[_\u2012\u2013\u2014()\[\]:,،.]/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim();
+      const docStub46 = { createElement: () => ({ classList: { add() {} }, textContent: '', title: '' }) };
+      const api46 = new Function('normalizeAr', 'document',
+        cost46 + '\nreturn { hasCostTrigger, isCostCode, markCostCode };')(normalizeAr46, docStub46);
+      ok(api46.hasCostTrigger('RF1102 - كباس بتكلفة') === true
+        && api46.hasCostTrigger('RF1102 - كباس بالتكلفه') === true
+        && api46.hasCostTrigger('RF1102 - كباس أوفرلود') === false
+        && api46.hasCostTrigger('') === false,
+        'control-panel: hasCostTrigger يلتقط «بتكلفة/بالتكلفة» ولا ينذر كذبًا');
+      const marked46 = api46.markCostCode({ defectCode: 'RF1102', description: 'RF1102 - كباس بتكلفة' });
+      ok(marked46.cost === true && api46.isCostCode({ description: 'كباس' }) === false,
+        'control-panel: markCostCode يوسم الكود المكلِّف فقط');
+    } catch (e) {
+      ok(false, 'control-panel: تشغيل دوال 🪙 فشل — ' + (e && e.message));
+    }
+
+    // (٢) الوسم يُحسب مرة واحدة عند الاستخراج (كل المسارات)
+    ok((cp46.match(/return faultCodes\.map\(markCostCode\);/g) || []).length === 1
+      && /faultCodes: faultCodes\.map\(markCostCode\),/.test(cp46),
+      'control-panel: أكواد الحزمة تُوسم بـ 🪙 عند الاستخراج');
+
+    // (٣) الشارة تظهر في لوحة المراجعة ولوحة النسخ والقائمة
+    ok((cp46.match(/chip\.classList\.add\('cost'\)/g) || []).length === 2
+      && (cp46.match(/chip\.appendChild\(costBadge\(code\)\);/g) || []).length === 2,
+      'control-panel: شارة 🪙 على رقاقة الكود في لوحتي المراجعة والنسخ');
+    ok(/\? ' 🪙' : ''\)/.test(cp46)
+      && /opt\.textContent = o\.cost \? '🪙 ' \+ label : label;/.test(cp46)
+      && /const text = String\(isObj \? \(o\.text \|\| ''\) : \(o \|\| ''\)\)\.trim\(\);/.test(cp46),
+      'control-panel: 🪙 يظهر في قائمة الاختيار اليدوي (وقيمة الخيار تبقى نصًا نظيفًا)');
+
+    // (٤) لا اختيار تلقائي لكود مكلِّف — الاختيار اليدوي هو التأكيد
+    ok(/if \(!opts\.allowCost && hasCostTrigger\(best\.text\)\)/.test(cp46)
+      && /reason: 'cost-confirm', searched: target, available, cost: true/.test(cp46),
+      'control-panel: البحث لا يختار كودًا مكلِّفًا تلقائيًا');
+    ok(/res\.reason === 'no-match' \|\| res\.reason === 'cost-confirm'/.test(cp46)
+      && /exactText: pick, allowCost: true/.test(cp46),
+      'control-panel: الاختيار اليدوي المكلِّف يمرّ مرة واحدة بلا حلقة');
+    ok(/const costConfirmed = !!\(faultCodeObj && faultCodeObj\.costConfirmed\);/.test(cp46)
+      && (cp46.match(/allowCost: costConfirmed/g) || []).length === 2,
+      'control-panel: تأكيد لوحة المراجعة ينتقل للرئيسي والفرعي بلا تكرار');
+
+    // (٥) تأكيد صريح في لوحة المراجعة (نقرتان)
+    ok(/const costCodes = state\.filter\(s => isCostCode\(s\.faultCode\)\);/.test(cp46)
+      && /okBtn\.textContent = `🪙 تأكيد التكلفة والتنفيذ \(\$\{costCodes\.length\}\)`;/.test(cp46)
+      && /if \(costCodes\.length && !costArmed\)/.test(cp46)
+      && /costConfirmed: true/.test(cp46),
+      'control-panel: لوحة المراجعة تطلب تأكيدًا صريحًا للكود المكلِّف');
+
+    // (٦) ذاكرة رفض الأزواج
+    ok(/function recordPartPairingFailure\(sp, majorCode, subCode, reason\)/.test(cp46)
+      && /failed: true/.test(cp46)
+      && /reason: String\(reason \|\| 'failed'\)\.slice\(0, 120\)/.test(cp46),
+      'control-panel: الزوج الفاشل يُسجَّل مع السبب');
+    ok(/return \(rec && rec\.majorCode && rec\.subCode && !rec\.failed\) \? rec : null;/.test(cp46),
+      'control-panel: الاقتران الفاشل لا يُقترح من الذاكرة');
+    ok(/function pairFailureOf\(sp, majorCode, subCode\)/.test(cp46)
+      && /if \(pairFailureOf\(part, major, sub\)\) continue;/.test(cp46),
+      'control-panel: ⭐ لا تُقترح إن كان زوجها نفسه مسجَّلًا فاشلًا');
+    ok(/recordPartPairingFailure\(job\.sparePart, fc\.majorCode, fc\.defectCode, why\);/.test(cp46),
+      'control-panel: فشل الحفظ الفعلي هو ما يسجّل الزوج الفاشل');
+  }
+
+  console.log('-- 47) إصلاح الاستخراج: جداول leaf + فلاتر نظافة + إغلاق المودال + بوابة خطأ البوابة --');
+  {
+    const cp47 = read('control-panel.js');
+
+    // (١) مساعدات الجداول: الجدول الـleaf فقط + رؤوس/صفوف الجدول نفسه (:scope)
+    ok(/function isLeafTable\(tbl\)[\s\S]{0,140}return !tbl\.querySelector\('table'\);/.test(cp47),
+      'control-panel: isLeafTable ترفض جدول التخطيط الخارجي (يحوي جداول متداخلة)');
+    ok(/function ownHeaderCells\(tbl\)[\s\S]{0,220}:scope > thead > tr > th/.test(cp47),
+      'control-panel: ownHeaderCells تقرأ رؤوس الجدول نفسه فقط');
+    ok(/function ownBodyRows\(tbl\)[\s\S]{0,160}:scope > tbody > tr/.test(cp47),
+      'control-panel: ownBodyRows تقرأ صفوف الجدول نفسه فقط');
+    ok(/function isHeaderRow\(tr\)[\s\S]{0,200}tr\.querySelector\('th'\)[\s\S]{0,200}td\[data-attribute\][\s\S]{0,220}كود\\s\*العطل\\s\*الرئيسي/.test(cp47),
+      'control-panel: isHeaderRow ترفض صف الرؤوس المرسوم داخل tbody');
+
+    // (٢) الفحص العام لم يعد يقرأ جدول التخطيط ولا صف الرؤوس ولا مدخلًا بلا كود
+    ok(/if \(!isLeafTable\(table\)\) return;/.test(cp47)
+      && /const ths = ownHeaderCells\(table\)\.map/.test(cp47)
+      && /ownBodyRows\(table\)\.forEach\(tr => \{[\s\S]{0,120}if \(isHeaderRow\(tr\)\) return;/.test(cp47)
+      && /if \(!isValidDefectEntry\(entry\)\) return;/.test(cp47),
+      'control-panel: الفحص العام يقرأ leaf فقط ويُسقط الرؤوس والمدخلات غير الصالحة');
+    ok(!/querySelectorAll\('thead th, tr:first-child th'\)/.test(cp47),
+      'control-panel: لا يوجد أي استخدام متبقٍ لمحدد الرؤوس المتشعّب');
+
+    // (٣) فلتر القطع: الجداول الـleaf + رؤوس/صفوف الجدول نفسه
+    ok(/const tables = Array\.from\(doc\.querySelectorAll\('div\.view-grid table, table'\)\)\.filter\(isLeafTable\);/.test(cp47)
+      && /const ths = ownHeaderCells\(tbl\)\.map/.test(cp47)
+      && /rows = ownBodyRows\(tbl\);/.test(cp47),
+      'control-panel: بديل قطع الغيار العام يقرأ الجدول الـleaf نفسه فقط');
+
+    // (٤) دوال الفلترة — اختبار وظيفي مباشر
+    try {
+      const start = cp47.indexOf('const DEFECT_CODE_RE');
+      const end = cp47.indexOf('// حزمة قديمة مخزَّنة');
+      ok(start > 0 && end > start, 'control-panel: مقطع دوال الفلترة موجود وقابل للاستخراج');
+      const api47 = new Function(cp47.slice(start, end)
+        + '\nreturn { isValidDefectCode, isValidDefectEntry, isValidPartCode };')();
+      ok(api47.isValidDefectCode('RF1102') === true
+        && api47.isValidDefectCode('VH0101') === true
+        && api47.isValidDefectCode('VH0101 - كابينة') === false
+        && api47.isValidDefectCode('1.000') === false
+        && api47.isValidDefectCode('كود العطل الرئيسي') === false
+        && api47.isValidDefectCode('') === false,
+        'control-panel: نمط كود العطل = بادئة حرفين + ٣–٤ أرقام (ويرفض الأثاث/الأسعار)');
+      ok(api47.isValidDefectEntry({ majorCode: 'RF3600', defectCode: 'RF3607' }) === true
+        && api47.isValidDefectEntry({ fullCode: '1.000' }) === false
+        && api47.isValidDefectEntry(null) === false,
+        'control-panel: المدخل يُقبل فقط لو حمل كودًا حقيقيًا في أحد حقوله');
+      ok(api47.isValidPartCode('WM-TH-BRAK-WIRE-G') === true
+        && api47.isValidPartCode('EG-W6226000701') === true
+        && api47.isValidPartCode('RF-T-O-LODCOM75-4') === true
+        && api47.isValidPartCode('1.000') === false
+        && api47.isValidPartCode('قطعة غيار') === false,
+        'control-panel: كود القطعة يقبل النمط المشرّط ويرفض الأسعار/النصوص');
+    } catch (e) {
+      ok(false, 'control-panel: تشغيل دوال الفلترة فشل — ' + (e && e.message));
+    }
+
+    // (٥) الفلاتر مطبَّقة فعليًا في مسار الاستخراج
+    ok(/if \(!isValidDefectEntry\(c\)\) \{[\s\S]{0,220}rejected\.push\(label\);/.test(cp47)
+      && /if \(rejected\.length\) \{[\s\S]{0,160}🧹 رُفض/.test(cp47),
+      'control-panel: pushAll يرفض المدخلات غير الصالحة ويسجّلها');
+    ok(/if \(code && !isValidPartCode\(code\)\) \{[\s\S]{0,160}code = '';/.test(cp47),
+      'control-panel: كود القطعة غير الصالح يُسقَط ويُبقى الاسم');
+
+    // (٦) تنظيف الحزمة القديمة المخزَّنة عند كل قراءة
+    ok(/function sanitizeStoredBundle\(bundle\)/.test(cp47)
+      && (cp47.match(/sanitizeStoredBundle\(safeParseJSON\(/g) || []).length === 2
+      && /if \(bundle\) sanitizeStoredBundle\(bundle\);/.test(cp47)
+      && /bundle = sanitizeStoredBundle\(bundle\);/.test(cp47),
+      'control-panel: الحزمة المخزَّنة تُنظَّف عند العرض واللصق ولوحة النسخ');
+
+    // (٧) إغلاق المودال قبل النسخ (وإلا قراءة ناقصة)
+    const iClose = cp47.indexOf("await closeModalSafely(m, 'نسخ الأكواد')");
+    const iExtract = cp47.indexOf('const bundle = await extractFaultCodesFromPage(shadow);');
+    ok(iClose > 0 && iExtract > iClose
+      && /const openModals = \[\];/.test(cp47)
+      && /clearOrphanBackdrops\('نسخ الأكواد'\)/.test(cp47),
+      'control-panel: نسخ الأكواد يُغلق أي مودال مفتوح قبل الاستخراج');
+
+    // (٨) بوابة خطأ البورتال أثناء الترقيم
+    ok(/function gridErrorTextVisible\(\)/.test(cp47)
+      && /error\\s\*completing\\s\*request/i.test(cp47)
+      && /const errText = gridErrorTextVisible\(\);[\s\S]{0,260}aborted = true;[\s\S]{0,60}break;/.test(cp47)
+      && /return \{ pages, totalPages, aborted \};/.test(cp47),
+      'control-panel: خطأ «Error completing request» يوقف الترقيم ويعتمد ما قُرئ');
+    ok(/aborted: \(gridAborted === true\) \|\| \(partsRes\?\.aborted === true\)/.test(cp47)
+      && /if \(bundle\.aborted\) \{/.test(cp47),
+      'control-panel: الحزمة تحمل aborted ويُعرض تنبيه للمستخدم');
+  }
+
+  console.log('-- 48) محرّك الاقتران التلقائي: ⭐/ذاكرة ← كلمات الوصف ← احتياطي (لا قطعة بلا كود) --');
+  {
+    const cp48 = read('control-panel.js');
+
+    // (١) البنية والترتيب
+    ok(/const PAIR_SRC = \{[\s\S]{0,320}keywords: \{ icon: '🔑'[\s\S]{0,160}fallback: \{ icon: '🤖'/.test(cp48),
+      'control-panel: مصادر الاقتران معرَّفة (🔑 كلمات / 🤖 احتياطي)');
+    const iFav = cp48.indexOf("// (١) ⭐ ثم الذاكرة المُثبتة");
+    const iKw = cp48.indexOf('// (٢) مطابقة كلمات الوصف');
+    const iFb = cp48.indexOf('// (٣) احتياطي');
+    ok(iFav > 0 && iKw > iFav && iFb > iKw,
+      'control-panel: ترتيب الاقتران ⭐/ذاكرة ← كلمات الوصف ← احتياطي');
+    ok(/function matchWordsOf\(text, max\)/.test(cp48)
+      && /function partWordsOf\(part\)/.test(cp48)
+      && /function keywordScoreOf\(partWords, code\)/.test(cp48),
+      'control-panel: كلمات الوصف تُستخرج وتُقيَّم مقابل وصف الكود');
+    ok(/if \(o\.allowFallback === false\) return null;/.test(cp48)
+      && /const unused = safe\.find\(c => !used\.has\(keyOf\(c\)\)\);/.test(cp48),
+      'control-panel: الاحتياطي يفضّل كودًا غير مستخدم ويمكن تعطيله');
+
+    // (٢) لوحتا النسخ واللصق تستخدمان المحرّك نفسه
+    ok(/const pick = pickCodeForPart\(it\.sparePart, codes, \{ usedKeys, loadOf \}\);/.test(cp48),
+      'control-panel: لوحة المراجعة تعبّئ كل قطعة عبر المحرّك');
+    ok(/if \(!bundle\.autoPaired\) \{[\s\S]{0,400}autoPairParts\(parts, codes, \{ usedKeys, loadOf \}\);/.test(cp48),
+      'control-panel: لوحة النسخ تعبّئ مرة واحدة لكل حزمة (لا تُعيد ربط ما فكّه المستخدم)');
+    ok(/p\.pairSource = 'manual';/.test(cp48) && (cp48.match(/p\.pairSource = '';/g) || []).length >= 1,
+      'control-panel: تغيير الاقتران يدويًا يُحدّث/يمسح وسم المصدر');
+
+    // (٣) اختبار وظيفي مباشر للمحرّك
+    try {
+      const s48 = cp48.indexOf('const PAIR_SRC');
+      const e48 = cp48.indexOf('// أكواد العطل المكتوبة داخل نص الصف');
+      ok(s48 > 0 && e48 > s48, 'control-panel: مقطع محرّك الاقتران قابل للاستخراج');
+      const engine48 = cp48.slice(s48, e48);
+      const normalizeAr48 = (x) => String(x || '').toLowerCase()
+        .replace(/[\u064B-\u0652\u0670]/g, '')
+        .replace(/[أإآٱ]/g, 'ا').replace(/ى/g, 'ي').replace(/ة/g, 'ه')
+        .replace(/[_\u2012\u2013\u2014()\[\]:,،.]/g, ' ').replace(/\s+/g, ' ').trim();
+      const parsePartName48 = (raw) => {
+        const s = String(raw || '').trim();
+        const m = s.match(/^(.+?)\s+_\s+\((.*)\)\s*$/);
+        return m ? { code: m[1].trim(), name: m[2].trim(), fullName: s } : { code: '', name: s, fullName: s };
+      };
+      const keyOf48 = (c) => String((c && c.majorCode) || '').trim() + '|' + String((c && c.defectCode) || '').trim();
+
+      const makeApi = (over) => new Function(
+        'copyBoardCodeKey', 'favFindItem', 'lookupPartPairing', 'pairFailureOf',
+        'parsePartName', 'normalizeAr', 'DESC_STOP_WORDS',
+        engine48 + '\nreturn { pickCodeForPart, autoPairParts, matchWordsOf, partWordsOf, keywordScoreOf };'
+      )(
+        keyOf48,
+        over.fav || (() => null),
+        over.mem || (() => null),
+        over.failed || (() => null),
+        parsePartName48,
+        normalizeAr48,
+        /^(تم|في|من|على|الى|او|و|مع|غير|بدون|كود|عطل|العطل)$/i
+      );
+
+      const codes48 = [
+        { majorCode: 'RF1100', defectCode: 'RF1102', fullCode: 'RF1102', description: 'RF1102 - كباس' },
+        { majorCode: 'RF1100', defectCode: 'RF1104', fullCode: 'RF1104', description: 'RF1104 - ترموستات' },
+        { majorCode: 'RF2400', defectCode: 'RF2408', fullCode: 'RF2408', description: 'RF2408 - مروحة' }
+      ];
+      const api48 = makeApi({});
+
+      const part48 = { code: 'RF-SH-COMP', name: 'كباس', fullName: 'RF-SH-COMP _ (كباس)' };
+      const pickKw = api48.pickCodeForPart(part48, codes48, {});
+      ok(pickKw && pickKw.source === 'keywords' && pickKw.code.defectCode === 'RF1102',
+        'control-panel: مطابقة كلمات الوصف تربط «كباس» بكودها');
+
+      const pickFb = api48.pickCodeForPart({ code: 'X1', name: 'شيء غامض' }, codes48, {});
+      ok(pickFb && pickFb.source === 'fallback' && pickFb.code.defectCode === 'RF1102',
+        'control-panel: بلا مطابقة ⇒ احتياطي بأول كود غير مستخدم');
+
+      const used48 = new Set(['RF1100|RF1102']);
+      const pickFb2 = api48.pickCodeForPart({ code: 'X1', name: 'شيء غامض' }, codes48, { usedKeys: used48 });
+      ok(pickFb2 && pickFb2.source === 'fallback' && pickFb2.code.defectCode === 'RF1104',
+        'control-panel: الاحتياطي يتجنّب الأكواد المستخدمة');
+
+      const apiMem = makeApi({ mem: () => ({ majorCode: 'RF2400', subCode: 'RF2408' }) });
+      const pickMem = apiMem.pickCodeForPart(part48, codes48, {});
+      ok(pickMem && pickMem.source === 'memory' && pickMem.code.defectCode === 'RF2408',
+        'control-panel: الذاكرة المُثبتة تُقدَّم على مطابقة الكلمات');
+
+      const apiFail = makeApi({ failed: (p, m, s) => (m === 'RF1100' && s === 'RF1102' ? { failed: true, majorCode: m, subCode: s } : null) });
+      const pickFail = apiFail.pickCodeForPart(part48, codes48, {});
+      ok(pickFail && pickFail.code.defectCode !== 'RF1102',
+        'control-panel: الزوج الفاشل لا يُقترح مرة أخرى (ولا حتى بالكلمات)');
+
+      const parts48 = [{ code: 'A', name: 'كباس' }, { code: 'B', name: 'مجهول تمامًا' }];
+      const filled48 = api48.autoPairParts(parts48, codes48, {});
+      ok(filled48 === 2 && parts48.every(p => p.majorCode && p.subCode),
+        'control-panel: تعبئة كل القطع — لا قطعة بلا كود عطل');
+      ok(api48.autoPairParts([{ code: 'C', name: 'كباس', majorCode: 'RF1100', subCode: 'RF1102' }], codes48, {}) === 0,
+        'control-panel: القطعة المقترنة مسبقًا لا تُعاد تعبئتها');
+    } catch (e) {
+      ok(false, 'control-panel: تشغيل محرّك الاقتران فشل — ' + (e && e.message));
+    }
+  }
+
+  console.log('-- 49) كتالوج الأعطال: شحن+صيانة AC · جوانات وصرف GR · دقة الكود الفرعي --');
+  {
+    const cp49 = read('control-panel.js');
+    const cat49 = JSON.parse(read('defect-catalog.json'));
+    const ac49 = cat49.families.AC || {};
+    const gr49 = cat49.families.GR || {};
+
+    // (١) عائلة AC: كود شحن واحد جديد + زر الشحن المدمج
+    ok((ac49.codes || []).some(c => c.major === 'AC003' && c.sub === 'L24B' && c.full === 'AC9000L24B'),
+      'defect-catalog: AC003/L24B = AC9000L24B في عائلة التكييف');
+    ok(!(ac49.codes || []).some(c => String(c.sub).toUpperCase() === 'L02B'),
+      'defect-catalog: L02B استُبدل بكود الشحن الجديد (كود شحن واحد فقط)');
+    const charge49 = (ac49.shortcuts || []).find(s => s.id === 'charge');
+    ok(charge49 && String(charge49.name).includes('صيانة')
+      && charge49.codes.includes('AC001') && charge49.codes.includes('AC004')
+      && charge49.codes.includes('AC003|L24B')
+      && (charge49.noteIds || []).includes('ac-note-2'),
+      'defect-catalog: زر «شحن + صيانة» بالأكواد الثلاثة وكومنت ac-note-2');
+    ok((ac49.notes || []).some(n => n.id === 'ac-note-2'
+      && n.text === 'تم عمل فلير وربط المواسير و تنظيف الدائرة وعمل فاكيوم وشحن غاز فريون تم عمل صيانة دورية غسيل الفلاتر وتنظيف الوحدة الخارجية بالبلاور وتنظيف الصرف'),
+      'defect-catalog: نص الكومنت المطلوب مطابق حرفيًا');
+    const pull49 = (ac49.shortcuts || []).find(s => s.id === 'pull');
+    ok(pull49 && pull49.codes.includes('AC003|L24B'),
+      'defect-catalog: مسار السحب والارجاع يستخدم كود الشحن الجديد');
+
+    // (٢) عائلة GR: أكواد الصرف والجوانات + الملاحظة + الزر
+    ok((gr49.codes || []).length === 3
+      && gr49.codes.some(c => c.major === 'RF2000' && c.sub === '2006' && c.full === 'RF2006')
+      && gr49.codes.some(c => c.major === 'RF3600' && c.sub === '3606' && c.full === 'RF3606')
+      && gr49.codes.some(c => c.major === 'RF3600' && c.sub === '3607' && c.full === 'RF3607'),
+      'defect-catalog: ثلاجات GR تحمل أكواد الصرف والجوانات الثلاثة');
+    const grSc49 = (gr49.shortcuts || []).find(s => s.id === 'gaskets-drain');
+    ok(grSc49 && grSc49.name === 'جوانات وصرف' && grSc49.codes.length === 3
+      && grSc49.codes.includes('RF2000|2006')
+      && grSc49.codes.includes('RF3600|3606') && grSc49.codes.includes('RF3600|3607')
+      && (grSc49.noteIds || []).includes('gr-note-1'),
+      'defect-catalog: زر «جوانات وصرف» بالثلاثة أكواد وملاحظته');
+    ok((gr49.notes || []).some(n => n.id === 'gr-note-1' && n.text === 'تم ضبط الجوانات وتنظيف الصرف'),
+      'defect-catalog: كومنت الثلاجات «تم ضبط الجوانات وتنظيف الصرف»');
+
+    // (٣) تكامل: كل كود زر وملاحظة يشير لعنصر قائم في عائلته
+    const bad49 = [];
+    Object.keys(cat49.families).forEach(fam => {
+      const f = cat49.families[fam] || {};
+      const full49 = new Set((f.codes || []).map(c => String(c.major).toUpperCase() + (c.sub ? '|' + String(c.sub).toUpperCase() : '')));
+      const majors49 = new Set((f.codes || []).map(c => String(c.major).toUpperCase()));
+      const notes49 = new Set((f.notes || []).map(n => n.id));
+      (f.shortcuts || []).forEach(sc => {
+        (sc.codes || []).forEach(code => {
+          const w = String(code).toUpperCase();
+          if (!full49.has(w) && !majors49.has(w.split('|')[0])) bad49.push(`${fam}/${sc.id}:${code}`);
+        });
+        (sc.noteIds || []).forEach(id => { if (!notes49.has(id)) bad49.push(`${fam}/${sc.id}:note ${id}`); });
+      });
+    });
+    ok(bad49.length === 0,
+      'defect-catalog: كل أكواد الأزرار وملاحظاتها تشير لعناصر قائمة' + (bad49.length ? ' — ' + bad49.join(', ') : ''));
+
+    // (٤) دقة الكود الفرعي — اختبار وظيفي للدالة المستخدمة في runShortcut
+    const s49 = cp49.indexOf('function shortcutCodeMatches');
+    ok(s49 > 0 && cp49.indexOf('shortcutCodeMatches(entry, code)') > 0 && cp49.indexOf('shortcutCodeMatches(entry, code)') < s49,
+      'control-panel: runShortcut يطابق أكواد الزر بدقة «رئيسي|فرعي»');
+    try {
+      const body49 = cp49.slice(s49, cp49.indexOf('\n  }', s49) + 4);
+      const fn49 = new Function(body49 + '\nreturn shortcutCodeMatches;')();
+      ok(fn49('AC003|L24B', 'AC003|L24B') === true && fn49('AC003|L02B', 'AC003|L24B') === false,
+        'control-panel: «رئيسي|فرعي» يحدد الكود الفرعي وحده');
+      ok(fn49('RF3600|3606', 'RF3600') === true && fn49('RF3600|3607', 'RF3600') === true,
+        'control-panel: «رئيسي» فقط يحدد كل فروعه (داعم للخلف)');
+      ok(fn49('RF2000|2006', 'RF3600|3606') === false && fn49('', 'AC001') === false,
+        'control-panel: الرئيسي المختلف أو الفراغ لا يطابق');
+    } catch (e) {
+      ok(false, 'control-panel: اختبار دقة الكود الفرعي فشل — ' + (e && e.message));
+    }
+
+    // (٥) المحرر يعرض كل كود فرعي ويستعيد الدقة عند التعديل
+    ok(/const val = sub \? major \+ '\|' \+ sub : major;/.test(cp49)
+      && /\.some\(w => shortcutCodeMatches\(cb\.value, w\)\)/.test(cp49),
+      'control-panel: محرر الشورت كت يحفظ دقة الكود الفرعي');
+
+    // (٦) المحرك التلقائي يستخدم كود الشحن الجديد
+    const eng49 = read('modules/autofill/engine-page3.js');
+    ok(/addFaultCodePage3\('AC003', 'AC9000L24B'/.test(eng49) && !/AC9000L02B/.test(eng49),
+      'engine-page3: محرك الصيانة الدورية يستخدم AC9000L24B');
   }
 
   console.log('\n=== RESULT: ' + pass + ' passed, ' + fail + ' failed ===');
