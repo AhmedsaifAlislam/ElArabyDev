@@ -436,6 +436,11 @@
     }
 
     let tasks;
+    // إحصاءات الاقتران (تُستخدم في رسالة البدء)
+    let pairOrders = 0;        // بلاغات تكييف دُمجت (جهازان)
+    let ignoredDuplicates = 0; // أسطر مكررة لبلاغ غير تكييف (تُتجاهل)
+    let unknownPairs = 0;      // اقتران بلا معرفة نوع المنتج (نُدمج بحذر)
+
     if (opts.isMasaha || opts.isSecondVisit) {
       tasks = lines.map(line => {
         const oid = extractOrderId(line) || line.trim();
@@ -447,7 +452,9 @@
         });
       }).filter(t => t.orderId);
     } else {
-      // Normal mode with multi-device grouping
+      // الوضع العادي: أمر الشغل = سطر بيانات واحد.
+      // الاستثناء الوحيد: التكييف — سطرين لنفس رقم البلاغ (وحدة داخلية + وحدة خارجية).
+      // منتج غير تكييف + سطر ثانٍ = سطر مكرر يُتجاهل (وإلا ترفض البوابة: المنتج غير متطابق مع الرقم المسلسل).
       const groupedTasks = {};
       lines.forEach(line => {
         const oid = extractOrderId(line) || line.trim().substring(0, 30);
@@ -458,24 +465,43 @@
         }
       });
 
-      tasks = Object.values(groupedTasks).map(group => {
+      tasks = [];
+      for (const group of Object.values(groupedTasks)) {
         let mergedLine = group.lines[0];
         if (group.lines.length > 1) {
-          const obj2 = parseLineToObject(group.lines[1]);
-          const m2 = obj2['model'] || obj2['موديل'] || '';
-          const s2 = obj2['serial'] || obj2['serialnumber'] || '';
-          const d2 = obj2['date'] || obj2['تاريخ'] || '';
-          if (m2 && String(m2).toLowerCase() !== 'null') mergedLine += ` | Model2: ${m2}`;
-          if (s2 && String(s2).toLowerCase() !== 'null') mergedLine += ` | Serial2: ${s2}`;
-          if (d2 && String(d2).toLowerCase() !== 'null') mergedLine += ` | Date2: ${d2}`;
+          const firstObj = parseLineToObject(group.lines[0]);
+          const secondObj = parseLineToObject(group.lines[1]);
+          const probe = (typeof window.detectACProduct === 'function')
+            ? await window.detectACProduct({
+                product: firstObj['product'] || firstObj['نوعالمنتج'] || firstObj['المنتج'] || '',
+                model: firstObj['model'] || firstObj['موديل'] || '',
+                model2: secondObj['model'] || secondObj['موديل'] || ''
+              })
+            : { isAC: null };
+
+          if (probe.isAC === false) {
+            // منتج مؤكد أنه ليس تكييفًا: السطر الثاني مكرر → يُتجاهل بصمت مرئي (يُحصى ويُبلَّغ)
+            ignoredDuplicates += group.lines.length - 1;
+          } else {
+            if (probe.isAC === null) unknownPairs++;
+            pairOrders++;
+            const m2 = secondObj['model'] || secondObj['موديل'] || '';
+            const s2 = secondObj['serial'] || secondObj['serialnumber'] || '';
+            const d2 = secondObj['date'] || secondObj['تاريخ'] || '';
+            if (m2 && String(m2).toLowerCase() !== 'null') mergedLine += ` | Model2: ${m2}`;
+            if (s2 && String(s2).toLowerCase() !== 'null') mergedLine += ` | Serial2: ${s2}`;
+            if (d2 && String(d2).toLowerCase() !== 'null') mergedLine += ` | Date2: ${d2}`;
+            // سطر ثالث أو أكثر لنفس البلاغ: لا يوجد له مكان في البوابة (موديلان فقط)
+            if (group.lines.length > 2) ignoredDuplicates += group.lines.length - 2;
+          }
         }
-        return window.FillOptions.createTask({
+        tasks.push(window.FillOptions.createTask({
           orderId: group.orderId,
           baseLine: mergedLine,
           options: opts,
           profiles: null
-        });
-      });
+        }));
+      }
     }
 
     const invalid = tasks.filter(t => !extractOrderId(t.line));
@@ -526,7 +552,14 @@
       return;
     }
 
-    setSearchStatus(`بدأ التشغيل المتعدد — ${tasks.length} مهمة`, 'info');
+    const pairingNote = [];
+    if (pairOrders) pairingNote.push(`${pairOrders} تكييف بجهازين`);
+    if (unknownPairs) pairingNote.push(`${unknownPairs} نوع منتج غير معروف — دُمج`);
+    if (ignoredDuplicates) pairingNote.push(`⚠️ ${ignoredDuplicates} سطر مكرر تجاهلناه`);
+    setSearchStatus(
+      `بدأ التشغيل المتعدد — ${tasks.length} مهمة` + (pairingNote.length ? ` (${pairingNote.join(' · ')})` : ''),
+      ignoredDuplicates ? 'warn' : 'info'
+    );
     startStatusPolling(tasks.length, tasks);
   }
 

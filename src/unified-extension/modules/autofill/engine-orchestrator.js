@@ -123,6 +123,8 @@ window.AutoFillEngine = window.AutoFillEngine || {};
 
     // Explicit semantic flags
     merged.orderId = merged.orderId || task.orderId || extractOrderIdFromLine(typeof raw === 'string' ? raw : '');
+    // نوع المنتج: من السطر (Product:/نوع المنتج) أو من اختيار «الزيارة التانية»/«المساحة»
+    merged.product = merged.product || task.productType || '';
     merged.secondVisitMode = Boolean(merged.secondVisitMode || legacyData.secondVisitMode);
     merged.masahaMode = Boolean(merged.masahaMode || legacyData.masahaMode || merged.notes === 'مساحة');
     merged.forceDrainCleaning = Boolean(merged.forceDrainCleaning || legacyData.forceDrainCleaning);
@@ -144,19 +146,43 @@ window.AutoFillEngine = window.AutoFillEngine || {};
 
   function generateTaskId() { return window.generateTaskId ? window.generateTaskId() : ('task-' + Date.now() + '-' + Math.random().toString(36).slice(2, 6)); }
 
-  function buildTasksFromLines(lines) {
+  /**
+   * بناء المهام من سطور اللصق السريع.
+   * القاعدة: أمر الشغل = سطر واحد، والاستثناء الوحيد التكييف (سطرين لنفس البلاغ).
+   * السطر الثاني لبلاغ غير تكييف يُتجاهل — ولا يُحذف بصمت كما كان (كنا نفقد الجهاز الثاني للتكييف).
+   */
+  async function buildTasksFromLines(lines) {
     const tasks = [];
-    const seen = new Set();
+    const indexByOrder = new Map();
     for (const line of lines) {
       const oid = extractOrderIdFromLine(line) || line.trim().substring(0, 30);
-      if (seen.has(oid)) continue;
-      seen.add(oid);
-      tasks.push({
-        taskId: generateTaskId(),
-        orderId: oid,
-        line: line,
-        data: { forceDrainCleaning: false, shahnEnabled: false, forceOverwrite: false }
-      });
+      if (!indexByOrder.has(oid)) {
+        indexByOrder.set(oid, tasks.length);
+        tasks.push({
+          taskId: generateTaskId(),
+          orderId: oid,
+          line: line,
+          data: { forceDrainCleaning: false, shahnEnabled: false, forceOverwrite: false }
+        });
+        continue;
+      }
+
+      // سطر ثانٍ لنفس البلاغ: هل المنتج تكييف؟
+      const existing = tasks[indexByOrder.get(oid)];
+      if (existing.data && existing.data._paired) continue; // سطر ثالث أو أكثر: لا مكان له في البوابة
+      const first = parseDataLine(existing.line);
+      const second = parseDataLine(line);
+      const probe = (typeof window.detectACProduct === 'function')
+        ? await window.detectACProduct({ product: first.product, model: first.model, model2: second.model })
+        : { isAC: null };
+      if (probe.isAC === false) continue; // غير تكييف = سطر واحد فقط
+
+      let merged = existing.line;
+      if (second.model) merged += ` | Model2: ${second.model}`;
+      if (second.serial) merged += ` | Serial2: ${second.serial}`;
+      if (second.date) merged += ` | Date2: ${second.date}`;
+      existing.line = merged;
+      if (existing.data) existing.data._paired = true;
     }
     return tasks;
   }
@@ -1243,7 +1269,7 @@ window.AutoFillEngine = window.AutoFillEngine || {};
               if (!text) { showPageToast('الحافظة فارغة', 'error'); return; }
               const lines = text.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
               if (!lines.length) { showPageToast('لا توجد بيانات في الحافظة', 'error'); return; }
-              const tasks = buildTasksFromLines(lines);
+              const tasks = await buildTasksFromLines(lines);
               if (!tasks.length) { showPageToast('لم يتم التعرف على Order IDs', 'error'); return; }
               showPageToast(`بدء التشغيل — ${tasks.length} مهمة`, 'success');
               const batchId = 'batch-' + Date.now();

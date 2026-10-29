@@ -465,6 +465,7 @@
     const parsed = {
       orderId: obj['orderid'] || obj['order'] || line.match(/\bCAS\d{10,}\b/i)?.[0] || '',
       brand: obj['brand'] || obj['علامهتجاريه'] || '',
+      product: obj['product'] || obj['نوعالمنتج'] || obj['المنتج'] || '',
       model: obj['model'] || obj['موديل'] || '',
       serial: obj['serial'] || obj['serialnumber'] || '',
       model2: obj['model2'] || '',
@@ -578,6 +579,109 @@
       window._CFG = getHardcodedDefaults();
       return window._CFG;
     }
+  };
+
+  // ── كشف «مجموعة منتجات التكييف» — المصدر الوحيد لكل الواجهات ──────────────
+  // القاعدة المعتمدة (موثّقة في .planning/PHASE1_AC_SERIAL_MODEL2_FIX.md):
+  //   الموديل 2 / السيريال 2 مسموحان فقط لمنتجات مجموعة AC (داخلي + خارجي).
+  //   أي منتج آخر = أمر شغل بسطر بيانات واحد.
+  // النصوص: تكييف، تكييف كونسيلد، PUMP CLEAN، مبرد هواء، منقى هواء، صيانة دورية تكييف.
+  const AC_PRODUCT_TEXT = /تكييف|كونسيلد|pump\s*clean|مبرد\s*هواء|منقى\s*هواء|صيانة\s*دورية\s*تكييف|a\s*\/\s*c\b|air\s*cond|\bsplit\b|\binverter\b/i;
+  const NON_AC_PRODUCT_TEXT = /ثلاج|فريزر|غسال|بوتوجاز|بوتاجاز|سخان|ميكروويف|تلفزيون|شفاط|مبرد\s*مياه|ديفر|تكييف\s*سيارات/i;
+
+  /**
+   * هل النص يوصف منتجًا من مجموعة التكييف؟
+   * @param {string} text
+   * @returns {boolean}
+   */
+  window.isACProductType = function (text) {
+    const t = String(text || '').trim();
+    if (!t) return false;
+    return AC_PRODUCT_TEXT.test(t);
+  };
+
+  /**
+   * هل النص يوصف منتجًا معروفًا بأنه ليس تكييفًا؟ (لتمييز «المؤكد» عن «المجهول»)
+   * @param {string} text
+   * @returns {boolean}
+   */
+  window.isNonACProductType = function (text) {
+    const t = String(text || '').trim();
+    if (!t) return false;
+    return !AC_PRODUCT_TEXT.test(t) && NON_AC_PRODUCT_TEXT.test(t);
+  };
+
+  // قاعدة الموديلات (products-db.json) — تُحمَّل مرة واحدة وتُخزَّن
+  let _productDbPromise = null;
+  window.loadProductDb = function () {
+    if (_productDbPromise) return _productDbPromise;
+    _productDbPromise = (async function () {
+      try {
+        const url = (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.getURL)
+          ? chrome.runtime.getURL('products-db.json')
+          : 'products-db.json';
+        const res = await fetch(url);
+        const db = await res.json();
+        return Array.isArray(db) ? db : (db && Array.isArray(db.products) ? db.products : []);
+      } catch (_) {
+        return [];
+      }
+    })();
+    return _productDbPromise;
+  };
+
+  /**
+   * نوع المنتج من كود الموديل (قاعدة الموديلات) — '' إذا لم يُعثر عليه.
+   * يطابق أيضًا الموديلات المطوّلة مثل "AY-AP12UHEA _ (Sharp A/C Indoor Unit...)".
+   * @param {string} model
+   * @returns {Promise<string>}
+   */
+  window.findProductTypeByModel = async function (model) {
+    const code = String(model || '').toUpperCase().replace(/\s+/g, ' ').trim();
+    if (code.length < 3) return '';
+    const db = await window.loadProductDb();
+    const norm = (m) => String(m || '').toUpperCase().replace(/\s+/g, ' ').trim();
+    const exact = db.find((p) => norm(p.model) === code);
+    if (exact) return String(exact.productType || '');
+    const near = db.find((p) => {
+      const m = norm(p.model);
+      if (m.length < 5) return false;
+      return code.startsWith(m) || m.startsWith(code);
+    });
+    return near ? String(near.productType || '') : '';
+  };
+
+  /**
+   * كشف نوع المنتج لمهمة/سطر:
+   *   true  = تكييف (مؤكد)      → يُسمح بالجهاز الثاني
+   *   false = غير تكييف (مؤكد)  → سطر بيانات واحد فقط
+   *   null  = غير معروف         → نحافظ على السلوك السابق (دمج) ولا نفقد بيانات
+   * @param {object|string} data - كائنTask/البيانات أو نص نوع المنتج
+   * @returns {Promise<{isAC: boolean|null, source: string, productType?: string}>}
+   */
+  window.detectACProduct = async function (data) {
+    const d = (data && typeof data === 'object') ? data : { product: data };
+    const explicit = String(d.product || d.productType || d.reportType || '').trim();
+
+    if (explicit) {
+      if (window.isACProductType(explicit)) return { isAC: true, source: 'product-type', productType: explicit };
+      if (window.isNonACProductType(explicit)) return { isAC: false, source: 'product-type', productType: explicit };
+    }
+
+    const m1 = String(d.model || '').trim();
+    if (m1) {
+      const pt = await window.findProductTypeByModel(m1);
+      if (pt) return { isAC: window.isACProductType(pt), source: 'model-db', productType: pt };
+      if (/a\s*\/\s*c|indoor|outdoor/i.test(m1)) return { isAC: true, source: 'model-text' };
+    }
+
+    const m2 = String(d.model2 || '').trim();
+    if (m2) {
+      const pt2 = await window.findProductTypeByModel(m2);
+      if (pt2) return { isAC: window.isACProductType(pt2), source: 'model-db-2', productType: pt2 };
+    }
+
+    return { isAC: null, source: 'unknown' };
   };
 
   // تصدير المحددات

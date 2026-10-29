@@ -200,6 +200,20 @@ window.AutoFillEngine = window.AutoFillEngine || {};
     const FR = {};
     log('【 PAGE 1 】 Review execution starting for order: ' + data.orderId);
 
+    // ── قاعدة «الجهاز الثاني للتكييف فقط» ──────────────────────────────────
+    // سيريال 2/موديل 2 مسموحان فقط لمنتجات مجموعة AC (داخلي + خارجي).
+    // غير «المؤكد أنه ليس تكييفًا» نبقى على السلوك السابق (نكتب) حتى لا نفقد جهازًا ثانيًا.
+    let allowSecondDevice = true;
+    try {
+      if (typeof window.detectACProduct === 'function') {
+        const probe = await window.detectACProduct(data);
+        allowSecondDevice = probe.isAC !== false;
+        if (probe.isAC === false) {
+          log(`Second device NOT allowed: product="${probe.productType || probe.source}" is not AC`);
+        }
+      }
+    } catch (_) {}
+
     // Wait for form to load (as in V2)
     const startWait = Date.now();
     while (Date.now() - startWait < 12000) {
@@ -252,8 +266,8 @@ window.AutoFillEngine = window.AutoFillEngine || {};
       await sleep(600);
     }
 
-    // 3. Actual Model 2 (for AC or dual unit)
-    if (data.model2) {
+    // 3. Actual Model 2 (AC only — داخلي/خارجي)
+    if (data.model2 && allowSecondDevice) {
       const model2Selectors = ['#ldv_actualmodel2_name', 'input[id="ldv_actualmodel2_name"]', 'input[aria-label*="الموديل الفعلي 2"]'];
       const model2Res = await window.AutoFillEngine.Lookups.fillPowerAppsLookup(model2Selectors, data.model2, {
         fallbackButtons: cfg?.modelBtn2 || cfg?.modelBtn || [],
@@ -315,8 +329,8 @@ window.AutoFillEngine = window.AutoFillEngine || {};
       }
     }
 
-    // Serial Number 2
-    if (data.serial2) {
+    // Serial Number 2 (AC only — داخلي/خارجي)
+    if (data.serial2 && allowSecondDevice) {
       const s2 = document.getElementById('ldv_serialnumber1');
       const existingSerial2Val = (s2?.value || s2?.getAttribute?.('value') || '').trim();
       const keepExistingSerial2 = !!data.secondVisitMode && !!existingSerial2Val && !data.forceOverwrite;
