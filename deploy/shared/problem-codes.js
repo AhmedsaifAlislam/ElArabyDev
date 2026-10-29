@@ -80,9 +80,12 @@
   function catalogSync() { return _catalog; }
 
   // عائلة الجهاز من نص نوع المنتج/الموديل (GS / GR / AC / WM / HT / DW)
+  // بادئات الموديلات (مأخوذة من products-db.json) — تلزم لأن حقل «نوع المنتج»
+  // في بعض البلاغات يعطي كود مجموعة (مثل HA) لا اسمًا، فيُحسم الجهاز من الموديل.
+  // ⚠️ لا تُضاف بادئة AC: 38 موديل ثلاجة يبدأ بـ AC بلا شرطة (تم التحقق).
   const FAMILY_PATTERNS = {
     GS: /بوتجاز|بوتاجاز|مسطح|فرن|cooker|oven|stove/i,
-    GR: /ثلاج|مبرد|فريزر|fridge|refrigerat/i,
+    GR: /ثلاج|مبرد|فريزر|^GR-|^SJ-|^RF-|^GF-|^FJ-|fridge|refrigerat/i,
     AC: /تكييف|شباك|سبليت|\ba\/?c\b|air.?cond|split|inverter/i,
     WM: /غسال|washer|washing/i,
     HT: /سخان|heater/i,

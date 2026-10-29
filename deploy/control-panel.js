@@ -2,7 +2,7 @@
 // control-panel.js — لوحة التحكم الذكية v1.0
 // بصمة الإصدار: تُطبع في الـ log وتظهر بجانب عنوان اللوحة، للتأكد أن المتصفح
 // حمّل أحدث نسخة من الإضافة (Reload من edge://extensions مطلوب بعد أي نشر).
-const PANEL_BUILD = '2026-10-26.35';
+const PANEL_BUILD = '2026-10-26.36';
 // Floating panel with auto-detecting page tabs
 // =========================================================
 (function () {
@@ -1115,6 +1115,21 @@ function getCSS() {
       if (code && name) return `${code} (${name})`;
       return code || name;
     };
+    // أكواد الأعطال المعلّمة: «RF2000/2006 — تنظيف او تسليك خرطوم الصرف»
+    const codeLabelOf = (c) => {
+      const major = String((c && (c.major || c.majorCode)) || '').trim().toUpperCase();
+      const sub = String((c && (c.sub || c.subCode)) || '').trim().toUpperCase();
+      const desc = String((c && c.desc) || '').trim();
+      const id = major ? (sub ? major + '/' + sub : major) : '';
+      if (id && desc) return `${id} — ${desc}`;
+      return id || desc;
+    };
+    const workList = (Array.isArray(o.secondaryCodes) && o.secondaryCodes.length)
+      ? o.secondaryCodes.map(codeLabelOf)
+      : sec;
+    const workLabels = workList
+      .map(x => String(x || '').trim())
+      .filter((x, i, arr) => x && arr.indexOf(x) === i);
 
     if (!status) {
       return { text: '', action: 'need-status', reason: 'حالة قطع الغيار غير محددة', eligibleTotal: 0 };
@@ -1136,7 +1151,7 @@ function getCSS() {
       };
     }
     if (status === PARTS_STATUS.NONE || list.length === 0) {
-      const text = sec.length ? `تم ${sec.join(' و')}` : 'تم';
+      const text = workLabels.length ? `تم ${workLabels.join(' و')}` : 'تم';
       return { text, action: 'done', reason: 'بدون قطع غيار — نص «تم» وأكواد الأعطال', eligibleTotal: 0 };
     }
 
@@ -1157,9 +1172,14 @@ function getCSS() {
       return t > 0 ? `[ ${labelOf(p)} ${money(t)} ]` : `[ ${labelOf(p)} ]`;
     }).join(' ');
     const eligibleTotal = list.reduce((s, p) => s + totalOf(p), 0);
+    // قاعدة المالك: «إجمالي السعر لقطع الغيار» هو المرجع الوحيد للتكلفة في التعليق،
+    // ولو كان 0 نتجاهل التكلفة تمامًا (لا fallback لمجموع أسعار القطع).
     const official = Number(o.officialTotal);
-    const grand = (Number.isFinite(official) && official > 0) ? official : eligibleTotal;
-    const text = `تم تغيير : ${blocks}` + (eligibleTotal > 0 ? ` // والتكلفة [ ${money(grand)} ] ج.م` : '');
+    const grand = (Number.isFinite(official) && official > 0) ? official : 0;
+    const workTail = workLabels.length ? ` // تم عمل: [ ${workLabels.join(' و')} ]` : '';
+    const text = `تم تغيير : ${blocks}`
+      + (grand > 0 ? ` // والتكلفة [ ${money(grand)} ] ج.م` : '')
+      + workTail;
     return {
       text,
       action: 'done',
@@ -1214,24 +1234,40 @@ function getCSS() {
     return { applied: true, value: amtEl.value };
   }
 
-  // أوصاف الأكواد المعلّمة (الأكواد الثانوية) من الكتالوج المدموج
-  function checkedCodeDescriptions(shadow) {
+  // الأكواد المعلّمة كاملة (رئيسي/فرعي/وصف) — تُطبع في كومنت قطع الغيار
+  function checkedCodesInfo(shadow) {
     const device = readDeviceHint();
     const family = defectFamilyOf(device);
     const catalog = defectCodesFor(device, family);
     const byMajor = new Map();
     (catalog || []).forEach(c => {
       const k = String((c && c.major) || '').toUpperCase();
-      if (k && !byMajor.has(k)) byMajor.set(k, String(c.desc || '').trim());
+      if (k && !byMajor.has(k)) byMajor.set(k, c);
     });
     const out = [];
+    const seen = new Set();
     shadow.querySelectorAll('.fault-cb:checked').forEach(cb => {
-      const major = String((cb.value || '').split(',')[0] || '').toUpperCase();
+      const parts = String(cb.value || '').split(',');
+      const major = String(parts[0] || '').toUpperCase().trim();
       if (!major) return;
-      const desc = byMajor.get(major) || major;
-      if (!out.includes(desc)) out.push(desc);
+      const sub = String(parts[1] || '').toUpperCase().trim();
+      const key = major + '|' + sub;
+      if (seen.has(key)) return;
+      seen.add(key);
+      const info = byMajor.get(major) || {};
+      out.push({
+        major,
+        sub,
+        full: String(parts[2] || info.full || '').trim(),
+        desc: String(info.desc || '').trim()
+      });
     });
     return out;
+  }
+
+  // أوصاف الأكواد المعلّمة (توافق خلفي — تُستخدم في فرع «بدون قطع غيار»)
+  function checkedCodeDescriptions(shadow) {
+    return checkedCodesInfo(shadow).map(c => c.desc || c.major);
   }
 
   // انتظار تحميل صفوف القطع (AJAX) قبل الحكم «لا توجد قطع»
@@ -1254,10 +1290,11 @@ function getCSS() {
     const { parts } = await waitForPartsRows(3000);
     const partsStatus = readSparePartsStatusFromPage();
     const officialTotal = readOfficialSparePartsTotal();
-    const secondary = checkedCodeDescriptions(shadow);
+    const secondaryCodes = checkedCodesInfo(shadow);
+    const secondary = secondaryCodes.map(c => c.desc || c.major);
 
-    const plan = buildPartsNote({ parts, partsStatus, officialTotal, secondaryDescriptions: secondary });
-    logEvent('PARTS', `حالة=${partsStatus || 'فاضية'} • قطع=${parts.length} • رسمي=${officialTotal} • أكواد معلّمة=${secondary.length} • قرار=${plan.action} — ${plan.reason}`);
+    const plan = buildPartsNote({ parts, partsStatus, officialTotal, secondaryDescriptions: secondary, secondaryCodes });
+    logEvent('PARTS', `حالة=${partsStatus || 'فاضية'} • قطع=${parts.length} • رسمي=${officialTotal} • أكواد معلّمة=${secondaryCodes.length} • قرار=${plan.action} — ${plan.reason}`);
 
     if (plan.action === 'need-status') {
       setStatus(shadow, '⚠️ حدّد حالة قطع الغيار الأول (مستعمل/منتظر/بدون…)، ثم أعد المحاولة', 'warn');
@@ -2051,6 +2088,19 @@ function getCSS() {
     const PC = window.ProblemCodes;
     const fromCatalog = (PC && typeof PC.familyOf === 'function') ? PC.familyOf(device) : '';
     if (fromCatalog) return fromCatalog;
+    // طبقة الموديل: بعض البلاغات تُرجع «نوع المنتج» كود مجموعة (مثل HA) لا اسمًا،
+    // فيفشل familyOf. الموديل الفعلي 1 (مثل GR-EF40P-…) يحسم العائلة ببادئته.
+    try {
+      const modelEl = findFirst(CFG.modelInput) || findFieldByLabel(['الموديل الفعلي 1', 'الموديل الفعلي', 'Model']);
+      const modelVal = String((modelEl && modelEl.value) || '').trim();
+      if (modelVal) {
+        const fromModel = (PC && typeof PC.familyOf === 'function') ? PC.familyOf(modelVal) : '';
+        if (fromModel) {
+          logEvent('CODES', `device="${device}" غير معروف — الموديل "${modelVal}" ⇒ ${fromModel}`);
+          return fromModel;
+        }
+      }
+    } catch (_) {}
     return getDeviceAC() ? 'AC' : '';
   }
 

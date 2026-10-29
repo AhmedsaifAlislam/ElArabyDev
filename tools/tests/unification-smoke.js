@@ -2455,6 +2455,74 @@ function load(sandbox, file) {
       'engine-page3: محرك الصيانة الدورية يستخدم AC9000L24B');
   }
 
+  console.log('-- 50) كشف الثلاجات من الموديل (HA) + تكلفة التعليق من الرسمي --');
+  {
+    // (١) بادئات الموديلات في shared/problem-codes.js
+    const env50 = makeEnv();
+    load(env50.sandbox, 'shared/problem-codes.js');
+    const PC50 = env50.sandbox.ProblemCodes;
+    ok(PC50.familyOf('GR-EF40P-R-C _ (2Doors Ref.378L Plasma Grip Handle Champ)') === 'GR',
+      'problem-codes: موديل GR-EF40P… يُحسم كعائلة ثلاجات');
+    ok(PC50.familyOf('SJ-1234') === 'GR' && PC50.familyOf('RF-500') === 'GR'
+      && PC50.familyOf('GF-100') === 'GR' && PC50.familyOf('FJ-200') === 'GR',
+      'problem-codes: بادئات SJ-/RF-/GF-/FJ- ثلاجات/ديب فريزر');
+    ok(PC50.familyOf('HA') === '', 'problem-codes: «HA» كود مجموعة — لا عائلة');
+    ok(PC50.familyOf('ثلاجة') === 'GR' && PC50.familyOf('ميني بار') === '',
+      'problem-codes: كلمات العائلة باقية، و«ميني بار» لا تُحسم ثلاجة');
+    ok(PC50.familyOf('AC12345') === '',
+      'problem-codes: لا بادئة AC (38 موديل ثلاجة يبدأ AC بلا شرطة)');
+
+    // (٢) defectFamilyOf: طبقة الموديل عند فشل «نوع المنتج»
+    const cp50 = read('control-panel.js');
+    const d0 = cp50.indexOf('function defectFamilyOf(');
+    const d1 = cp50.indexOf('// ── إدارة أكواد الأعطال', d0);
+    ok(d0 > 0 && d1 > d0, 'control-panel: كتلة defectFamilyOf موجودة');
+    const mk = (modelVal) => new Function(
+      'window', 'findFirst', 'findFieldByLabel', 'CFG', 'getDeviceAC', 'logEvent',
+      cp50.slice(d0, d1) + '\nreturn defectFamilyOf;'
+    )(
+      { ProblemCodes: PC50 },
+      () => (modelVal ? { value: modelVal } : null),
+      () => null,
+      { modelInput: ['#ldv_actualmodel_name'] },
+      () => '',
+      () => {}
+    );
+    ok(mk('GR-EF40P-R-C _ (2Doors Ref.378L)')('HA') === 'GR',
+      'control-panel: defectFamilyOf يحسم GR من الموديل عندما النوع «HA»');
+    ok(mk('')('HA') === '', 'control-panel: بلا موديل و«HA» ⇒ لا عائلة (سلوك آمن)');
+    ok(mk('GR-EF40P')('ثلاجة') === 'GR', 'control-panel: النوع المعروف يظل مقدَّمًا');
+
+    // (٣) buildPartsNote: التكلفة من الرسمي فقط + «تم عمل» بأكواد الأعطال
+    const b0 = cp50.indexOf('const NOTES_MAX = 2000;');
+    const b1 = cp50.indexOf('// كتابة نص في «آخر تعليق»');
+    const api50 = new Function(cp50.slice(b0, b1) + '\nreturn { buildPartsNote, PARTS_STATUS };')();
+    const BP50 = api50.buildPartsNote;
+    const S50 = api50.PARTS_STATUS;
+
+    const official0 = BP50({
+      parts: [{ code: 'RF-T-O-LODCOM75-4', name: 'OLP', price: 100, qty: 1, total: 100 }],
+      partsStatus: S50.USED,
+      officialTotal: 0,
+      secondaryCodes: [{ major: 'RF2000', sub: '2006', desc: 'تنظيف او تسليك خرطوم الصرف' }]
+    });
+    ok(!/والتكلفة/.test(official0.text) && /\[ RF-T-O-LODCOM75-4 \(OLP\) 100 \]/.test(official0.text),
+      'قطع الغيار: إجمالي رسمي 0 ⇒ لا «والتكلفة» (قاعدة المالك)');
+    ok(/تم عمل: \[ RF2000\/2006 — تنظيف او تسليك خرطوم الصرف \]/.test(official0.text),
+      'قطع الغيار: كود العطل ووصفه يظهران في «تم عمل»');
+    ok(official0.eligibleTotal === 100,
+      'قطع الغيار: التحصيل يظل من مجموع أسعار القطع (كما هو)');
+
+    const official350 = BP50({
+      parts: [{ code: 'X', name: 'Y', price: 100, qty: 1, total: 100 }],
+      partsStatus: S50.USED,
+      officialTotal: 350,
+      secondaryCodes: []
+    });
+    ok(/والتكلفة \[ 350 \] ج\.م/.test(official350.text),
+      'قطع الغيار: التكلفة تُكتب من الإجمالي الرسمي (350) لا من القطع (100)');
+  }
+
   console.log('\n=== RESULT: ' + pass + ' passed, ' + fail + ' failed ===');
   if (fail > 0) {
     console.log('Failures:');
