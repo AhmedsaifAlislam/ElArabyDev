@@ -610,6 +610,20 @@ function load(sandbox, file) {
       'report-processor: الإيقاف اليدوي لا يمحو جلسة الاستئناف');
     ok(/_listRendered/.test(rsrc),
       'report-processor: إعادة الرسم لا تلغي تحديد المستخدم');
+    // ── إصلاحات الفلتر/التواريخ/الواجهة/التشغيل ──
+    ok(/function normalizeCas\s*\(/.test(rsrc) && /function sameCas\s*\(/.test(rsrc)
+      && /wanted\.some\(c => sameCas\(r\.casNo, c\)\)/.test(rsrc),
+      'report-processor: فلتر الأرقام يطابق CAS مُطبَّعًا (Set.has الحرفي كان يفشل بصمت)');
+    ok(/function normalizeReportDate\s*\(/.test(rsrc) && /dateToMs\(a\.date\) - dateToMs\(b\.date\)/.test(rsrc),
+      'report-processor: تواريخ البلاغات تُطبَّع وتُرتّب رقميًا');
+    ok(/function gotoReportPage\s*\(/.test(rsrc) && /await gotoReportPage\(1\)/.test(rsrc),
+      'report-processor: الحصاد يبدأ من الصفحة 1 ويعود إليها بعد القراءة');
+    ok(/id: 'rp-settings-footer'/.test(rsrc) && /#rp-settings\.visible \{ display: flex/.test(rsrc),
+      'report-processor: «بدء المعالجة» في شريط ثابت لا يُقصّ أسفل الشاشة');
+    ok(/Promise\.allSettled\(workers\)/.test(rsrc) && /state\.activeWorkers = 0;/.test(rsrc),
+      'report-processor: التشغيل يُنظّف حالته في finally (لا تعليق دائم عند الخطأ)');
+    ok(/processedCasNos:[\s\S]{0,220}_hasData !== undefined/.test(rsrc),
+      'report-processor: الاستئناف يسجّل البلاغات المُعالجة فعليًا لا شريحة ترتيب');
     ok(/function waitForTableChange\s*\(/.test(rsrc) && /firstRowSignature\(\)/.test(rsrc),
       'report-processor: ينتظر تبدّل الشبكة فعليًا قبل قراءة الصفحة التالية');
     // الأيقونة: الربط المركزي لا ينشئ العنصر — كان يُحذف مع بقاء المراجع

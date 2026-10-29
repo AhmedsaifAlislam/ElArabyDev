@@ -77,6 +77,8 @@
     scrapedPages: new Set(),
     totalPages: 1,
     isScraping: false,
+    // سبب فشل آخر عملية حصاد — يُعرض في قائمة البلاغات بدل رسالة «لا توجد» المبهمة
+    _scrapeError: '',
     orderIdFilter: new Set(),
     orderIdFilterOrder: [],
     sortMode: 'scraped',
@@ -94,8 +96,65 @@
   // ══════════════════════════════════════════════════════════════════
   //  Column Detection (data-th based)
   // ══════════════════════════════════════════════════════════════════
-  let COL = {};
   const REGEX = { CAS: /CAS\d+/, PHONE: /01[0-9]{9}/g };
+
+  // ══════════════════════════════════════════════════════════════════
+  //  CAS Normalization  — المصدر الوحيد لمطابقة أرقام الطلبات
+  // ══════════════════════════════════════════════════════════════════
+  // سبب وجودها: `getCellJsonValue` قد ترجع object/رقم، و`textContent` قد يحمل
+  // مسافات أو محارف اتجاه غير مرئية (RTL/LTR) — فكانت المقارنة الحرفية
+  // `Set.has(r.casNo)` تفشل بصمت والفلتر يرجع صفرًا بلا أي تفسير.
+  const INVISIBLE_RE = /[\u200B-\u200F\u202A-\u202E\u2066-\u2069\uFEFF]/g;
+
+  function stripInvisible(v) {
+    return String(v == null ? '' : v).replace(INVISIBLE_RE, '').replace(/\s+/g, ' ').trim();
+  }
+
+  /**
+   * يطبّع أي تمثيل لرقم الطلب إلى `CAS...` بأحرف كبيرة بلا مسافات.
+   * يقبل: نص، رقم، أو كائن JSON من data-value.
+   * @param {*} value
+   * @returns {string}
+   */
+  function normalizeCas(value) {
+    if (value == null) return '';
+    let s = '';
+    if (typeof value === 'object') {
+      const obj = value;
+      s = obj.Name || obj.name || obj.Value || obj.value || obj.Id || obj.id || '';
+      if (!s) { try { s = JSON.stringify(obj); } catch (_) { s = ''; } }
+    } else {
+      s = String(value);
+    }
+    s = stripInvisible(s);
+    const m = s.match(/CAS\s*\d+/i);
+    if (m) return m[0].replace(/\s+/g, '').toUpperCase();
+    return s.replace(/\s+/g, '').toUpperCase();
+  }
+
+  /** أرقام الرقم المسلسل فقط — للمطابقة الاحتياطية لو اختلفت البادئة. */
+  function casDigits(value) {
+    const m = normalizeCas(value).match(/\d{10,}/);
+    return m ? m[0].replace(/^0+/, '') : '';
+  }
+
+  /** هل القيمتان لنفس البلاغ؟ (تطبيع كامل + مطابقة احتياطية بالأرقام) */
+  function sameCas(a, b) {
+    const na = normalizeCas(a);
+    const nb = normalizeCas(b);
+    if (na && nb && na === nb) return true;
+    const da = casDigits(a);
+    const db = casDigits(b);
+    return !!da && da === db;
+  }
+
+  /** DD/MM/YYYY → milliseconds (0 لو غير صالح) */
+  function dateToMs(dateStr) {
+    const parts = String(dateStr || '').split('/');
+    if (parts.length !== 3) return 0;
+    const d = new Date(parseInt(parts[2], 10), parseInt(parts[1], 10) - 1, parseInt(parts[0], 10));
+    return isNaN(d.getTime()) ? 0 : d.getTime();
+  }
 
   // ══════════════════════════════════════════════════════════════════
   //  Date Parsing Utilities (Better Date Parsing)
@@ -133,51 +192,43 @@
   }
   
   function normalizeReportDate(dateStr) {
-    if (!dateStr) return '';
-    // Portal dates might be in various formats, normalize to DD/MM/YYYY
-    const parsed = parseFlexibleDate(dateStr);
-    // Validate it's a valid date
-    const parts = parsed.split('/');
-    if (parts.length === 3) {
-      const d = new Date(`${parts[2]}-${parts[1]}-${parts[1]}`);
-      if (!isNaN(d.getTime())) return parsed;
-    }
-    return dateStr;
-  }
+    const raw = stripInvisible(dateStr);
+    if (!raw) return '';
 
-  function detectColumns(doc) {
-    doc = doc || document;
-    COL = {};
+    const p2 = (v) => String(v).padStart(2, '0');
 
-    function detectInDoc(d) {
-      const firstRow = d.querySelector('table tbody tr');
-      if (!firstRow) return false;
-      const cells = firstRow.querySelectorAll('td');
-      cells.forEach((td, i) => {
-        const th = td.getAttribute('data-th');
-        if (th) COL[th.trim()] = i;
-      });
-      return Object.keys(COL).length > 0;
+    // ISO أو datetime: 2026-10-29 / 2026-10-29T00:00:00Z
+    let m = raw.match(/^(\d{4})[\/\-](\d{1,2})[\/\-](\d{1,2})/);
+    if (m) return `${p2(m[3])}/${p2(m[2])}/${m[1]}`;
+
+    // DD/MM/YYYY أو DD-MM-YYYY (مع وقت/AM/PM أو بدونه)
+    m = raw.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{2,4})/);
+    if (m) {
+      let year = m[3];
+      if (year.length === 2) year = '20' + year;
+      const a = parseInt(m[1], 10);
+      const b = parseInt(m[2], 10);
+      // البوابة DD/MM — لو الشهر مستحيل (مثال 10/29/2026) نقلبها MM/DD
+      if (b >= 1 && b <= 12) return `${p2(a)}/${p2(b)}/${year}`;
+      if (a >= 1 && a <= 12) return `${p2(b)}/${p2(a)}/${year}`;
     }
 
-    if (detectInDoc(doc)) return true;
+    // صيغ نسبية (اليوم/أمس/غداً) وأي صيغة أخرى يفهمها Date
+    const parsed = parseFlexibleDate(raw);
+    if (/^\d{2}\/\d{2}\/\d{4}$/.test(parsed)) return parsed;
 
-    for (const iframe of document.querySelectorAll('iframe')) {
-      try {
-        const iDoc = iframe.contentDocument || iframe.contentWindow.document;
-        if (!iDoc) continue;
-        if (detectInDoc(iDoc)) return true;
-      } catch (e) {}
-    }
+    const d = new Date(raw);
+    if (!isNaN(d.getTime())) return formatDate(d);
 
-    return false;
+    return raw; // صيغة غير معروفة: تُعرض كما هي (المطابقة تبقى حرفية عليها)
   }
 
   function getCellValue(row, headerName) {
     const cells = row.querySelectorAll('td');
     for (const td of cells) {
       if (td.getAttribute('data-th') === headerName) {
-        return td.getAttribute('aria-label') || td.textContent.trim() || '';
+        const aria = stripInvisible(td.getAttribute('aria-label'));
+        return aria || stripInvisible(td.textContent) || '';
       }
     }
     return '';
@@ -276,9 +327,11 @@
       totalProcessed: state.totalProcessed,
       totalWithData: state.totalWithData,
       totalSkipped: state.totalSkipped,
+      // البلاغات المُعالجة فعليًا (لا شريحة من الترتيب) — `slice(0, currentIndex)`
+      // كانت تعتمد على index غير متزامن فتفقد بلاغات أو تسجّل بلاغات لم تُعالج.
       processedCasNos: [...new Set(
         state.selectedReports
-          .slice(0, state.currentIndex)
+          .filter(r => r._hasData !== undefined)
           .map(r => r.casNo)
       )],
       sessionStartTime: state.sessionStartTime,
@@ -402,20 +455,22 @@
     #rp-settings {
       position: fixed !important; top: 50% !important; left: 50% !important;
       transform: translate(-50%, -50%) !important;
-      width: 480px !important; max-height: 85vh !important;
+      width: 480px !important; max-height: 92vh !important;
       background: #1a1d27 !important; border: 1px solid #2a2d3e !important;
       border-radius: 14px !important; box-shadow: 0 20px 60px rgba(0,0,0,.9) !important;
       font-family: 'Segoe UI', Tahoma, Arial, sans-serif !important;
       font-size: 13px !important; color: #c8d0e0 !important;
       z-index: 2147483647 !important; direction: rtl !important;
       overflow: hidden !important; display: none !important;
+      flex-direction: column !important;
     }
-    #rp-settings.visible { display: block !important; }
+    #rp-settings.visible { display: flex !important; }
 
     #rp-settings-header {
       background: linear-gradient(135deg, #e67e22 0%, #d35400 100%) !important;
       padding: 12px 16px !important; display: flex !important;
       align-items: center !important; justify-content: space-between !important;
+      flex: 0 0 auto !important;
     }
     #rp-settings-title { font-weight: 700 !important; font-size: 14px !important; color: #fff !important; }
     #rp-settings-close {
@@ -427,10 +482,26 @@
 
     #rp-settings-body {
       padding: 16px !important; display: flex !important; flex-direction: column !important;
-      gap: 12px !important; max-height: calc(85vh - 50px) !important; overflow-y: auto !important;
+      gap: 12px !important; flex: 1 1 auto !important; min-height: 0 !important;
+      max-height: none !important; overflow-y: auto !important;
     }
     #rp-settings-body::-webkit-scrollbar { width: 4px !important; }
     #rp-settings-body::-webkit-scrollbar-thumb { background: #2a3050 !important; border-radius: 2px !important; }
+
+    /* شريط التنفيذ الثابت: زر «بدء المعالجة» كان يُقصّ أسفل الشاشة
+       فيظن المستخدم أن «تطبيق التصفية» هو زر التشغيل. */
+    #rp-settings-footer {
+      flex: 0 0 auto !important; padding: 10px 16px 12px !important;
+      background: #141722 !important; border-top: 1px solid #2a2d3e !important;
+      box-shadow: 0 -6px 18px rgba(0,0,0,.35) !important;
+    }
+    .rp-step-hint {
+      font-size: 10px !important; color: #8fa3c0 !important; line-height: 1.8 !important;
+      background: rgba(41,128,185,.12) !important; border: 1px dashed #2a4a7a !important;
+      border-radius: 6px !important; padding: 6px 8px !important; margin-bottom: 4px !important;
+    }
+    .rp-step-hint b { color: #f0b429 !important; }
+    .rp-start-hint { font-size: 10px !important; color: #8fa3c0 !important; text-align: center !important; margin-top: 6px !important; }
 
     .rp-section-title {
       font-size: 11px !important; font-weight: 700 !important; color: #e67e22 !important;
@@ -498,6 +569,9 @@
     .rp-btn:disabled { opacity: .4 !important; cursor: not-allowed !important; }
     .rp-btn-primary { background: #27ae60 !important; color: #fff !important; }
     .rp-btn-danger { background: #c0392b !important; color: #fff !important; }
+    .rp-btn-apply { background: #2980b9 !important; color: #fff !important; border: 1px solid #3fa9f5 !important; }
+    .rp-btn-ghost { background: #2c3e50 !important; color: #dbe6f2 !important; border: 1px solid #3a4a5f !important; }
+    #rp-settings-start { padding: 12px !important; font-size: 13px !important; }
 
     .rp-loading {
       text-align: center !important; padding: 20px !important; color: #f0b429 !important;
@@ -607,19 +681,29 @@
   const settingsHeader = el('div', { id: 'rp-settings-header' }, [settingsTitle, settingsClose]);
 
   // Order ID Filter Section
-  const orderIdSectionTitle = el('div', { className: 'rp-section-title', innerHTML: '🔢 تصفية بأرقام الطلبات' });
+  const stepHint = el('div', {
+    className: 'rp-step-hint',
+    innerHTML: '1) الصق أرقام الطلبات → 2) <b>🔎 تصفية القائمة</b> → 3) <b>▶ بدء المعالجة</b> (الزر الأخضر الثابت أسفل النافذة).'
+  });
+  const orderIdSectionTitle = el('div', { className: 'rp-section-title', innerHTML: '1) تصفية بأرقام الطلبات' });
   const orderIdTextarea = el('textarea', { 
     id: 'rp-order-id-filter', 
     placeholder: 'الصق أرقام الطلبات هنا (كل سطر رقم)\nمثال:\nCAS2026082553172366\nCAS2026081552971241\nCAS2026082353144001',
     style: 'width:100%;min-height:80px;padding:8px;border:1px solid #2a4a7a;border-radius:6px;background:#0d1117;color:#c8d0e0;font-family:monospace;font-size:11px;resize:vertical;box-sizing:border-box;margin-bottom:8px;'
   });
   const orderIdActions = el('div', { style: 'display:flex;gap:6px;margin-bottom:8px;' }, [
-    el('button', { id: 'rp-apply-order-filter', className: 'rp-btn rp-btn-primary', style: 'flex:1;padding:8px;font-size:11px;', textContent: '✅ تطبيق التصفية' }),
-    el('button', { id: 'rp-clear-order-filter', className: 'rp-btn rp-btn-danger', style: 'flex:1;padding:8px;font-size:11px;', textContent: '🗑 مسح التصفية' }),
+    el('button', { id: 'rp-apply-order-filter', className: 'rp-btn rp-btn-apply', style: 'flex:2;padding:9px;font-size:11px;', textContent: '🔎 تصفية القائمة' }),
+    el('button', { id: 'rp-clear-order-filter', className: 'rp-btn rp-btn-ghost', style: 'flex:1;padding:9px;font-size:11px;', textContent: '🗑 مسح' }),
   ]);
   const orderIdStatus = el('div', { id: 'rp-order-filter-status', style: 'font-size:10px;color:#7a9cc8;text-align:center;padding:4px;display:none;' });
+  const refreshReportsBtn = el('button', {
+    id: 'rp-refresh-reports',
+    className: 'rp-btn rp-btn-ghost',
+    style: 'width:100%;padding:7px;font-size:10px;margin-bottom:6px;',
+    textContent: '🔁 تحديث القائمة (بعد توسيع البحث في البوابة)'
+  });
 
-  const dateSectionTitle = el('div', { className: 'rp-section-title', innerHTML: '📅 اختر التاريخ' });
+  const dateSectionTitle = el('div', { className: 'rp-section-title', innerHTML: '2) اختر التاريخ (اختياري)' });
   const dateGrid = el('div', { className: 'rp-date-grid', id: 'rp-date-grid' });
 
   // Sort Section
@@ -638,7 +722,7 @@
     el('option', { value: 'date-desc', textContent: 'التاريخ (الأحدث أولاً)' }),
   ]);
 
-  const reportsSectionTitle = el('div', { className: 'rp-section-title', innerHTML: '📋 البلاغات المتاحة' });
+  const reportsSectionTitle = el('div', { id: 'rp-reports-title', className: 'rp-section-title', innerHTML: '3) البلاغات المتاحة' });
   const selectAllLabel = el('label', { className: 'rp-select-all' }, [
     el('input', { type: 'checkbox', id: 'rp-select-all' }),
     el('span', { textContent: 'تحديد الكل' }),
@@ -648,19 +732,24 @@
 
   const selectedCountEl = el('div', { id: 'rp-selected-count', style: 'text-align:center;font-size:12px;color:#f0b429;padding:6px;display:none;' });
   const startBtn = el('button', { className: 'rp-btn rp-btn-primary', id: 'rp-settings-start', textContent: '▶ بدء المعالجة' });
-  const cancelBtn = el('button', { className: 'rp-btn rp-btn-danger', id: 'rp-settings-cancel', textContent: 'إلغاء' });
+  const cancelBtn = el('button', { className: 'rp-btn rp-btn-ghost', id: 'rp-settings-cancel', textContent: 'إغلاق' });
   const exportCsvBtn = el('button', { className: 'rp-btn', id: 'rp-export-csv', textContent: '📊 تصدير CSV', style: 'background:#2980b9;color:#fff;' });
   const exportXlsxBtn = el('button', { className: 'rp-btn', id: 'rp-export-xlsx', textContent: '📈 تصدير Excel', style: 'background:#27ae60;color:#fff;' });
   const btnRow = el('div', { className: 'rp-btn-row' }, [startBtn, cancelBtn]);
   const exportRow = el('div', { className: 'rp-btn-row', style: 'margin-top:4px;' }, [exportCsvBtn, exportXlsxBtn]);
 
   const settingsBody = el('div', { id: 'rp-settings-body' }, [
-    orderIdSectionTitle, orderIdTextarea, orderIdActions, orderIdStatus,
+    stepHint,
+    orderIdSectionTitle, orderIdTextarea, orderIdActions, orderIdStatus, refreshReportsBtn,
     dateSectionTitle, dateGrid,
     sortSectionTitle, sortSelect,
-    reportsSectionTitle, selectAllLabel, reportsList, selectedCountEl, btnRow, exportRow,
+    reportsSectionTitle, selectAllLabel, reportsList, selectedCountEl, exportRow,
   ]);
-  const settingsModal = el('div', { id: 'rp-settings' }, [settingsHeader, settingsBody]);
+  const settingsFooter = el('div', { id: 'rp-settings-footer' }, [
+    btnRow,
+    el('div', { className: 'rp-start-hint', textContent: '⬆️ «تصفية القائمة» تختار البلاغات فقط — التنفيذ يبدأ من الزر الأخضر هنا.' }),
+  ]);
+  const settingsModal = el('div', { id: 'rp-settings' }, [settingsHeader, settingsBody, settingsFooter]);
 
   // Mini Menu (during run)
   const miniHeader = el('div', { id: 'rp-mini-header' }, [
@@ -774,38 +863,41 @@
   //  Extract Report Data from Row
   // ══════════════════════════════════════════════════════════════════
   function extractRowData(row, doc) {
-    const cells = row.querySelectorAll('td');
+    const cells = Array.from(row.querySelectorAll('td'));
     if (cells.length < 3) return null;
 
-    // CAS number from data-value or text
-    let casNo = '';
-    const casVal = getCellJsonValue(row, 'رقم الطلب');
-    if (casVal) casNo = casVal;
-    if (!casNo) casNo = getCellValue(row, 'رقم الطلب');
-    if (!casNo) casNo = row.getAttribute('data-name') || '';
-    if (!casNo) casNo = row.textContent.match(REGEX.CAS)?.[0] || '';
-    if (!casNo) return null;
+    // ── رقم الطلب: data-value → data-th → data-name → الخلية الأولى → نص الصف ──
+    // كل المسارات تمرّ على normalizeCas حتى لا يتحول object/رقم إلى قيمة لا
+    // تطابق أبدًا في الفلتر (كان هذا أحد أسباب «تطبيق التصفية لا يفعل شيئًا»).
+    let casNo = normalizeCas(getCellJsonValue(row, 'رقم الطلب'));
+    if (!/^CAS\d+$/i.test(casNo)) casNo = normalizeCas(getCellValue(row, 'رقم الطلب'));
+    if (!/^CAS\d+$/i.test(casNo)) casNo = normalizeCas(row.getAttribute('data-name'));
+    if (!/^CAS\d+$/i.test(casNo) && cells[0]) casNo = normalizeCas(cells[0].textContent);
+    if (!/^CAS\d+$/i.test(casNo)) casNo = normalizeCas(row.textContent.match(REGEX.CAS)?.[0] || '');
+    if (!/^CAS\d+$/i.test(casNo)) return null;
 
-    // Customer name from data-value JSON (Name field)
+    // ── اسم العميل: data-value (Name) → data-th → الخلية الثانية ──
     let name = '';
     const customerVal = getCellJsonValue(row, 'اسم العميل');
-    if (customerVal && customerVal.Name) {
-      name = customerVal.Name;
+    if (customerVal && typeof customerVal === 'object') {
+      name = stripInvisible(customerVal.Name || customerVal.name || '');
+    } else if (customerVal != null && typeof customerVal !== 'object') {
+      name = stripInvisible(customerVal);
     }
-    if (!name) {
-      name = getCellValue(row, 'اسم العميل');
-    }
+    if (!name) name = getCellValue(row, 'اسم العميل');
+    if (!name && cells[1]) name = stripInvisible(cells[1].textContent);
 
-    // Date
+    // ── التاريخ: data-th (بأسماء بديلة) → الخلية التاسعة (نفس ترتيب البوابة) ──
     let date = getCellValue(row, 'تاريخ الحجز');
     if (!date) {
-      // Try alternative column names
       const altNames = ['تاريخ الحجز', 'التاريخ', 'Date', 'Created On', 'Created'];
       for (const alt of altNames) {
         date = getCellValue(row, alt);
         if (date) break;
       }
     }
+    if (!date && cells[8]) date = stripInvisible(cells[8].textContent);
+    date = normalizeReportDate(date);
 
     // URL
     let url = '';
@@ -846,8 +938,6 @@
       return [];
     }
     console.log(`[RP] extractFromCurrentPage: found table in ${tableData.doc === document ? 'document' : 'iframe'}`);
-
-    detectColumns(tableData.doc);
 
     const { rows, doc } = tableData;
     console.log(`[RP] Found ${rows.length} rows`);
@@ -950,52 +1040,188 @@
     return findTable();
   }
 
+  // ── Pager helpers (نفس منطق control-panel.js المُجرَّب) ────────────────
+  // الشبكة: <div class="view-pagination" data-current-page data-pages>
+  //           <a data-page="2" class="entity-pager-next-link">
+  // الاعتماد على «التالي» فقط يجعل الحصاد يبدأ من الصفحة الحالية وينتهي على
+  // آخر صفحة — فالفتح التالي يقرأ آخر صفحة فقط. هنا نقرأ العدد الحقيقي للصفحات
+  // وننتقل برقم الصفحة ثم نرجع للصفحة ١.
+  function findPagerInfo() {
+    let tableData = null;
+    try { tableData = findTable(); } catch (_) {}
+    if (!tableData) return { pager: null, root: null, total: 1, current: 1 };
+    let root = tableData.table;
+    for (let i = 0; i < 8 && root; i++) {
+      if (root.querySelector && root.querySelector('.view-pagination, a[data-page]')) break;
+      root = root.parentElement;
+    }
+    const pager = (root && root.querySelector) ? root.querySelector('.view-pagination') : null;
+    const scope = pager || root;
+    const links = scope ? Array.from(scope.querySelectorAll('a[data-page]')) : [];
+    const nums = links.map(a => parseInt(a.getAttribute('data-page') || '0', 10)).filter(n => n > 0);
+    const declared = pager ? (parseInt(pager.getAttribute('data-pages') || '', 10) || 0) : 0;
+    const total = Math.max(1, declared, nums.length ? Math.max(...nums) : 0);
+    let current = pager ? (parseInt(pager.getAttribute('data-current-page') || '', 10) || 0) : 0;
+    if (!current && pager) {
+      const active = pager.querySelector('li.active a[data-page]');
+      current = active ? (parseInt(active.getAttribute('data-page') || '1', 10) || 1) : 1;
+    }
+    if (!current) current = 1;
+    return { pager, root, total, current };
+  }
+
+  function gridRowsSignature() {
+    try {
+      const td = findTable();
+      if (!td || !td.rows.length) return '';
+      return td.rows.map(r => r.getAttribute('data-id') || (r.textContent || '').replace(/\s+/g, ' ').trim().slice(0, 50)).join('|');
+    } catch (_) { return ''; }
+  }
+
+  async function gotoReportPage(page, maxWaitMs = 9000) {
+    const info = findPagerInfo();
+    if (!info.pager) return false;
+    if (info.current === page) return true;
+    const link = info.pager.querySelector('a[data-page="' + page + '"]');
+    if (!link) return false;
+    const li = link.closest('li');
+    if (li && (li.classList.contains('disabled') || li.classList.contains('hidden') || li.style.display === 'none')) return false;
+    if (link.getAttribute('aria-disabled') === 'true') return false;
+
+    const beforeSig = gridRowsSignature();
+    const beforePage = info.current;
+    try { link.click(); } catch (_) { return false; }
+
+    const deadline = Date.now() + maxWaitMs;
+    while (Date.now() < deadline) {
+      await SLEEP(250);
+      const nowInfo = findPagerInfo();
+      const sig = gridRowsSignature();
+      if (nowInfo.current !== beforePage || (sig && sig !== beforeSig)) {
+        await SLEEP(300); // استقرار الرسم بعد AJAX
+        return true;
+      }
+    }
+    return false;
+  }
+
+  function findPagerLink(kind) {
+    const sel = kind === 'prev'
+      ? 'a.entity-pager-previous-link:not([aria-disabled="true"]), a[aria-label="Previous"], a[aria-label="السابق"]'
+      : 'a.entity-pager-next-link:not([aria-disabled="true"])';
+    let el = null;
+    try { el = document.querySelector(sel); } catch (_) {}
+    if (el) return el;
+    for (const iframe of document.querySelectorAll('iframe')) {
+      try {
+        const d = iframe.contentDocument || iframe.contentWindow.document;
+        const x = d && d.querySelector(sel);
+        if (x) return x;
+      } catch (_) {}
+    }
+    return null;
+  }
+
+  async function gotoFirstPageLegacy() {
+    for (let i = 0; i < 60; i++) {
+      const prev = findPagerLink('prev');
+      if (!prev) break;
+      const li = prev.closest('li');
+      if (li && (li.classList.contains('disabled') || li.classList.contains('hidden'))) break;
+      const sig = firstRowSignature();
+      prev.click();
+      await waitForTableChange(sig, 9000);
+      await SLEEP(250);
+    }
+  }
+
   async function scrapeAllPages() {
     state.isScraping = true;
     state.allReports = [];
     state.scrapedPages = new Set();
-    let pageNum = 1;
+    state._scrapeError = '';
+    const seen = new Set();
 
     console.log('[RP] scrapeAllPages started');
-    await SLEEP(500);
-    const first = extractFromCurrentPage();
-    first.forEach(r => { if (!state.allReports.find(x => x.casNo === r.casNo)) state.allReports.push(r); });
-    state.scrapedPages.add(1);
-    addLog(`الصفحة 1: ${first.length} بلاغ`, 'ok');
-    console.log(`[RP] Page 1: ${first.length} reports`);
+    addLog('جاري قراءة جدول البلاغات...', 'info');
 
-    while (!state.stopRequested) {
-      if (!hasNextPage()) {
-        addLog('لا يوجد صفحة تالية', 'info');
-        console.log('[RP] No next page');
-        break;
+    const firstTable = await waitForTable(15000);
+    if (!firstTable) {
+      state.isScraping = false;
+      state._scrapeError = 'لم أجد جدول البلاغات في الصفحة. تأكد أنك على صفحة /Orders/ والجدول ظاهر (اضغط Search Results) ثم اضغط «🔁 تحديث القائمة».';
+      addLog(state._scrapeError, 'error');
+      console.warn('[RP] No table found — scrape aborted');
+      return;
+    }
+
+    // ① ارجع لأول صفحة دائمًا (السبب الجذري لعدم عثور الفلتر على الأرقام).
+    let info = findPagerInfo();
+    if (info.pager && info.current > 1) {
+      addLog(`الرجوع للصفحة 1 من ${info.current}...`, 'info');
+      if (!await gotoReportPage(1)) addLog('تعذّر الرجوع للصفحة 1 — سأقرأ من الوضع الحالي', 'warn');
+      info = findPagerInfo();
+    } else if (!info.pager && findPagerLink('prev')) {
+      addLog('الرجوع لأول صفحة...', 'info');
+      await gotoFirstPageLegacy();
+      info = findPagerInfo();
+    }
+
+    const hasPageLinks = !!(info.pager && info.pager.querySelector('a[data-page]') && info.total > 1);
+
+    if (hasPageLinks) {
+      // ② القراءة برقم الصفحة — لا نفترض أننا على الأولى ولا نتوقف عند «التالي».
+      const totalPages = Math.min(info.total, 50);
+      for (let p = 1; p <= totalPages; p++) {
+        if (state.stopRequested) break;
+        if (p > 1) {
+          if (!await gotoReportPage(p)) { addLog(`تعذّر الانتقال للصفحة ${p} — توقفت القراءة`, 'warn'); break; }
+        }
+        await SLEEP(350);
+        const reports = extractFromCurrentPage();
+        let added = 0;
+        for (const r of reports) {
+          if (!r.casNo || seen.has(r.casNo)) continue;
+          seen.add(r.casNo);
+          state.allReports.push(r);
+          added++;
+        }
+        state.scrapedPages.add(p);
+        addLog(`الصفحة ${p}/${totalPages}: ${reports.length} صف — ${added} جديد`, 'ok');
+        console.log(`[RP] Page ${p}/${totalPages}: ${reports.length} rows, ${added} new`);
       }
-
-      pageNum++;
-      if (pageNum > 50) { addLog('تم الوصول للحد الأقصى (50 صفحة)', 'warn'); break; }
-
-      addLog(`جاري الانتقال للصفحة ${pageNum}...`, 'info');
-      console.log(`[RP] Clicking next → page ${pageNum}`);
-      const prevSig = firstRowSignature();
-      clickNextPage();
-
-      const tableData = await waitForTableChange(prevSig, 12000);
-      if (!tableData) {
-        addLog(`الصفحة ${pageNum}: فشل تحميل الجدول`, 'error');
-        console.log(`[RP] Page ${pageNum}: table load failed`);
-        break;
-      }
-
-      const reports = extractFromCurrentPage();
-      reports.forEach(r => { if (!state.allReports.find(x => x.casNo === r.casNo)) state.allReports.push(r); });
+      // ③ ارجع للصفحة ١ حتى لا يبدأ التشغيل التالي من آخر صفحة.
+      if (findPagerInfo().current !== 1) await gotoReportPage(1);
+    } else {
+      // شبكة بلا روابط صفحات رقمية: السلوك القديم «التالي» حتى النهاية.
+      let pageNum = 1;
+      let added = 0;
+      extractFromCurrentPage().forEach(r => {
+        if (r.casNo && !seen.has(r.casNo)) { seen.add(r.casNo); state.allReports.push(r); added++; }
+      });
       state.scrapedPages.add(pageNum);
-      addLog(`الصفحة ${pageNum}: ${reports.length} بلاغ`, 'ok');
-      console.log(`[RP] Page ${pageNum}: ${reports.length} reports`);
+      addLog(`الصفحة 1: ${added} بلاغ`, 'ok');
 
-      await SLEEP(600);
+      while (!state.stopRequested && hasNextPage()) {
+        pageNum++;
+        if (pageNum > 50) { addLog('تم الوصول للحد الأقصى (50 صفحة)', 'warn'); break; }
+        const prevSig = firstRowSignature();
+        clickNextPage();
+        const tableData = await waitForTableChange(prevSig, 12000);
+        if (!tableData) { addLog(`الصفحة ${pageNum}: فشل تحميل الجدول`, 'error'); break; }
+        let n = 0;
+        extractFromCurrentPage().forEach(r => {
+          if (r.casNo && !seen.has(r.casNo)) { seen.add(r.casNo); state.allReports.push(r); n++; }
+        });
+        state.scrapedPages.add(pageNum);
+        addLog(`الصفحة ${pageNum}: ${n} بلاغ`, 'ok');
+        await SLEEP(600);
+      }
     }
 
     state.isScraping = false;
+    if (!state.allReports.length) {
+      state._scrapeError = 'الجدول موجود لكن لم أستخرج منه أي رقم بلاغ — افتح «تشخيص» وأرسل أول صف.';
+    }
     addLog(`إجمالي البلاغات: ${state.allReports.length} من ${state.scrapedPages.size} صفحات`, 'ok');
     console.log(`[RP] Total: ${state.allReports.length} reports from ${state.scrapedPages.size} pages`);
   }
@@ -1021,21 +1247,23 @@
   async function showSettingsInner() {
     overlay.classList.add('visible');
     settingsModal.classList.add('visible');
-    reportsList.innerHTML = '<div class="rp-loading"><div class="rp-spinner"></div><div>جاري تحميل البلاغات من كل الصفحات...</div></div>';
-    dateGrid.innerHTML = '';
+    const listEl = document.getElementById('rp-reports-list') || reportsList;
+    listEl.innerHTML = '<div class="rp-loading"><div class="rp-spinner"></div><div>جاري تحميل البلاغات من كل الصفحات...</div></div>';
+    (document.getElementById('rp-date-grid') || dateGrid).innerHTML = '';
     state.selectedReports = [];
     state._selectedDate = '';
-    state.orderIdFilter.clear();
     state.sortMode = 'scraped';
     state.currentIndex = 0;
     state.isPaused = false;
     state.pausePromise = null;
     state._listRendered = false;
 
-    // Reset UI elements
-    document.getElementById('rp-order-id-filter').value = '';
-    document.getElementById('rp-order-filter-status').style.display = 'none';
-    document.getElementById('rp-sort-select').value = 'scraped';
+    // ⚠️ لا نصفّر نص الفلتر ولا state.orderIdFilter هنا:
+    // كان كل فتح للأداة يمسح أرقام المستخدم ويعيده للصفر.
+    const sortSel0 = document.getElementById('rp-sort-select');
+    if (sortSel0) sortSel0.value = 'scraped';
+    const statusEl0 = document.getElementById('rp-order-filter-status');
+    if (statusEl0) statusEl0.style.display = 'none';
 
     // Check for resume state
     const resumeData = loadResumeState();
@@ -1045,8 +1273,8 @@
         state.sessionStartTime = resumeData.sessionStartTime || Date.now();
         await scrapeAllPages();
         // Re-match saved reports with freshly scraped ones
-        const savedCasNos = new Set(resumeData.selectedReports.map(r => r.casNo));
-        state.selectedReports = state.allReports.filter(r => savedCasNos.has(r.casNo));
+        const savedCasNos = resumeData.selectedReports.map(r => normalizeCas(r.casNo));
+        state.selectedReports = state.allReports.filter(r => savedCasNos.some(c => sameCas(r.casNo, c)));
         applyResumeState(resumeData);
         renderDateChips();
         renderReportsList();
@@ -1064,6 +1292,10 @@
 
     renderDateChips();
     renderReportsList();
+
+    // أعد تطبيق الفلتر المحفوظ (لو المستخدم لصق أرقام ثم ضغط «تحديث القائمة»)
+    const filterEl = document.getElementById('rp-order-id-filter');
+    if (filterEl && filterEl.value.trim()) applyOrderFilter({ silent: true });
   }
 
   function hideSettings() {
@@ -1076,7 +1308,15 @@
     for (const r of state.allReports) {
       if (r.date) dates.add(r.date);
     }
-    return [...dates].sort().reverse();
+    return [...dates].sort((a, b) => dateToMs(b) - dateToMs(a));
+  }
+
+  function setDateChipsLocked(locked) {
+    document.querySelectorAll('.rp-date-chip').forEach(c => {
+      c.style.opacity = locked ? '0.45' : '';
+      c.style.pointerEvents = locked ? 'none' : '';
+      c.title = locked ? 'الفلتر بالأرقام نشط — اضغط «مسح التصفية» أولًا' : '';
+    });
   }
 
   function renderDateChips() {
@@ -1121,6 +1361,7 @@
       className: 'rp-date-chip all-dates',
       textContent: `الكل (${state.allReports.length})`,
       onClick: () => {
+        if (state.orderIdFilter.size > 0) return;
         state._selectedDate = '';
         document.querySelectorAll('.rp-date-chip').forEach(c => c.classList.remove('selected'));
         allChip.classList.add('selected');
@@ -1138,6 +1379,7 @@
         className: 'rp-date-chip',
         textContent: `${emoji} ${label} (${count})`,
         onClick: () => {
+          if (state.orderIdFilter.size > 0) return;
           console.log(`[RP] Date chip clicked: "${date}"`);
           state._selectedDate = date;
           document.querySelectorAll('.rp-date-chip').forEach(c => c.classList.remove('selected'));
@@ -1157,14 +1399,18 @@
       console.log('[RP] Auto-select: falling back to allChip');
       allChip.click();
     }
+
+    // فلتر الأرقام نشط ⇒ شيب التاريخ لا تؤثر (كانت تُضغط بلا نتيجة)
+    setDateChipsLocked(state.orderIdFilter.size > 0);
   }
 
   function getFilteredAndSortedReports() {
     let reports = [...state.allReports];
 
-    // Apply order ID filter if active
+    // Apply order ID filter if active — بمطابقة مُطبَّعة (كانت حرفية فتفشل بصمت)
     if (state.orderIdFilter.size > 0) {
-      reports = reports.filter(r => state.orderIdFilter.has(r.casNo));
+      const wanted = [...state.orderIdFilter];
+      reports = reports.filter(r => wanted.some(c => sameCas(r.casNo, c)));
     }
 
     // Apply date filter (only if no order ID filter is active)
@@ -1176,10 +1422,10 @@
     // Apply sorting
     switch (state.sortMode) {
       case 'cas-asc':
-        reports.sort((a, b) => a.casNo.localeCompare(b.casNo));
+        reports.sort((a, b) => normalizeCas(a.casNo).localeCompare(normalizeCas(b.casNo)));
         break;
       case 'cas-desc':
-        reports.sort((a, b) => b.casNo.localeCompare(a.casNo));
+        reports.sort((a, b) => normalizeCas(b.casNo).localeCompare(normalizeCas(a.casNo)));
         break;
       case 'name-asc':
         reports.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
@@ -1188,23 +1434,21 @@
         reports.sort((a, b) => (b.name || '').localeCompare(a.name || ''));
         break;
       case 'date-asc':
-        reports.sort((a, b) => {
-          const da = a.date ? new Date(a.date.split('/').reverse().join('-')) : new Date(0);
-          const db = b.date ? new Date(b.date.split('/').reverse().join('-')) : new Date(0);
-          return da - db;
-        });
+        reports.sort((a, b) => dateToMs(a.date) - dateToMs(b.date));
         break;
       case 'date-desc':
-        reports.sort((a, b) => {
-          const da = a.date ? new Date(a.date.split('/').reverse().join('-')) : new Date(0);
-          const db = b.date ? new Date(b.date.split('/').reverse().join('-')) : new Date(0);
-          return db - da;
-        });
+        reports.sort((a, b) => dateToMs(b.date) - dateToMs(a.date));
         break;
       case 'input-order':
         if (state.orderIdFilter.size > 0 && state.orderIdFilterOrder.length > 0) {
-          const orderMap = new Map(state.orderIdFilterOrder.map((cas, i) => [cas, i]));
-          reports.sort((a, b) => (orderMap.get(a.casNo) ?? 9999) - (orderMap.get(b.casNo) ?? 9999));
+          const orderMap = new Map(state.orderIdFilterOrder.map((cas, i) => [normalizeCas(cas), i]));
+          const idxOf = (r) => {
+            const key = normalizeCas(r.casNo);
+            if (orderMap.has(key)) return orderMap.get(key);
+            for (const [k, i] of orderMap) if (sameCas(k, key)) return i;
+            return 9999;
+          };
+          reports.sort((a, b) => idxOf(a) - idxOf(b));
         }
         break;
       // 'scraped' keeps original order
@@ -1214,9 +1458,14 @@
   }
 
   function renderReportsList() {
-    reportsList.innerHTML = '';
+    // عناصر حيّة من الـ DOM (وليس مراجع مغلقة) — لو أُعيد حقن السكربت أو أُعيد
+    // بناء اللوحة، يبقى الرسم على العنصر الظاهر فعلًا.
+    const listEl = document.getElementById('rp-reports-list') || reportsList;
+    const titleEl = document.getElementById('rp-reports-title') || reportsSectionTitle;
+
+    listEl.innerHTML = '';
     // حافظ على ما حدّده المستخدم عبر إعادة الرسم (تغيير الترتيب/الفلتر)
-    const prevSelected = new Set(state.selectedReports.map(r => r.casNo));
+    const prevSelected = new Set(state.selectedReports.map(r => normalizeCas(r.casNo)));
     const hadSelection = state._listRendered === true;
     state.selectedReports = [];
 
@@ -1226,19 +1475,32 @@
 
     console.log(`[RP] renderReportsList: orderFilter=${state.orderIdFilter.size}, selectedDate="${selectedDate}", sort=${state.sortMode}, filtered=${filtered.length} from ${totalCount}`);
 
-    const titleSuffix = state.orderIdFilter.size > 0 
+    const titleSuffix = state.orderIdFilter.size > 0
       ? ` (مصفاة: ${filtered.length} من ${state.allReports.length})`
       : ` (${filtered.length}/${totalCount})`;
-    reportsSectionTitle.innerHTML = `📋 البلاغات المتاحة${titleSuffix}`;
+    if (titleEl) titleEl.innerHTML = `📋 البلاغات المتاحة${titleSuffix}`;
 
     if (filtered.length === 0) {
-      let msg = 'لا توجد بلاغات';
-      if (state.orderIdFilter.size > 0) {
-        msg = `لم يتم العثور على أي من ${state.orderIdFilter.size} رقم طلب تم تصفيته`;
+      let msg;
+      if (state.allReports.length === 0) {
+        msg = `<div style="color:#f0b429;font-weight:700;">لا توجد بلاغات محمّلة</div>
+               <div style="margin-top:6px;">${state._scrapeError || 'اضغط «🔁 تحديث القائمة» بعد التأكد أن جدول Orders ظاهر.'}</div>`;
+      } else if (state.orderIdFilter.size > 0) {
+        const missing = [...state.orderIdFilter].filter(c => !state.allReports.some(r => sameCas(r.casNo, c)));
+        msg = `<div style="color:#ff6b6b;font-weight:700;">❌ لا يوجد تطابق من ${state.orderIdFilter.size} رقم داخل ${state.allReports.length} بلاغ محمّل</div>`;
+        if (missing.length) {
+          msg += `<div style="margin-top:6px;color:#f0b429;direction:ltr;font-family:Consolas,monospace;font-size:10px;line-height:1.7;">${missing.slice(0, 8).join('<br>')}${missing.length > 8 ? '<br>…' : ''}</div>`;
+        }
+        msg += `<div style="margin-top:8px;color:#7a9cc8;">💡 الأرقام دي مش ضمن نتائج البحث الحالية — وسّع البحث في البوابة ثم «🔁 تحديث القائمة».</div>`;
       } else if (selectedDate) {
         msg = `لا توجد بلاغات في ${selectedDate}`;
+      } else {
+        msg = 'لا توجد بلاغات';
       }
-      reportsList.innerHTML = `<div style="color:#7a9cc8;font-size:11px;padding:12px;text-align:center;">${msg}</div>`;
+      listEl.innerHTML = `<div style="color:#7a9cc8;font-size:11px;padding:12px;text-align:center;line-height:1.9;">${msg}</div>`;
+      state._listRendered = true;
+      updateSelectedCount();
+      updateSelectAll();
       return;
     }
 
@@ -1251,18 +1513,19 @@
       el('span', { style: 'flex:1;', textContent: 'اسم العميل' }),
       el('span', { style: 'min-width:75px;text-align:center;', textContent: 'التاريخ' }),
     ]);
-    reportsList.appendChild(headerRow);
+    listEl.appendChild(headerRow);
 
     for (const report of filtered) {
+      const key = normalizeCas(report.casNo);
       const checkbox = el('input', { type: 'checkbox' });
       // أول عرض: الكل محدد. بعدها: نحترم اختيار المستخدم.
-      checkbox.checked = hadSelection ? prevSelected.has(report.casNo) : true;
+      checkbox.checked = hadSelection ? prevSelected.has(key) : true;
       if (checkbox.checked) state.selectedReports.push(report);
       checkbox.addEventListener('change', () => {
         if (checkbox.checked) {
           state.selectedReports.push(report);
         } else {
-          state.selectedReports = state.selectedReports.filter(r => r.casNo !== report.casNo);
+          state.selectedReports = state.selectedReports.filter(r => normalizeCas(r.casNo) !== key);
         }
         updateSelectAll();
         updateSelectedCount();
@@ -1276,7 +1539,7 @@
         el('span', { className: 'rp-report-name', textContent: displayName, title: displayName }),
         el('span', { className: 'rp-report-date', textContent: report.date || '--' }),
       ]);
-      reportsList.appendChild(item);
+      listEl.appendChild(item);
     }
 
     state._listRendered = true;
@@ -1289,8 +1552,8 @@
     if (!selectAll) return;
     // المقارنة بالقائمة المعروضة فعليًا (تشمل فلتر أرقام الطلبات والتاريخ وليس التاريخ وحده)
     const visible = getFilteredAndSortedReports();
-    const selected = new Set(state.selectedReports.map(r => r.casNo));
-    const selectedVisible = visible.filter(r => selected.has(r.casNo)).length;
+    const selected = new Set(state.selectedReports.map(r => normalizeCas(r.casNo)));
+    const selectedVisible = visible.filter(r => selected.has(normalizeCas(r.casNo))).length;
     selectAll.checked = selectedVisible === visible.length && visible.length > 0;
     selectAll.indeterminate = selectedVisible > 0 && selectedVisible < visible.length;
     updateSelectedCount();
@@ -1328,12 +1591,14 @@
     return false;
   }
 
-  function checkSerialInDocDeep(doc) {
+  function checkSerialInDocDeep(doc, depth = 0) {
+    if (!doc) return false;
     if (checkSerialInDoc(doc)) return true;
+    if (depth >= 2) return false;
     for (const iframe of doc.querySelectorAll('iframe')) {
       try {
         const iDoc = iframe.contentDocument || iframe.contentWindow.document;
-        if (checkSerialInDoc(iDoc)) return true;
+        if (checkSerialInDocDeep(iDoc, depth + 1)) return true;
       } catch (e) { /* cross-origin */ }
     }
     return false;
@@ -1406,9 +1671,16 @@
 
     const reportTab = window.open(url, '_blank');
     if (!reportTab) {
-      addLog(`فشل فتح التبويب لـ ${casNo}`, 'error');
+      // المتصفح حجب النافذة المنبثقة (شائع بعد await داخل دالة async).
+      // كان الخطأ يُسجَّل بدون تحديث العدادات فيبدو أن البلاغ «اختفى».
+      const msg = `🚫 المتصفح منع فتح التبويب لـ ${casNo} — اسمح بالنوافذ المنبثقة لهذا الموقع ثم أعد المحاولة`;
+      addLog(msg, 'error');
+      setStatus(`محجوب: ${casNo}`, 'error');
+      state.totalProcessed++;
+      state.totalSkipped++;
+      updateStats();
       report._hasData = false;
-      report._status = 'فشل الفتح';
+      report._status = 'محجوب (Pop-up)';
       return false;
     }
 
@@ -1486,53 +1758,67 @@
     setStatus(`معالجة ${state.selectedReports.length} بلاغ...`, 'warn');
 
     // Concurrency-controlled processing
-    const workers = [];
-    for (let i = 0; i < state.selectedReports.length; i++) {
-      if (state.stopRequested) break;
-      
-      // Wait for available slot
-      await acquireSlot();
-      
-      if (state.stopRequested) { releaseSlot(); break; }
-      
-      // Check pause
-      await waitIfPaused();
-      if (state.stopRequested) { releaseSlot(); break; }
+    // كل شيء داخل try/finally: أي استثناء غير متوقع كان يترك state.isRunning=true
+    // و activeWorkers عالقًا، فتصبح الأداة «مجمّدة» ولا تقبل تشغيلًا جديدًا.
+    try {
+      const workers = [];
+      for (let i = 0; i < state.selectedReports.length; i++) {
+        if (state.stopRequested) break;
 
-      const report = state.selectedReports[i];
-      state.currentIndex = i;
-      
-      // Launch worker
-      const worker = (async () => {
-        try {
-          await processReport(report);
-        } finally {
-          releaseSlot();
-          saveResumeState(); // Save progress after each report
-        }
-      })();
-      workers.push(worker);
-      
-      await SLEEP(300); // Small delay between launches
+        // Wait for available slot
+        await acquireSlot();
+
+        if (state.stopRequested) { releaseSlot(); break; }
+
+        // Check pause
+        await waitIfPaused();
+        if (state.stopRequested) { releaseSlot(); break; }
+
+        const report = state.selectedReports[i];
+        state.currentIndex = i;
+
+        // Launch worker
+        const worker = (async () => {
+          try {
+            await processReport(report);
+          } finally {
+            releaseSlot();
+            saveResumeState(); // Save progress after each report
+          }
+        })();
+        workers.push(worker);
+
+        await SLEEP(300); // Small delay between launches
+      }
+
+      // allSettled بدل all: فشل بلاغ واحد لم يكن يجب أن يمنع انتظار الباقي
+      const settled = await Promise.allSettled(workers);
+      const failed = settled.filter(r => r.status === 'rejected');
+      if (failed.length) {
+        addLog(`⚠️ ${failed.length} بلاغ انتهى بخطأ غير متوقع — راجع سجل الأخطاء`, 'error');
+      }
+    } catch (e) {
+      addLog('توقف غير متوقع: ' + (e && e.message ? e.message : e), 'error');
+      setStatus('توقف غير متوقع', 'error');
+    } finally {
+      state.activeWorkers = 0;
+      state.isRunning = false;
+
+      // لا تمسح الجلسة عند الإيقاف اليدوي — وإلا فُقد الاستئناف في الحالة
+      // الوحيدة التي يُحتاج فيها فعلًا (كان يُمسح دائمًا).
+      if (!state.stopRequested) {
+        clearResumeState();
+      } else {
+        addLog('تم الإيقاف — يمكنك استئناف الجلسة لاحقًا', 'skip');
+      }
+
+      miniStopBtn.textContent = '🔄 معالجة جديدة';
+      miniStopBtn.style.background = '#27ae60';
+
+      const summary = `اكتمل - معالجة: ${state.totalProcessed} | فيها داتا: ${state.totalWithData} | لم تُفتح: ${state.totalSkipped}`;
+      addLog(summary, 'ok');
+      setStatus(summary, 'ok');
     }
-
-    // Wait for all workers to complete
-    await Promise.all(workers);
-
-    state.isRunning = false;
-    // لا تمسح الجلسة عند الإيقاف اليدوي — وإلا فُقد الاستئناف في الحالة
-    // الوحيدة التي يُحتاج فيها فعلًا (كان يُمسح دائمًا).
-    if (!state.stopRequested) {
-      clearResumeState();
-    } else {
-      addLog('تم الإيقاف — يمكنك استئناف الجلسة لاحقًا', 'skip');
-    }
-    miniStopBtn.textContent = '🔄 معالجة جديدة';
-    miniStopBtn.style.background = '#27ae60';
-
-    const summary = `اكتمل - معالجة: ${state.totalProcessed} | فيها داتا: ${state.totalWithData} | متقفلاش: ${state.totalSkipped}`;
-    addLog(summary, 'ok');
-    setStatus(summary, 'ok');
   }
 
   // ══════════════════════════════════════════════════════════════════
@@ -1563,77 +1849,140 @@
   settingsClose.addEventListener('click', hideSettings);
   overlay.addEventListener('click', (e) => { if (e.target === overlay) hideSettings(); });
 
-  document.getElementById('rp-select-all').addEventListener('change', (e) => {
+  // ── فلتر الأرقام: منطق واحد يستخدمه الزر و«تحديث القائمة» والفتح —────
+  function readRequestedCas() {
+    const textarea = document.getElementById('rp-order-id-filter');
+    const lines = (textarea ? textarea.value : '').split('\n').map(l => l.trim()).filter(Boolean);
+    const requested = [];
+    const invalid = [];
+    for (const line of lines) {
+      const normalized = normalizeCas(line);
+      if (/^CAS\d+$/i.test(normalized)) {
+        if (!requested.includes(normalized)) requested.push(normalized);
+      } else {
+        invalid.push(line.slice(0, 40));
+      }
+    }
+    return { requested, invalid, lines };
+  }
+
+  function pulseStartButton() {
+    const btn = document.getElementById('rp-settings-start');
+    if (!btn) return;
+    btn.style.boxShadow = '0 0 0 3px #f0b429';
+    setTimeout(() => { btn.style.boxShadow = ''; }, 1400);
+  }
+
+  function applyOrderFilter(opts = {}) {
+    const { requested, invalid } = readRequestedCas();
+    state.orderIdFilter = new Set(requested);
+    state.orderIdFilterOrder = requested;
+    if (!opts.keepDate) state._selectedDate = '';
+    state.sortMode = requested.length ? 'input-order' : 'scraped';
+    const sortSel = document.getElementById('rp-sort-select');
+    if (sortSel) sortSel.value = state.sortMode;
+
+    const matched = requested.filter(c => state.allReports.some(r => sameCas(r.casNo, c))).length;
+    const missing = requested.length - matched;
+
+    const status = document.getElementById('rp-order-filter-status');
+    if (status) {
+      status.style.display = 'block';
+      if (!requested.length) {
+        status.textContent = invalid.length
+          ? `⚠️ ${invalid.length} سطر بدون رقم CAS — لم أطبّق تصفية`
+          : '⚠️ الصندوق فاضي — الصق أرقام الطلبات أولًا';
+        status.style.color = '#f0b429';
+      } else {
+        status.innerHTML = `✅ مطابق <b>${matched}</b> من ${requested.length}` +
+          (missing ? ` — <span style="color:#f0b429">${missing} غير موجود في ${state.allReports.length} بلاغ</span>` : '') +
+          (invalid.length ? `<br><span style="color:#f0b429">تجاهلت ${invalid.length} سطر ليس رقم CAS</span>` : '');
+        status.style.color = matched ? '#2bd46f' : '#ff6b6b';
+      }
+    }
+
+    document.querySelectorAll('.rp-date-chip').forEach(c => c.classList.remove('selected'));
+    const allChip = document.querySelector('.rp-date-chip.all-dates');
+    if (allChip) allChip.classList.add('selected');
+    setDateChipsLocked(requested.length > 0);
+
+    renderReportsList();
+    if (requested.length) pulseStartButton();
+    console.log('[RP] Order filter applied:', requested.length, 'matched:', matched, 'invalid:', invalid.length);
+  }
+
+  function clearOrderFilter() {
+    const textarea = document.getElementById('rp-order-id-filter');
+    if (textarea) textarea.value = '';
+    state.orderIdFilter = new Set();
+    state.orderIdFilterOrder = [];
+    state.sortMode = 'scraped';
+    const sortSel = document.getElementById('rp-sort-select');
+    if (sortSel) sortSel.value = 'scraped';
+    const status = document.getElementById('rp-order-filter-status');
+    if (status) { status.style.display = 'none'; status.textContent = ''; }
+    setDateChipsLocked(false);
+    renderReportsList();
+    console.log('[RP] Order ID filter cleared');
+  }
+
+  async function refreshReports() {
+    if (state.isScraping) return;
+    const btn = document.getElementById('rp-refresh-reports');
+    if (btn) { btn.disabled = true; btn.textContent = '⏳ جاري تحديث القائمة...'; }
+    const listEl = document.getElementById('rp-reports-list') || reportsList;
+    listEl.innerHTML = '<div class="rp-loading"><div class="rp-spinner"></div><div>جاري إعادة قراءة الجدول...</div></div>';
+    try {
+      await scrapeAllPages();
+      renderDateChips();
+      applyOrderFilter({ keepDate: true });
+      addLog(`تم تحديث القائمة: ${state.allReports.length} بلاغ`, 'ok');
+    } catch (e) {
+      addLog('تعذّر تحديث القائمة: ' + (e && e.message ? e.message : e), 'error');
+    } finally {
+      if (btn) { btn.disabled = false; btn.textContent = '🔁 تحديث القائمة (بعد توسيع البحث في البوابة)'; }
+    }
+  }
+
+  // ربط آمن: لا يكرر المستمع لو أُعيد حقن السكربت
+  function bindAction(id, handler, eventName) {
+    const elm = document.getElementById(id);
+    if (!elm || elm.__rpBound) return;
+    elm.__rpBound = true;
+    elm.addEventListener(eventName || 'click', handler);
+  }
+
+  bindAction('rp-select-all', (e) => {
     const checked = e.target.checked;
     const filtered = getFilteredAndSortedReports();
     state.selectedReports = checked ? [...filtered] : [];
     document.querySelectorAll('.rp-report-item input[type="checkbox"]').forEach(cb => { cb.checked = checked; });
     updateSelectedCount();
-  });
+    updateSelectAll();
+  }, 'change');
 
-  // Order ID Filter - Apply
-  document.getElementById('rp-apply-order-filter').addEventListener('click', () => {
-    const text = document.getElementById('rp-order-id-filter').value;
-    const casNumbers = text.split('\n')
-      .map(line => line.trim())
-      .filter(line => line.length > 0)
-      .map(line => {
-        // Extract CAS number from line (handles "CAS2026..." or "رقم الطلب CAS2026..." or "CAS2026... | Serial: ...")
-        const match = line.match(/CAS\d+/);
-        return match ? match[0] : line;
-      });
-    
-    state.orderIdFilter = new Set(casNumbers);
-    state.orderIdFilterOrder = casNumbers; // Preserve input order
-    state._selectedDate = ''; // Clear date filter when order filter is active
-    state.sortMode = 'input-order'; // Auto-select input order
-    document.getElementById('rp-sort-select').value = 'input-order'; // Update UI
-    
-    document.getElementById('rp-order-filter-status').style.display = 'block';
-    document.getElementById('rp-order-filter-status').textContent = `✅ تم تصفية ${state.orderIdFilter.size} رقم طلب`;
-    document.getElementById('rp-order-filter-status').style.color = '#2bd46f';
-    
-    // Update date chips selection
-    document.querySelectorAll('.rp-date-chip').forEach(c => c.classList.remove('selected'));
-    const allChip = document.querySelector('.rp-date-chip.all-dates');
-    if (allChip) allChip.classList.add('selected');
-    
-    renderReportsList();
-    console.log('[RP] Order ID filter applied:', state.orderIdFilter.size, 'numbers, sortMode=input-order');
-  });
-
-  // Order ID Filter - Clear
-  document.getElementById('rp-clear-order-filter').addEventListener('click', () => {
-    document.getElementById('rp-order-id-filter').value = '';
-    state.orderIdFilter.clear();
-    state.orderIdFilterOrder = [];
-    state.sortMode = 'scraped';
-    document.getElementById('rp-sort-select').value = 'scraped';
-    document.getElementById('rp-order-filter-status').style.display = 'none';
-    renderReportsList();
-    console.log('[RP] Order ID filter cleared, sortMode=scraped');
-  });
-
-  // Sort Select
-  document.getElementById('rp-sort-select').addEventListener('change', (e) => {
+  bindAction('rp-apply-order-filter', () => applyOrderFilter());
+  bindAction('rp-clear-order-filter', clearOrderFilter);
+  bindAction('rp-refresh-reports', refreshReports);
+  bindAction('rp-sort-select', (e) => {
     state.sortMode = e.target.value;
     renderReportsList();
     console.log('[RP] Sort mode changed to:', state.sortMode);
-  });
+  }, 'change');
 
-  startBtn.addEventListener('click', run);
-  cancelBtn.addEventListener('click', hideSettings);
-  
+  bindAction('rp-settings-start', run);
+  bindAction('rp-settings-cancel', hideSettings);
+
   // Export buttons
-  document.getElementById('rp-export-csv').addEventListener('click', () => {
+  bindAction('rp-export-csv', () => {
     const reports = getFilteredAndSortedReports();
     if (reports.length === 0) { addLog('لا توجد بلاغات للتصدير', 'error'); return; }
     // نصدّر الحالة الحقيقية لكل بلاغ — كان الكود يفرض '—' فيمحو نتيجة المعالجة
     exportToCSV(reports, `report-processor-${Date.now()}.csv`);
     addLog(`📊 تم تصدير ${reports.length} بلاغ إلى CSV`, 'ok');
   });
-  
-  document.getElementById('rp-export-xlsx').addEventListener('click', () => {
+
+  bindAction('rp-export-xlsx', () => {
     const reports = getFilteredAndSortedReports();
     if (reports.length === 0) { addLog('لا توجد بلاغات للتصدير', 'error'); return; }
     exportToExcel(reports, `report-processor-${Date.now()}.xlsx`);
