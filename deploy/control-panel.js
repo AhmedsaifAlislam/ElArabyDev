@@ -2,7 +2,7 @@
 // control-panel.js — لوحة التحكم الذكية v1.0
 // بصمة الإصدار: تُطبع في الـ log وتظهر بجانب عنوان اللوحة، للتأكد أن المتصفح
 // حمّل أحدث نسخة من الإضافة (Reload من edge://extensions مطلوب بعد أي نشر).
-const PANEL_BUILD = '2026-10-26.36';
+const PANEL_BUILD = '2026-10-26.37';
 // Floating panel with auto-detecting page tabs
 // =========================================================
 (function () {
@@ -1130,6 +1130,21 @@ function getCSS() {
     const workLabels = workList
       .map(x => String(x || '').trim())
       .filter((x, i, arr) => x && arr.indexOf(x) === i);
+    // لا نكرر في «تم عمل» ما ذُكر فعلًا في ملاحظة موجودة (مثل ملاحظة الشورت كت):
+    // «تم ضبط الجوانات وتنظيف الصرف» تغطي «تنظيف…الصرف» و«ضبط جوان…».
+    const existing = String(o.existingNotes || '').trim();
+    const normTxt = (s) => String(s || '').toLowerCase()
+      .replace(/[\u064B-\u0652\u0640]/g, '')
+      .replace(/[أإآ]/g, 'ا').replace(/ة/g, 'ه')
+      .replace(/\s+/g, ' ');
+    const existingNorm = normTxt(existing);
+    const mentionedInNotes = (label) => {
+      if (!existingNorm) return false;
+      const desc = String(label || '').split('—').pop().trim();
+      const words = normTxt(desc).split(/[^a-z\u0600-\u06FF0-9]+/).filter(w => w.length >= 3);
+      return words.length > 0 && words.some(w => existingNorm.includes(w));
+    };
+    const workLabelsToAdd = workLabels.filter(l => !mentionedInNotes(l));
 
     if (!status) {
       return { text: '', action: 'need-status', reason: 'حالة قطع الغيار غير محددة', eligibleTotal: 0 };
@@ -1176,7 +1191,7 @@ function getCSS() {
     // ولو كان 0 نتجاهل التكلفة تمامًا (لا fallback لمجموع أسعار القطع).
     const official = Number(o.officialTotal);
     const grand = (Number.isFinite(official) && official > 0) ? official : 0;
-    const workTail = workLabels.length ? ` // تم عمل: [ ${workLabels.join(' و')} ]` : '';
+    const workTail = workLabelsToAdd.length ? ` // تم عمل: [ ${workLabelsToAdd.join(' · ')} ]` : '';
     const text = `تم تغيير : ${blocks}`
       + (grand > 0 ? ` // والتكلفة [ ${money(grand)} ] ج.م` : '')
       + workTail;
@@ -1239,10 +1254,14 @@ function getCSS() {
     const device = readDeviceHint();
     const family = defectFamilyOf(device);
     const catalog = defectCodesFor(device, family);
-    const byMajor = new Map();
+    const byKey = new Map();
     (catalog || []).forEach(c => {
-      const k = String((c && c.major) || '').toUpperCase();
-      if (k && !byMajor.has(k)) byMajor.set(k, c);
+      const majorKey = String((c && c.major) || '').toUpperCase();
+      const subKey = String((c && c.sub) || '').toUpperCase();
+      if (!majorKey) return;
+      byKey.set(majorKey + '|' + subKey, c);
+      // احتياطي للكود بلا فرع: الرئيسي وحده
+      if (!byKey.has(majorKey + '|')) byKey.set(majorKey + '|', c);
     });
     const out = [];
     const seen = new Set();
@@ -1254,7 +1273,7 @@ function getCSS() {
       const key = major + '|' + sub;
       if (seen.has(key)) return;
       seen.add(key);
-      const info = byMajor.get(major) || {};
+      const info = byKey.get(key) || byKey.get(major + '|') || {};
       out.push({
         major,
         sub,
@@ -1292,9 +1311,11 @@ function getCSS() {
     const officialTotal = readOfficialSparePartsTotal();
     const secondaryCodes = checkedCodesInfo(shadow);
     const secondary = secondaryCodes.map(c => c.desc || c.major);
+    const notesEl = findNotesField();
+    const existingNotes = String((notesEl && notesEl.value) || '').trim();
 
-    const plan = buildPartsNote({ parts, partsStatus, officialTotal, secondaryDescriptions: secondary, secondaryCodes });
-    logEvent('PARTS', `حالة=${partsStatus || 'فاضية'} • قطع=${parts.length} • رسمي=${officialTotal} • أكواد معلّمة=${secondaryCodes.length} • قرار=${plan.action} — ${plan.reason}`);
+    const plan = buildPartsNote({ parts, partsStatus, officialTotal, secondaryDescriptions: secondary, secondaryCodes, existingNotes });
+    logEvent('PARTS', `حالة=${partsStatus || 'فاضية'} • قطع=${parts.length} • رسمي=${officialTotal} • أكواد معلّمة=${secondaryCodes.length} • ملاحظة قائمة=${existingNotes ? 'نعم' : 'لا'} • قرار=${plan.action} — ${plan.reason}`);
 
     if (plan.action === 'need-status') {
       setStatus(shadow, '⚠️ حدّد حالة قطع الغيار الأول (مستعمل/منتظر/بدون…)، ثم أعد المحاولة', 'warn');
@@ -1783,7 +1804,8 @@ function getCSS() {
     }
 
     const extras = `${notesChecked ? ' + ملاحظة' : ''}${noteWritten ? ' + تعليق' : ''}`;
-    setStatus(shadow, `✅ ${def.name || type} (${finalChecked} كود)${extras} + ${amountOut} جنيه`, 'success');
+    const missMsg = missing.length ? ` • ⚠️ غير موجود في اللوحة: ${missing.join(' · ')}` : '';
+    setStatus(shadow, `✅ ${def.name || type} (${finalChecked} كود)${extras} + ${amountOut} جنيه${missMsg}`, missing.length ? 'warn' : 'success');
     logEvent('SHORTCUT', `النتيجة: ${finalChecked} كود, ${notesChecked} ملاحظة${noteWritten ? ', تعليق مباشر' : ''}, مبلغ ${amountOut}`);
     return true;
   }

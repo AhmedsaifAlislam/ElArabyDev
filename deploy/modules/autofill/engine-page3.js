@@ -156,9 +156,10 @@ window.AutoFillEngine = window.AutoFillEngine || {};
       if (g) {
         const rows = Array.from(g.querySelectorAll('table tbody tr')).filter(r => {
           const txt = (r.innerText || '').toLowerCase();
-          if (subSearch && txt.includes(subSearch.toLowerCase())) return true;
-          if (mainSearch && txt.includes(mainSearch.toLowerCase())) return true;
-          return false;
+          // الفرع هو المحدد عند وجوده: RF3600/3606 ≠ RF3600/3607.
+          // (المطابقة بالرئيسي كانت تُسقط الفروع الأخرى لنفس الرئيسي.)
+          if (subSearch) return txt.includes(subSearch.toLowerCase());
+          return mainSearch ? txt.includes(mainSearch.toLowerCase()) : false;
         });
         if (rows.length > 0) {
           log(`Fault code ${subSearch || mainSearch} already present in ${gid} — skipping`);

@@ -2521,6 +2521,45 @@ function load(sandbox, file) {
     });
     ok(/والتكلفة \[ 350 \] ج\.م/.test(official350.text),
       'قطع الغيار: التكلفة تُكتب من الإجمالي الرسمي (350) لا من القطع (100)');
+
+    // (٤) فحص «موجود مسبقًا» في البوابة: الفرع لا الرئيسي
+    const eng50 = read('modules/autofill/engine-page3.js');
+    ok(/if \(subSearch\) return txt\.includes\(subSearch\.toLowerCase\(\)\);/.test(eng50)
+      && !/if \(subSearch && txt\.includes\(subSearch\.toLowerCase\(\)\)\) return true;/.test(eng50),
+      'engine-page3: فحص الوجود يحدد الفرع (RF3600/3606 ≠ RF3600/3607)');
+
+    // (٥) checkedCodesInfo: مفتاح رئيسي|فرعي (لا وصف أول فرع)
+    ok(/const key = major \+ '\|' \+ sub;/.test(cp50)
+      && /byKey\.get\(key\) \|\| byKey\.get\(major \+ '\|'\)/.test(cp50),
+      'control-panel: أوصاف الأكواد المعلّمة بمفتاح رئيسي|فرعي');
+
+    // (٦) «تم عمل» لا تكرر ملاحظة موجودة
+    const dupNote = BP50({
+      parts: [{ code: 'RF-T-O-LODCOM75-4', name: 'OLP', price: 100, qty: 1, total: 100 }],
+      partsStatus: S50.USED,
+      officialTotal: 0,
+      secondaryCodes: [
+        { major: 'RF2000', sub: '2006', desc: 'تنظيف او تسليك خرطوم الصرف' },
+        { major: 'RF3600', sub: '3606', desc: 'ضبط جوان الفريزر / بالتسخين' },
+        { major: 'RF3600', sub: '3607', desc: 'ضبط جوان الكابينة / بالتسخين' }
+      ],
+      existingNotes: 'تم ضبط الجوانات وتنظيف الصرف'
+    });
+    ok(!/تم عمل:/.test(dupNote.text),
+      'قطع الغيار: الملاحظة القائمة تغطي الأعمال ⇒ لا تكرار «تم عمل»');
+
+    // (٧) الوصف الصحيح لكل فرع عند غياب ملاحظة
+    const perSub = BP50({
+      parts: [{ code: 'X', name: 'Y', price: 0, qty: 1, total: 0 }],
+      partsStatus: S50.USED,
+      officialTotal: 0,
+      secondaryCodes: [
+        { major: 'RF3600', sub: '3606', desc: 'ضبط جوان الفريزر / بالتسخين' },
+        { major: 'RF3600', sub: '3607', desc: 'ضبط جوان الكابينة / بالتسخين' }
+      ]
+    });
+    ok(/RF3600\/3606 — ضبط جوان الفريزر/.test(perSub.text) && /RF3600\/3607 — ضبط جوان الكابينة/.test(perSub.text),
+      'قطع الغيار: كل فرع يحمل وصفه الصحيح (لا وصف الفرع الأول)');
   }
 
   console.log('\n=== RESULT: ' + pass + ' passed, ' + fail + ' failed ===');
