@@ -1,0 +1,86 @@
+{
+  "version": 1,
+  "source": "chat: قائمة «المشاكل الفعلية المستخدمة» من البوابة — 2026-10-19",
+  "updatedAt": "2026-10-20",
+  "note": "أكواد المشاكل الفعلية (صفحة 2) فقط. أكواد الأعطال (صفحة 3) في defect-catalog.json — لا تُخلط.",
+  "recordCounts": {
+    "GS": 56,
+    "GR": 54,
+    "AC": 43,
+    "WM": 95,
+    "HT": 54
+  },
+  "forbiddenKeywords": [
+    "ترصيد",
+    "تجار",
+    "ارضي",
+    "أرضي",
+    "بلاغ"
+  ],
+  "families": {
+    "GS": ["بوتجاز", "بوتاجاز", "مسطح", "فرن"],
+    "GR": ["ثلاجة", "ثلاجات", "ثلاجه", "مبرد", "فريزر"],
+    "AC": ["تكييف", "شباك", "سبليت", "A/C"],
+    "DW": ["غسالة أطباق", "غسالة اطباق", "اطباق", "أطباق", "dishwasher"],
+    "WM": ["غسالة", "غساله", "غسالات"],
+    "HT": ["سخانات مياه", "سخانات", "سخان", "WH"],
+    "*": ["عام"]
+  },
+  "codes": [
+    { "code": "GI00", "desc": "ترصيد بلاغ أرضى", "family": "*", "forbidden": true },
+
+    { "code": "GS01", "desc": "تسريب غاز", "family": "GS" },
+    { "code": "GS02", "desc": "لهب شديد اسفل العيون", "family": "GS" },
+    { "code": "GS03", "desc": "غطاء الشعله غير موجود", "family": "GS" },
+    { "code": "GS04", "desc": "الاشعال الذاتى لا يعمل باحد العيون", "family": "GS" },
+    { "code": "GS05", "desc": "الاشعال الذاتى لا يعمل بكل العيون", "family": "GS" },
+    { "code": "GS06", "desc": "انصهار الشعله الكبرى", "family": "GS" },
+    { "code": "GS07", "desc": "الاشعال ضعيف", "family": "GS" },
+    { "code": "GS08", "desc": "الارجل مكسوره", "family": "GS", "forbidden": true },
+
+    { "code": "GR01", "desc": "لا تبرد فى الكابينه نهائيا", "family": "GR" },
+    { "code": "GR02", "desc": "لا تجمد فى الفريزر", "family": "GR" },
+    { "code": "GR03", "desc": "التجميد ضعيف فى الفريزر", "family": "GR" },
+    { "code": "GR04", "desc": "التبريد ضعيف فى الثلاجه", "family": "GR" },
+    { "code": "GR05", "desc": "التبريد ضعيف بدرج الخضار", "family": "GR", "forbidden": true },
+    { "code": "GR06", "desc": "التبريد ضعيف فى الكابينه", "family": "GR" },
+    { "code": "GR07", "desc": "تسريب مياه على الارض", "family": "GR" },
+    { "code": "GR08", "desc": "تسريب مياه على الارفف", "family": "GR" },
+
+    { "code": "AC01", "desc": "البلازما لا تعمل", "family": "AC" },
+    { "code": "AC02", "desc": "التبريد ضعيف", "family": "AC" },
+    { "code": "AC03", "desc": "التبريد منعدم", "family": "AC" },
+    { "code": "AC04", "desc": "التسخين ضعيف", "family": "AC" },
+    { "code": "AC05", "desc": "الجهاز لا يعمل", "family": "AC" },
+    { "code": "AC06", "desc": "الجهاز يفصل بعد فتره", "family": "AC" },
+    { "code": "AC07", "desc": "الريموت كنترول لا يعمل", "family": "AC" },
+    { "code": "AC08", "desc": "المروحة لا تعمل", "family": "AC" },
+    { "code": "AC09", "desc": "المروحة لا تفصل", "family": "AC" },
+    { "code": "AC10", "desc": "الموجهات الأفقيه لا تعمل", "family": "AC" },
+
+    { "code": "SR00", "desc": "مبيعات الحالة الفنية للجهاز", "family": "WM", "forbidden": true },
+    { "code": "SR01", "desc": "مبيعات استخدام الجهاز أم لا", "family": "WM", "forbidden": true },
+    { "code": "WM02", "desc": "اعادة دورة الغسيل تلقائيا", "family": "WM" },
+    { "code": "WM03", "desc": "اعادة شرح طريقة الاستخدام", "family": "WM" },
+    { "code": "WM04", "desc": "الاكره مكسوره", "family": "WM", "forbidden": true },
+    { "code": "WM05", "desc": "التجفيف لا يعمل", "family": "WM" },
+    { "code": "WM06", "desc": "التسخين لا يعمل", "family": "WM" },
+    { "code": "WM07", "desc": "الجسم الخارجى مفكوك", "family": "WM" },
+    { "code": "WM09", "desc": "الحلة تدور ببطىء", "family": "WM" },
+    { "code": "WM10", "desc": "الحلة لا تدور", "family": "WM" },
+    { "code": "WM11", "desc": "السير سقط", "family": "WM" },
+    { "code": "WM12", "desc": "الشطف لا يعمل", "family": "WM" },
+    { "code": "WM13", "desc": "العصاره سقطت من مكانها", "family": "WM" },
+    { "code": "WM14", "desc": "العصاره لا تعمل", "family": "WM" },
+    { "code": "WM15", "desc": "الغسالة بتكهرب", "family": "WM" },
+
+    { "code": "HT01", "desc": "لا يسخن", "family": "HT" },
+    { "code": "HT02", "desc": "تسريب مياه", "family": "HT" },
+    { "code": "HT03", "desc": "لمبة البيان لا تعمل", "family": "HT" },
+    { "code": "HT04", "desc": "لا يعمل نهائيا", "family": "HT" },
+    { "code": "HT05", "desc": "صوت تكتكه", "family": "HT" },
+    { "code": "HT06", "desc": "كهرباء فى المواسير", "family": "HT" },
+    { "code": "HT07", "desc": "السخان يفصل تلقائيا", "family": "HT" },
+    { "code": "HT08", "desc": "لمبه البيان لا تعمل", "family": "HT" }
+  ]
+}

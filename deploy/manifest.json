@@ -1,0 +1,178 @@
+{
+  "manifest_version": 3,
+  "name": "العربي ديف — مساعد البوابة",
+  "version": "1.2.0",
+  "description": "أدوات El Araby الموحدة: ملء تلقائي، كشف الأرقام، التقفيلات، الفلترة، والتحليلات — بوابة واحدة",
+  "permissions": ["activeTab", "scripting", "storage", "unlimitedStorage", "notifications", "tabs", "clipboardRead", "alarms"],
+  "host_permissions": [
+    "https://elarabyportalpfs.powerappsportals.com/*",
+    "https://elarabyiscrm2.azurewebsites.net/*",
+    "https://opencode.ai/*",
+    "http://localhost:11434/*",
+    "*://*.fbcdn.net/*",
+    "*://*.fna.fbcdn.net/*",
+    "*://*.cdninstagram.com/*"
+  ],
+  "action": {
+    "default_popup": "popup.html",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "48": "icons/icon48.png",
+      "128": "icons/icon128.png"
+    },
+    "default_title": "العربي ديف — مساعد البوابة"
+  },
+  "background": {
+    "service_worker": "background.js"
+  },
+  "commands": {
+    "quick-paste-batch": {
+      "suggested_key": {
+        "default": "Ctrl+Shift+Space",
+        "windows": "Ctrl+Shift+Space",
+        "mac": "Command+Shift+Space"
+      },
+      "description": "لصق الحافظة وبدء تشغيل متعدد"
+    },
+    "trigger-messenger": {
+      "suggested_key": {
+        "default": "Ctrl+Shift+Comma",
+        "windows": "Ctrl+Shift+Comma",
+        "mac": "Command+Shift+Comma"
+      },
+      "description": "تشغيل مرسل الماسنجر"
+    },
+    "open-technical-review": {
+      "suggested_key": {
+        "default": "Ctrl+Shift+Period",
+        "windows": "Ctrl+Shift+Period",
+        "mac": "Command+Shift+Period"
+      },
+      "description": "فتح صفحة المراجعة الفنية للبلاغ الحالي"
+    }
+  },
+  "content_scripts": [
+    {
+      "matches": ["https://elarabyportalpfs.powerappsportals.com/*"],
+      "js": ["lib/xlsx.full.min.js", "lib/exceljs.min.js"],
+      "run_at": "document_start"
+    },
+    {
+      "matches": ["https://elarabyportalpfs.powerappsportals.com/*"],
+      "js": ["elaraby-phone-reveal-layer0.js"],
+      "run_at": "document_start",
+      "world": "MAIN"
+    },
+    {
+      "matches": ["https://elarabyportalpfs.powerappsportals.com/*"],
+      "js": ["dock-fab-hider.js"],
+      "run_at": "document_start"
+    },
+    {
+      "matches": ["https://elarabyportalpfs.powerappsportals.com/*"],
+      "js": [
+        "shared/table-scraper.js",
+        "shared/sync-manager.js"
+      ],
+      "run_at": "document_idle"
+    },
+    {
+      "matches": ["https://elarabyportalpfs.powerappsportals.com/*"],
+      "js": [
+        "shared/message-bus.js",
+        "shared/storage-proxy.js",
+        "modules/autofill/runtime-trace.js",
+        "shared/smart-log.js",
+        "shared/arabic-utils.js",
+        "shared/data-mapper.js",
+        "shared/portal-selectors.js",
+        "shared/problem-codes.js",
+        "shared/frame-walker.js",
+        "shared/excel-exporter.js",
+        "shared/portal-config.js",
+        "shared/ai-client.js",
+        "ai/smart-ai-tools.js",
+        "shared/n8n-client.js",
+        "modules/autofill/engine-lookups.js",
+        "modules/autofill/engine-page1.js",
+        "modules/autofill/engine-page2.js",
+        "modules/autofill/engine-page3.js",
+        "modules/autofill/engine-orchestrator.js",
+        "content-script.js"
+      ],
+      "run_at": "document_idle",
+      "all_frames": true,
+      "match_about_blank": true
+    },
+    {
+      "matches": ["https://elarabyportalpfs.powerappsportals.com/*"],
+      "js": [
+        "shared/frame-walker.js",
+        "shared/problem-codes.js",
+        "control-panel.js",
+        "features/attachments/multi-uploader.js",
+        "fabs-controller.js"
+      ],
+      "run_at": "document_idle"
+    },
+    {
+      "matches": ["https://elarabyportalpfs.powerappsportals.com/*"],
+      "js": [
+        "shared/portal-selectors.js",
+        "order-extractor.js"
+      ],
+      "run_at": "document_idle"
+    },
+    {
+      "matches": [
+        "https://elarabyportalpfs.powerappsportals.com/*",
+        "https://*.facebook.com/*",
+        "https://*.messenger.com/*",
+        "https://*.instagram.com/*",
+        "https://*.whatsapp.com/*"
+      ],
+      "js": [
+        "tampermonkey-runner.js"
+      ],
+      "run_at": "document_idle"
+    },
+    {
+      "matches": ["https://elarabyiscrm2.azurewebsites.net/ASPPage/SelectReport.aspx*"],
+      "js": ["content/search/search-content.js"],
+      "css": ["content/search/search-styles.css"],
+      "run_at": "document_idle"
+    },
+    {
+      "matches": ["https://elarabyportalpfs.powerappsportals.com/en-US/ReportList/*", "https://elarabyportalpfs.powerappsportals.com/en-US/ReportList*"],
+      "js": ["content/defect-scanner/defect-scanner.js"],
+      "css": ["content/defect-scanner/defect-scanner.css"],
+      "run_at": "document_idle"
+    }
+  ],
+  "icons": {
+    "16": "icons/icon16.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  },
+  "web_accessible_resources": [
+    {
+      "resources": [
+        "selectors.json",
+        "secondVisitProfiles.json",
+        "products-db.json",
+        "travel-costs.json",
+        "model-notes.json",
+        "problem-catalog.json",
+        "defect-catalog.json",
+        "lib/xlsx.full.min.js",
+          "Tempermonky/elaraby-phone-reveal.js",
+          "Tempermonky/messenger-sender.js",
+          "Tempermonky/report-processor.js",
+          "Tempermonky/future-orders-reveal.js",
+        "dashboard/dashboard.js",
+        "content/defect-scanner/defect-scanner.css"
+      ],
+      "matches": ["<all_urls>"]
+    }
+  ]
+}

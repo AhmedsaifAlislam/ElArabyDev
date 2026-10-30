@@ -1,0 +1,106 @@
+/**
+ * CRM Content Script Styles
+ * Global styles for the CRM extractor UI
+ */
+
+* {
+  box-sizing: border-box;
+}
+
+:host {
+  font-family: 'Cairo', 'Segoe UI', Tahoma, sans-serif;
+  direction: rtl;
+  /* CRM UI is a light-themed overlay: pin light surface defaults locally */
+  --ea-surface: #ffffff;
+  --ea-surface-2: #eef3f9;
+  --ea-faint: #f8fafc;
+  --ea-faint-2: #f1f5f9;
+  --ea-border: #e2e8f0;
+  --ea-border-strong: #cbd5e1;
+  --ea-text: #1e293b;
+  --ea-muted: #64748b;
+  --ea-icon-fill: #94a3b8;
+  --ea-brand-bg: #eff6ff;
+  --ea-track: #e2e8f0;
+}
+
+/* Scrollbar styling */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: var(--ea-scroll-track);
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--ea-scroll-thumb);
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--ea-scroll-thumb-hover);
+}
+
+/* Focus visible for accessibility */
+:focus-visible {
+  outline: 2px solid var(--ea-brand);
+  outline-offset: 2px;
+}
+
+/* Animation utilities */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(-4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.animate-fade-in {
+  animation: fadeIn 0.2s ease-out;
+}
+
+/* RTL utilities */
+.rtl { direction: rtl; }
+.ltr { direction: ltr; }
+
+/* Text utilities */
+.text-center { text-align: center; }
+.text-right { text-align: right; }
+.text-left { text-align: left; }
+
+/* Spacing */
+.mt-1 { margin-top: 4px; }
+.mt-2 { margin-top: 8px; }
+.mt-3 { margin-top: 12px; }
+.mt-4 { margin-top: 16px; }
+.mb-1 { margin-bottom: 4px; }
+.mb-2 { margin-bottom: 8px; }
+.mb-3 { margin-bottom: 12px; }
+.mb-4 { margin-bottom: 16px; }
+
+/* Flex utilities */
+.flex { display: flex; }
+.flex-col { flex-direction: column; }
+.items-center { align-items: center; }
+.justify-center { justify-content: center; }
+.justify-between { justify-content: space-between; }
+.gap-1 { gap: 4px; }
+.gap-2 { gap: 8px; }
+.gap-3 { gap: 12px; }
+.gap-4 { gap: 16px; }
+
+/* Color utilities */
+.text-primary { color: var(--ea-brand); }
+.text-success { color: var(--ea-success); }
+.text-warning { color: var(--ea-warn); }
+.text-danger { color: var(--ea-error); }
+.text-info { color: var(--ea-info); }
+.text-muted { color: var(--ea-muted); }
+
+.bg-primary { background: var(--ea-brand); }
+.bg-success { background: var(--ea-success); }
+.bg-warning { background: var(--ea-warn); }
+.bg-danger { background: var(--ea-error); }
+
+/* Print styles */
+@media print {
+  :host { display: none; }
+}

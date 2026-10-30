@@ -1,0 +1,678 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>El Araby — لوحة التحكم</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;900&display=swap" rel="stylesheet">
+  <script src="../../../lib/papaparse.min.js"></script>
+  <script src="../../../lib/xlsx.full.min.js"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --blue:       #0056b3;
+      --blue-dark:  #003d82;
+      --blue-light: #eff6ff;
+      --green:      #16a34a;
+      --red:        #dc2626;
+      --gray-50:    #f8fafc;
+      --gray-100:   #f1f5f9;
+      --gray-200:   #e2e8f0;
+      --gray-400:   #94a3b8;
+      --gray-600:   #475569;
+      --gray-800:   #1e293b;
+      --shadow:     0 4px 24px rgba(0,0,0,0.08);
+      --radius:     12px;
+    }
+
+    body {
+      font-family: 'Cairo', sans-serif;
+      background: #eef2fb;
+      color: var(--gray-800);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* ══ TOP NAVBAR ══ */
+    .navbar {
+      background: linear-gradient(135deg, var(--blue) 0%, var(--blue-dark) 100%);
+      padding: 0 28px;
+      height: 60px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      box-shadow: 0 4px 20px rgba(0,86,179,0.3);
+      position: sticky; top: 0; z-index: 100;
+    }
+    .nav-brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .nav-icon {
+      width: 36px; height: 36px;
+      background: rgba(255,255,255,0.15);
+      border-radius: 8px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 18px;
+    }
+    .nav-title { color: #fff; font-size: 16px; font-weight: 900; }
+    .nav-title span { font-weight: 400; opacity: 0.7; font-size: 12px; display: block; }
+
+    .nav-tabs {
+      display: flex;
+      gap: 4px;
+    }
+    .nav-tab {
+      padding: 6px 16px;
+      border-radius: 8px;
+      border: none;
+      background: transparent;
+      color: rgba(255,255,255,0.7);
+      font-family: 'Cairo', sans-serif;
+      font-size: 13px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .nav-tab:hover { background: rgba(255,255,255,0.12); color: #fff; }
+    .nav-tab.active { background: rgba(255,255,255,0.2); color: #fff; }
+
+    /* ══ MAIN LAYOUT ══ */
+    .main { flex: 1; padding: 24px 28px; max-width: 1200px; width: 100%; margin: 0 auto; }
+
+    /* ══ TABS ══ */
+    .tab-panel { display: none; }
+    .tab-panel.active { display: block; }
+
+    /* ══ SYNC PANEL ══ */
+    .sync-card {
+      background: #fff;
+      border-radius: var(--radius);
+      padding: 28px;
+      box-shadow: var(--shadow);
+      border: 1px solid var(--gray-200);
+      margin-bottom: 20px;
+    }
+    .section-title {
+      font-size: 16px;
+      font-weight: 900;
+      color: var(--gray-800);
+      margin-bottom: 16px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .section-title::before {
+      content: '';
+      display: block;
+      width: 4px;
+      height: 20px;
+      background: var(--blue);
+      border-radius: 2px;
+    }
+
+    .url-row {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 14px;
+    }
+    .url-input {
+      flex: 1;
+      padding: 11px 14px;
+      border: 1.5px solid var(--gray-200);
+      border-radius: 10px;
+      font-family: 'Cairo', sans-serif;
+      font-size: 13px;
+      color: var(--gray-800);
+      background: var(--gray-50);
+      outline: none;
+      transition: border-color 0.2s, box-shadow 0.2s;
+      direction: ltr;
+      text-align: left;
+    }
+    .url-input:focus {
+      border-color: var(--blue);
+      box-shadow: 0 0 0 3px rgba(0,86,179,0.1);
+      background: #fff;
+    }
+    .btn {
+      padding: 11px 20px;
+      border: none;
+      border-radius: 10px;
+      font-family: 'Cairo', sans-serif;
+      font-size: 13px;
+      font-weight: 900;
+      cursor: pointer;
+      transition: all 0.15s;
+      white-space: nowrap;
+    }
+    .btn-primary {
+      background: linear-gradient(135deg, var(--blue), var(--blue-dark));
+      color: #fff;
+      box-shadow: 0 4px 14px rgba(0,86,179,0.25);
+    }
+    .btn-primary:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 6px 18px rgba(0,86,179,0.3); }
+    .btn-primary:disabled { background: var(--gray-200); color: var(--gray-400); box-shadow: none; cursor: not-allowed; }
+    .btn-success {
+      background: linear-gradient(135deg, var(--green), #15803d);
+      color: #fff;
+      box-shadow: 0 4px 14px rgba(22,163,74,0.25);
+    }
+    .btn-success:hover:not(:disabled) { transform: translateY(-1px); }
+    .btn-success:disabled { background: var(--gray-200); color: var(--gray-400); box-shadow: none; cursor: not-allowed; }
+    .btn-danger {
+      background: linear-gradient(135deg, var(--red), #b91c1c);
+      color: #fff;
+      box-shadow: 0 4px 14px rgba(220,38,38,0.25);
+    }
+    .btn-danger:hover:not(:disabled) { transform: translateY(-1px); }
+    .btn-danger:disabled { background: var(--gray-200); color: var(--gray-400); box-shadow: none; cursor: not-allowed; }
+    .btn-outline {
+      background: #fff;
+      color: var(--gray-600);
+      border: 1.5px solid var(--gray-200);
+    }
+    .btn-outline:hover { background: var(--gray-100); }
+
+    /* ══ PROGRESS ══ */
+    .progress-wrap {
+      display: none;
+      margin-top: 14px;
+    }
+    .progress-track {
+      height: 8px;
+      background: var(--gray-100);
+      border-radius: 4px;
+      overflow: hidden;
+      margin-bottom: 6px;
+    }
+    .progress-fill {
+      height: 100%;
+      background: linear-gradient(90deg, #0056b3, #38bdf8);
+      border-radius: 4px;
+      width: 0%;
+      transition: width 0.3s;
+    }
+    .progress-label { font-size: 11px; color: var(--gray-400); font-weight: 600; }
+
+    /* ══ STATUS ALERT ══ */
+    .alert {
+      padding: 12px 16px;
+      border-radius: 10px;
+      font-size: 13px;
+      font-weight: 700;
+      margin-top: 12px;
+      display: none;
+    }
+    .alert.success { background: #f0fdf4; color: var(--green); border: 1px solid #bbf7d0; display: block; }
+    .alert.error   { background: #fef2f2; color: var(--red);   border: 1px solid #fecaca; display: block; }
+    .alert.info    { background: var(--blue-light); color: var(--blue); border: 1px solid #bfdbfe; display: block; }
+
+    /* ══ STATS CARDS ══ */
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 16px;
+      margin-bottom: 20px;
+    }
+    .stat-card {
+      background: #fff;
+      border-radius: var(--radius);
+      padding: 20px;
+      box-shadow: var(--shadow);
+      border: 1px solid var(--gray-200);
+      text-align: center;
+    }
+    .stat-card.blue  { border-top: 4px solid var(--blue);  }
+    .stat-card.green { border-top: 4px solid var(--green); }
+    .stat-card.orange{ border-top: 4px solid #f59e0b;      }
+    .stat-label { font-size: 11px; color: var(--gray-400); font-weight: 700; text-transform: uppercase; margin-bottom: 6px; }
+    .stat-value { font-size: 28px; font-weight: 900; color: var(--gray-800); line-height: 1; }
+    .stat-sub   { font-size: 11px; color: var(--gray-400); margin-top: 4px; }
+
+    /* ══ TABLE ══ */
+    .table-card {
+      background: #fff;
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      border: 1px solid var(--gray-200);
+      overflow: hidden;
+    }
+    .table-header {
+      padding: 16px 20px;
+      border-bottom: 1px solid var(--gray-100);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+    .search-box {
+      position: relative;
+      flex: 1;
+      min-width: 200px;
+      max-width: 340px;
+    }
+    .search-box input {
+      width: 100%;
+      padding: 8px 12px 8px 34px;
+      border: 1.5px solid var(--gray-200);
+      border-radius: 8px;
+      font-family: 'Cairo', sans-serif;
+      font-size: 13px;
+      background: var(--gray-50);
+      outline: none;
+    }
+    .search-box input:focus { border-color: var(--blue); }
+    .search-box svg {
+      position: absolute;
+      left: 10px; top: 50%;
+      transform: translateY(-50%);
+      color: var(--gray-400);
+    }
+
+    table { width: 100%; border-collapse: collapse; }
+    thead { background: var(--gray-50); }
+    th {
+      padding: 12px 16px;
+      text-align: right;
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--gray-400);
+      text-transform: uppercase;
+      border-bottom: 1px solid var(--gray-100);
+      white-space: nowrap;
+    }
+    td {
+      padding: 11px 16px;
+      font-size: 13px;
+      border-bottom: 1px solid var(--gray-100);
+    }
+    tr:last-child td { border-bottom: none; }
+    tr:hover td { background: #f8fbff; }
+
+    .badge {
+      padding: 3px 8px;
+      border-radius: 6px;
+      font-size: 11px;
+      font-weight: 700;
+    }
+    .badge-blue   { background: #dbeafe; color: #1d4ed8; }
+    .badge-green  { background: #dcfce7; color: var(--green); }
+    .badge-orange { background: #fef3c7; color: #92400e; }
+    .badge-gray   { background: var(--gray-100); color: var(--gray-600); }
+
+    .text-mono { font-family: 'Courier New', monospace; font-size: 12px; }
+    .text-muted { color: var(--gray-400); font-size: 11px; }
+    .text-price { color: var(--green); font-weight: 900; font-family: 'Courier New', monospace; }
+    .text-total { color: var(--blue); font-weight: 900; font-family: 'Courier New', monospace; }
+
+    .no-data {
+      text-align: center;
+      padding: 48px 20px;
+      color: var(--gray-400);
+    }
+    .no-data svg { opacity: 0.3; margin-bottom: 12px; }
+    .no-data p { font-size: 14px; font-weight: 700; }
+    .no-data span { font-size: 12px; display: block; margin-top: 4px; }
+    .log-item:hover { background: var(--gray-50); }
+
+    /* ══ SEARCH TAB ══ */
+    .search-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 14px;
+      margin-bottom: 16px;
+    }
+    .field-group label {
+      display: block;
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--gray-400);
+      margin-bottom: 5px;
+      text-transform: uppercase;
+    }
+    .field-group input, .field-group select {
+      width: 100%;
+      padding: 9px 12px;
+      border: 1.5px solid var(--gray-200);
+      border-radius: 9px;
+      font-family: 'Cairo', sans-serif;
+      font-size: 13px;
+      background: var(--gray-50);
+      outline: none;
+      transition: border-color 0.2s;
+    }
+    .field-group input:focus, .field-group select:focus {
+      border-color: var(--blue);
+      background: #fff;
+    }
+    .field-wide { grid-column: span 3; }
+
+    /* ══ FILE DROP ══ */
+    .drop-zone {
+      border: 2px dashed var(--gray-200);
+      border-radius: 12px;
+      padding: 40px 20px;
+      text-align: center;
+      cursor: pointer;
+      transition: all 0.2s;
+      margin-bottom: 16px;
+    }
+    .drop-zone:hover, .drop-zone.dragover {
+      border-color: var(--blue);
+      background: var(--blue-light);
+    }
+    .drop-zone svg { opacity: 0.4; margin-bottom: 10px; }
+    .drop-zone p { font-size: 14px; font-weight: 700; color: var(--gray-600); }
+    .drop-zone span { font-size: 12px; color: var(--gray-400); display: block; margin-top: 4px; }
+
+    /* ══ SCROLLBAR ══ */
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-thumb { background: var(--gray-200); border-radius: 3px; }
+    ::-webkit-scrollbar-thumb:hover { background: var(--gray-400); }
+    .inv-filters {
+      display: flex; gap: 8px; flex-wrap: wrap; align-items: center;
+    }
+    .inv-select {
+      padding: 8px 12px; border: 1.5px solid var(--gray-200);
+      border-radius: 8px; font-family: 'Cairo', sans-serif;
+      font-size: 13px; background: var(--gray-50); outline: none;
+      cursor: pointer; min-width: 140px;
+    }
+    .inv-select:focus { border-color: var(--blue); background: #fff; }
+    .inv-search-wrap { display: flex; gap: 8px; align-items: center; }
+    .panel-search-input {
+      width: 100%; padding: 10px 14px; border: 1.5px solid var(--gray-200);
+      border-radius: 8px; font-family: 'Cairo', sans-serif;
+      font-size: 14px; background: var(--gray-50); outline: none; direction: rtl;
+    }
+    .panel-search-input:focus { border-color: var(--blue); background: #fff; }
+
+    /* Searchable dropdown */
+    .filter-wrap { display:flex; gap:10px; margin-bottom:14px; flex-wrap:wrap; }
+    .filter-wrap .enhanced-select { flex:1; min-width:140px; }
+    .enhanced-select input:focus { border-color: var(--blue); box-shadow: 0 0 0 3px rgba(0,86,179,0.1); }
+    .enhanced-select div::-webkit-scrollbar { width: 5px; }
+    .enhanced-select div::-webkit-scrollbar-thumb { background: #e2e8f0; border-radius: 4px; }
+
+    .inv-count {
+      background: var(--blue); color: #fff; border-radius: 8px;
+      padding: 4px 10px; font-size: 12px; font-weight: 700; white-space: nowrap;
+    }
+
+  </style>
+</head>
+<body>
+
+  <!-- NAVBAR -->
+  <nav class="navbar">
+    <div class="nav-brand">
+      <div class="nav-icon">⚙️</div>
+      <div class="nav-title">
+        مساعد العربي — لوحة التحكم
+        <span>إدارة العهدة وقطع الغيار</span>
+      </div>
+    </div>
+    <div class="nav-tabs">
+      <button class="nav-tab active" data-panel="home">🏠 الرئيسية</button>
+      <button class="nav-tab" data-panel="inventory">📦 جرد العهدة</button>
+      <button class="nav-tab" data-panel="data">📁 إدارة البيانات</button>
+      <button class="nav-tab" data-panel="log">📋 سجل</button>
+    </div>
+  </nav>
+
+  <div class="main">
+
+    <!-- ══ TAB 1: HOME (Search + Sync) ══ -->
+    <div class="tab-panel active" id="panel-home">
+
+      <div class="sync-card">
+        <div class="section-title">مزامنة قاعدة البيانات</div>
+
+        <div style="display:flex; gap:12px; margin-bottom:16px;">
+          <button class="nav-tab active" id="tabDrive" style="font-size:12px; padding:6px 14px; border-radius:8px;">Google Drive</button>
+          <button class="nav-tab" id="tabLocal" style="font-size:12px; padding:6px 14px; border-radius:8px;">ملف محلي</button>
+        </div>
+
+        <div id="syncDriveMode">
+          <p style="font-size:13px; color:var(--gray-400); margin-bottom:16px;">
+            قم بلصق رابط ملف الـ CSV/XLSX من Google Drive. الإضافة ستقوم بتجاوز فحص الأمان آلياً وحفظ البيانات محلياً.
+          </p>
+          <div class="url-row">
+            <input class="url-input" id="driveUrl" type="text"
+              placeholder="https://drive.google.com/file/d/YOUR_FILE_ID/view"
+              value="https://drive.google.com/file/d/1otZiPmuFquxRKeiFbDfu5cbkQWZfSHJe/view?usp=sharing">
+            <button class="btn btn-primary" id="btnSync">⬇️ مزامنة الآن</button>
+          </div>
+        </div>
+
+        <div id="syncLocalMode" style="display:none;">
+          <p style="font-size:13px; color:var(--gray-400); margin-bottom:16px;">
+            اختر ملف CSV أو XLSX من جهازك مباشرةً. الأفضل استخدام ملف master_data_merged.csv (416K سجل).
+          </p>
+          <div style="display:flex; gap:12px; align-items:center; flex-wrap:wrap;">
+            <label class="btn btn-primary" style="cursor:pointer; display:inline-flex; align-items:center; gap:6px;">
+              📁 اختر ملف CSV/XLSX
+              <input type="file" id="localFileInput" accept=".csv,.xlsx,.xls" style="display:none;">
+            </label>
+            <span id="localFileName" style="font-size:13px; color:var(--gray-600);">لم يتم اختيار ملف</span>
+          </div>
+          <div id="localFileReady" style="display:none; margin-top:12px;">
+            <button class="btn btn-primary" id="btnLocalImport">⬆️ رفع واستيراد الآن</button>
+          </div>
+        </div>
+
+        <div class="progress-wrap" id="progressWrap">
+          <div class="progress-track">
+            <div class="progress-fill" id="progressFill"></div>
+          </div>
+          <div class="progress-label" id="progressLabel">جاري تحضير الاتصال...</div>
+        </div>
+
+        <div class="alert" id="syncAlert"></div>
+      </div>
+
+      <!-- DB Stats -->
+      <div class="stats-grid">
+        <div class="stat-card blue">
+          <div class="stat-label">إجمالي السجلات</div>
+          <div class="stat-value" id="statCount">–</div>
+          <div class="stat-sub">سجل في قاعدة البيانات</div>
+        </div>
+        <div class="stat-card green">
+          <div class="stat-label">حالة المزامنة</div>
+          <div class="stat-value" id="statStatus" style="font-size:18px;">–</div>
+          <div class="stat-sub" id="statStatusSub">–</div>
+        </div>
+        <div class="stat-card orange">
+          <div class="stat-label">آخر تحديث</div>
+          <div class="stat-value" id="statLastSync" style="font-size:16px;">–</div>
+          <div class="stat-sub">من التخزين المحلي</div>
+        </div>
+      </div>
+
+      <!-- Search Card -->
+      <div class="sync-card" style="margin-top:16px;">
+        <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:12px;">
+          <div class="section-title" style="margin:0;">🔍 بحث في قاعدة البيانات</div>
+          <span class="inv-count" id="advResultCount">0</span>
+        </div>
+        <div class="filter-wrap">
+          <div class="enhanced-select"><select class="inv-select" id="fAdvProductGroup"><option value="">المنتجات</option></select></div>
+          <div class="enhanced-select"><select class="inv-select" id="fAdvBrand"><option value="">الموديلات</option></select></div>
+          <div class="enhanced-select"><select class="inv-select" id="fAdvModel"><option value="">العطل الرئيسي</option></select></div>
+          <div class="enhanced-select"><select class="inv-select" id="fAdvDefect"><option value="">العطل الفرعي</option></select></div>
+        </div>
+        <div class="inv-search-wrap" style="display:flex; gap:8px;">
+          <input type="text" id="fAdvKeyword" class="panel-search-input" style="flex:1;" placeholder="ابحث* في كل المحتوى، أو اكتب نص للبداية..">
+          <button class="btn btn-primary" id="btnSearch" style="white-space:nowrap; padding:8px 18px;">🔍 بحث</button>
+          <span id="searchSpinner" style="display:none; align-self:center; font-size:13px; color:#666;">⏳ جاري البحث...</span>
+        </div>
+      </div>
+
+      <!-- Preview/Search Table -->
+      <div class="table-card" style="margin-top:16px;">
+        <div class="table-header">
+          <div style="font-weight:900; font-size:14px;" id="tableTitle">معاينة البيانات (أول 50 سجل)</div>
+          <div style="display:none; align-items:center; gap:8px;" id="tableControls">
+            <button class="btn btn-outline" id="btnExportSearch" style="padding:8px 16px; font-size:12px;">
+              ⬇️ تصدير Excel
+            </button>
+            <button class="btn btn-outline" id="btnClearSearch" style="padding:8px 16px; font-size:12px;">
+              ✕ مسح البحث
+            </button>
+          </div>
+        </div>
+        <div style="overflow-x:auto;">
+          <table>
+            <thead>
+              <tr>
+                <th>المنتج</th>
+                <th>الموديل</th>
+                <th>العطل الرئيسي</th>
+                <th>العطل الفرعي</th>
+                <th>قطعة الغيار</th>
+                <th>أقصى كمية</th>
+              </tr>
+            </thead>
+            <tbody id="dataBody">
+              <tr><td colspan="6" class="no-data"><p>قاعدة البيانات فارغة</p><span>قم بمزامنة البيانات أولاً</span></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══ TAB 2: INVENTORY ══ -->
+    <div class="tab-panel" id="panel-inventory">
+      <div class="sync-card">
+        <div class="section-title">جرد العهدة من البورتال</div>
+        <p style="font-size:13px; color:var(--gray-400); margin-bottom:16px;">
+          افتح صفحة <strong>العهدة المتاحة</strong> في بورتال العربي في أي تبويب، ثم اضغط الزر أدناه.
+          الإضافة ستبحث تلقائياً عن تبويب البورتال وتسحب البيانات منه.
+        </p>
+        <div style="display:flex; gap:10px; flex-wrap:wrap;">
+          <button class="btn btn-success" id="btnScrape">📥 سحب العهدة من البورتال</button>
+          <button class="btn btn-outline" id="btnExportInv" disabled>⬇️ تصدير كشف مسعّر (Excel)</button>
+        </div>
+        <div class="alert" id="invAlert"></div>
+      </div>
+
+      <!-- Inventory Stats -->
+      <div class="stats-grid" id="invStats" style="display:none;">
+        <div class="stat-card blue">
+          <div class="stat-label">إجمالي الأصناف</div>
+          <div class="stat-value" id="invCount">0</div>
+          <div class="stat-sub">صنف مختلف</div>
+        </div>
+        <div class="stat-card green">
+          <div class="stat-label">إجمالي الكميات</div>
+          <div class="stat-value" id="invQty">0</div>
+          <div class="stat-sub">قطعة إجمالي</div>
+        </div>
+        <div class="stat-card orange">
+          <div class="stat-label">القيمة الإجمالية</div>
+          <div class="stat-value" id="invValue" style="font-size:16px;">0 ج.م</div>
+          <div class="stat-sub">بعد التسعير</div>
+        </div>
+      </div>
+
+      <div class="table-card" id="invTableCard" style="display:none;">
+        <div class="table-header">
+          <div class="search-box">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
+            <input id="invSearch" type="text" placeholder="بحث في العهدة...">
+          </div>
+          <div style="font-size:11px; color:var(--gray-400);" id="invTableCount"></div>
+        </div>
+        <div style="overflow-x:auto; max-height:500px; overflow-y:auto;">
+          <table>
+            <thead>
+              <tr>
+                <th>كود القطعة</th>
+                <th>الوصف</th>
+                <th>المخزن</th>
+                <th>الكمية</th>
+                <th>سعر الوحدة</th>
+                <th>الإجمالي</th>
+              </tr>
+            </thead>
+            <tbody id="invBody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══ TAB 3: DATA MANAGEMENT ══ -->
+    <div class="tab-panel" id="panel-data">
+      <div class="sync-card">
+        <div class="section-title">استيراد بيانات يدوياً</div>
+        <p style="font-size:13px; color:var(--gray-400); margin-bottom:16px;">
+          اسحب ملف CSV أو Excel يحتوي على بيانات قطع الغيار. الإضافة ستقوم بدمجها مع البيانات الموجودة.
+        </p>
+
+        <div class="drop-zone" id="dropZone">
+          <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+            <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/>
+            <polyline points="14,2 14,8 20,8"/>
+            <line x1="12" y1="18" x2="12" y2="12"/>
+            <polyline points="9,15 12,12 15,15"/>
+          </svg>
+          <p>اسحب الملف هنا أو اضغط للاختيار</p>
+          <span>يدعم ملفات CSV و XLSX</span>
+          <input type="file" id="fileInput" accept=".csv,.xlsx,.xls" style="display:none;">
+        </div>
+
+        <div class="alert" id="dataAlert"></div>
+      </div>
+
+      <div class="sync-card">
+        <div class="section-title">مسح قاعدة البيانات</div>
+        <p style="font-size:13px; color:var(--gray-400); margin-bottom:16px;">
+          سيؤدي هذا إلى حذف جميع السجلات من قاعدة البيانات. لا يمكن التراجع عن هذا الإجراء.
+        </p>
+        <button class="btn btn-danger" id="btnClearDB">🗑️ مسح جميع البيانات</button>
+        <div class="alert" id="clearAlert"></div>
+      </div>
+    </div>
+
+    <!-- ══ TAB 4: LOG ══ -->
+    <div class="tab-panel" id="panel-log">
+      <div class="sync-card">
+        <div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:10px;">
+          <div class="section-title" style="margin:0;">📋 سجل العمليات</div>
+          <div style="display:flex; gap:8px; align-items:center;">
+            <span style="font-size:12px; color:var(--gray-400);" id="logTotal"></span>
+            <button class="btn btn-outline" id="btnClearLog" style="padding:6px 14px; font-size:12px;">🧹 مسح الكل</button>
+          </div>
+        </div>
+        <div style="display:flex; gap:8px; margin-top:12px; flex-wrap:wrap;">
+          <select id="logFilter" style="padding:8px 12px; border:1.5px solid var(--gray-200); border-radius:8px; font-family:'Cairo',sans-serif; font-size:13px; background:var(--gray-50); outline:none; min-width:140px;">
+            <option value="">كل الإجراءات</option>
+            <option value="search">🔍 بحث</option>
+            <option value="import">📂 استيراد بيانات</option>
+            <option value="scrape_inventory">📥 سحب عهدة</option>
+            <option value="clear_db">🗑️ مسح بيانات</option>
+          </select>
+          <input type="text" id="logSearch" style="flex:1; min-width:150px; padding:8px 12px; border:1.5px solid var(--gray-200); border-radius:8px; font-family:'Cairo',sans-serif; font-size:13px; background:var(--gray-50); outline:none;" placeholder="بحث في السجل...">
+        </div>
+      </div>
+      <div class="table-card" id="logCard">
+        <div style="max-height:600px; overflow-y:auto; padding:16px 20px;" id="logContainer">
+          <div class="no-data"><p>لا توجد أحداث مسجلة</p><span>سيتم تسجيل الأحداث تلقائياً أثناء الاستخدام</span></div>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /main -->
+
+  <script src="../../../shared/storage-proxy.js"></script>
+  <script src="../../../shared/smart-log.js"></script>
+  <script src="dashboard.js"></script>
+</body>
+</html>

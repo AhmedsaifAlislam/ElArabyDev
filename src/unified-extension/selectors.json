@@ -1,0 +1,318 @@
+{
+  "_comment": "Verified selectors from portal analysis (2026-09-26). Priority: top to bottom.",
+
+  "serial": [
+    "#ldv_serialnumber",
+    "textbox[aria-label*='الرقم المسلسل']",
+    "[aria-label*='الرقم المسلسل']",
+    "[aria-label*='مسلسل']",
+    "[name*='serial']",
+    "input[id*='serial']"
+  ],
+
+  "serial2": [
+    "#ldv_serialnumber1",
+    "[aria-label*='الرقم المسلسل 2']",
+    "[aria-label*='مسلسل 2']",
+    "[name*='serialnumber1']"
+  ],
+
+  "brandInput": [
+    "#ats_producttypebrand_name",
+    "textbox[aria-label*='العلامة التجاريه']",
+    "textbox[aria-label*='العلامة التجارية']",
+    "input[aria-label*='العلامة التجاريه']",
+    "input[aria-label*='العلامة التجارية']",
+    "input[aria-label*='العلامة']",
+    "input[id*='brand']",
+    "input[name*='brand']",
+    "input[id*='Brand']"
+  ],
+
+  "brandBtn": [
+    "#ats_producttypebrand_lookupmodalbutton",
+    "#ats_producttypebrand_name_lookupmodalbutton",
+    "button[id*='producttypebrand'][id*='lookup']",
+    "button[aria-label*='العلامة التجاريه']",
+    "button[aria-label*='العلامة التجارية']",
+    ".lookup-brand button"
+  ],
+
+  "modelBtn": [
+    "#ldv_actualmodel_lookupmodalbutton",
+    "#ldv_actualmodel_name_lookupmodalbutton",
+    "button[id*='actualmodel'][id*='lookup']:not([id*='actualmodel2'])",
+    "button[aria-label*='الموديل الفعلي 1']",
+    "button[aria-label*='الموديل الفعلي']:not([aria-label*='2'])",
+    ".lookup-model button"
+  ],
+
+  "modelBtn2": [
+    "#ldv_actualmodel2_lookupmodalbutton",
+    "#ldv_actualmodel2_name_lookupmodalbutton",
+    "button[id*='actualmodel2'][id*='lookup']",
+    "button[aria-label*='الموديل الفعلي 2']"
+  ],
+
+  "modelInput": [
+    "#ldv_actualmodel_name",
+    "textbox[aria-label*='الموديل الفعلي 1']",
+    "textbox[aria-label*='الموديل الفعلي']",
+    "input[aria-label*='الموديل الفعلي']",
+    "input[name*='actualmodel']",
+    "input[name*='model']",
+    "input[id*='actualModel']"
+  ],
+
+  "modelInput2": [
+    "#ldv_actualmodel2_name",
+    "textbox[aria-label*='الموديل الفعلي 2']",
+    "input[aria-label*='الموديل الفعلي 2']"
+  ],
+
+  "statusSelect": [
+    "#ldv_warrantystatus",
+    "combobox[aria-label*='حالة الضمان']",
+    "combobox[aria-label*='Warranty']",
+    "select[aria-label*='Warranty']",
+    "select[aria-label*='Warranty Status']",
+    "select[aria-label*='حالة الضمان']",
+    "select[name*='status']",
+    "select[name*='warranty']"
+  ],
+
+  "dateInput": [
+    "#ldv_warrantydate",
+    "input[aria-label*='Warranty Date']",
+    "input[aria-label*='تاريخ الضمان']",
+    "input[name*='warrantyDate']",
+    "input[id*='warrantyDate']",
+    "input[id*='warrantydate']",
+    "input[type='date']"
+  ],
+
+  "notes": [
+    "textarea[aria-label*='Notes']",
+    "textarea[name*='notes']",
+    "textarea[id*='notes']",
+    "textarea[aria-label*='ملاحظات']"
+  ],
+
+  "sparePartsStatus": [
+    "#ats_sparepartsstatus",
+    "select[aria-label*='قطع الغيار']",
+    "select[aria-label*='Spare Parts']",
+    "select[name*='sparepart']",
+    "select[id*='spareparts']"
+  ],
+
+  "nextBtn": [
+    "#NextButton",
+    "button:has-text('Next')",
+    "button:has-text('التالي')",
+    "button[aria-label='Next']",
+    "button[aria-label='التالي']",
+    "button[type='submit']",
+    "input[type='button'][value='Next']",
+    "input[type='button'][value='التالي']"
+  ],
+
+  "lookupModal": [
+    "section.modal.modal-lookup.in",
+    ".modal.show",
+    ".modal.in",
+    "div[role='dialog']",
+    ".modal-lookup"
+  ],
+
+  "lookupSearchInput": [
+    "input[placeholder*='Search']",
+    "input[placeholder*='بحث']",
+    "input.query.form-control",
+    "input.form-control[type='text']",
+    "input[type='search']",
+    "[role='dialog'] input[type='search']",
+    "[role='dialog'] input[type='text']",
+    ".lookup-modal input"
+  ],
+
+  "lookupSearchBtn": [
+    "button:has-text('Search Results')",
+    "button:has-text('بحث')",
+    "button[aria-label*='Search']",
+    "button[aria-label*='بحث']",
+    ".modal button.btn-hg",
+    ".modal button"
+  ],
+
+  "lookupRows": [
+    "section.modal.modal-lookup .modal table tbody tr",
+    ".modal table tbody tr",
+    ".modal [role='row']",
+    ".lookup-modal .modal table tbody tr"
+  ],
+
+  "lookupRowSelect": [
+    "input[type='radio']",
+    "input[type='checkbox']",
+    "span[role='checkbox']",
+    "span.fa",
+    "checkbox"
+  ],
+
+  "lookupSelectBtn": [
+    "button:has-text('Select')",
+    "button:has-text('اختر')",
+    "button[aria-label*='Select']",
+    "button[aria-label*='تحديد']",
+    "button[aria-label*='اختر']",
+    ".modal button.primary",
+    ".modal input[value='اختر']",
+    ".modal input[value='Select']"
+  ],
+
+  "lookupCancelBtn": [
+    "button:has-text('Cancel')",
+    "button:has-text('إلغاء')",
+    "button[data-dismiss='modal']",
+    ".modal-header .close"
+  ],
+
+  "lookupClearBtn": [
+    "button[aria-label*='Clear lookup field']",
+    "button[aria-label*='مسح']",
+    "button[aria-label*='clear']"
+  ],
+
+  "successIndicator": [
+    ".save-success",
+    ".alert-success",
+    ".notification-success",
+    "[class*='success']",
+    ".toast-success"
+  ],
+
+  "customer": [
+    ".customer-name",
+    "[class*='customer-name']",
+    "[data-id*='customer']"
+  ],
+
+  "orderNumber": [
+    ".order-number",
+    "[class*='order-id']",
+    "[class*='workorder-id']"
+  ],
+
+  "_ORDERS_PAGE_SELECTORS_NOTE": "الـ selectors التالية خاصة بصفحة /Orders — تم التحقق منها",
+
+  "ordersSearchInput": [
+    ".entitylist-search input",
+    ".entitylist-search .form-control",
+    "input[type='search']",
+    "input[placeholder*='Search']",
+    "input[placeholder*='بحث']",
+    "input[aria-label*='Filter: رقم الطلب']",
+    "#searchOrders",
+    ".search-input input",
+    "input[name*='search']"
+  ],
+
+  "ordersSearchBtn": [
+    ".input-group-btn button",
+    ".entitylist-search button",
+    ".entity-grid .btn-default",
+    "button[aria-label*='Search']",
+    "button[aria-label*='بحث']"
+  ],
+
+  "ordersTableRow": [
+    "table.entity-grid tbody tr",
+    "table tbody tr",
+    "[role='row']",
+    ".entitylist-items > li",
+    ".order-row",
+    ".grid-row",
+    ".list-item"
+  ],
+
+  "_ordersViewLink_NOTE": "روابط فتح تفاصيل الأمر من صف الشبكة (كانت غير معرّفة فيقع على أول رابط بالصف)",
+  "ordersViewLink": [
+    "a[href*='workorderreview']",
+    "a[href*='followup']",
+    "a[href*='review']",
+    "button[aria-label*='View']"
+  ],
+
+  "ordersActionMenu": [
+    "button:has-text('action menu')",
+    "button[aria-label*='action menu']",
+    "button[aria-label*='القائمة']",
+    "button[aria-label*='خيارات']"
+  ],
+
+  "ordersFollowUpMenuItem": [
+    "menuitem:has-text('متابعة')",
+    "[role='menuitem']:has-text('متابعة')",
+    "a:has-text('متابعة')"
+  ],
+
+  "ordersReturnMenuItem": [
+    "menuitem:has-text('ارجاع')",
+    "[role='menuitem']:has-text('ارجاع')",
+    "a:has-text('ارجاع')"
+  ],
+
+  "ordersDistributeMenuItem": [
+    "menuitem:has-text('توزيع البلاغ')",
+    "[role='menuitem']:has-text('توزيع البلاغ')",
+    "a:has-text('توزيع البلاغ')"
+  ],
+
+  "_batchDelay": 1200,
+  "_nextWaitTimeout": 10000,
+  "_lookupTimeout": 6000,
+  "_ordersSearchWait": 2000,
+  "_retryCount": 3,
+
+  "_PROBLEM_CODES_NOTE": "خريطة أكواد المشاكل — تم التحقق من GR01 للثلاجات",
+
+  "problemCodes": [
+    { "pattern": "تكييف|ac|air.?cond|split|شباك|inverter", "codes": ["*AC02", "*AC03"] },
+    { "pattern": "بوتوجاز|طباخ|cooker",                    "codes": ["*GS04"] },
+    { "pattern": "غسال(?!.*(اطباق|أطباق))",                "codes": ["*WM05"] },
+    { "pattern": "ثلاج|مبرد|fridge",                        "codes": ["*GR01", "*GR02", "*GR03"] },
+    { "pattern": "اطباق|أطباق|dish",                        "codes": ["*DW06"] },
+    { "pattern": "سخان|heater",                             "codes": ["*HT01"] }
+  ],
+
+  "_PROBLEM_CODE_RULES_NOTE": "تصنيف أكواد المشاكل المشترك (الاوتو فيلينج + الكنترول بانل). forbiddenKeywords: الأكواد/الكلمات التي لا تُختار أبدًا.",
+
+  "problemCodeRules": {
+    "forbiddenKeywords": ["GI00", "GS08", "GR05", "SR00", "SR01", "WM04", "ترصيد", "تجار", "ارضي", "أرضي", "بلاغ"]
+  },
+
+  "_problemPickTimeoutMs_NOTE": "مهلة انتظار اختيار المستخدم لكود المشكلة قبل الاختيار العشوائي من المسموح (مللي ثانية).",
+  "problemPickTimeoutMs": 30000,
+
+  "_WORKFLOWS_NOTE": "خط سير الإضافة — المحرك سيقرأ هذه الخطوات تباعاً. action: نوع الإجراء, target: مفتاح من المحددات أو CSS مباشر",
+
+  "workflows": {
+    "page1_search": [
+      { "action": "wait", "target": "ordersSearchInput", "timeout": 10000 },
+      { "action": "type", "target": "ordersSearchInput", "value": "{{orderId}}" },
+      { "action": "click", "target": "ordersSearchBtn" },
+      { "action": "wait", "target": "ordersTableRow", "timeout": 12000 },
+      { "action": "click_row", "target": "ordersViewLink", "matchText": "{{orderId}}", "timeout": 8000 }
+    ],
+    "page1_fill": [
+      { "action": "fill_lookup", "target": "brandInput", "btn": "brandBtn", "value": "{{brand}}" },
+      { "action": "fill_lookup", "target": "modelInput", "btn": "modelBtn", "value": "{{model}}" },
+      { "action": "fill", "target": "serial", "value": "{{serial}}" },
+      { "action": "fill_lookup", "target": "modelInput2", "btn": "modelBtn", "value": "{{model2}}", "condition": "{{isAC}}" },
+      { "action": "fill", "target": "serial2", "value": "{{serial2}}", "condition": "{{isAC}}" },
+      { "action": "fill_select", "target": "statusSelect", "value": "{{status}}" },
+      { "action": "fill", "target": "dateInput", "value": "{{date}}" }
+    ]
+  }
+}

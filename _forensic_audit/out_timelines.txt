@@ -1,0 +1,653 @@
+====================================================================================================
+RUN 01 id=2ea61729-249e-f111-b8db-0022489a228f start=1787495820225 orderId=2ea61729-249e-f111-b8db-0022489a228f
+  [    575.1s] SNAP PAGE_2 (interval) Δ INOUT=خارج|0 WS=خارج الضمان|753240001 SP=بدون قطع غيار|963400002 TR_WS=Out Warranty|753240001 WOT=صيانة CUST=عميل 08 TICKET=CAS2026082253120315 GRP=HA TYPE=ثلاجات SER1=16G25#040019AN4C BRAND=ثلاجات - SHARP MODEL1=SJ-48C(BK) _ (Sharp Refrigerator - 2 Doors - Bla
+  [  12104.7s] SNAP PAGE_1 (interval) Δ WS=Out warranty|753240001
+  [  12109.2s] CLICK input 'Next' seq=61
+  [  13070.9s] SNAP PAGE_2 (interval) Δ WS=خارج الضمان|753240001 SP=Select|
+  [  13080.1s] CLICK a 'اضافة فنى' seq=62
+  [  13126.0s] CLICK select 'Select مستعمل منتظر بدون قطع غيار سحب اس' seq=63
+  [  13127.8s] CLICK select 'Select مستعمل منتظر بدون قطع غيار سحب اس' seq=64
+  [  13129.1s] SNAP PAGE_2 (interval) Δ SP=بدون قطع غيار|963400002
+  [  13158.4s] CLICK div 'function entityFormClientValidate() { //' seq=65
+  [  13164.6s] CLICK div 'بيانات العميل اسم العميل رقم الحساب رقم ' seq=66
+  [  13173.2s] SNAP PAGE_3 (page-load) Δ WS=Out warranty|753240001 WOT=Maintenance|1
+  [  13206.5s] SNAP PAGE_3 (interval) Δ PACT=SJ-48C(BK) _ (Sharp Refrigerator - 2 Doors - Bla
+  [  13216.5s] SNAP PAGE_3 (interval) Δ DEFMAJ=RF2000 - (دائرة الصرف)
+  [  13226.1s] CLICK button 'Launch lookup modal' seq=67
+  [  13228.4s] CLICK a '2' seq=68
+  [  13230.2s] CLICK button 'اختر' seq=69
+  [  13231.5s] SNAP PAGE_3 (interval) Δ BOOK=تمت الصيانة
+  [  13237.3s] CLICK input 'حفظ و اغلاق' seq=70
+
+====================================================================================================
+RUN 02 id=1b7ce2a6-899c-f111-b8dc-0022489a282a start=1787495822746 orderId=1b7ce2a6-899c-f111-b8dc-0022489a282a
+  [  10585.8s] CLICK button 'Toggle navigation' seq=61
+  [  10587.4s] CLICK a 'اوامر شغل' seq=62
+  [  13164.7s] CLICK button 'Toggle navigation' seq=63
+  [  13201.0s] CLICK button 'Clear lookup field' seq=64
+  [  13202.3s] CLICK button 'Launch lookup modal' seq=65
+  [  13205.6s] CLICK button 'اختر' seq=66
+  [  13207.0s] CLICK button 'Clear lookup field' seq=67
+  [  13208.2s] CLICK button 'Launch lookup modal' seq=68
+  [  13212.1s] CLICK button 'Search Results' seq=69
+  [  13215.6s] CLICK button 'اختر' seq=70
+  [  13218.4s] CLICK input 'Next' seq=71
+  [  13236.1s] CLICK button 'Launch lookup modal' seq=72
+  [  13239.2s] CLICK button 'اختر' seq=73
+  [  13241.0s] CLICK button 'Clear lookup field' seq=74
+  [  13246.0s] CLICK button 'Search Results' seq=75
+  [  13249.0s] CLICK button 'اختر' seq=76
+  [  13253.6s] CLICK input 'Next' seq=77
+  [  13758.7s] CLICK button 'Clear lookup field' seq=78
+  [  13759.8s] CLICK button 'Launch lookup modal' seq=79
+  [  13767.5s] CLICK button 'اختر' seq=80
+  [  13771.4s] CLICK input 'Next' seq=81
+  [  16745.2s] CLICK a 'اضافة المشاكل الفعلية المستخدمة' seq=82
+  [  16754.6s] CLICK a 'اضافة فنى' seq=83
+  [  16828.2s] CLICK select 'Select مستعمل منتظر بدون قطع غيار سحب اس' seq=84
+  [  16829.4s] CLICK select 'Select مستعمل منتظر بدون قطع غيار سحب اس' seq=85
+  [  16852.1s] CLICK select 'Select مستعمل منتظر بدون قطع غيار سحب اس' seq=86
+  [  16853.2s] CLICK select 'Select مستعمل منتظر بدون قطع غيار سحب اس' seq=87
+  [  16853.9s] CLICK input 'التالي' seq=88
+  [  16868.3s] CLICK a 'اضافة قطعة غيار' seq=89
+  [  16869.1s] CLICK a 'اضافة قطعة غيار الموديل 2' seq=90
+  [  16887.2s] SNAP PAGE_3 (interval) Δ WS=Out warranty|753240001 SP=منتظر|963400001 WOT=Maintenance|1 INV=Inside|963400000 PART_WS=Out|963400001 MODEL1=AH-A12USEA _ (Sharp A/C Indoor Unit 12K(COOL)) MODEL2=AH-A12USEA _ (Sharp A/C Indoor Unit 12K(COOL)) PMODEL=AH-A12USEA _ (Sharp A/C Indoor Unit 12K(COOL)) DEFMAJ=AC030 - (تغيير موتور مروحه المكثف) DEFCODE=502A SPID=AC-SH-OUTFNMOTO284 _ (U&E12UH-12&18R/N-موتور مرو QTY=1
+  [  16893.6s] CLICK button 'Launch lookup modal' seq=91
+  [  16895.9s] CLICK button 'اختر' seq=92
+  [  16897.2s] SNAP PAGE_3 (interval) Δ BOOK=انتظار قطع غيار
+  [  16912.5s] SNAP PAGE_2 (page-load) Δ INOUT=خارج|0 WS=خارج الضمان|753240001 TR_WS=Out Warranty|753240001 WOT=صيانة CUST=عميل 18 TICKET=CAS2026082053089546 GRP=AC TYPE=تكييف SER1=19B040088717H2USA SER2=19B040088717H2USA BRAND=تكييف - SHARP 
+  [  16958.4s] CLICK input 'التالي' seq=93
+  [  16967.5s] SNAP PAGE_3 (page-load) Δ WS=Out warranty|753240001 WOT=Maintenance|1
+  [  16990.9s] CLICK button 'action menu' seq=94
+  [  16991.9s] CLICK a 'الغاء' seq=95
+  [  16995.3s] CLICK button 'action menu' seq=96
+  [  16997.4s] CLICK button 'حذف' seq=97
+  [  17000.9s] CLICK a 'اضافة قطعة غيار' seq=98
+  [  17092.2s] CLICK button '×إلغاء' seq=99
+  [  17092.9s] CLICK a 'اضافة قطعة غيار الموديل 2' seq=100
+  [  17103.1s] CLICK button '×إلغاء' seq=101
+  [  17109.9s] SNAP PAGE_2 (page-load) Δ WS=خارج الضمان|753240001 WOT=صيانة
+  [  17113.3s] SNAP PAGE_2 (interval) Δ SER2=لا
+  [  17118.4s] SNAP PAGE_2 (interval) Δ SER2=لا يوجد
+  [  17122.4s] CLICK button 'Launch lookup modal' seq=102
+  [  17140.7s] CLICK button 'اختر' seq=103
+  [  17142.4s] CLICK input 'التالي' seq=104
+  [  17199.8s] SNAP PAGE_3 (interval) Δ WS=Out warranty|753240001 WOT=Maintenance|1 MODEL2=AU-A12UHEA _ (Sharp A/C Outdoor Unit 12K (COOL O
+  [  17207.4s] CLICK a 'اضافة قطعة غيار الموديل 2' seq=105
+  [  17209.7s] SNAP PAGE_3 (interval) Δ PMODEL=AU-A12UHEA _ (Sharp A/C Outdoor Unit 12K (COOL O
+  [  17214.7s] SNAP PAGE_3 (interval) Δ DEFMAJ=AC007 - (تغيير مكثف التشغيل للضاغط)
+  [  17219.7s] SNAP PAGE_3 (interval) Δ DEFCODE=402A SPID=AC-SH-PCRNGCP12UHE _ (U12UHEA/NM/FM/U12UEE-مكثف 
+  [  17233.4s] CLICK button 'Launch lookup modal' seq=106
+  [  17235.8s] CLICK button 'اختر' seq=107
+  [  17240.7s] CLICK input 'حفظ و اغلاق' seq=108
+
+====================================================================================================
+RUN 03 id=da2d4595-ce9e-f111-b8dc-7c1e52374662 start=1787495823456 orderId=da2d4595-ce9e-f111-b8dc-7c1e52374662
+  [   2331.1s] CLICK section 'اضافة فنى×اغلاقجارى التحميل' seq=61
+  [  13249.4s] CLICK a 'اضافة المشاكل الفعلية المستخدمة' seq=62
+  [  13292.7s] CLICK a 'اضافة فنى' seq=63
+  [  13412.8s] CLICK button 'حفظ' seq=64
+  [  13429.6s] CLICK input 'التالي' seq=65
+  [  13764.4s] CLICK select 'Select مستعمل بدون قطع غيار استبدال' seq=66
+  [  13765.6s] CLICK select 'Select مستعمل بدون قطع غيار استبدال' seq=67
+  [  13769.8s] CLICK input 'التالي' seq=68
+  [  13794.5s] CLICK div 'بيانات العميل اسم العميل رقم الحساب رقم ' seq=69
+  [  14034.1s] CLICK select 'Select مستعمل منتظر بدون قطع غيار سحب اس' seq=70
+  [  14035.3s] CLICK td 'أكواد الأعطالاضافة كود عطلاضافة كود عطلا' seq=71
+  [  14042.2s] CLICK div 'function entityFormClientValidate() { //' seq=72
+  [  14043.5s] CLICK div 'function entityFormClientValidate() { //' seq=73
+  [  14044.8s] CLICK td 'أكواد الأعطالاضافة كود عطلاضافة كود عطلا' seq=74
+  [  14067.9s] CLICK div 'function entityFormClientValidate() { //' seq=75
+  [  14069.1s] CLICK button 'Toggle navigation' seq=76
+  [  14070.0s] CLICK a 'آخرى' seq=77
+  [  15898.1s] CLICK button 'Toggle navigation' seq=78
+  [  15901.2s] CLICK a 'اضافة قطعة غيار' seq=79
+  [  16311.5s] CLICK section 'اضافة قطعة غيار×إلغاءجاري التحميل' seq=80
+  [  16314.7s] CLICK a 'اضافة قطعة غيار' seq=81
+  [  16335.9s] CLICK a 'اضافة قطعة غيار' seq=82
+  [  16338.1s] CLICK button '×إلغاء' seq=83
+  [  16340.2s] CLICK a 'اضافة كود عطل' seq=84
+  [  16474.2s] SNAP PAGE_3 (interval) Δ WS=Out warranty|753240001 SP=مستعمل|963400000 WOT=Installation|0 MODEL1=AEW-1190SUP _ (TOSHIBA TLWM 11KG Circular Door-  PACT=AEW-1190SUP _ (TOSHIBA TLWM 11KG Circular Door- 
+  [  16674.2s] SNAP PAGE_3 (interval) Δ DEFMAJ=TW7200 - (تركيب)
+  [  16694.2s] SNAP PAGE_3 (interval) Δ DEFCODE=7201
+  [  16704.6s] CLICK button 'Launch lookup modal' seq=85
+  [  16707.1s] CLICK button 'اختر' seq=86
+  [  16709.2s] SNAP PAGE_3 (interval) Δ BOOK=تم التركيب
+  [  16721.2s] CLICK button 'action menu' seq=87
+  [  16721.9s] CLICK button 'action menu' seq=88
+  [  16723.2s] CLICK button 'action menu' seq=89
+  [  16723.9s] CLICK a 'الغاء' seq=90
+  [  16725.4s] CLICK a 'اضافة قطعة غيار' seq=91
+  [  16729.2s] SNAP PAGE_3 (interval) Δ INV=Inside|963400000 PART_WS=Out|963400001 PMODEL=AEW-1190SUP _ (TOSHIBA TLWM 11KG Circular Door- 
+  [  16734.2s] SNAP PAGE_3 (interval) Δ DEFMAJ=مصنعية تركيبات QTY=250
+  [  16739.2s] SNAP PAGE_3 (interval) Δ DEFCODE=0002 SPID=LAB-CRM _ (مصنعية)
+  [  16803.6s] CLICK input 'حفظ و اغلاق' seq=92
+
+====================================================================================================
+RUN 04 id=37363669-199e-f111-b8db-7c1e52374ce0 start=1787495824026 orderId=37363669-199e-f111-b8db-7c1e52374ce0
+  [   2669.0s] CLICK a 'اضافة فنى' seq=61
+  [   2690.0s] CLICK a 'اضافة مرفقات' seq=62
+  [   2701.7s] CLICK button 'حفظ' seq=63
+  [   2708.3s] CLICK a 'اضافة مرفقات' seq=64
+  [   2718.6s] CLICK button 'حفظ' seq=65
+  [   2789.9s] CLICK select 'Select داخل الضمان خارج الضمان' seq=66
+  [   2790.9s] CLICK select 'Select داخل الضمان خارج الضمان' seq=67
+  [   2834.0s] CLICK input 'التالي' seq=68
+  [   2859.8s] CLICK input 'التالي' seq=69
+  [   2877.8s] CLICK button 'action menu' seq=70
+  [   2878.7s] CLICK a 'حذف' seq=71
+  [   2879.8s] CLICK button 'حذف' seq=72
+  [   2885.4s] CLICK button 'action menu' seq=73
+  [   2886.5s] CLICK a 'حذف' seq=74
+  [   2888.2s] CLICK button 'حذف' seq=75
+  [   4931.6s] SNAP PAGE_2 (interval) Δ INOUT=خارج|0 WS=داخل الضمان|753240000 SP=بدون قطع غيار|963400002 TR_WS=In Warranty|753240000 WOT=تركيب CUST=عميل 11  TICKET=CAS2026082253117342 GRP=AC TYPE=تكييف SER1=24J240098318YX8UH SER2=24J260098677EX8UH BRAND=تكييف - SHARP  MODEL1=AY-XP18UHE _ (18K inverter Indoor unit (cool/hea MODEL2=AE-X18UHE _ (18K inverter outdoor unit (cool/hea
+  [  10453.9s] SNAP PAGE_2 (page-load) Δ WS=خارج الضمان|753240001 SP=Select| TR_WS=Out Warranty|753240001
+  [  12045.6s] CLICK select 'Select مستعمل بدون قطع غيار استبدال' seq=76
+  [  12046.1s] SNAP PAGE_2 (interval) Δ SP=بدون قطع غيار|963400002
+  [  12049.2s] CLICK a 'اضافة مرفقات' seq=77
+  [  12057.8s] CLICK div 'اضافة مرفقات×إلغاءملاحظاتاختر ملفحفظاغلا' seq=78
+  [  12077.0s] CLICK button 'حفظ' seq=79
+  [  12084.2s] CLICK a 'اضافة المشاكل الفعلية المستخدمة' seq=80
+  [  12095.1s] CLICK button 'action menu' seq=81
+  [  12099.9s] CLICK input 'التالي' seq=82
+  [  12109.4s] SNAP PAGE_3 (page-load) Δ WS=Out warranty|753240001 WOT=Installation|0
+  [  12114.3s] CLICK a 'اضافة كود عطل' seq=83
+  [  12223.5s] SNAP PAGE_3 (interval) Δ PACT=AY-XP18UHE _ (18K inverter Indoor unit (cool/hea
+  [  12242.2s] SNAP PAGE_3 (interval) Δ DEFMAJ=AC002 - (تركيب و تجهيزات مواسير)
+  [  12262.2s] SNAP PAGE_3 (interval) Δ DEFMAJ=AC022 - (ضبط تركيب)
+  [  12277.2s] SNAP PAGE_3 (interval) Δ DEFCODE=I02C
+  [  12281.6s] CLICK a 'اضافة كود عطل' seq=84
+  [  12287.2s] SNAP PAGE_3 (interval) Δ DEFMAJ=AC018 - (ضبط الوصلات الكهربيه)
+  [  12291.0s] CLICK section 'اضافة كود عطل×إلغاءجاري التحميل' seq=85
+  [  12293.7s] CLICK button 'Launch lookup modal' seq=86
+  [  12295.0s] CLICK a '2' seq=87
+  [  12299.8s] CLICK button 'اختر' seq=88
+  [  12302.2s] SNAP PAGE_3 (interval) Δ BOOK=تم التركيب
+  [  12320.8s] CLICK input 'حفظ و اغلاق' seq=89
+
+====================================================================================================
+RUN 05 id=8d996ceb-269e-f111-b8db-7ced8d47ee4a start=1787495825843 orderId=8d996ceb-269e-f111-b8db-7ced8d47ee4a
+  [     20.0s] SNAP PAGE_1 (interval) Δ WS=Out warranty|753240001 GRP=HA TYPE=غساله BRAND=غساله - HOOVER MODEL1=H3WS38TAMF7R-ELA _ (HOOVER FLWM 8kg1300rpm-Steam SER1=24K200004359H8IS
+  [   2524.6s] CLICK input 'Next' seq=14
+  [   2531.0s] SNAP PAGE_2 (page-load) Δ INOUT=خارج|0 WS=خارج الضمان|753240001 SP=Select| TR_WS=Out Warranty|753240001 WOT=تركيب CUST=عميل 03 TICKET=CAS2026082253121076
+  [   2537.6s] CLICK div 'function entityFormClientValidate() { //' seq=18
+  [   2551.4s] CLICK a 'اضافة مرفقات' seq=22
+  [   2561.2s] CLICK button 'حفظ' seq=25
+  [   2587.7s] CLICK a 'اضافة فنى' seq=31
+  [   2602.4s] CLICK select 'Select داخل الضمان خارج الضمان' seq=35
+  [   2603.4s] CLICK select 'Select داخل الضمان خارج الضمان' seq=36
+  [   2604.5s] SNAP PAGE_2 (interval) Δ WS=داخل الضمان|753240000 TR_WS=In Warranty|753240000
+  [   2653.8s] CLICK select 'Select مستعمل بدون قطع غيار استبدال' seq=47
+  [   2655.4s] CLICK select 'Select مستعمل بدون قطع غيار استبدال' seq=49
+  [   2659.5s] SNAP PAGE_2 (interval) Δ SP=بدون قطع غيار|963400002
+  [   2660.7s] CLICK input 'التالي' seq=51
+  [   2668.7s] SNAP PAGE_3 (page-load) Δ WS=In warranty|753240000 WOT=Installation|0
+  [   2894.4s] CLICK td 'أكواد الأعطالاضافة كود عطلاضافة كود عطلا' seq=55
+  [   2902.4s] SNAP PAGE_2 (page-load) Δ WS=داخل الضمان|753240000 WOT=تركيب
+  [   3033.5s] CLICK input 'التالي' seq=65
+  [   3041.7s] SNAP PAGE_3 (page-load) Δ WS=In warranty|753240000 WOT=Installation|0
+  [   3074.9s] CLICK a 'اضافة كود عطل' seq=67
+  [   3080.1s] SNAP PAGE_3 (interval) Δ PACT=H3WS38TAMF7R-ELA _ (HOOVER FLWM 8kg1300rpm-Steam
+  [   3095.1s] SNAP PAGE_3 (interval) Δ DEFMAJ=FW9000 - (تركيب)
+  [   3148.7s] CLICK button 'Launch lookup modal' seq=74
+  [   3151.7s] CLICK button 'اختر' seq=75
+  [   3155.1s] SNAP PAGE_3 (interval) Δ BOOK=تم التركيب
+  [   3161.3s] CLICK input 'حفظ و اغلاق' seq=76
+
+====================================================================================================
+RUN 06 id=1ab7232e-e99a-f111-b8db-7c1e52374662 start=1787495825863 orderId=1ab7232e-e99a-f111-b8db-7c1e52374662
+  [     -0.0s] SNAP PAGE_1 (interval) Δ WS=In warranty|753240000 GRP=HA TYPE=سخانات مياه BRAND=سخانات مياه - TORNADO MODEL1=EWH-S35CSE-S _ (DIGITAL Tornado Water Heater 35L SER1=24H190004737HS35DS
+  [   2283.7s] SNAP PAGE_1 (page-load) Δ TICKET=CAS2026081853044400 CUST=عميل 07
+  [   2360.3s] SNAP PAGE_2 (interval) Δ INOUT=خارج|0 WS=داخل الضمان|753240000 SP=منتظر|963400001 TR_WS=In Warranty|753240000 WOT=صيانة
+  [   2373.0s] CLICK select 'Select مستعمل منتظر بدون قطع غيار سحب اس' seq=44
+  [   2373.9s] CLICK select 'Select مستعمل منتظر بدون قطع غيار سحب اس' seq=45
+  [   2374.7s] CLICK input 'التالي' seq=46
+  [   2386.7s] SNAP PAGE_3 (page-load) Δ WS=In warranty|753240000 SP=مستعمل|963400000 WOT=Maintenance|1
+  [   2473.6s] CLICK a 'اضافة قطعة غيار' seq=50
+  [   2474.9s] SNAP PAGE_3 (interval) Δ INV=Inside|963400000 PART_WS=In|963400000 PMODEL=EWH-S35CSE-S _ (DIGITAL Tornado Water Heater 35L
+  [   2484.9s] SNAP PAGE_3 (interval) Δ DEFMAJ=DT0800 - (تسريب مياه من صمام الأمان) DEFCODE=0802
+  [   2489.9s] SNAP PAGE_3 (interval) Δ SPID=WH-R-SRVLV-05-GE _ (شيك فالف السخان  الاناميل) QTY=1
+  [   2494.9s] SNAP PAGE_3 (interval) Δ PART_WS=Out|963400001
+  [   2503.3s] CLICK button 'Launch lookup modal' seq=57
+  [   2506.6s] CLICK button 'اختر' seq=59
+  [   2509.9s] SNAP PAGE_3 (interval) Δ BOOK=تمت الصيانة
+  [   2515.9s] CLICK input 'حفظ و اغلاق' seq=62
+
+====================================================================================================
+RUN 07 id=db723382-c194-f111-8075-000d3ab6a60d start=1787495826184 orderId=db723382-c194-f111-8075-000d3ab6a60d
+  [   2143.7s] SNAP PAGE_1 (interval) Δ WS=Out warranty|753240001 GRP=AC TYPE=تكييف BRAND=تكييف - TORNADO MODEL1=TH-C24WEE _ (TORNADO A/C indoor Unit 24K (COOL)) MODEL2=TH-H12YEE _ (TORNADO AC 1.5HP IN DOOR) SER1=20A200014015H4WE SER2=20A190013901U4WE
+  [   2332.5s] CLICK input 'Next' seq=61
+  [   2340.4s] SNAP PAGE_2 (page-load) Δ INOUT=خارج|0 WS=خارج الضمان|753240001 SP=منتظر|963400001 TR_WS=Out Warranty|753240001 WOT=صيانة CUST=عميل 17 TICKET=CAS2026081052872129
+  [  13751.2s] SNAP PAGE_1 (page-load) Δ WS=Out warranty|753240001
+  [  13771.1s] CLICK input 'Next' seq=62
+  [  16763.7s] SNAP PAGE_2 (page-load) Δ WS=خارج الضمان|753240001
+  [  16858.8s] CLICK select 'Select مستعمل منتظر بدون قطع غيار سحب اس' seq=63
+  [  16859.8s] CLICK select 'Select مستعمل منتظر بدون قطع غيار سحب اس' seq=64
+  [  16860.5s] CLICK input 'التالي' seq=65
+  [  16861.3s] SNAP PAGE_2 (interval) Δ SP=مستعمل|963400000
+  [  16872.7s] SNAP PAGE_3 (page-load) Δ WS=Out warranty|753240001 WOT=Maintenance|1
+  [  17149.4s] CLICK a 'اضافة قطعة غيار' seq=66
+  [  17150.5s] SNAP PAGE_3 (interval) Δ INV=Inside|963400000 PART_WS=In|963400000 PMODEL=TH-C24WEE _ (TORNADO A/C indoor Unit 24K (COOL))
+  [  17160.5s] SNAP PAGE_3 (interval) Δ DEFMAJ=AC028 - (تغيير موتور السوينج الأفقي)
+  [  17165.5s] SNAP PAGE_3 (interval) Δ DEFCODE=504A
+  [  17170.5s] SNAP PAGE_3 (interval) Δ SPID=AC-SH-V-LVR-MOTO84 _ (H&Y18-24U/X/WEE-موتور سوين QTY=1
+  [  17175.5s] SNAP PAGE_3 (interval) Δ PART_WS=Out|963400001
+  [  17184.5s] CLICK button 'Launch lookup modal' seq=67
+  [  17188.8s] CLICK button 'اختر' seq=68
+  [  17190.5s] SNAP PAGE_3 (interval) Δ BOOK=تمت الصيانة
+  [  17196.1s] CLICK input 'حفظ و اغلاق' seq=69
+
+====================================================================================================
+RUN 08 id=f3c10052-e99a-f111-b8db-7c1e52374662 start=1787498113109 orderId=f3c10052-e99a-f111-b8db-7c1e52374662
+  [     -1.1s] SNAP PAGE_1 (page-load) Δ WS=In warranty|753240000 GRP=HA TYPE=سخانات مياه BRAND=سخانات مياه - TORNADO MODEL1=EWH-S35CSE-S _ (DIGITAL Tornado Water Heater 35L SER1=24E190003875HS35DS
+  [      1.5s] CLICK input 'Next' seq=2
+  [      7.5s] SNAP PAGE_2 (page-load) Δ INOUT=خارج|0 WS=داخل الضمان|753240000 SP=منتظر|963400001 TR_WS=In Warranty|753240000 WOT=صيانة CUST=عميل 07 TICKET=CAS2026081853044437
+  [     65.3s] CLICK select 'Select مستعمل منتظر بدون قطع غيار سحب اس' seq=7
+  [     65.9s] SNAP PAGE_2 (interval) Δ SP=مستعمل|963400000
+  [     71.8s] CLICK input 'التالي' seq=10
+  [     83.5s] SNAP PAGE_3 (page-load) Δ WS=In warranty|753240000 WOT=Maintenance|1
+  [     92.2s] CLICK a 'اضافة قطعة غيار' seq=13
+  [     96.4s] SNAP PAGE_3 (interval) Δ INV=Inside|963400000 PART_WS=In|963400000 PMODEL=EWH-S35CSE-S _ (DIGITAL Tornado Water Heater 35L
+  [    101.3s] SNAP PAGE_3 (interval) Δ DEFMAJ=DT0800 - (تسريب مياه من صمام الأمان)
+  [    106.4s] SNAP PAGE_3 (interval) Δ DEFCODE=0802
+  [    111.3s] SNAP PAGE_3 (interval) Δ PART_WS=Out|963400001 SPID=WH-T-CHECK-VALVE-G _ (شيك بلف سخان تورنادو عام 1 QTY=1
+  [    121.3s] SNAP PAGE_3 (interval) Δ SPID=WH-R-SRVLV-05-GE _ (شيك فالف السخان  الاناميل)
+  [    138.4s] CLICK button 'Launch lookup modal' seq=23
+  [    155.6s] CLICK button 'اختر' seq=27
+  [    156.4s] SNAP PAGE_3 (interval) Δ BOOK=تمت الصيانة
+  [    173.6s] CLICK input 'حفظ و اغلاق' seq=32
+
+====================================================================================================
+RUN 09 id=55e6be54-1c9e-f111-b8db-00224899f406 start=1787498159578 orderId=55e6be54-1c9e-f111-b8db-00224899f406
+  [     -0.7s] SNAP PAGE_2 (interval) Δ INOUT=خارج|0 WS=خارج الضمان|753240001 SP=بدون قطع غيار|963400002 TR_WS=Out Warranty|753240001 WOT=صيانة CUST=عميل 04 TICKET=CAS2026082253118135 GRP=صيانات دورية تكييف TYPE=صيانة دورية تكييف SER1=21M260010646Y2YS BRAND=صيانة دورية تكييف - SHARP MODEL1=AY-A12YSE _ (صيانة دورية)
+  [  14937.5s] CLICK div 'function entityFormClientValidate() { //' seq=11
+  [  14954.1s] CLICK a 'اضافة المشاكل الفعلية المستخدمة' seq=15
+  [  14963.7s] CLICK a 'اضافة فنى' seq=18
+  [  14979.0s] CLICK select 'Select مستعمل منتظر بدون قطع غيار سحب اس' seq=22
+  [  14980.4s] SNAP PAGE_2 (interval) Δ SP=مستعمل|963400000
+  [  14982.0s] CLICK input 'التالي' seq=24
+  [  14989.1s] SNAP PAGE_3 (page-load) Δ WS=Out warranty|753240001 WOT=Maintenance|1
+  [  14994.7s] CLICK td 'أكواد الأعطالاضافة كود عطلاضافة كود عطلا' seq=28
+  [  14996.5s] CLICK a 'اضافة قطعة غيار' seq=29
+  [  14997.6s] SNAP PAGE_3 (interval) Δ INV=Inside|963400000 PART_WS=In|963400000 PMODEL=AY-A12YSE _ (صيانة دورية)
+  [  15007.6s] SNAP PAGE_3 (interval) Δ DEFMAJ=مصنعية DEFCODE=0001
+  [  15012.6s] SNAP PAGE_3 (interval) Δ SPID=LAB-CRM _ (مصنعية) QTY=1
+  [  15017.6s] SNAP PAGE_3 (interval) Δ PART_WS=Out|963400001 QTY=450
+  [  15040.4s] SNAP PAGE_2 (interval) Δ WS=خارج الضمان|753240001 WOT=صيانة
+  [  15044.0s] CLICK select 'Select داخل الضمان خارج الضمان' seq=38
+  [  15044.9s] CLICK select 'Select داخل الضمان خارج الضمان' seq=39
+  [  15045.4s] SNAP PAGE_2 (interval) Δ WS=داخل الضمان|753240000 TR_WS=In Warranty|753240000
+  [  15046.6s] CLICK input 'التالي' seq=41
+  [  15092.3s] SNAP PAGE_3 (interval) Δ WS=Out warranty|753240001 WOT=Maintenance|1
+  [  15095.8s] CLICK a 'اضافة قطعة غيار' seq=43
+  [  15100.1s] SNAP PAGE_3 (interval) Δ PART_WS=In|963400000
+  [  15105.1s] SNAP PAGE_3 (interval) Δ PART_WS=Out|963400001
+  [  15155.1s] SNAP PAGE_3 (interval) Δ PACT=AY-A12YSE _ (صيانة دورية)
+  [  15160.1s] SNAP PAGE_3 (interval) Δ DEFMAJ=AC115 - (خدمة بريميوم كير Premium Care) DEFCODE=0004
+  [  15166.3s] CLICK button 'Launch lookup modal' seq=51
+  [  15170.1s] SNAP PAGE_3 (interval) Δ BOOK=تمت الصيانة
+  [  15193.0s] CLICK div 'اضافة كود عطلاضافة كود عطلاضافة كود عطلا' seq=57
+  [  15193.9s] CLICK a 'اضافة كود عطل' seq=58
+  [  15201.2s] CLICK section 'اضافة كود عطل×إلغاءجاري التحميل' seq=61
+  [  15216.1s] CLICK input 'حفظ و اغلاق' seq=64
+
+====================================================================================================
+RUN 10 id=cf4161ec-4e99-f111-b8dc-e4fb1ef78b53 start=1787498160186 orderId=cf4161ec-4e99-f111-b8dc-e4fb1ef78b53
+  [     -0.4s] SNAP PAGE_1 (interval) Δ WS=In warranty|753240000 GRP=HA TYPE=ثلاجات BRAND=ثلاجات - SHARP MODEL1=SJ-48C(BK) _ (Sharp Refrigerator - 2 Doors - Bla SER1=17F03#040641AN4C
+  [      1.5s] CLICK input 'Next' seq=2
+  [     10.4s] SNAP PAGE_2 (page-load) Δ INOUT=خارج|0 WS=داخل الضمان|753240000 SP=منتظر|963400001 TR_WS=In Warranty|753240000 WOT=صيانة CUST=عميل 15   TICKET=CAS2026081652994385
+  [  15031.6s] CLICK a 'اضافة فنى' seq=6
+  [  15059.0s] CLICK a 'اضافة مرفقات' seq=12
+  [  15068.5s] CLICK button 'حفظ' seq=15
+  [  15076.4s] CLICK a 'اضافة مرفقات' seq=17
+  [  15083.5s] CLICK button 'حفظ' seq=20
+  [  15089.4s] CLICK select 'Select مستعمل منتظر بدون قطع غيار سحب اس' seq=22
+  [  15090.3s] CLICK select 'Select مستعمل منتظر بدون قطع غيار سحب اس' seq=23
+  [  15091.0s] CLICK input 'التالي' seq=24
+  [  15102.7s] SNAP PAGE_3 (page-load) Δ WS=In warranty|753240000 SP=مستعمل|963400000 WOT=Maintenance|1
+  [  15117.9s] CLICK a 'اضافة قطعة غيار' seq=27
+  [  15120.8s] SNAP PAGE_3 (interval) Δ INV=Inside|963400000 PART_WS=In|963400000 PMODEL=SJ-48C(BK) _ (Sharp Refrigerator - 2 Doors - Bla
+  [  15135.8s] SNAP PAGE_3 (interval) Δ DEFMAJ=RF2000 - (دائرة الصرف)
+  [  15140.8s] SNAP PAGE_3 (interval) Δ DEFCODE=RF2001 SPID=RF-RSH-EVPNPPAS48C _ (ماسورة حوض تبخير ثلاجة شار
+  [  15224.2s] CLICK a 'اضافة كود عطل' seq=34
+  [  15225.9s] SNAP PAGE_3 (interval) Δ PACT=SJ-48C(BK) _ (Sharp Refrigerator - 2 Doors - Bla
+  [  15230.9s] SNAP PAGE_3 (interval) Δ DEFMAJ=RF1000 - (شحن و لحام)
+  [  15248.1s] CLICK button 'Launch lookup modal' seq=39
+  [  15254.2s] CLICK button 'اختر' seq=41
+  [  15255.8s] SNAP PAGE_3 (interval) Δ BOOK=تمت الصيانة
+  [  15267.0s] CLICK input 'حفظ و اغلاق' seq=45
+
+====================================================================================================
+RUN 11 id=a64e160b-279e-f111-b8db-7ced8d47ee4a start=1787498764841 orderId=a64e160b-279e-f111-b8db-7ced8d47ee4a
+  [     -0.4s] SNAP PAGE_1 (page-load) Δ WS=Select| GRP=HA TYPE=غساله اطباق
+  [      1.5s] CLICK button 'Clear lookup field' seq=2
+  [      2.5s] CLICK button 'Launch lookup modal' seq=3
+  [      4.7s] CLICK button 'اختر' seq=5
+  [      5.8s] CLICK button 'Clear lookup field' seq=6
+  [      6.7s] CLICK button 'Launch lookup modal' seq=7
+  [      8.9s] CLICK button 'Search Results' seq=8
+  [     13.2s] SNAP PAGE_1 (interval) Δ BRAND=غساله اطباق - TORNADO
+  [     25.5s] CLICK button 'Clear lookup field' seq=12
+  [     26.4s] CLICK button 'Launch lookup modal' seq=13
+  [     46.4s] CLICK input 'Next' seq=18
+  [     48.2s] SNAP PAGE_1 (interval) Δ WS=Out warranty|753240001 SER1=04833558005523420161
+  [     52.9s] CLICK button 'اختر' seq=20
+  [     53.2s] SNAP PAGE_1 (interval) Δ MODEL1=TDV-FN107DDS _ (TORNADO DISHWASHER 10PERSON DARK
+  [     54.7s] CLICK input 'Next' seq=22
+  [     58.9s] SNAP PAGE_1 (page-load) Δ WS=Select|
+  [     60.9s] CLICK button 'Clear lookup field' seq=24
+  [     61.9s] CLICK button 'Launch lookup modal' seq=25
+  [     64.1s] CLICK button 'اختر' seq=27
+  [     65.3s] CLICK button 'Clear lookup field' seq=28
+  [     66.2s] CLICK button 'Launch lookup modal' seq=29
+  [     68.5s] CLICK button 'Search Results' seq=31
+  [     74.5s] CLICK button 'اختر' seq=33
+  [     80.9s] CLICK input 'Next' seq=35
+  [     82.4s] SNAP PAGE_1 (interval) Δ WS=Out warranty|753240001
+  [     88.7s] SNAP PAGE_2 (page-load) Δ INOUT=خارج|0 WS=خارج الضمان|753240001 SP=Select| TR_WS=Out Warranty|753240001 WOT=تركيب CUST=عميل 03 TICKET=CAS2026082253121114
+  [     91.0s] CLICK a 'اضافة المشاكل الفعلية المستخدمة' seq=38
+  [     96.4s] SNAP PAGE_2 (interval) Δ SP=بدون قطع غيار|963400002
+  [    130.6s] CLICK input 'التالي' seq=46
+  [    138.7s] SNAP PAGE_3 (page-load) Δ WS=Out warranty|753240001 WOT=Installation|0
+  [    161.8s] CLICK a 'اضافة كود عطل' seq=49
+  [    167.1s] SNAP PAGE_3 (interval) Δ PACT=TDV-FN107DDS _ (TORNADO DISHWASHER 10PERSON DARK
+  [    202.1s] SNAP PAGE_3 (interval) Δ DEFMAJ=DW9050 - (تركيب)
+  [    207.1s] SNAP PAGE_3 (interval) Δ DEFCODE=9051
+  [    224.9s] CLICK button 'Launch lookup modal' seq=61
+  [    227.6s] CLICK button 'اختر' seq=62
+  [    231.6s] CLICK input 'حفظ و اغلاق' seq=63
+  [    242.1s] SNAP PAGE_3 (interval) Δ BOOK=تم التركيب
+
+====================================================================================================
+RUN 12 id=0c7f12e9-0f9e-f111-b8dc-7ced8d785ef0 start=1787499067281 orderId=0c7f12e9-0f9e-f111-b8dc-7ced8d785ef0
+  [      1.6s] CLICK button 'Clear lookup field' seq=2
+  [      2.5s] CLICK button 'Launch lookup modal' seq=3
+  [      4.8s] CLICK button 'اختر' seq=5
+  [      6.0s] CLICK button 'Clear lookup field' seq=6
+  [      7.0s] CLICK button 'Launch lookup modal' seq=7
+  [      9.4s] CLICK button 'Search Results' seq=9
+  [     10.7s] CLICK button 'اختر' seq=10
+  [     12.3s] CLICK input 'Next' seq=11
+  [     18.0s] CLICK button '🧰' seq=13
+  [     19.8s] CLICK button '⚙️' seq=15
+  [     20.9s] CLICK button 'Clear lookup field' seq=16
+  [     21.9s] CLICK button 'Launch lookup modal' seq=17
+  [     27.6s] CLICK button 'Clear lookup field' seq=19
+  [     31.9s] CLICK button 'اختر' seq=20
+  [     33.1s] CLICK button 'Clear lookup field' seq=21
+  [     35.9s] CLICK button 'Search Results' seq=23
+  [     37.4s] CLICK button 'اختر' seq=24
+  [     39.3s] CLICK button 'Launch lookup modal' seq=25
+  [     40.8s] CLICK input 'Next' seq=26
+  [     41.8s] CLICK button 'Search Results' seq=27
+  [     43.0s] CLICK button 'اختر' seq=28
+  [     53.5s] CLICK input 'Next' seq=31
+  [     73.3s] CLICK a 'اضافة المشاكل الفعلية المستخدمة' seq=37
+  [     83.1s] CLICK a 'اضافة فنى' seq=40
+  [    124.0s] CLICK select 'Select مستعمل منتظر بدون قطع غيار سحب اس' seq=49
+  [    128.0s] CLICK input 'التالي' seq=51
+  [    188.7s] CLICK a 'اضافة قطعة غيار الموديل 2' seq=56
+  [    321.7s] CLICK a 'اضافة قطعة غيار' seq=83
+  [    439.7s] CLICK button 'اختر' seq=89
+  [    596.0s] SNAP PAGE_3 (interval) Δ WS=Out warranty|753240001 SP=منتظر|963400001 WOT=Maintenance|1 MODEL1=AH-XP12UHE _ (وحدة داخلية 1.5 حصان بارد ديجيتال  MODEL2=AH-XP12UHE _ (وحدة داخلية 1.5 حصان بارد ديجيتال  BOOK=انتظار قطع غيار
+  [    649.1s] CLICK button 'action menu' seq=90
+  [    649.7s] CLICK a 'الغاء' seq=91
+  [    937.8s] CLICK input 'حفظ و اغلاق' seq=92
+
+====================================================================================================
+RUN 13 id=6ae6bc75-d89a-f111-b8db-00224899f406 start=1787509978640 orderId=6ae6bc75-d89a-f111-b8db-00224899f406
+  [      1.7s] CLICK button 'Clear lookup field' seq=2
+  [      2.6s] CLICK button 'Launch lookup modal' seq=3
+  [      9.2s] CLICK button 'اختر' seq=6
+  [     10.3s] CLICK button 'Clear lookup field' seq=7
+  [     11.3s] CLICK button 'Launch lookup modal' seq=8
+  [     16.4s] CLICK button 'Search Results' seq=10
+  [     18.6s] CLICK button 'اختر' seq=11
+  [     20.8s] CLICK input 'Next' seq=12
+  [     33.7s] CLICK a 'اضافة المشاكل الفعلية المستخدمة' seq=14
+  [    789.8s] CLICK section 'اضافة المشاكل الفعلية المستخدمة ×اغلاقجا' seq=70
+  [   8057.1s] CLICK input 'Next' seq=71
+  [   8728.9s] CLICK select 'Select مستعمل منتظر بدون قطع غيار سحب اس' seq=72
+  [   8730.3s] CLICK select 'Select مستعمل منتظر بدون قطع غيار سحب اس' seq=73
+  [   9328.8s] CLICK input 'التالي' seq=74
+  [   9338.1s] CLICK a 'اضافة قطعة غيار' seq=75
+  [  10048.1s] CLICK section 'اضافة قطعة غيار×إلغاءجاري التحميل' seq=76
+  [  10110.2s] SNAP PAGE_3 (interval) Δ WS=In warranty|753240000 SP=مستعمل|963400000 WOT=Maintenance|1 INV=Inside|963400000 PART_WS=In|963400000 MODEL1=GR-EF40P-J-SL _ (Toshiba Refrigerator 355L-Silve PMODEL=GR-EF40P-J-SL _ (Toshiba Refrigerator 355L-Silve DEFMAJ=RF1100 - (دائرة النوفروست) DEFCODE=RF1103
+  [  11265.2s] SNAP PAGE_3 (interval) Δ SPID=RF-T-HEAT-14-16F _ (هيتر ثلاجة توشيبا 14-16 قدم)
+  [  11270.2s] SNAP PAGE_3 (interval) Δ QTY=1
+  [  11281.6s] CLICK a 'اضافة قطعة غيار' seq=77
+  [  11290.1s] SNAP PAGE_3 (interval) Δ DEFMAJ=RF1300 - (مشتملات الكباس)
+  [  11295.1s] SNAP PAGE_3 (interval) Δ DEFCODE=RF1306
+  [  11300.2s] SNAP PAGE_3 (interval) Δ SPID=RF-T-O-LODCOM75-4 _ (OLP)
+  [  11310.2s] SNAP PAGE_3 (interval) Δ INV=Outside|963400001
+  [  11335.9s] CLICK a 'اضافة كود عطل' seq=78
+  [  11340.2s] SNAP PAGE_3 (interval) Δ PACT=GR-EF40P-J-SL _ (Toshiba Refrigerator 355L-Silve
+  [  11345.1s] SNAP PAGE_3 (interval) Δ DEFMAJ=RF2000 - (دائرة الصرف)
+  [  11352.9s] CLICK button 'Launch lookup modal' seq=79
+  [  11356.6s] CLICK button 'اختر' seq=80
+  [  11361.4s] CLICK input 'حفظ و اغلاق' seq=81
+
+====================================================================================================
+RUN 14 id=9ac38b5d-aa98-f111-b8db-e4fb1ef78a33 start=1787513617449 orderId=9ac38b5d-aa98-f111-b8db-e4fb1ef78a33
+  [     -0.3s] SNAP PAGE_1 (page-load) Δ WS=In warranty|753240000 GRP=HA TYPE=ثلاجات BRAND=ثلاجات - SHARP MODEL1=SJ-PC58A(BK) _ (Sharp Refrigerator - 2 Doors - B SER1=20L24#040055HA4C
+  [     11.0s] CLICK input 'Next' seq=4
+  [     15.0s] SNAP PAGE_1 (page-load) Δ TICKET=CAS2026081552979366 CUST=عميل 19
+  [     18.5s] SNAP PAGE_2 (page-load) Δ INOUT=خارج|0 WS=داخل الضمان|753240000 SP=منتظر|963400001 TR_WS=In Warranty|753240000 WOT=صيانة
+  [     93.2s] CLICK button 'Toggle navigation' seq=9
+  [     94.3s] CLICK a 'العهد' seq=10
+  [     95.2s] CLICK a 'العهد المتاحة' seq=11
+  [     96.2s] CLICK button 'Toggle navigation' seq=12
+  [    774.0s] CLICK select 'Select مستعمل منتظر بدون قطع غيار سحب اس' seq=15
+  [    775.5s] CLICK select 'Select مستعمل منتظر بدون قطع غيار سحب اس' seq=16
+  [    776.2s] SNAP PAGE_2 (interval) Δ SP=بدون قطع غيار|963400002
+  [    777.4s] CLICK input 'التالي' seq=18
+  [    789.9s] SNAP PAGE_3 (page-load) Δ WS=In warranty|753240000 WOT=Maintenance|1
+  [    792.4s] CLICK a 'اضافة كود عطل' seq=22
+  [    793.4s] SNAP PAGE_3 (interval) Δ PACT=SJ-PC58A(BK) _ (Sharp Refrigerator - 2 Doors - B
+  [    808.4s] SNAP PAGE_3 (interval) Δ DEFMAJ=RF1000 - (شحن و لحام)
+  [    813.4s] SNAP PAGE_3 (interval) Δ DEFCODE=RF1001
+  [    821.0s] CLICK button 'Launch lookup modal' seq=29
+  [    823.2s] CLICK a '2' seq=30
+  [    825.4s] CLICK button 'اختر' seq=32
+  [    828.4s] SNAP PAGE_3 (interval) Δ BOOK=زيارة ثانية قطع غيار
+  [    832.0s] CLICK input 'حفظ و اغلاق' seq=34
+  [    867.0s] CLICK button '25' seq=40
+  [    869.9s] CLICK input 'حفظ و اغلاق' seq=41
+
+====================================================================================================
+RUN 15 id=903d621c-6c9d-f111-b8db-000d3ab6a2cf start=1787514530232 orderId=903d621c-6c9d-f111-b8db-000d3ab6a2cf
+  [     -0.4s] SNAP PAGE_1 (page-load) Δ WS=Select| GRP=AC TYPE=تكييف
+  [      1.2s] CLICK button 'Clear lookup field' seq=2
+  [      2.3s] CLICK button 'Launch lookup modal' seq=3
+  [     10.0s] CLICK button 'اختر' seq=4
+  [     11.3s] CLICK button 'Clear lookup field' seq=5
+  [     12.1s] CLICK button 'Launch lookup modal' seq=6
+  [     21.1s] CLICK button 'Search Results' seq=7
+  [     24.0s] CLICK button 'اختر' seq=8
+  [     26.2s] CLICK button 'Clear lookup field' seq=9
+  [     27.2s] CLICK button 'Launch lookup modal' seq=10
+  [     35.1s] CLICK button 'Search Results' seq=11
+  [     53.1s] CLICK button 'Clear lookup field' seq=12
+  [     54.1s] CLICK button 'Launch lookup modal' seq=13
+  [    323.1s] CLICK input 'Next' seq=14
+  [    341.2s] CLICK button 'Clear lookup field' seq=16
+  [    342.3s] CLICK button 'Launch lookup modal' seq=17
+  [    351.1s] CLICK button 'اختر' seq=18
+  [    352.1s] CLICK button 'Clear lookup field' seq=19
+  [    353.1s] CLICK button 'Launch lookup modal' seq=20
+  [    362.1s] CLICK button 'Search Results' seq=21
+  [    365.1s] CLICK button 'اختر' seq=22
+  [    367.2s] CLICK button 'Clear lookup field' seq=23
+  [    368.1s] CLICK button 'Launch lookup modal' seq=24
+  [    376.1s] CLICK button 'Search Results' seq=25
+  [    394.1s] CLICK button 'Clear lookup field' seq=26
+  [    395.2s] CLICK button 'Launch lookup modal' seq=27
+  [    426.0s] SNAP PAGE_1 (interval) Δ BRAND=تكييف - SHARP  MODEL1=AY-A36WHT _ (Sharp Air Condition In Door 5HP) SER1=20M140000957Y36WH
+  [    441.1s] CLICK input 'Next' seq=32
+  [    466.6s] SNAP PAGE_1 (interval) Δ WS=Out warranty|753240001 SER2=21A160000913E38WH
+  [   3485.9s] CLICK button 'اختر' seq=43
+  [   3486.6s] SNAP PAGE_1 (interval) Δ MODEL2=AE-A36WHT _ (Sharp Air Condtion Out Door 5HP)
+  [   3491.5s] CLICK input 'Next' seq=45
+  [   3499.7s] SNAP PAGE_2 (page-load) Δ INOUT=خارج|0 WS=خارج الضمان|753240001 SP=Select| TR_WS=Out Warranty|753240001 WOT=صيانة CUST=عميل 09 TICKET=CAS2026082153104806
+  [   3594.2s] CLICK select 'Select مستعمل منتظر بدون قطع غيار سحب اس' seq=62
+  [   3596.3s] CLICK select 'Select مستعمل منتظر بدون قطع غيار سحب اس' seq=63
+  [   3597.1s] CLICK input 'التالي' seq=64
+  [   3605.7s] SNAP PAGE_3 (page-load) Δ WS=Out warranty|753240001 SP=بدون قطع غيار|963400002 WOT=Maintenance|1
+  [   3916.2s] CLICK a 'اضافة كود عطل' seq=68
+  [   3919.0s] SNAP PAGE_3 (interval) Δ PACT=AY-A36WHT _ (Sharp Air Condition In Door 5HP)
+  [   3924.0s] SNAP PAGE_3 (interval) Δ DEFMAJ=AC006 - (سحب و إرجاع)
+  [   3931.1s] CLICK button 'Launch lookup modal' seq=72
+  [   3933.1s] CLICK button 'اختر' seq=73
+  [   3934.0s] SNAP PAGE_3 (interval) Δ BOOK=اصلاح داخل المركز
+  [   3936.3s] CLICK input 'حفظ و اغلاق' seq=75
+  [   4710.5s] CLICK button '27' seq=82
+  [   4711.5s] CLICK input 'حفظ و اغلاق' seq=83
+  [   6772.7s] CLICK button '26' seq=87
+  [   6774.2s] CLICK input 'حفظ و اغلاق' seq=88
+
+====================================================================================================
+RUN 16 id=7dab8e0a-c998-f111-b8db-00224899f724 start=1787514994219 orderId=7dab8e0a-c998-f111-b8db-00224899f724
+  [   3488.9s] CLICK button 'حفظ' seq=8
+  [   3494.6s] CLICK a 'اضافة مرفقات' seq=10
+  [   3505.4s] CLICK button 'حفظ' seq=13
+  [   3521.1s] CLICK button 'حفظ' seq=17
+  [   3534.1s] CLICK select 'Select مستعمل منتظر بدون قطع غيار سحب اس' seq=21
+  [   3535.3s] CLICK select 'Select مستعمل منتظر بدون قطع غيار سحب اس' seq=22
+  [   3538.3s] CLICK input 'التالي' seq=24
+  [   3545.8s] CLICK div 'بيانات العميل اسم العميل رقم الحساب رقم ' seq=26
+  [   3549.6s] CLICK a 'اضافة قطعة غيار الموديل 2' seq=28
+  [   3593.3s] CLICK section 'اضافة قطعة غيار×إلغاءجاري التحميل' seq=38
+  [   3655.3s] CLICK select 'Select مستعمل منتظر بدون قطع غيار سحب اس' seq=50
+  [   3659.6s] CLICK input 'التالي' seq=52
+  [   3735.9s] CLICK button 'action menu' seq=56
+  [   3738.8s] CLICK a 'اضافة قطعة غيار الموديل 2' seq=58
+  [   3763.3s] CLICK a 'اضافة قطعة غيار الموديل 2' seq=63
+  [   3794.0s] CLICK button 'Launch lookup modal' seq=70
+  [   3798.7s] CLICK a 'اضافة كود عطل' seq=72
+  [   3842.4s] CLICK a 'اضافة كود عطل' seq=78
+  [   3910.0s] CLICK a 'اضافة قطعة غيار' seq=79
+  [   3931.0s] SNAP PAGE_3 (interval) Δ WS=In warranty|753240000 SP=مستعمل|963400000 WOT=Maintenance|1 INV=Inside|963400000 PART_WS=In|963400000 MODEL1=TH-C12YEE _ (TH-C12YEETORNADO AC 1.5HP IN DOOR) MODEL2=TU-C12YEE _ (TU-C12YEETORNADO AC 1.5HP OUT DOOR) BOOK=تمت الصيانة PMODEL=TH-C12YEE _ (TH-C12YEETORNADO AC 1.5HP IN DOOR) DEFMAJ=مصنعية DEFCODE=0001 SPID=LAB-CRM _ (مصنعية) QTY=4800
+  [   3936.0s] SNAP PAGE_3 (interval) Δ PART_WS=Out|963400001
+  [   3949.2s] CLICK a 'اضافة كود عطل' seq=80
+  [   3951.0s] SNAP PAGE_3 (interval) Δ PACT=TH-C12YEE _ (TH-C12YEETORNADO AC 1.5HP IN DOOR)
+  [   3956.0s] SNAP PAGE_3 (interval) Δ DEFMAJ=AC001 - (صيانة دورية) DEFCODE=0005
+  [   4112.7s] CLICK a '2' seq=81
+  [   4115.0s] CLICK a '1' seq=82
+  [   4119.1s] CLICK a 'اضافة كود عطل' seq=83
+  [   4141.0s] SNAP PAGE_3 (interval) Δ DEFMAJ=AC006 - (سحب و إرجاع)
+  [   4149.5s] CLICK a 'اضافة كود عطل' seq=84
+  [   4166.0s] SNAP PAGE_3 (interval) Δ DEFCODE=F02
+  [   4220.2s] CLICK input 'حفظ و اغلاق' seq=85
+
+====================================================================================================
+RUN 17 id=9c615ecf-379d-f111-b8dc-0022489a2f1c start=1787515006458 orderId=9c615ecf-379d-f111-b8dc-0022489a2f1c
+  [     -0.4s] SNAP PAGE_1 (page-load) Δ WS=In warranty|753240000 GRP=AC TYPE=تكييف BRAND=تكييف - SHARP  MODEL1=AY-XP12UHE _ (وحدة داخلية 1.5 ح بارد ساخن ديجيتا MODEL2=AE-X12UHE _ (وحدة خارجية 1.5حصان بارد ساخن انفرت SER1=22M110152272YX2UH SER2=23B150150848EX2UH
+  [   3647.4s] SNAP PAGE_2 (interval) Δ INOUT=خارج|0 WS=داخل الضمان|753240000 SP=بدون قطع غيار|963400002 TR_WS=In Warranty|753240000 WOT=صيانة CUST=عميل 06 TICKET=CAS2026082153099989
+  [   3658.8s] CLICK a 'اضافة مرفقات' seq=6
+  [   3666.9s] CLICK button 'حفظ' seq=9
+  [   3676.4s] CLICK a 'اضافة مرفقات' seq=12
+  [   3686.4s] CLICK button 'حفظ' seq=15
+  [   3708.3s] CLICK button 'حفظ' seq=19
+  [   3717.2s] CLICK div 'بيانات العميل اسم العميل رقم الحساب رقم ' seq=22
+  [   3741.4s] SNAP PAGE_3 (interval) Δ WS=In warranty|753240000 WOT=Maintenance|1
+  [   4139.5s] SNAP PAGE_2 (page-load) Δ WS=داخل الضمان|753240000 WOT=صيانة
+  [   4244.9s] CLICK input 'التالي' seq=31
+  [   4253.1s] SNAP PAGE_3 (page-load) Δ WS=In warranty|753240000 WOT=Maintenance|1
+  [   4286.2s] CLICK div 'function entityFormClientValidate() { //' seq=40
+  [   4288.8s] CLICK button 'Launch lookup modal' seq=42
+  [   4290.5s] CLICK a '2' seq=43
+  [   4292.9s] CLICK button 'اختر' seq=45
+  [   4296.6s] SNAP PAGE_3 (interval) Δ BOOK=تمت الصيانة
+  [   4298.1s] CLICK input 'حفظ و اغلاق' seq=47
+
+====================================================================================================
+RUN 18 id=unknown start=1787518170086 orderId=unknown
+  [     -0.3s] SNAP PAGE_1 (page-load) (no tracked values)
+  [      3.2s] SNAP PAGE_1 (interval) (no tracked values)
+  [      8.2s] SNAP PAGE_1 (interval) (no tracked values)
+  [     12.0s] CLICK button 'action menu' seq=4
+  [     13.0s] CLICK a 'متابعة' seq=5
+  [     13.2s] SNAP PAGE_1 (interval) (no tracked values)
+  [     18.2s] SNAP PAGE_1 (interval) (no tracked values)
+  [     23.2s] SNAP PAGE_1 (interval) (no tracked values)
+  [     28.2s] SNAP PAGE_1 (interval) (no tracked values)
+  [     33.2s] SNAP PAGE_1 (interval) (no tracked values)
+  [     38.2s] SNAP PAGE_1 (interval) (no tracked values)
+
+====================================================================================================
+RUN 19 id=38ab37f3-8f8e-f111-8076-e4fb1ef7850c start=1787518187181 orderId=38ab37f3-8f8e-f111-8076-e4fb1ef7850c
+  [     -0.3s] SNAP PAGE_1 (page-load) Δ WOT=صيانة TR_WS=Out Warranty|753240001 CUST=عميل 02 GRP=AC TYPE=تكييف TICKET=CAS2026080252697210 BRAND=تكييف - SHARP 
+
+====================================================================================================
+RUN 20 id=69d3d8cf-8495-f111-8075-0022489a2e5b start=1787518212222 orderId=69d3d8cf-8495-f111-8075-0022489a2e5b
+  [     -0.4s] SNAP PAGE_1 (page-load) Δ WOT=صيانة TR_WS=Out Warranty|753240001 CUST=عميل 01  GRP=HA TYPE=غساله TICKET=CAS2026081152894287 BRAND=غساله - TORNADO
+  [      5.9s] CLICK select 'Select In Warranty Out Warranty' seq=3
+  [      7.1s] CLICK select 'Select In Warranty Out Warranty' seq=4
+  [      8.1s] SNAP PAGE_1 (interval) Δ TR_WS=In Warranty|753240000
+  [     17.3s] CLICK a 'اضافة قطعة غيار' seq=7
+  [     20.2s] SNAP PAGE_3 (interval) Δ SP=مستعمل|963400000 TR_WS=داخل الضمان|753240000 INV=Inside|963400000 PART_WS=In|963400000 PMODEL=TWT-TLD15RSC _ (TORNADO TLWM 15KG-DDM-damper-STS
+  [    221.5s] CLICK section 'اضافة قطعة غيار×إلغاءجاري التحميل' seq=25
+  [    224.5s] CLICK section 'اضافة قطعة غيار×إلغاءجاري التحميل' seq=26
+  [    234.7s] SNAP PAGE_1 (page-load) Δ TR_WS=In Warranty|753240000
+
+====================================================================================================
+RUN 21 id=14b22321-2d97-f111-8075-0022489a282a start=1787521374535 orderId=14b22321-2d97-f111-8075-0022489a282a
+  [     -0.4s] SNAP PAGE_1 (page-load) Δ WS=Out warranty|753240001 GRP=AC TYPE=تكييف BRAND=تكييف - TORNADO MODEL1=TH-C12YEE _ (TH-C12YEETORNADO AC 1.5HP IN DOOR) MODEL2=TU-C12YEE _ (TU-C12YEETORNADO AC 1.5HP OUT DOOR) SER1=22E160019543HYE SER2=22F120022542U2YE
+  [      2.1s] CLICK select 'Select In warranty Out warranty' seq=3
+  [      3.1s] CLICK select 'Select In warranty Out warranty' seq=4
+  [      3.1s] SNAP PAGE_1 (interval) Δ WS=In warranty|753240000
+  [      5.3s] CLICK input 'Next' seq=6
+  [     18.0s] SNAP PAGE_1 (interval) Δ WS=Out warranty|753240001
+  [     19.9s] CLICK input 'Next' seq=10
+  [  10490.8s] CLICK input 'Next' seq=12
+  [  10499.8s] CLICK select 'Select داخل الضمان خارج الضمان' seq=13
+  [  10503.7s] CLICK select 'Select داخل الضمان خارج الضمان' seq=14
+  [  10503.8s] SNAP PAGE_2 (interval) Δ INOUT=خارج|0 WS=داخل الضمان|753240000 SP=منتظر|963400001 TR_WS=In Warranty|753240000 WOT=صيانة CUST=عميل 12 TICKET=CAS2026081352947430
+  [  10553.8s] SNAP PAGE_2 (interval) Δ SER1=22E160019543H2YE
+  [  10562.1s] CLICK input 'التالي' seq=27
+  [  10579.0s] SNAP PAGE_3 (page-load) Δ WS=In warranty|753240000 WOT=Maintenance|1
+  [  10595.1s] CLICK a 'اضافة قطعة غيار الموديل 2' seq=32
+  [  10597.4s] SNAP PAGE_3 (interval) Δ INV=Inside|963400000 PART_WS=Out|963400001 PMODEL=TU-C12YEE _ (TU-C12YEETORNADO AC 1.5HP OUT DOOR)
+  [  10612.4s] SNAP PAGE_3 (interval) Δ DEFMAJ=AC015 - (تغيير الضاغط) DEFCODE=401A
+  [  10617.4s] SNAP PAGE_3 (interval) Δ SPID=AC-R-COMP-U12YEE _ (COMPRESSOR (HIGHLY, R410A,35 QTY=1
+  [  10625.6s] CLICK a 'اضافة قطعة غيار الموديل 2' seq=39
+  [  10637.4s] SNAP PAGE_3 (interval) Δ DEFMAJ=AC026 - (تغيير كابلري ( صمام الإنتشار))
+  [  10642.4s] SNAP PAGE_3 (interval) Δ DEFCODE=L16A SPID=AC-RSH-CPLIRYTUB2U _ (U12UEE&U12UHEA-كابلري تكيي
+  [  10665.7s] CLICK button 'Launch lookup modal' seq=48
+  [  10668.5s] CLICK button 'اختر' seq=49
+  [  10672.4s] SNAP PAGE_3 (interval) Δ BOOK=انتظار قطع غيار
+  [  10683.4s] CLICK input 'حفظ و اغلاق' seq=52
+
+====================================================================================================
+RUN 22 id=26b4c19a-0a9e-f111-b8db-0022489a228f start=1787531457034 orderId=26b4c19a-0a9e-f111-b8db-0022489a228f
+  [     -0.7s] SNAP PAGE_1 (page-load) Δ WS=Select| GRP=HA TYPE=ثلاجات
+  [     12.6s] CLICK div 'function entityFormClientValidate() { //' seq=4
+  [     31.9s] CLICK button 'Launch lookup modal' seq=9
+  [     37.8s] SNAP PAGE_1 (interval) Δ BRAND=ثلاجات - TOSHIBA
+  [     41.0s] CLICK button 'Clear lookup field' seq=12
+  [     42.6s] CLICK button 'Launch lookup modal' seq=13
+  [     47.2s] CLICK button 'Search Results' seq=15
+  [     51.8s] CLICK button 'اختر' seq=17
+  [     52.8s] SNAP PAGE_1 (interval) Δ MODEL1=GR-EFV45-G _ (shiba Refrigerator -3 doors  - Gol
+  [     56.1s] CLICK input 'Next' seq=19
+  [     67.5s] SNAP PAGE_1 (page-load) Δ TICKET=CAS2026082253113378 CUST=عميل 13
+  [     71.6s] SNAP PAGE_2 (page-load) Δ INOUT=خارج|0 WS=داخل الضمان|753240000 SP=Select| TR_WS=In Warranty|753240000 WOT=صيانة SER1=19A23#03S527YF39A
+  [    147.7s] CLICK a 'اضافة المشاكل الفعلية المستخدمة' seq=26
+  [    150.9s] CLICK button 'Search Results' seq=27
+  [    162.6s] CLICK a 'اضافة فنى' seq=30
+  [    267.6s] CLICK a 'اضافة مرفقات' seq=34
+  [    275.9s] CLICK button 'حفظ' seq=36
+  [    289.9s] CLICK a 'اضافة مرفقات' seq=39
+  [    299.4s] CLICK button 'حفظ' seq=42
+  [    310.9s] CLICK select 'Select مستعمل منتظر بدون قطع غيار سحب اس' seq=45
+  [    313.2s] CLICK select 'Select مستعمل منتظر بدون قطع غيار سحب اس' seq=46
+  [    314.9s] SNAP PAGE_2 (interval) Δ SP=بدون قطع غيار|963400002
+  [    327.0s] SNAP PAGE_3 (page-load) Δ WS=In warranty|753240000 WOT=Maintenance|1
+  [    330.5s] CLICK a 'اضافة كود عطل' seq=50
+  [    335.5s] SNAP PAGE_3 (interval) Δ PACT=GR-EFV45-G _ (shiba Refrigerator -3 doors  - Gol
+  [    345.5s] SNAP PAGE_3 (interval) Δ DEFMAJ=RF4500 - (الجهاز يعمل بحالة جيدة)
+  [    350.5s] SNAP PAGE_3 (interval) Δ DEFCODE=RF4501
+  [    355.5s] CLICK button 'Launch lookup modal' seq=56
+  [    358.9s] CLICK button 'اختر' seq=58
+  [    360.5s] SNAP PAGE_3 (interval) Δ BOOK=الجهاز يعمل بحالة جيدة
+  [    366.5s] CLICK input 'حفظ و اغلاق' seq=60

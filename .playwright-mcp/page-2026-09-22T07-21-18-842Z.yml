@@ -1,0 +1,27 @@
+- generic [active] [ref=e1]:
+  - navigation [ref=e2]:
+    - generic [ref=e4]:
+      - paragraph [ref=e8]
+      - button "Toggle navigation" [ref=e9] [cursor=pointer]
+  - main [ref=e14]:
+    - generic [ref=e17]:
+      - generic [ref=e20]:
+        - heading "تسجيل الدخول" [level=2] [ref=e21]
+        - generic [ref=e23]:
+          - generic [ref=e24]:
+            - text: "*"
+            - generic [ref=e25]: اسم المستخدم
+          - textbox "* اسم المستخدم" [ref=e27]
+        - generic [ref=e28]:
+          - generic [ref=e29]:
+            - text: "*"
+            - generic [ref=e30]: كلمه المرور
+          - textbox "* كلمه المرور" [ref=e32]
+        - generic [ref=e36] [cursor=pointer]:
+          - checkbox "تذكرنى" [ref=e37]
+          - generic [ref=e38]: تذكرنى
+        - generic [ref=e40]:
+          - button "دخول" [ref=e41] [cursor=pointer]
+          - link "نسيت كلمة المرور؟" [ref=e42] [cursor=pointer]:
+            - /url: /en-US/Account/Login/ForgotPassword
+      - heading "Sign in with an external account" [level=2] [ref=e46]

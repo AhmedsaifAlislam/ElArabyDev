@@ -1,0 +1,40 @@
+# === Node / Build ===
+node_modules/
+dist/
+*.map
+package-lock.json
+package.json
+*.tsbuildinfo
+
+# === Backups & Archives ===
+backups/
+*.zip
+*.mp4
+
+# === Legacy ===
+legacy/
+
+# === OS / Editor ===
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# === Python ===
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# === Logs ===
+*.jsonl
+
+# === Tooling artifacts (not source) ===
+.playwright-mcp/
+.arena-session/
+*.bak
+*.log
+
+# === Local work material (HTML dumps / review files — not source) ===
+اكواد/
+مراجعة قطع الغيار/
+مشروع_فحص_التقارير_وقطع_الغيار/

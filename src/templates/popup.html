@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>El Araby Extension</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    
+    body {
+      font-family: 'Segoe UI', Tahoma, Arial, sans-serif;
+      background: #f5f5f5;
+      width: 350px;
+      min-height: 200px;
+      direction: rtl;
+    }
+    
+    .header {
+      background: linear-gradient(135deg, #1e3c72, #2a5298);
+      color: white;
+      padding: 15px;
+      text-align: center;
+    }
+    
+    .header h1 {
+      font-size: 16px;
+      margin-bottom: 5px;
+    }
+    
+    .header p {
+      font-size: 12px;
+      opacity: 0.8;
+    }
+    
+    .content {
+      padding: 15px;
+    }
+    
+    .status {
+      padding: 10px;
+      border-radius: 5px;
+      margin-bottom: 10px;
+      font-size: 12px;
+    }
+    
+    .status-success {
+      background: #d4edda;
+      color: #155724;
+    }
+    
+    .status-error {
+      background: #f8d7da;
+      color: #721c24;
+    }
+    
+    .status-warning {
+      background: #fff3cd;
+      color: #856404;
+    }
+    
+    .btn {
+      width: 100%;
+      padding: 10px;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+      font-size: 14px;
+      margin-bottom: 10px;
+    }
+    
+    .btn-primary {
+      background: #1e3c72;
+      color: white;
+    }
+    
+    .btn-primary:hover {
+      background: #2a5298;
+    }
+    
+    .btn-secondary {
+      background: #6c757d;
+      color: white;
+    }
+    
+    .btn-secondary:hover {
+      background: #545b62;
+    }
+    
+    .footer {
+      padding: 10px 15px;
+      background: #e9ecef;
+      text-align: center;
+      font-size: 11px;
+      color: #6c757d;
+    }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <h1>El Araby Extension</h1>
+    <p>[اسم الإضافة]</p>
+  </div>
+  
+  <div class="content">
+    <div id="status" class="status status-success">
+      جاري التحميل...
+    </div>
+    
+    <button id="btn-action" class="btn btn-primary">
+      تنفيذ
+    </button>
+    
+    <button id="btn-settings" class="btn btn-secondary">
+      الإعدادات
+    </button>
+  </div>
+  
+  <div class="footer">
+    El Araby System v1.0.0
+  </div>
+  
+  <script src="popup.js"></script>
+</body>
+</html>

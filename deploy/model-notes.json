@@ -1,0 +1,12 @@
+[
+  {
+    "model": "GR-E23-W",
+    "message": "ماتنساش مراجعة كود الكمبروسر قبل طلب القطعة.",
+    "type": "warning"
+  },
+  {
+    "model": "SJ-PV69G-BK",
+    "message": "TEST — Model Notes live validation.",
+    "type": "warning"
+  }
+]
