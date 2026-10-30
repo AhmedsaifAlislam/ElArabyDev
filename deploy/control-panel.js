@@ -2,7 +2,7 @@
 // control-panel.js — لوحة التحكم الذكية v1.0
 // بصمة الإصدار: تُطبع في الـ log وتظهر بجانب عنوان اللوحة، للتأكد أن المتصفح
 // حمّل أحدث نسخة من الإضافة (Reload من edge://extensions مطلوب بعد أي نشر).
-const PANEL_BUILD = '2026-10-26.37';
+const PANEL_BUILD = '2026-10-26.38';
 // Floating panel with auto-detecting page tabs
 // =========================================================
 (function () {
@@ -7598,14 +7598,17 @@ function getCSS() {
       // 1. حقن أكواد الأعطال
       const checkedCodes = shadow.querySelectorAll('.fault-cb:checked');
       logEvent('EXEC_PAGE3', `عدد أكواد الأعطال: ${checkedCodes.length}`);
+      const injectFails = [];
+      let injectOk = 0;
       for (const cb of checkedCodes) {
         assertNotCancelled();
         const parts = cb.value.split(',');
         const mainCode = parts[0], subCode = parts[1] || null;
+        const label = mainCode + (subCode ? '/' + subCode : '');
         logEvent('EXEC_PAGE3', `حقن كود: ${mainCode} / ${subCode || ''}`);
-        setStatus(shadow, `⏳ جاري حقن ${mainCode}...`);
+        setStatus(shadow, `⏳ جاري حقن ${label}...`);
         // أي مودال عالق من الكود السابق يُغلق أولًا (وإلا فتحنا مودالًا فوقه ⇒ ستارة إضافية).
-        await resetModalsBeforeStep(`حقن ${mainCode}`);
+        await resetModalsBeforeStep(`حقن ${label}`);
         let codeRes = null;
         if (typeof addFaultCodePage3 === 'function') {
           codeRes = await addFaultCodePage3(mainCode, subCode, []);
@@ -7613,9 +7616,13 @@ function getCSS() {
           codeRes = await addSingleFaultCode({ majorCode: mainCode, defectCode: subCode });
         }
         if (codeRes && codeRes.ok === false) {
-          logEvent('EXEC_PAGE3', `⚠️ فشل حقن ${mainCode}: ${codeRes.reason || 'غير معروف'}`);
+          injectFails.push(`${label} (${codeRes.reason || 'غير معروف'})`);
+          logEvent('EXEC_PAGE3', `⚠️ فشل حقن ${label}: ${codeRes.reason || 'غير معروف'}`);
+        } else {
+          injectOk++;
+          logEvent('EXEC_PAGE3', `✅ حُقن ${label}${codeRes && codeRes.verified === true ? ' (مُتحقَّق في الشبكة)' : ''}`);
         }
-        clearOrphanBackdrops(`بعد حقن ${mainCode}`);
+        clearOrphanBackdrops(`بعد حقن ${label}`);
         await sleep(500);
       }
 
@@ -7693,11 +7700,18 @@ function getCSS() {
       }
 
       clearOrphanBackdrops('نهاية تنفيذ الصفحة 3');
-      setStatus(shadow, '✅ تم التنفيذ بنجاح', 'success');
-      logEvent('EXEC_PAGE3', 'اكتمل التنفيذ');
+      const totalCodes = checkedCodes.length;
+      if (injectFails.length) {
+        const okPart = injectOk ? `✅ ${injectOk}/${totalCodes} كود` : '⚠️ لم يُحقن أي كود';
+        setStatus(shadow, `${okPart} • ❌ فشل: ${injectFails.join(' · ')}`, 'warn');
+        logEvent('EXEC_PAGE3', `اكتمل التنفيذ مع فشل حقن: ${injectFails.join(' | ')}`);
+      } else {
+        setStatus(shadow, totalCodes ? `✅ تم التنفيذ بنجاح (${injectOk}/${totalCodes} كود)` : '✅ تم التنفيذ بنجاح', 'success');
+        logEvent('EXEC_PAGE3', 'اكتمل التنفيذ');
+      }
       logEvent('OVERLAY', `ستائر Bootstrap بعد التنفيذ: ${countBackdrops()}`);
       await sleep(800);
-      if (!isMinimized) {
+      if (!isMinimized && !injectFails.length) {
         logEvent('EXEC_PAGE3', 'تصغير التبويب تلقائياً');
         toggle(shadow, false, true);
       }

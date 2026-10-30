@@ -244,8 +244,35 @@ window.AutoFillEngine = window.AutoFillEngine || {};
 
       if (subBtn) {
         log(`Filling sub-fault code lookup: "${subSearch}"`);
-        await window.AutoFillEngine.Lookups.fillLookupModal(subBtn, subSearch, document, { strictExact: false });
+        const subRes = await window.AutoFillEngine.Lookups.fillLookupModal(subBtn, subSearch, document, { strictExact: false });
         await sleep(1000);
+
+        // تحقق صريح: بعد اختيار «الرئيسي» يملأ النظام أول فرع تلقائيًا.
+        // لو اختيار الفرع فشل، الحفظ سيضيف الفرع الخطأ (أو لا يضيف) بصمت.
+        const closeSubModal = () => {
+          const cb = modal.querySelector('button.form-close, button.close, [data-dismiss="modal"]');
+          if (cb) cb.click();
+        };
+        if (!subRes || !subRes.ok) {
+          warn(`Sub-fault lookup failed: "${subSearch}" (${(subRes && subRes.reason) || 'no-result'})`);
+          closeSubModal();
+          return { ok: false, reason: 'sub-lookup-failed', wanted: subSearch };
+        }
+        const subInput = (subBtn.closest('.input-group') || subBtn.parentElement)?.querySelector('input');
+        const gotVal = String((subInput && (subInput.value || subInput.getAttribute('value'))) || '').trim();
+        const normCode = (v) => String(v || '').replace(/[\s\-_/()\[\]#*]/g, '').toLowerCase();
+        const wantedNorm = normCode(subSearch);
+        if (gotVal && wantedNorm && !normCode(gotVal).includes(wantedNorm)) {
+          warn(`Sub-fault mismatch: wanted="${subSearch}" got="${gotVal}" — aborting save`);
+          closeSubModal();
+          return { ok: false, reason: 'sub-code-mismatch', wanted: subSearch, got: gotVal };
+        }
+        log(`Sub-fault code confirmed: "${gotVal || subSearch}"`);
+      } else {
+        warn(`Sub-fault lookup button not found — wanted "${subSearch}"`);
+        const cb = modal.querySelector('button.form-close, button.close, [data-dismiss="modal"]');
+        if (cb) cb.click();
+        return { ok: false, reason: 'sub-btn-not-found', wanted: subSearch };
       }
     }
 
@@ -265,7 +292,34 @@ window.AutoFillEngine = window.AutoFillEngine || {};
         log('Page3 save did not close the modal — treating as failure');
         return { ok: false, reason: 'save-not-confirmed' };
       }
-      return { ok: true, name: subSearch || mainSearch };
+      // تحقق من الصف فعليًا في الشبكة: «نجاح» الحفظ وحده لا يضمن إضافة الكود.
+      // (شبكة غير معروفة/داخل iframe ⇒ لا تحقق ⇒ نُبلّغ unverified بدل ادعاء النجاح.)
+      const gridHasRow = () => {
+        let anyGrid = false;
+        for (const gid of existingGrids) {
+          const g = document.getElementById(gid);
+          if (!g) continue;
+          anyGrid = true;
+          const hit = Array.from(g.querySelectorAll('table tbody tr')).some(r => {
+            const txt = (r.innerText || '').toLowerCase();
+            if (subSearch) return txt.includes(subSearch.toLowerCase());
+            return mainSearch ? txt.includes(mainSearch.toLowerCase()) : false;
+          });
+          if (hit) return true;
+        }
+        return anyGrid ? false : null;
+      };
+      let verified = gridHasRow();
+      const verifyDeadline = Date.now() + 6000;
+      while (verified === false && Date.now() < verifyDeadline) {
+        await sleep(400);
+        verified = gridHasRow();
+      }
+      if (verified === false) {
+        warn(`Fault code ${subSearch || mainSearch} not found in grid after save`);
+        return { ok: false, reason: 'row-not-added', name: subSearch || mainSearch };
+      }
+      return { ok: true, name: subSearch || mainSearch, verified: verified === true };
     }
 
     const closeBtn = modal.querySelector('button.form-close, button.close, [data-dismiss="modal"]');

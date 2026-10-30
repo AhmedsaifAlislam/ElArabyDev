@@ -2560,6 +2560,18 @@ function load(sandbox, file) {
     });
     ok(/RF3600\/3606 — ضبط جوان الفريزر/.test(perSub.text) && /RF3600\/3607 — ضبط جوان الكابينة/.test(perSub.text),
       'قطع الغيار: كل فرع يحمل وصفه الصحيح (لا وصف الفرع الأول)');
+
+    // (٨) حقن الكود: تحقق الفرع قبل الحفظ + تحقق الصف بعده + إبلاغ بالفشل
+    ok(/reason: 'sub-lookup-failed'/.test(eng50) && /reason: 'sub-code-mismatch'/.test(eng50),
+      'engine-page3: فشل اختيار الفرع أو عدم تطابقه يمنع الحفظ (لا فرع خطأ بصمت)');
+    ok(/reason: 'row-not-added'/.test(eng50) && /const gridHasRow = \(\) =>/.test(eng50),
+      'engine-page3: التحقق من ظهور الصف في الشبكة بعد الحفظ');
+    ok(/reason: 'sub-btn-not-found'/.test(eng50),
+      'engine-page3: غياب زر الفرع يفشل صراحةً بدل حفظ فرع تلقائي');
+    ok(/injectFails\.push/.test(cp50) && /فشل: \$\{injectFails\.join/.test(cp50),
+      'control-panel: executePage3 يجمع أكواد الفشل ويعرضها في الحالة');
+    ok(/!isMinimized && !injectFails\.length/.test(cp50),
+      'control-panel: لا تصغير تلقائي عند فشل حقن كود');
   }
 
   console.log('\n=== RESULT: ' + pass + ' passed, ' + fail + ' failed ===');
