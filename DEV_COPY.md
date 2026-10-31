@@ -136,6 +136,33 @@ ElArabyDev\tools\sync-shared.ps1
 
 ---
 
+## 🛡️ بوابة الجودة: Hook محلي + CI سحابي
+
+> لا تحتاج `npm install` — كل الاختبارات تستخدم وحدات Node المدمجة فقط، والـ Hook سكربت شل عادي.
+
+### 1) Hook محلي (pre-commit)
+```powershell
+# مرة واحدة فقط لكل نسخة من المشروع
+git config core.hooksPath .githooks
+```
+- الملف: `.githooks/pre-commit` (مُتتبَّع في git).
+- يعمل فقط عند تغيير ملفات داخل `src/` أو `tools/` — commits التوثيق/التخطيط تُمرّ سريعًا.
+- يشغّل نفس البوابة: `tools/verify.ps1 -CheckDeploy` ويرفض الـ commit عند الفشل.
+- عند الرفض: شغّل `tools\deploy.ps1` ثم `git add src deploy` وأعد المحاولة.
+- التجاوز `git commit --no-verify` **ممنوع** إلا استثناءً موثقًا وموافقة صريحة.
+
+### 2) CI سحابي (GitHub Actions)
+- الملف: `.github/workflows/ci.yml` على `windows-latest` (نفس بيئة PowerShell المحلية).
+- يعمل عند كل `push` و`pull_request` ويدويًا عبر `workflow_dispatch`.
+- يشغّل **نفس** الأمر: `powershell -NoProfile -ExecutionPolicy Bypass -File tools/verify.ps1 -CheckDeploy`.
+- لتفعيله كبوابة إلزامية: GitHub ← Settings ← Rules/Branches ← Require status check `Verify (tests + deploy parity)`.
+
+### 3) الأسرار والملفات المحلية
+`.gitignore` يستثني: `session-captures*.json` · `Paste *.txt` · `split_data/` — **لا ترفعها أبدًا**
+(قد تحتوي كوكيز/جلسات بوابة حقيقية).
+
+---
+
 ## 📝 سجل التغييرات في ElArabyDev
 
 | التاريخ | المرحلة | وصف | Commit |

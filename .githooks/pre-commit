@@ -1,0 +1,30 @@
+#!/bin/sh
+# ElArabyDev — Pre-commit gate
+# ------------------------------------------------------------------
+# يمنع أي commit يكسر البوابة (اختبارات + تطابق src/deploy).
+# يُشغَّل فقط عند تغيير ملفات المصدر أو الأدوات — commits التوثيق تُمرّ سريعًا.
+#
+# التثبيت مرة واحدة لكل نسخة من المشروع:
+#   git config core.hooksPath .githooks
+# ------------------------------------------------------------------
+
+staged=$(git diff --cached --name-only)
+
+if ! echo "$staged" | grep -qE '^(src/|tools/)'; then
+  echo "[pre-commit] لا تغييرات في src/ أو tools/ — تخطّي البوابة."
+  exit 0
+fi
+
+echo "[pre-commit] تشغيل بوابة التحقق (الاختبارات + تطابق src/deploy)..."
+if ! powershell -NoProfile -ExecutionPolicy Bypass -File tools/verify.ps1 -CheckDeploy; then
+  echo ""
+  echo "[pre-commit] ❌ فشل التحقق — تم رفض الـ commit."
+  echo "   1) شغّل النشر:      powershell -ExecutionPolicy Bypass -File tools\\deploy.ps1"
+  echo "   2) أعد إدراج:       git add src deploy"
+  echo "   3) أعد المحاولة:    git commit"
+  echo "   (التجاوز الاستثنائي فقط: git commit --no-verify)"
+  exit 1
+fi
+
+echo "[pre-commit] ✅ البوابة خضراء — المتابعة."
+exit 0

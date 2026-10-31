@@ -62,6 +62,26 @@
 
 ---
 
+## [2026-10-31] — بوابة جودة: Hook محلي + CI سحابي + تأمين الأسرار
+
+### الأمان
+- `.gitignore`: استثناء `session-captures*.json` · `Paste *.txt` · `split_data/` — لقطات جلسات البوابة لا تُرفع.
+
+### Hook محلي (بدون npm)
+- `.githooks/pre-commit`: يشغّل `tools/verify.ps1 -CheckDeploy` عند تغيير `src/` أو `tools/` فقط، ويرفض الـ commit عند الفشل برسالة إرشادية (شغّل `deploy.ps1` ثم `git add src deploy`).
+- التفعيل مرة واحدة: `git config core.hooksPath .githooks`.
+- لا Husky ولا حزم npm — الاختبارات الثلاثة تستخدم `fs/path/vm` فقط.
+
+### CI سحابي
+- `.github/workflows/ci.yml`: نفس البوابة على `windows-latest` عند `push` و`pull_request` و`workflow_dispatch`، بصلاحيات `contents: read` وإلغاء التشغيلات المتزامنة.
+- يلزم تفعيله كفحص إلزامي من إعدادات الفرع `main` على GitHub.
+
+### التوثيق
+- `DEV_COPY.md`: قسم «بوابة الجودة: Hook محلي + CI سحابي».
+- `AGENTS.md`: بند البوابتين المحلية والسحابية ومنع `--no-verify` بلا توثيق.
+
+---
+
 ## [2026-10-29] — معالج البلاغات: إصلاح شامل للفلترة والحصاد والواجهة
 
 ### السياق (سبب الشكوى)

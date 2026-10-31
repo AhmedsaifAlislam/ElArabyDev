@@ -38,3 +38,10 @@ venv/
 اكواد/
 مراجعة قطع الغيار/
 مشروع_فحص_التقارير_وقطع_الغيار/
+
+# === Secrets / local session data — never commit ===
+# لقطات جلسات البوابة (قد تحتوي كوكيز/توكنات) وملفات اللصق المؤقتة
+session-captures*.json
+Paste *.txt
+split_data/
+

@@ -25,6 +25,9 @@
   - البوابة تفحص: صحة JS، صحة JSON، وجود كل ملفات `manifest.json`، الاختبارات الثلاثة
     (unit + unification smoke + portal write)، وتطابق `src` مع `deploy` بالـ SHA256.
   - لا تُرفع نسخة غير خضراء (ALL GREEN) إلا بموافقة صريحة مع تسجيل السبب.
+  - **بوابة محلية إلزامية:** `.githooks/pre-commit` (تُفعَّل مرة واحدة بـ `git config core.hooksPath .githooks`)
+    ترفض أي commit يغيّر `src/` أو `tools/` دون ALL GREEN. ممنوع `--no-verify` إلا استثناءً موثقًا.
+  - **بوابة سحابية:** `.github/workflows/ci.yml` تشغّل نفس البوابة على `windows-latest` عند كل push/PR.
 
 ## 1. المشروع
 طقم أدوات شامل لخدمة مراكز مجموعة El Araby عبر أدوات إضافية Chrome (MV3)،

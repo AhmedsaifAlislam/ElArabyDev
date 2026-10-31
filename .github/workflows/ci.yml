@@ -1,0 +1,42 @@
+name: verify
+
+# بوابة الجودة السحابية — نفس بوابة التطوير المحلية (tools/verify.ps1).
+# تعمل على Windows لتطابق بيئة المشروع حرفيًا (PowerShell + مسارات + نهايات أسطر)،
+# وبذلك يبقى فحص تطابق src/deploy بالـSHA256 صالحًا كما هو محليًا.
+
+on:
+  push:
+    branches: ['**']
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: verify-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  gate:
+    name: Verify (tests + deploy parity)
+    runs-on: windows-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Show versions
+        shell: powershell
+        run: |
+          node --version
+          powershell -NoProfile -Command "$PSVersionTable.PSVersion.ToString()"
+
+      - name: Verification gate
+        shell: powershell
+        run: powershell -NoProfile -ExecutionPolicy Bypass -File tools/verify.ps1 -CheckDeploy
