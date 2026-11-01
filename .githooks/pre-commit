@@ -10,21 +10,24 @@
 
 staged=$(git diff --cached --name-only)
 
+# لا تغييرات في المصدر/الأدوات ⇒ مرور صامت (بدون ضجيج في كل commit توثيق)
 if ! echo "$staged" | grep -qE '^(src/|tools/)'; then
-  echo "[pre-commit] لا تغييرات في src/ أو tools/ — تخطّي البوابة."
   exit 0
 fi
 
-echo "[pre-commit] تشغيل بوابة التحقق (الاختبارات + تطابق src/deploy)..."
-if ! powershell -NoProfile -ExecutionPolicy Bypass -File tools/verify.ps1 -CheckDeploy; then
-  echo ""
-  echo "[pre-commit] ❌ فشل التحقق — تم رفض الـ commit."
-  echo "   1) شغّل النشر:      powershell -ExecutionPolicy Bypass -File tools\\deploy.ps1"
-  echo "   2) أعد إدراج:       git add src deploy"
-  echo "   3) أعد المحاولة:    git commit"
-  echo "   (التجاوز الاستثنائي فقط: git commit --no-verify)"
+# مخرجات البوابة تُحفظ في سجل داخل .git — لا تُعرض إلا عند الفشل،
+# حتى لا تظهر رسائل PowerShell الحمراء المضللة عند النجاح.
+log="$(git rev-parse --git-dir)/verify-precommit.log"
+
+if ! powershell -NoProfile -ExecutionPolicy Bypass -File tools/verify.ps1 -CheckDeploy >"$log" 2>&1; then
+  cat "$log" >&2
+  echo "" >&2
+  echo "[pre-commit] ❌ فشل التحقق — تم رفض الـ commit." >&2
+  echo "   1) شغّل النشر:      powershell -ExecutionPolicy Bypass -File tools\\deploy.ps1" >&2
+  echo "   2) أعد إدراج:       git add src deploy" >&2
+  echo "   3) أعد المحاولة:    git commit" >&2
+  echo "   (التجاوز الاستثنائي فقط: git commit --no-verify)" >&2
   exit 1
 fi
 
-echo "[pre-commit] ✅ البوابة خضراء — المتابعة."
 exit 0
