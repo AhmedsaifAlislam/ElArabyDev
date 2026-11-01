@@ -35,7 +35,7 @@ jobs:
         shell: powershell
         run: |
           node --version
-          powershell -NoProfile -Command "$PSVersionTable.PSVersion.ToString()"
+          $PSVersionTable.PSVersion.ToString()
 
       - name: Verification gate
         shell: powershell
